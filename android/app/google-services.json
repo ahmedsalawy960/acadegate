@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "741208597895",
+    "project_id": "acadegate-new",
+    "storage_bucket": "acadegate-new.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:741208597895:android:db992ab4724c046ff6df22",
+        "android_client_info": {
+          "package_name": "com.example.acadegate"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDwRewTZfgKsQD0o9Ujba2kn9sV0bNXRpw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

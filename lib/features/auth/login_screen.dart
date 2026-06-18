@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import '../home/home_screen.dart'; // السطر الجديد للوصول للشاشة الرئيسية الشاملة
+import '../home/home_screen.dart';
+import 'user_account_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -10,14 +11,12 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  // معرفات للتحكم بالنصوص المكتوبة
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  
-  final _formKey = GlobalKey<FormState>();
-  bool _isLoading = false; // لمتابعة حالة التحميل لمنع الضغط المتكرر
 
-  // دالة تسجيل الدخول عبر الـ Firebase
+  final _formKey = GlobalKey<FormState>();
+  bool _isLoading = false;
+
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -26,13 +25,14 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      // إرسال البيانات للفايربيس للتحقق
       await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
 
-      // إذا نجح الدخول، يتم توجيهه فوراً إلى الشاشة الرئيسية (أو شاشة التوفيق الذكي كمثال حالي)
+      await UserAccountService.instance
+          .ensureAccountExists(FirebaseAuth.instance.currentUser!);
+
       if (mounted) {
         Navigator.pushAndRemoveUntil(
           context,
@@ -41,17 +41,22 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
     } on FirebaseAuthException catch (e) {
-      String errorMessage = "حدث خطأ غير متوقع.";
-      
-      // مطابقة كود الخطأ القادم من السيرفر لإظهار رسالة عربية مفهومة
-      if (e.code == 'user-not-found') {
-        errorMessage = "هذا البريد الإلكتروني غير مسجل لدينا.";
-      } else if (e.code == 'wrong-password') {
-        errorMessage = "كلمة المرور التي أدخلتها غير صحيحة.";
+      // طباعة الخطأ في الـ Debug Console لتعرف السبب الحقيقي
+      debugPrint("Firebase Auth Error: ${e.code} - ${e.message}");
+
+      String errorMessage = "حدث خطأ غير متوقع، يرجى المحاولة لاحقاً.";
+
+      // التعديل هنا: التعامل مع كود الخطأ الموحد الجديد
+      if (e.code == 'user-not-found' ||
+          e.code == 'wrong-password' ||
+          e.code == 'invalid-credential') {
+        errorMessage = "البريد الإلكتروني أو كلمة المرور غير صحيحة.";
       } else if (e.code == 'invalid-email') {
         errorMessage = "صيغة البريد الإلكتروني غير صحيحة.";
       } else if (e.code == 'user-disabled') {
         errorMessage = "تم تعطيل هذا الحساب من قبل الإدارة.";
+      } else if (e.code == 'too-many-requests') {
+        errorMessage = "تم حظر المحاولات مؤقتاً، يرجى المحاولة لاحقاً.";
       }
 
       if (mounted) {
@@ -74,7 +79,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
-    // تنظيف الذاكرة عند الخروج من الشاشة لرفع كفاءة التطبيق
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -85,7 +89,10 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text("تسجيل الدخول", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          "تسجيل الدخول",
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         centerTitle: true,
         backgroundColor: Colors.white,
         foregroundColor: const Color(0xFF1A237E),
@@ -101,7 +108,11 @@ class _LoginScreenState extends State<LoginScreen> {
               children: [
                 const Text(
                   "أهلاً بك في AcadeGate",
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF1A237E)),
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1A237E),
+                  ),
                 ),
                 const SizedBox(height: 10),
                 const Text(
@@ -109,49 +120,44 @@ class _LoginScreenState extends State<LoginScreen> {
                   style: TextStyle(fontSize: 14, color: Colors.grey),
                 ),
                 const SizedBox(height: 40),
-                
-                // حقل البريد الإلكتروني
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
                   textAlign: TextAlign.right,
                   decoration: InputDecoration(
                     labelText: "البريد الجامعي / الإلكتروني",
-                    prefixIcon: const Icon(Icons.email_outlined, color: Color(0xFF1A237E)),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    prefixIcon: const Icon(
+                      Icons.email_outlined,
+                      color: Color(0xFF1A237E),
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return "الرجاء إدخال البريد الإلكتروني";
-                    }
-                    return null;
-                  },
+                  validator: (value) => (value == null || value.trim().isEmpty)
+                      ? "الرجاء إدخال البريد الإلكتروني"
+                      : null,
                 ),
                 const SizedBox(height: 20),
-                
-                // حقل كلمة المرور
                 TextFormField(
                   controller: _passwordController,
                   obscureText: true,
                   textAlign: TextAlign.right,
                   decoration: InputDecoration(
                     labelText: "كلمة المرور",
-                    prefixIcon: const Icon(Icons.lock_outline, color: Color(0xFF1A237E)),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    prefixIcon: const Icon(
+                      Icons.lock_outline,
+                      color: Color(0xFF1A237E),
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return "الرجاء إدخال كلمة المرور";
-                    }
-                    if (value.length < 6) {
-                      return "كلمة المرور يجب ألا تقل عن 6 أحرف";
-                    }
-                    return null;
-                  },
+                  validator: (value) => (value == null || value.length < 6)
+                      ? "كلمة المرور يجب ألا تقل عن 6 أحرف"
+                      : null,
                 ),
                 const SizedBox(height: 40),
-                
-                // زر الدخول الذكي
                 SizedBox(
                   width: double.infinity,
                   height: 55,
@@ -159,11 +165,19 @@ class _LoginScreenState extends State<LoginScreen> {
                     onPressed: _isLoading ? null : _handleLogin,
                     style: FilledButton.styleFrom(
                       backgroundColor: const Color(0xFF1A237E),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                     child: _isLoading
                         ? const CircularProgressIndicator(color: Colors.white)
-                        : const Text("دخـــول", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        : const Text(
+                            "دخـــول",
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                   ),
                 ),
               ],

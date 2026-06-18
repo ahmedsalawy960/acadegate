@@ -1,0 +1,28 @@
+{
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "acadegate-new",
+          "appId": "1:741208597895:android:db992ab4724c046ff6df22",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "acadegate-new",
+          "configurations": {
+            "android": "1:741208597895:android:db992ab4724c046ff6df22",
+            "ios": "1:741208597895:ios:c73e66b6d640814ff6df22",
+            "macos": "1:741208597895:ios:c73e66b6d640814ff6df22",
+            "web": "1:741208597895:web:495600d2fb10b110f6df22",
+            "windows": "1:741208597895:web:46ed47921505270ff6df22"
+          }
+        }
+      }
+    }
+  }
+}
