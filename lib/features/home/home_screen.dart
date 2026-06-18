@@ -1,5 +1,25 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:acadegate/main.dart';
+import '../academic/academic_content_service.dart';
+import '../academic/academic_fallback_data.dart';
+import '../academic/academic_models.dart';
+import '../auth/welcome_screen.dart';
+import '../admin/admin_moderation_screen.dart';
+import '../auth/user_account_service.dart';
+import '../contributor/contributor_hub_screen.dart';
+import '../contributor/submit_supervisor_screen.dart';
+import '../matchmaking/matchmaking_screen.dart';
+import '../moderation/approval_status.dart';
+import '../profile/academic_profile_screen.dart';
+import '../research_marketplace/research_idea_marketplace_detail_screen.dart';
+import '../research_marketplace/research_marketplace_screen.dart';
+import '../smart_labs/smart_lab_detail_screen.dart';
+import '../smart_labs/smart_labs_screen.dart';
+import '../store/product_detail_screen.dart';
+import '../store/product_list_screen.dart';
+import '../store/store_categories.dart';
+import '../store/store_categories_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -11,6 +31,9 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   // كُنترولر للتحكم بنص البحث
   final TextEditingController _searchController = TextEditingController();
+  final Stream<AcademicContent> _academicContentStream = AcademicContentService
+      .instance
+      .watchAll();
 
   // الكلمة التي يبحث عنها المستخدم حالياً
   String _searchQuery = "";
@@ -32,16 +55,16 @@ class _HomeScreenState extends State<HomeScreen> {
       "image":
           "assets/images/ideas.jpg", // 👈 هذا هو السطر السحري الجديد لقسم الأفكار البحثية
       "tags": ["بحث", "أفكار", "مقترح", "مشاريع", "طاقة", "مرور", "دراسة"],
-      "screen": const ResearchIdeasScreen(),
+      "screen": const ResearchMarketplaceScreen(),
     },
     {
-      "title": "المختبرات",
+      "title": "مختبرات ذكية",
       "icon": Icons.science_rounded,
       "color": Colors.purple,
       "image":
           "assets/images/labs.jpg", // 👈 هذا هو السطر السحري الجديد لقسم المختبرات
       "tags": ["مختبر", "مختبرات", "معمل", "أجهزة", "نانو", "تحليل", "كيمياء"],
-      "screen": const LabsScreen(),
+      "screen": const SmartLabsScreen(),
     },
     {
       "title": "المتجر",
@@ -58,69 +81,104 @@ class _HomeScreenState extends State<HomeScreen> {
         "أجهزة",
         "سعر",
       ],
-      "screen": const MarketplaceScreen(),
+      "screen": const StoreCategoriesScreen(),
     },
   ];
 
-  // 2. قاعدة بيانات المشرفين المتاحة في التطبيق للبحث المباشر عنها
-  final List<Map<String, dynamic>> _allSupervisors = [
+  // 2. بيانات الكليات للبحث
+  final List<Map<String, dynamic>> _allFaculties = [
     {
-      "name": "أ.د. عادل محمود",
-      "speciality": "هندسة مدنية",
-      "university": "جامعة القاهرة",
+      "name": "كلية الهندسة",
       "category": "Engineering",
+      "icon": Icons.engineering,
+      "color": Colors.orange,
     },
     {
-      "name": "د. هدى الشافعي",
-      "speciality": "هندسة معمارية",
-      "university": "جامعة عين شمس",
-      "category": "Engineering",
-    },
-    {
-      "name": "أ.د. سارة علي",
-      "speciality": "كيمياء عضوية",
-      "university": "جامعة الملك سعود",
+      "name": "كلية العلوم",
       "category": "Science",
+      "icon": Icons.science,
+      "color": Colors.green,
     },
     {
-      "name": "أ.د. مجدي يعقوب",
-      "speciality": "جراحة قلب",
-      "university": "مركز القلب",
+      "name": "كلية الطب",
       "category": "Medicine",
+      "icon": Icons.medical_services,
+      "color": Colors.red,
     },
     {
-      "name": "المستشار أحمد فتحي",
-      "speciality": "قانون دولي",
-      "university": "جامعة القاهرة",
+      "name": "كلية الحقوق",
       "category": "Law",
+      "icon": Icons.gavel,
+      "color": Colors.brown,
     },
     {
-      "name": "أ.د. محمد أحمد",
-      "speciality": "ذكاء اصطناعي",
-      "university": "جامعة القاهرة",
+      "name": "كلية الحاسبات",
       "category": "CS",
+      "icon": Icons.computer,
+      "color": Colors.blue,
     },
   ];
+
+  bool _matchesFields(String query, List<String> fields) {
+    if (query.isEmpty) return false;
+    final haystack = fields.join(' ').toLowerCase();
+    return haystack.contains(query);
+  }
+
+  Future<void> _confirmLogout(BuildContext context) async {
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('تسجيل الخروج'),
+        content: const Text('هل تريد تسجيل الخروج من حسابك؟'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('خروج'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldLogout != true) return;
+
+    await FirebaseAuth.instance.signOut();
+    if (!context.mounted) return;
+
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (context) => const WelcomeScreen()),
+      (route) => false,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final query = _searchQuery.trim().toLowerCase();
+    final isSearching = query.isNotEmpty;
 
     // فلترة الأقسام الرئيسية
     final filteredServices = _allServices.where((service) {
-      final title = service["title"].toString().toLowerCase();
-      final tags = (service["tags"] as List<String>).join(" ").toLowerCase();
-      return title.contains(query) || tags.contains(query);
+      return _matchesFields(query, [
+        service["title"].toString(),
+        ...(service["tags"] as List<String>),
+      ]);
     }).toList();
 
-    // فلترة المشرفين بناءً على الاسم أو التخصص
-    final filteredSupervisors = _allSupervisors.where((sup) {
-      final name = sup["name"].toString().toLowerCase();
-      final speciality = sup["speciality"].toString().toLowerCase();
-      final university = sup["university"].toString().toLowerCase();
-      return name.contains(query) ||
-          speciality.contains(query) ||
-          university.contains(query);
+    // فلترة الكليات
+    final filteredFaculties = _allFaculties.where((faculty) {
+      return _matchesFields(query, [
+        faculty["name"].toString(),
+        faculty["category"].toString(),
+      ]);
+    }).toList();
+
+    // فلترة أقسام المتجر
+    final filteredStoreCategories = storeCategories.where((category) {
+      return _matchesFields(query, [category.title, category.id]);
     }).toList();
 
     return Scaffold(
@@ -130,6 +188,75 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: const Color(0xFF1A237E),
         foregroundColor: Colors.white,
         elevation: 0,
+        actions: [
+          StreamBuilder(
+            stream: UserAccountService.instance.watchCurrentAccount(),
+            builder: (context, snapshot) {
+              final account = snapshot.data;
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (account?.isAdmin == true)
+                    IconButton(
+                      tooltip: 'مراجعة المحتوى',
+                      icon: const Icon(Icons.admin_panel_settings_outlined),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                const AdminModerationScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                  IconButton(
+                    tooltip: 'لوحة المساهمة',
+                    icon: const Icon(Icons.dashboard_customize_outlined),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ContributorHubScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              );
+            },
+          ),
+          IconButton(
+            tooltip: 'المطابقة الذكية',
+            icon: const Icon(Icons.auto_awesome),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const MatchmakingScreen(),
+                ),
+              );
+            },
+          ),
+          IconButton(
+            tooltip: 'ملفي الأكاديمي',
+            icon: const Icon(Icons.person_outline),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const AcademicProfileScreen(),
+                ),
+              );
+            },
+          ),
+          if (FirebaseAuth.instance.currentUser != null)
+            IconButton(
+              tooltip: 'تسجيل الخروج',
+              icon: const Icon(Icons.logout),
+              onPressed: () => _confirmLogout(context),
+            ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -143,7 +270,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withValues(alpha: 0.05),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -153,7 +280,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 controller: _searchController,
                 textAlign: TextAlign.right,
                 decoration: InputDecoration(
-                  hintText: 'ابحث عن اسم مشرف، تخصص، مادة أو قسم...',
+                  hintText:
+                      'ابحث في كل الأقسام: مشرفين، أفكار، مختبرات، متجر...',
                   hintStyle: TextStyle(color: Colors.grey[400], fontSize: 15),
                   prefixIcon: const Icon(
                     Icons.search,
@@ -200,7 +328,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
             // عرض المحتوى بناءً على حالة البحث
             Expanded(
-              child: _searchQuery.isEmpty
+              child: !isSearching
                   ? GridView.builder(
                       itemCount: _allServices.length,
                       gridDelegate:
@@ -213,8 +341,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         final item = _allServices[index];
                         return DashboardCard(
                           title: item["title"],
-                          imagePath:
-                              item["image"], // 👈 قمنا بتغيير هذا السطر لتمرير حقل الصورة الجديد
+                          imagePath: item["image"],
                           color: item["color"],
                           onTap: () => Navigator.push(
                             context,
@@ -225,92 +352,347 @@ class _HomeScreenState extends State<HomeScreen> {
                         );
                       },
                     )
-                  : (filteredServices.isEmpty && filteredSupervisors.isEmpty)
-                  ? const Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.search_off_rounded,
-                            size: 60,
-                            color: Colors.grey,
-                          ),
-                          SizedBox(height: 16),
-                          Text(
-                            "عذراً، لم نجد نتائج تطابق بحثك!",
-                            style: TextStyle(color: Colors.grey, fontSize: 16),
-                          ),
-                        ],
-                      ),
-                    )
-                  : ListView(
-                      children: [
-                        // إذا وُجدت أقسام تطابق البحث
-                        if (filteredServices.isNotEmpty) ...[
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 8.0),
-                            child: Text(
-                              "الأقسام والخدمات",
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.grey,
-                              ),
-                            ),
-                          ),
-                          ...filteredServices.map(
-                            (item) => Card(
-                              child: ListTile(
-                                leading: Icon(
-                                  item["icon"],
-                                  color: item["color"],
+                  : StreamBuilder<AcademicContent>(
+                      stream: _academicContentStream,
+                      builder: (context, academicSnapshot) {
+                        final content =
+                            academicSnapshot.data ?? fallbackContent;
+
+                        final filteredSupervisors = content.supervisors.where((
+                          sup,
+                        ) {
+                          return _matchesFields(query, [
+                            sup.name,
+                            sup.speciality,
+                            sup.university,
+                            sup.category,
+                            sup.faculty,
+                            sup.bio,
+                            ...sup.tags,
+                          ]);
+                        }).toList();
+
+                        final filteredResearchIdeas = content.ideas.where((
+                          idea,
+                        ) {
+                          return _matchesFields(query, [
+                            idea.title,
+                            idea.provider,
+                            idea.details,
+                            ...idea.tags,
+                          ]);
+                        }).toList();
+
+                        final filteredLabs = content.labs.where((lab) {
+                          return _matchesFields(query, [
+                            lab.name,
+                            lab.location,
+                            lab.equipment,
+                            ...lab.tags,
+                          ]);
+                        }).toList();
+
+                        return StreamBuilder<QuerySnapshot>(
+                          stream: FirebaseFirestore.instance
+                              .collection('product')
+                              .snapshots(),
+                          builder: (context, productSnapshot) {
+                            final filteredProducts =
+                                (productSnapshot.data?.docs ?? []).where((doc) {
+                                  final data =
+                                      doc.data() as Map<String, dynamic>;
+                                  final status =
+                                      data['approvalStatus']?.toString();
+                                  if (!ApprovalStatus.isPublic(status)) {
+                                    return false;
+                                  }
+                                  return _matchesFields(query, [
+                                    data['name']?.toString() ?? '',
+                                    data['description']?.toString() ?? '',
+                                    data['storeName']?.toString() ?? '',
+                                    data['category']?.toString() ?? '',
+                                    data['contact']?.toString() ?? '',
+                                  ]);
+                                }).toList();
+
+                            final hasResults =
+                                filteredServices.isNotEmpty ||
+                                filteredFaculties.isNotEmpty ||
+                                filteredSupervisors.isNotEmpty ||
+                                filteredResearchIdeas.isNotEmpty ||
+                                filteredLabs.isNotEmpty ||
+                                filteredStoreCategories.isNotEmpty ||
+                                filteredProducts.isNotEmpty;
+
+                            if (!hasResults) {
+                              return const Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.search_off_rounded,
+                                      size: 60,
+                                      color: Colors.grey,
+                                    ),
+                                    SizedBox(height: 16),
+                                    Text(
+                                      'عذراً، لم نجد نتائج تطابق بحثك!',
+                                      style: TextStyle(
+                                        color: Colors.grey,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                title: Text(
-                                  item["title"],
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
+                              );
+                            }
+
+                            return ListView(
+                              children: [
+                                if (filteredServices.isNotEmpty) ...[
+                                  _searchSectionTitle('الأقسام والخدمات'),
+                                  ...filteredServices.map(
+                                    (item) => Card(
+                                      child: ListTile(
+                                        leading: Icon(
+                                          item["icon"],
+                                          color: item["color"],
+                                        ),
+                                        title: Text(
+                                          item["title"],
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        trailing: const Icon(
+                                          Icons.arrow_forward_ios,
+                                          size: 14,
+                                        ),
+                                        onTap: () => Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                item["screen"],
+                                          ),
+                                        ),
+                                      ),
+                                    ),
                                   ),
-                                ),
-                                trailing: const Icon(
-                                  Icons.arrow_forward_ios,
-                                  size: 14,
-                                ),
-                                onTap: () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => item["screen"],
+                                ],
+                                if (filteredFaculties.isNotEmpty) ...[
+                                  _searchSectionTitle('الكليات'),
+                                  ...filteredFaculties.map(
+                                    (faculty) => Card(
+                                      child: ListTile(
+                                        leading: Icon(
+                                          faculty["icon"] as IconData,
+                                          color: faculty["color"] as Color,
+                                        ),
+                                        title: Text(
+                                          faculty["name"],
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        subtitle: const Text('قسم المشرفون'),
+                                        trailing: const Icon(
+                                          Icons.arrow_forward_ios,
+                                          size: 14,
+                                        ),
+                                        onTap: () => Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                SupervisorsListScreen(
+                                                  category: faculty["category"],
+                                                ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                        ],
-                        // إذا وُجد مشرفون يطابقون البحث
-                        if (filteredSupervisors.isNotEmpty) ...[
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 8.0),
-                            child: Text(
-                              "المشرفون الأكاديميون",
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.grey,
-                              ),
-                            ),
-                          ),
-                          ...filteredSupervisors.map(
-                            (sup) => SupervisorListCard(
-                              name: sup["name"],
-                              speciality: sup["speciality"],
-                              university: sup["university"],
-                              isAvailable: true,
-                            ),
-                          ),
-                        ],
-                      ],
+                                ],
+                                if (filteredSupervisors.isNotEmpty) ...[
+                                  _searchSectionTitle('المشرفون الأكاديميون'),
+                                  ...filteredSupervisors.map(
+                                    (sup) => SupervisorListCard(
+                                      name: sup.name,
+                                      speciality: sup.speciality,
+                                      university: sup.university,
+                                      bio: sup.bio,
+                                      isAvailable: sup.isAvailable,
+                                    ),
+                                  ),
+                                ],
+                                if (filteredResearchIdeas.isNotEmpty) ...[
+                                  _searchSectionTitle('أفكار بحثية'),
+                                  ...filteredResearchIdeas.map(
+                                    (idea) => Card(
+                                      child: ListTile(
+                                        leading: const Icon(
+                                          Icons.lightbulb,
+                                          color: Colors.orange,
+                                        ),
+                                        title: Text(
+                                          idea.title,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        subtitle: Text(idea.provider),
+                                        trailing: const Icon(
+                                          Icons.arrow_forward_ios,
+                                          size: 14,
+                                        ),
+                                        onTap: () => Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                ResearchIdeaMarketplaceDetailScreen(
+                                              idea: idea,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                                if (filteredLabs.isNotEmpty) ...[
+                                  _searchSectionTitle('المختبرات'),
+                                  ...filteredLabs.map(
+                                    (lab) => Card(
+                                      child: ListTile(
+                                        leading: const Icon(
+                                          Icons.science,
+                                          color: Colors.purple,
+                                        ),
+                                        title: Text(
+                                          lab.name,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        subtitle: Text(lab.location),
+                                        trailing: const Icon(
+                                          Icons.arrow_forward_ios,
+                                          size: 14,
+                                        ),
+                                        onTap: () => Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                SmartLabDetailScreen(lab: lab),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                                if (filteredStoreCategories.isNotEmpty) ...[
+                                  _searchSectionTitle('أقسام المتجر'),
+                                  ...filteredStoreCategories.map(
+                                    (category) => Card(
+                                      child: ListTile(
+                                        leading: Icon(
+                                          category.icon,
+                                          color: category.color,
+                                        ),
+                                        title: Text(
+                                          category.title,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        trailing: const Icon(
+                                          Icons.arrow_forward_ios,
+                                          size: 14,
+                                        ),
+                                        onTap: () => Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                ProductListScreen(
+                                                  categoryTitle: category.title,
+                                                ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                                if (filteredProducts.isNotEmpty) ...[
+                                  _searchSectionTitle('منتجات المتجر'),
+                                  ...filteredProducts.map((doc) {
+                                    final data =
+                                        doc.data() as Map<String, dynamic>;
+                                    final name =
+                                        data['name']?.toString() ?? 'منتج';
+                                    final price = '${data['price'] ?? 0} ج.م';
+                                    final category =
+                                        data['category']?.toString() ?? '';
+
+                                    return Card(
+                                      child: ListTile(
+                                        leading: const Icon(
+                                          Icons.shopping_bag_outlined,
+                                          color: Colors.green,
+                                        ),
+                                        title: Text(
+                                          name,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        subtitle: Text('$price • $category'),
+                                        trailing: const Icon(
+                                          Icons.arrow_forward_ios,
+                                          size: 14,
+                                        ),
+                                        onTap: () => Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                ProductDetailScreen(
+                                                  name: name,
+                                                  price: price,
+                                                  description:
+                                                      data['description']
+                                                          ?.toString() ??
+                                                      'لا يوجد وصف متاح.',
+                                                  storeName:
+                                                      data['storeName']
+                                                          ?.toString() ??
+                                                      'متجر غير معروف',
+                                                  contact:
+                                                      data['contact']
+                                                          ?.toString() ??
+                                                      '',
+                                                ),
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  }),
+                                ],
+                              ],
+                            );
+                          },
+                        );
+                      },
                     ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _searchSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Text(
+        title,
+        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey),
       ),
     );
   }
@@ -382,6 +764,28 @@ class FacultiesScreen extends StatelessWidget {
         title: const Text("اختر التخصص"),
         backgroundColor: const Color(0xFF1A237E),
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            tooltip: 'سجّل كمشرف',
+            icon: const Icon(Icons.person_add_alt_1),
+            onPressed: () async {
+              final created = await Navigator.push<bool>(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SubmitSupervisorScreen(),
+                ),
+              );
+              if (created == true && context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('تم إرسال ملف المشرف للمراجعة'),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              }
+            },
+          ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -517,76 +921,88 @@ class SupervisorsListScreen extends StatelessWidget {
   final String category;
   const SupervisorsListScreen({super.key, required this.category});
 
+  String _titleForCategory(String value) {
+    switch (value) {
+      case 'Engineering':
+        return 'مشرفو الهندسة';
+      case 'Science':
+        return 'مشرفو العلوم';
+      case 'Medicine':
+        return 'مشرفو الطب';
+      case 'Law':
+        return 'مشرفو الحقوق';
+      default:
+        return 'مشرفو الحاسبات';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    String title = "";
-    List<Widget> supervisors = [];
-
-    if (category == "Engineering") {
-      title = "مشرفو الهندسة";
-      supervisors = const [
-        SupervisorListCard(
-          name: "أ.د. عادل محمود",
-          speciality: "هندسة مدنية",
-          university: "جامعة القاهرة",
-          isAvailable: true,
-        ),
-        SupervisorListCard(
-          name: "د. هدى الشافعي",
-          speciality: "هندسة معمارية",
-          university: "جامعة عين شمس",
-          isAvailable: false,
-        ),
-      ];
-    } else if (category == "Science") {
-      title = "مشرفو العلوم";
-      supervisors = const [
-        SupervisorListCard(
-          name: "أ.د. سارة علي",
-          speciality: "كيمياء عضوية",
-          university: "جامعة الملك سعود",
-          isAvailable: false,
-        ),
-      ];
-    } else if (category == "Medicine") {
-      title = "مشرفو الطب";
-      supervisors = const [
-        SupervisorListCard(
-          name: "أ.د. مجدي يعقوب",
-          speciality: "جراحة قلب",
-          university: "مركز القلب",
-          isAvailable: true,
-        ),
-      ];
-    } else if (category == "Law") {
-      title = "مشرفو الحقوق";
-      supervisors = const [
-        SupervisorListCard(
-          name: "المستشار أحمد فتحي",
-          speciality: "قانون دولي",
-          university: "جامعة القاهرة",
-          isAvailable: true,
-        ),
-      ];
-    } else {
-      title = "مشرفو الحاسبات";
-      supervisors = const [
-        SupervisorListCard(
-          name: "أ.د. محمد أحمد",
-          speciality: "ذكاء اصطناعي",
-          university: "جامعة القاهرة",
-          isAvailable: true,
-        ),
-      ];
-    }
-
     return Scaffold(
       appBar: AppBar(
-        title: Text(title),
+        title: Text(_titleForCategory(category)),
         backgroundColor: const Color(0xFF1A237E),
         foregroundColor: Colors.white,
       ),
-      body: ListView(padding: const EdgeInsets.all(16), children: supervisors),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () async {
+          final created = await Navigator.push<bool>(
+            context,
+            MaterialPageRoute(
+              builder: (context) =>
+                  SubmitSupervisorScreen(initialCategory: category),
+            ),
+          );
+          if (created == true && context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('تم إرسال ملف المشرف للمراجعة'),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        },
+        backgroundColor: const Color(0xFF1A237E),
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.person_add_alt_1),
+        label: const Text('سجّل كمشرف'),
+      ),
+      body: StreamBuilder<List<AcademicSupervisor>>(
+        stream: AcademicContentService.instance.supervisorsStream(
+          category: category,
+        ),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting &&
+              !snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (snapshot.hasError) {
+            return Center(child: Text('حدث خطأ: ${snapshot.error}'));
+          }
+
+          final supervisors = snapshot.data ?? [];
+
+          if (supervisors.isEmpty) {
+            return const Center(child: Text('لا يوجد مشرفون في هذا القسم'));
+          }
+
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: supervisors.length,
+            itemBuilder: (context, index) {
+              final supervisor = supervisors[index];
+              return SupervisorListCard(
+                name: supervisor.name,
+                speciality: supervisor.speciality,
+                university: supervisor.university,
+                bio: supervisor.bio,
+                isAvailable: supervisor.isAvailable,
+              );
+            },
+          );
+        },
+      ),
     );
   }
 }
@@ -595,12 +1011,14 @@ class SupervisorListCard extends StatelessWidget {
   final String name;
   final String speciality;
   final String university;
+  final String bio;
   final bool isAvailable;
   const SupervisorListCard({
     super.key,
     required this.name,
     required this.speciality,
     required this.university,
+    this.bio = '',
     required this.isAvailable,
   });
   @override
@@ -617,7 +1035,7 @@ class SupervisorListCard extends StatelessWidget {
                 name: name,
                 speciality: speciality,
                 university: university,
-                bio: "أستاذ متخصص في $speciality.",
+                bio: bio.isEmpty ? 'أستاذ متخصص في $speciality.' : bio,
               ),
             ),
           );
@@ -773,584 +1191,6 @@ class SupervisorProfileScreen extends StatelessWidget {
                 ],
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// =======================================================
-// قسم الأفكار البحثية
-// =======================================================
-class ResearchIdeasScreen extends StatelessWidget {
-  const ResearchIdeasScreen({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("أفكار بحثية"),
-        backgroundColor: Colors.orange[800],
-        foregroundColor: Colors.white,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          ResearchIdeaCard(
-            title: "نظام مرور ذكي",
-            provider: "وزارة النقل",
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const ResearchDetailScreen(
-                  title: "نظام مرور ذكي",
-                  details:
-                      "يهدف هذا البحث لتطوير خوارزميات للتحكم في الإشارات.",
-                ),
-              ),
-            ),
-          ),
-          ResearchIdeaCard(
-            title: "طاقة شمسية",
-            provider: "شركة الكهرباء",
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const ResearchDetailScreen(
-                  title: "طاقة شمسية",
-                  details: "دراسة تأثير الحرارة على كفاءة الألواح.",
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class ResearchIdeaCard extends StatelessWidget {
-  final String title, provider;
-  final VoidCallback onTap;
-  const ResearchIdeaCard({
-    super.key,
-    required this.title,
-    required this.provider,
-    required this.onTap,
-  });
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      child: InkWell(
-        onTap: onTap,
-        child: ListTile(
-          leading: const Icon(Icons.lightbulb, color: Colors.orange),
-          title: Text(
-            title,
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-          subtitle: Text(provider),
-          trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-        ),
-      ),
-    );
-  }
-}
-
-class ResearchDetailScreen extends StatelessWidget {
-  final String title, details;
-  const ResearchDetailScreen({
-    super.key,
-    required this.title,
-    required this.details,
-  });
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("تفاصيل البحث"),
-        backgroundColor: Colors.orange[800],
-        foregroundColor: Colors.white,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: Colors.orange,
-              ),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              "التفاصيل:",
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-            ),
-            Text(details, style: const TextStyle(fontSize: 16)),
-            const Spacer(),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: () {},
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange[800],
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text("تقديم مقترح"),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// =======================================================
-// قسم المختبرات
-// =======================================================
-class LabsScreen extends StatelessWidget {
-  const LabsScreen({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("المختبرات"),
-        backgroundColor: Colors.purple[700],
-        foregroundColor: Colors.white,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          LabCard(
-            name: "مختبر النانو",
-            location: "كلية العلوم",
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const LabDetailScreen(
-                  name: "مختبر النانو",
-                  equipment: "مجهر إلكتروني (SEM)",
-                ),
-              ),
-            ),
-          ),
-          LabCard(
-            name: "معمل التحليل",
-            location: "مركز البحوث",
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const LabDetailScreen(
-                  name: "معمل التحليل",
-                  equipment: "جهاز NMR",
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class LabCard extends StatelessWidget {
-  final String name, location;
-  final VoidCallback onTap;
-  const LabCard({
-    super.key,
-    required this.name,
-    required this.location,
-    required this.onTap,
-  });
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      child: InkWell(
-        onTap: onTap,
-        child: ListTile(
-          leading: const Icon(Icons.science, color: Colors.purple),
-          title: Text(
-            name,
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-          subtitle: Text(location),
-          trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-        ),
-      ),
-    );
-  }
-}
-
-class LabDetailScreen extends StatelessWidget {
-  final String name, equipment;
-  const LabDetailScreen({
-    super.key,
-    required this.name,
-    required this.equipment,
-  });
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("تفاصيل المختبر"),
-        backgroundColor: Colors.purple[700],
-        foregroundColor: Colors.white,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              name,
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: Colors.purple,
-              ),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              "الأجهزة:",
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-            ),
-            Text(equipment, style: const TextStyle(fontSize: 16)),
-            const Spacer(),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: () {},
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.purple[700],
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text("حجز موعد"),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// =======================================================
-// قسم المتجر
-// =======================================================
-class MarketplaceScreen extends StatelessWidget {
-  const MarketplaceScreen({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("المتجر"),
-        backgroundColor: Colors.green[700],
-        foregroundColor: Colors.white,
-      ),
-      body: GridView.count(
-        padding: const EdgeInsets.all(16),
-        crossAxisCount: 2,
-        childAspectRatio: 0.75,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-        children: [
-          ProductCard(
-            name: "مجهر ضوئي",
-            price: "1200 ر.س",
-            icon: Icons.biotech,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const ProductDetailScreen(
-                  name: "مجهر ضوئي",
-                  price: "1200 ر.س",
-                ),
-              ),
-            ),
-          ),
-          ProductCard(
-            name: "أنابيب اختبار",
-            price: "50 ر.س",
-            icon: Icons.science,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const ProductDetailScreen(
-                  name: "أنابيب اختبار",
-                  price: "50 ر.س",
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class ProductCard extends StatelessWidget {
-  final String name, price;
-  final IconData icon;
-  final VoidCallback onTap;
-  const ProductCard({
-    super.key,
-    required this.name,
-    required this.price,
-    required this.icon,
-    required this.onTap,
-  });
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: InkWell(
-        onTap: onTap,
-        child: Column(
-          children: [
-            Expanded(
-              child: Container(
-                color: Colors.green[50],
-                width: double.infinity,
-                child: Icon(icon, size: 50, color: Colors.green),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Column(
-                children: [
-                  Text(
-                    name,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  Text(price, style: TextStyle(color: Colors.green[700])),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class ProductDetailScreen extends StatelessWidget {
-  final String name, price;
-  const ProductDetailScreen({
-    super.key,
-    required this.name,
-    required this.price,
-  });
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("تفاصيل المنتج"),
-        backgroundColor: Colors.green[700],
-        foregroundColor: Colors.white,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            Icon(Icons.shopping_cart, size: 100, color: Colors.green[200]),
-            const SizedBox(height: 20),
-            Text(
-              name,
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            Text(
-              price,
-              style: const TextStyle(fontSize: 20, color: Colors.green),
-            ),
-            const Spacer(),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: () {},
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green[700],
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text("إضافة للسلة"),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ==============================================================================
-// ويدجيت شاشة المطابقة الذكية (MatchmakingScreen) مدمجة هنا محلياً لمنع مشاكل الـ Import
-// ==============================================================================
-
-class Supervisor {
-  final String name;
-  final String university;
-  final String speciality;
-  final String bio;
-  final List<String> tags;
-
-  const Supervisor({
-    required this.name,
-    required this.university,
-    required this.speciality,
-    required this.bio,
-    required this.tags,
-  });
-}
-
-final List<Supervisor> allSupervisorsForMatch = [
-  const Supervisor(
-    name: "أ.د. عادل محمود",
-    university: "جامعة القاهرة",
-    speciality: "هندسة النانو",
-    bio: "مخترع وباحث في تكنولوجيا المواد الدقيقة والنانو.",
-    tags: ["nano", "نانو", "engineering", "هندسة"],
-  ),
-  const Supervisor(
-    name: "د. هدى الشافعي",
-    university: "جامعة عين شمس",
-    speciality: "ذكاء اصطناعي",
-    bio: "متخصصة في معالجة اللغات الطبيعية والتعلم العميق.",
-    tags: ["ai", "ذكاء", "computer", "حاسب"],
-  ),
-  const Supervisor(
-    name: "أ.د. سارة علي",
-    university: "جامعة الملك سعود",
-    speciality: "كيمياء حيوية",
-    bio: "أبحاث متقدمة في دمج النانو تكنولوجي بالصناعات الكيميائية.",
-    tags: ["chemistry", "كيمياء", "nano", "نانو"],
-  ),
-  const Supervisor(
-    name: "أ.د. محمد أحمد",
-    university: "جامعة القاهرة",
-    speciality: "علم البيانات",
-    bio: "خبير في تحليل البيانات الضخمة والرؤية الحاسوبية.",
-    tags: ["data", "بيانات", "ai", "ذكاء"],
-  ),
-  const Supervisor(
-    name: "د. خالد عمر",
-    university: "جامعة الملك فهد",
-    speciality: "التحكم الذكي",
-    bio: "تطوير أنظمة روبوتية معتمدة على الذكاء الاصطناعي.",
-    tags: ["ai", "ذكاء", "robots", "روبوت"],
-  ),
-];
-
-class MatchmakingScreen extends StatefulWidget {
-  const MatchmakingScreen({super.key});
-
-  @override
-  State<MatchmakingScreen> createState() => _MatchmakingScreenState();
-}
-
-class _MatchmakingScreenState extends State<MatchmakingScreen> {
-  final TextEditingController _interestController = TextEditingController();
-  List<Supervisor> _matchedSupervisors = [];
-  bool _hasSearched = false;
-
-  void _findSupervisor() {
-    final input = _interestController.text.trim().toLowerCase();
-    if (input.isEmpty) return;
-
-    setState(() {
-      _hasSearched = true;
-      _matchedSupervisors = allSupervisorsForMatch.where((supervisor) {
-        return supervisor.tags.any((tag) => tag.contains(input));
-      }).take(3).toList();
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("التوفيق الذكي للمشرفين"),
-        backgroundColor: const Color(0xFF1A237E),
-        foregroundColor: Colors.white,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              "أدخل اهتمامك البحثي (مثال: AI، نانو، كيمياء):",
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _interestController,
-              textAlign: TextAlign.right,
-              decoration: InputDecoration(
-                hintText: "ما هو مجال البحث الذي تفكر به؟",
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                prefixIcon: const Icon(Icons.psychology, color: Color(0xFF1A237E)),
-              ),
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton.icon(
-                onPressed: _findSupervisor,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1A237E),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                icon: const Icon(Icons.bolt_rounded),
-                label: const Text("Find My Supervisor", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              ),
-            ),
-            const SizedBox(height: 30),
-            if (_hasSearched) ...[
-              const Text("أفضل 3 مشرفين مقترحين لاهتمامك:", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1A237E))),
-              const SizedBox(height: 10),
-              _matchedSupervisors.isEmpty
-                  ? const Center(
-                      child: Padding(
-                        padding: EdgeInsets.only(top: 40.0),
-                        child: Text("لم نجد مشرفين يطابقون هذا الاهتمام حالياً.", style: TextStyle(color: Colors.grey, fontSize: 16)),
-                      ),
-                    )
-                  : Expanded(
-                      child: ListView.builder(
-                        itemCount: _matchedSupervisors.length,
-                        itemBuilder: (context, index) {
-                          final sup = _matchedSupervisors[index];
-                          return Card(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            child: ListTile(
-                              leading: const CircleAvatar(child: Icon(Icons.person)),
-                              title: Text(sup.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                              subtitle: Text("${sup.speciality} - ${sup.university}"),
-                              trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-                              onTap: () {
-                                Navigator.push(context, MaterialPageRoute(builder: (context) => SupervisorProfileScreen(
-                                  name: sup.name,
-                                  speciality: sup.speciality,
-                                  university: sup.university,
-                                  bio: sup.bio,
-                                )));
-                              },
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-            ],
           ],
         ),
       ),
