@@ -299,10 +299,24 @@ class ModerationService {
   }
 
   Future<void> approve(String collection, String id) async {
-    await _db.collection(collection).doc(id).update({
+    final updates = <String, dynamic>{
       'approvalStatus': ApprovalStatus.approved,
       'reviewedAt': FieldValue.serverTimestamp(),
-    });
+    };
+
+    if (collection == 'supervisors') {
+      final snap = await _db.collection(collection).doc(id).get();
+      final data = snap.data() ?? {};
+      final orcid = data['orcid']?.toString() ?? '';
+      final uniEmail = data['universityEmail']?.toString() ?? '';
+      if (orcid.isNotEmpty || uniEmail.contains('.edu')) {
+        updates['verificationStatus'] = 'verified';
+      } else {
+        updates['verificationStatus'] = 'unverified';
+      }
+    }
+
+    await _db.collection(collection).doc(id).update(updates);
   }
 
   Future<void> reject(String collection, String id, {String? reason}) async {

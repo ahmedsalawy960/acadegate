@@ -20,6 +20,20 @@ class ResearchIdeaMarketplaceDetailScreen extends StatefulWidget {
 class _ResearchIdeaMarketplaceDetailScreenState
     extends State<ResearchIdeaMarketplaceDetailScreen> {
   bool _isVoting = false;
+  bool _isPublisher = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkPublisher();
+  }
+
+  Future<void> _checkPublisher() async {
+    if (!widget.idea.isFromFirebase) return;
+    final isPub = await ResearchMarketplaceService.instance
+        .isIdeaPublisher(widget.idea.id!);
+    if (mounted) setState(() => _isPublisher = isPub);
+  }
 
   Future<void> _toggleVote() async {
     setState(() => _isVoting = true);
@@ -66,6 +80,29 @@ class _ResearchIdeaMarketplaceDetailScreenState
           behavior: SnackBarBehavior.floating,
         ),
       );
+    }
+  }
+
+  Future<void> _respondProposal(String proposalId, {required bool accept}) async {
+    try {
+      await ResearchMarketplaceService.instance.respondToProposal(
+        ideaId: widget.idea.id!,
+        proposalId: proposalId,
+        accept: accept,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(accept ? 'تم قبول المقترح' : 'تم رفض المقترح'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$e'), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 
@@ -206,9 +243,40 @@ class _ResearchIdeaMarketplaceDetailScreenState
                                       maxLines: 4,
                                       overflow: TextOverflow.ellipsis,
                                     ),
-                                    trailing: _ProposalStatusBadge(
-                                      status: proposal.status,
-                                    ),
+                                    trailing: _isPublisher &&
+                                            proposal.status == 'pending'
+                                        ? Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              IconButton(
+                                                tooltip: 'قبول',
+                                                icon: const Icon(
+                                                  Icons.check_circle,
+                                                  color: Colors.green,
+                                                ),
+                                                onPressed: () =>
+                                                    _respondProposal(
+                                                  proposal.id!,
+                                                  accept: true,
+                                                ),
+                                              ),
+                                              IconButton(
+                                                tooltip: 'رفض',
+                                                icon: const Icon(
+                                                  Icons.cancel,
+                                                  color: Colors.red,
+                                                ),
+                                                onPressed: () =>
+                                                    _respondProposal(
+                                                  proposal.id!,
+                                                  accept: false,
+                                                ),
+                                              ),
+                                            ],
+                                          )
+                                        : _ProposalStatusBadge(
+                                            status: proposal.status,
+                                          ),
                                   ),
                                 ),
                               )

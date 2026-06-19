@@ -1,10 +1,29 @@
 import 'package:flutter/material.dart';
 import '../home/home_screen.dart';
+import 'google_auth_service.dart';
 import 'login_screen.dart';
 import 'register_screen.dart';
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
+
+  Future<void> _googleSignIn(BuildContext context) async {
+    try {
+      final user = await GoogleAuthService.instance.signInWithGoogle();
+      if (user != null && context.mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -147,6 +166,16 @@ class WelcomeScreen extends StatelessWidget {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _googleSignIn(context),
+                    icon: const Icon(Icons.g_mobiledata, size: 26),
+                    label: const Text('متابعة بـ Google'),
                   ),
                 ),
                 const SizedBox(height: 12),

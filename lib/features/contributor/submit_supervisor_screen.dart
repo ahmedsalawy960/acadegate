@@ -1,8 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../auth/auth_guard.dart';
 import '../academic/faculty_categories.dart';
+import '../academic/verification_status.dart';
+import '../../core/storage/storage_service.dart';
 import '../moderation/approval_status.dart';
 
 class SubmitSupervisorScreen extends StatefulWidget {
@@ -22,6 +25,10 @@ class _SubmitSupervisorScreenState extends State<SubmitSupervisorScreen> {
   final _bioController = TextEditingController();
   final _facultyController = TextEditingController();
   final _tagsController = TextEditingController();
+  final _orcidController = TextEditingController();
+  final _universityEmailController = TextEditingController();
+
+  XFile? _photoFile;
 
   late String _category;
   final Set<String> _methodologies = {'كمي'};
@@ -45,6 +52,8 @@ class _SubmitSupervisorScreenState extends State<SubmitSupervisorScreen> {
     _bioController.dispose();
     _facultyController.dispose();
     _tagsController.dispose();
+    _orcidController.dispose();
+    _universityEmailController.dispose();
     super.dispose();
   }
 
@@ -65,6 +74,14 @@ class _SubmitSupervisorScreenState extends State<SubmitSupervisorScreen> {
           .where((item) => item.isNotEmpty)
           .toList();
 
+      String? photoUrl;
+      if (_photoFile != null) {
+        photoUrl = await StorageService.instance.uploadImage(
+          file: _photoFile!,
+          folder: 'supervisors',
+        );
+      }
+
       await FirebaseFirestore.instance.collection('supervisors').add({
         'name': _nameController.text.trim(),
         'university': _universityController.text.trim(),
@@ -76,6 +93,10 @@ class _SubmitSupervisorScreenState extends State<SubmitSupervisorScreen> {
         'methodologies': _methodologies.toList(),
         'isAvailable': _isAvailable,
         'ownerId': user.uid,
+        'orcid': _orcidController.text.trim(),
+        'universityEmail': _universityEmailController.text.trim(),
+        'verificationStatus': VerificationStatus.pending,
+        if (photoUrl != null) 'photoUrl': photoUrl,
         'approvalStatus': ApprovalStatus.pending,
         'createdAt': FieldValue.serverTimestamp(),
       });
@@ -117,8 +138,36 @@ class _SubmitSupervisorScreenState extends State<SubmitSupervisorScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _infoBanner(
-                'سيُراجع الأدمن ملفك قبل ظهوره في قائمة المشرفين.',
+                'سيُراجع الأدمن ملفك قبل الظهور. أضف ORCID أو بريد جامعي لتوثيق أسرع.',
                 Colors.blue,
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final file = await StorageService.instance.pickImage();
+                  if (file != null) setState(() => _photoFile = file);
+                },
+                icon: const Icon(Icons.photo_camera),
+                label: Text(_photoFile == null ? 'إضافة صورة' : 'تم اختيار صورة'),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _orcidController,
+                decoration: const InputDecoration(
+                  labelText: 'ORCID (اختياري — للتوثيق)',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.verified_user_outlined),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _universityEmailController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(
+                  labelText: 'البريد الجامعي (اختياري)',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.email_outlined),
+                ),
               ),
               const SizedBox(height: 16),
               TextFormField(

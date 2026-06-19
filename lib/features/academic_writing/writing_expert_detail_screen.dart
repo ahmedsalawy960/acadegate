@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../auth/auth_guard.dart';
+import '../messaging/conversations_screen.dart';
 import '../moderation/delete_content_button.dart';
 import 'book_writing_order_screen.dart';
 import 'writing_categories.dart';
@@ -107,6 +109,28 @@ class WritingExpertDetailScreen extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 24),
+          if (expert.ownerId != null && expert.ownerId!.isNotEmpty)
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: OutlinedButton.icon(
+                onPressed: () async {
+                  final loggedIn = await ensureLoggedIn(context);
+                  if (!loggedIn || !context.mounted) return;
+                  await openChatWithUser(
+                    context,
+                    otherUserId: expert.ownerId!,
+                    otherUserName: expert.name,
+                    contextType: 'writing',
+                    contextId: expert.id ?? '',
+                    contextTitle: expert.name,
+                  );
+                },
+                icon: const Icon(Icons.chat),
+                label: const Text('مراسلة الكاتب'),
+              ),
+            ),
+          const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
             height: 52,

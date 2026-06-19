@@ -110,6 +110,12 @@ class WritingOrder {
   final List<String> addons;
   final DateTime? deadline;
   final String status;
+  final String? serviceOwnerId;
+  final String paymentStatus;
+  final num amount;
+  final String deliveryNote;
+  final int? studentRating;
+  final String rejectedReason;
   final DateTime? createdAt;
 
   const WritingOrder({
@@ -130,27 +136,40 @@ class WritingOrder {
     this.addons = const [],
     this.deadline,
     this.status = 'pending',
+    this.serviceOwnerId,
+    this.paymentStatus = 'pending_payment',
+    this.amount = 0,
+    this.deliveryNote = '',
+    this.studentRating,
+    this.rejectedReason = '',
     this.createdAt,
   });
 
   bool get isPending => status == 'pending';
   bool get isConfirmed => status == 'confirmed';
   bool get isInProgress => status == 'in_progress';
+  bool get isDelivered => status == 'delivered';
   bool get isCompleted => status == 'completed';
   bool get isCancelled => status == 'cancelled';
+  bool get isRejected => status == 'rejected';
+  bool get isPaidHeld => paymentStatus == 'paid_held';
 
   String get statusLabel {
     switch (status) {
       case 'confirmed':
-        return 'مؤكد';
+        return 'مقبول';
       case 'in_progress':
         return 'قيد التنفيذ';
+      case 'delivered':
+        return 'تم التسليم';
       case 'completed':
         return 'مكتمل';
       case 'cancelled':
         return 'ملغى';
+      case 'rejected':
+        return 'مرفوض';
       default:
-        return 'بانتظار المراجعة';
+        return 'بانتظار قبول الخبير';
     }
   }
 
@@ -181,6 +200,12 @@ class WritingOrder {
       addons: parseStringList(map['addons']),
       deadline: deadline,
       status: map['status']?.toString() ?? 'pending',
+      serviceOwnerId: map['serviceOwnerId']?.toString(),
+      paymentStatus: map['paymentStatus']?.toString() ?? 'pending_payment',
+      amount: (map['amount'] as num?) ?? 0,
+      deliveryNote: map['deliveryNote']?.toString() ?? '',
+      studentRating: (map['studentRating'] as num?)?.toInt(),
+      rejectedReason: map['rejectedReason']?.toString() ?? '',
       createdAt: createdAt,
     );
   }

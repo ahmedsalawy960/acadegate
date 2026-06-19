@@ -18,6 +18,8 @@ import '../matchmaking/matchmaking_screen.dart';
 import '../moderation/approval_status.dart';
 import '../moderation/delete_content_button.dart';
 import '../moderation/moderation_service.dart';
+import '../messaging/conversations_screen.dart';
+import '../notifications/notifications_screen.dart';
 import '../profile/academic_profile_screen.dart';
 import '../research_marketplace/research_idea_marketplace_detail_screen.dart';
 import '../research_marketplace/research_marketplace_screen.dart';
@@ -295,6 +297,19 @@ class _HomeScreenState extends State<HomeScreen> {
                     },
                   ),
                 ],
+              );
+            },
+          ),
+          const NotificationIconButton(),
+          IconButton(
+            tooltip: 'الرسائل',
+            icon: const Icon(Icons.chat_outlined),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ConversationsScreen(),
+                ),
               );
             },
           ),
@@ -760,6 +775,12 @@ class _HomeScreenState extends State<HomeScreen> {
                                                   productId: doc.id,
                                                   createdBy:
                                                       data['createdBy']
+                                                          ?.toString(),
+                                                  priceValue:
+                                                      (data['price'] as num?) ??
+                                                      0,
+                                                  imageUrl:
+                                                      data['imageUrl']
                                                           ?.toString(),
                                                 ),
                                           ),
@@ -1367,7 +1388,18 @@ class SupervisorProfileScreen extends StatelessWidget {
                     children: [
                       Expanded(
                         child: ElevatedButton.icon(
-                          onPressed: () {},
+                          onPressed: ownerId == null || ownerId!.isEmpty
+                              ? null
+                              : () async {
+                                  await openChatWithUser(
+                                    context,
+                                    otherUserId: ownerId!,
+                                    otherUserName: name,
+                                    contextType: 'supervisor',
+                                    contextId: supervisorId ?? '',
+                                    contextTitle: name,
+                                  );
+                                },
                           icon: const Icon(Icons.email),
                           label: const Text("مراسلة"),
                           style: ElevatedButton.styleFrom(

@@ -137,4 +137,49 @@ class ResearchMarketplaceService {
               .toList(),
         );
   }
+
+  Future<bool> isIdeaPublisher(String ideaId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return false;
+
+    final snap = await _ideas.doc(ideaId).get();
+    return snap.data()?['publisherId']?.toString() == user.uid;
+  }
+
+  Future<void> respondToProposal({
+    required String ideaId,
+    required String proposalId,
+    required bool accept,
+  }) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('يجب تسجيل الدخول');
+
+    final ideaRef = _ideas.doc(ideaId);
+    final ideaSnap = await ideaRef.get();
+    if (ideaSnap.data()?['publisherId'] != user.uid) {
+      throw Exception('فقط ناشر الفكرة يمكنه إدارة المقترحات');
+    }
+
+    final proposalRef = ideaRef.collection('proposals').doc(proposalId);
+    final proposalSnap = await proposalRef.get();
+    if (!proposalSnap.exists) throw Exception('المقترح غير موجود');
+
+    final newStatus = accept ? 'accepted' : 'rejected';
+    await proposalRef.update({
+      'status': newStatus,
+      'reviewedAt': FieldValue.serverTimestamp(),
+    });
+
+    final proposerId = proposalSnap.data()?['userId']?.toString() ?? '';
+    if (proposerId.isNotEmpty) {
+      await _db.collection('notifications').add({
+        'userId': proposerId,
+        'title': accept ? 'تم قبول مقترحك' : 'تم رفض مقترحك',
+        'body': ideaSnap.data()?['title']?.toString() ?? 'فكرة بحثية',
+        'type': 'proposal',
+        'read': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    }
+  }
 }

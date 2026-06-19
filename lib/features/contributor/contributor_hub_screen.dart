@@ -5,6 +5,9 @@ import '../auth/user_account_service.dart';
 import '../auth/user_role.dart';
 import '../moderation/approval_status.dart';
 import '../admin/admin_moderation_screen.dart';
+import '../academic_writing/expert_orders_screen.dart';
+import '../academic_writing/my_writing_orders_screen.dart';
+import '../messaging/conversations_screen.dart';
 import '../research_marketplace/publish_research_idea_screen.dart';
 import '../supervisor_import/admin_supervisor_import_screen.dart';
 import '../store/store_categories_screen.dart';
@@ -85,6 +88,28 @@ class ContributorHubScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
               ],
+              const SizedBox(height: 16),
+              _actionTile(
+                context,
+                icon: Icons.receipt_long,
+                title: 'طلبات الكتابة الواردة',
+                subtitle: 'قبول / رفض / تسليم طلبات العملاء',
+                screen: const ExpertOrdersScreen(),
+              ),
+              _actionTile(
+                context,
+                icon: Icons.shopping_bag_outlined,
+                title: 'طلباتي — كتابة',
+                subtitle: 'متابعة ودفع طلباتك',
+                screen: const MyWritingOrdersScreen(),
+              ),
+              _actionTile(
+                context,
+                icon: Icons.chat_outlined,
+                title: 'الرسائل',
+                subtitle: 'محادثات مع المشرفين والبائعين',
+                screen: const ConversationsScreen(),
+              ),
               const Text(
                 'إضافة محتوى',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),

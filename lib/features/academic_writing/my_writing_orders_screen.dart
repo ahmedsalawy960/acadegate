@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/escrow/payment_status.dart';
 import 'writing_models.dart';
 import 'writing_service.dart';
 
@@ -196,6 +197,97 @@ class _OrderCard extends StatelessWidget {
                 ),
               ),
             ],
+            if (order.isConfirmed &&
+                order.paymentStatus == PaymentStatus.pending) ...[
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: order.serviceId == null || order.id == null
+                      ? null
+                      : () async {
+                          try {
+                            await WritingService.instance.payOrder(
+                              serviceId: order.serviceId!,
+                              orderId: order.id!,
+                              amount: order.amount > 0 ? order.amount : 500,
+                            );
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'تم تأكيد الدفع — المبلغ محجوز حتى التسليم',
+                                  ),
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('$e'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          }
+                        },
+                  icon: const Icon(Icons.lock),
+                  label: Text(
+                    'ادفع ${order.amount > 0 ? order.amount : 500} ج.م (ضمان)',
+                  ),
+                ),
+              ),
+            ],
+            if (order.isDelivered) ...[
+              if (order.deliveryNote.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text('ملاحظات التسليم: ${order.deliveryNote}'),
+                ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: order.serviceId == null || order.id == null
+                      ? null
+                      : () async {
+                          try {
+                            await WritingService.instance.confirmDelivery(
+                              serviceId: order.serviceId!,
+                              orderId: order.id!,
+                              rating: 5,
+                            );
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('تم تأكيد الاستلام وإفراج الدفعة'),
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('$e'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          }
+                        },
+                  child: const Text('تأكيد الاستلام'),
+                ),
+              ),
+            ],
+            if (order.isPaidHeld)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  PaymentStatus.label(order.paymentStatus),
+                  style: const TextStyle(color: Colors.green, fontSize: 12),
+                ),
+              ),
           ],
         ),
       ),

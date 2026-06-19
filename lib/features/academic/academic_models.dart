@@ -31,6 +31,10 @@ class AcademicSupervisor {
   final bool isAvailable;
   final String ownerId;
   final String approvalStatus;
+  final String verificationStatus;
+  final String orcid;
+  final String universityEmail;
+  final String photoUrl;
 
   const AcademicSupervisor({
     this.id,
@@ -45,6 +49,10 @@ class AcademicSupervisor {
     this.isAvailable = true,
     this.ownerId = '',
     this.approvalStatus = ApprovalStatus.approved,
+    this.verificationStatus = 'unverified',
+    this.orcid = '',
+    this.universityEmail = '',
+    this.photoUrl = '',
   });
 
   bool get isPubliclyVisible => ApprovalStatus.isPublic(approvalStatus);
@@ -70,6 +78,10 @@ class AcademicSupervisor {
       ownerId: map['ownerId']?.toString() ?? '',
       approvalStatus:
           map['approvalStatus']?.toString() ?? ApprovalStatus.approved,
+      verificationStatus: map['verificationStatus']?.toString() ?? 'unverified',
+      orcid: map['orcid']?.toString() ?? '',
+      universityEmail: map['universityEmail']?.toString() ?? '',
+      photoUrl: map['photoUrl']?.toString() ?? '',
     );
   }
 }
@@ -135,6 +147,7 @@ int _parseInt(dynamic value, {int fallback = 0}) {
 class ResearchProposal {
   final String? id;
   final String ideaId;
+  final String userId;
   final String authorName;
   final String authorEmail;
   final String summary;
@@ -144,6 +157,7 @@ class ResearchProposal {
   const ResearchProposal({
     this.id,
     required this.ideaId,
+    this.userId = '',
     required this.authorName,
     required this.authorEmail,
     required this.summary,
@@ -165,6 +179,7 @@ class ResearchProposal {
     return ResearchProposal(
       id: id,
       ideaId: ideaId,
+      userId: map['userId']?.toString() ?? '',
       authorName: map['authorName']?.toString() ?? 'طالب',
       authorEmail: map['authorEmail']?.toString() ?? '',
       summary: map['summary']?.toString() ?? '',

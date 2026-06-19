@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../home/home_screen.dart';
+import 'google_auth_service.dart';
 import 'user_account_service.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -16,6 +17,32 @@ class _LoginScreenState extends State<LoginScreen> {
 
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
+  bool _googleLoading = false;
+
+  Future<void> _navigateHome() async {
+    if (!mounted) return;
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => const HomeScreen()),
+      (route) => false,
+    );
+  }
+
+  Future<void> _handleGoogleSignIn() async {
+    setState(() => _googleLoading = true);
+    try {
+      final user = await GoogleAuthService.instance.signInWithGoogle();
+      if (user != null) await _navigateHome();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _googleLoading = false);
+    }
+  }
 
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
@@ -34,11 +61,7 @@ class _LoginScreenState extends State<LoginScreen> {
           .ensureAccountExists(FirebaseAuth.instance.currentUser!);
 
       if (mounted) {
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
-          (route) => false,
-        );
+        await _navigateHome();
       }
     } on FirebaseAuthException catch (e) {
       // طباعة الخطأ في الـ Debug Console لتعرف السبب الحقيقي
@@ -178,6 +201,35 @@ class _LoginScreenState extends State<LoginScreen> {
                               fontWeight: FontWeight.bold,
                             ),
                           ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(child: Divider(color: Colors.grey[300])),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Text('أو', style: TextStyle(color: Colors.grey[600])),
+                    ),
+                    Expanded(child: Divider(color: Colors.grey[300])),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: OutlinedButton.icon(
+                    onPressed: (_isLoading || _googleLoading)
+                        ? null
+                        : _handleGoogleSignIn,
+                    icon: _googleLoading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.g_mobiledata, size: 28),
+                    label: const Text('تسجيل الدخول بـ Google'),
                   ),
                 ),
               ],

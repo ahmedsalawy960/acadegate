@@ -182,7 +182,10 @@ service cloud.firestore {
         allow create: if isSignedIn()
                       && request.resource.data.userId == request.auth.uid
                       && request.resource.data.status == 'pending';
-        allow update, delete: if false;
+        allow update: if isSignedIn()
+                      && get(/databases/$(database)/documents/research_ideas/$(ideaId)).data.publisherId == request.auth.uid
+                      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'reviewedAt']);
+        allow delete: if false;
       }
 
       match /votes/{voteId} {
@@ -230,12 +233,25 @@ service cloud.firestore {
       }
     }
 
-    // ─── خدمات الكتابة الأكاديمية ─────────────────────────
-    // قاعدة collectionGroup — مطلوبة لشاشة «طلباتي»
+    // ─── خدمات الكتابة الأكademيمية ─────────────────────────
+    // قاعدة collectionGroup — مطلوبة لشاشة «طلباتي» و«طلبات العملاء»
     match /{path=**}/writing_orders/{orderId} {
       allow read: if isSignedIn()
                   && (resource.data.userId == request.auth.uid
-                      || resource.data.serviceOwnerId == request.auth.uid);
+                      || resource.data.serviceOwnerId == request.auth.uid
+                      || isAdmin());
+      allow update: if isSignedIn() && (
+        (resource.data.userId == request.auth.uid && (
+          request.resource.data.status == 'cancelled'
+          || (resource.data.status == 'delivered' && request.resource.data.status == 'completed')
+          || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['paymentStatus', 'paidAt', 'amount'])
+          || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['paymentStatus', 'paidAt', 'amount', 'status'])
+          || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'completedAt', 'studentRating'])
+        ))
+        || (resource.data.serviceOwnerId == request.auth.uid
+            && request.resource.data.status in ['confirmed', 'rejected', 'in_progress', 'delivered'])
+        || isAdmin()
+      );
     }
 
     match /writing_services/{serviceId} {
@@ -259,13 +275,23 @@ service cloud.firestore {
       match /writing_orders/{orderId} {
         allow read: if isSignedIn()
                     && (resource.data.userId == request.auth.uid
-                        || resource.data.serviceOwnerId == request.auth.uid);
+                        || resource.data.serviceOwnerId == request.auth.uid
+                        || isAdmin());
         allow create: if isSignedIn()
                       && request.resource.data.userId == request.auth.uid
                       && request.resource.data.status == 'pending';
-        allow update: if isSignedIn()
-                      && resource.data.userId == request.auth.uid
-                      && request.resource.data.status == 'cancelled';
+        allow update: if isSignedIn() && (
+          (resource.data.userId == request.auth.uid && (
+            request.resource.data.status == 'cancelled'
+            || (resource.data.status == 'delivered' && request.resource.data.status == 'completed')
+            || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['paymentStatus', 'paidAt', 'amount'])
+            || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['paymentStatus', 'paidAt', 'amount', 'status'])
+            || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'completedAt', 'studentRating'])
+          ))
+          || (resource.data.serviceOwnerId == request.auth.uid
+              && request.resource.data.status in ['confirmed', 'rejected', 'in_progress', 'delivered'])
+          || isAdmin()
+        );
         allow delete: if false;
       }
     }
@@ -281,6 +307,51 @@ service cloud.firestore {
                         && approvalUnchanged()
                         && resource.data.approvalStatus in ['pending', 'rejected']);
       allow delete: if isAdmin();
+    }
+
+    // ─── المحادثات ───────────────────────────────────────
+    match /conversations/{conversationId} {
+      allow read: if isSignedIn()
+                  && request.auth.uid in resource.data.participantIds;
+      allow create: if isSignedIn()
+                    && request.auth.uid in request.resource.data.participantIds;
+      allow update: if isSignedIn()
+                    && request.auth.uid in resource.data.participantIds;
+
+      match /messages/{messageId} {
+        allow read: if isSignedIn()
+                    && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+        allow create: if isSignedIn()
+                      && request.resource.data.senderId == request.auth.uid
+                      && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+        allow update, delete: if false;
+      }
+    }
+
+    // ─── الإشعارات ───────────────────────────────────────
+    match /notifications/{notificationId} {
+      allow read: if isSignedIn()
+                  && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn()
+                    && resource.data.userId == request.auth.uid;
+      allow delete: if isSignedIn()
+                    && resource.data.userId == request.auth.uid;
+    }
+
+    // ─── طلبات المتجر (ضمان) ─────────────────────────────
+    match /store_orders/{orderId} {
+      allow read: if isSignedIn()
+                  && (resource.data.buyerId == request.auth.uid
+                      || resource.data.sellerId == request.auth.uid
+                      || isAdmin());
+      allow create: if isSignedIn()
+                    && request.resource.data.buyerId == request.auth.uid;
+      allow update: if isSignedIn()
+                    && (resource.data.buyerId == request.auth.uid
+                        || resource.data.sellerId == request.auth.uid
+                        || isAdmin());
+      allow delete: if false;
     }
   }
 }

@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import '../../core/storage/storage_service.dart';
 import '../moderation/approval_status.dart';
 
 class AddProductScreen extends StatefulWidget {
@@ -22,6 +24,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
   final _contactController = TextEditingController();
 
   bool _isSaving = false;
+  XFile? _imageFile;
 
   @override
   void dispose() {
@@ -70,6 +73,14 @@ class _AddProductScreenState extends State<AddProductScreen> {
     try {
       final price = num.parse(_priceController.text.trim().replaceAll(',', '.'));
 
+      String? imageUrl;
+      if (_imageFile != null) {
+        imageUrl = await StorageService.instance.uploadImage(
+          file: _imageFile!,
+          folder: 'products',
+        );
+      }
+
       await FirebaseFirestore.instance.collection('product').add({
         'name': _nameController.text.trim(),
         'price': price,
@@ -77,6 +88,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
         'description': _descriptionController.text.trim(),
         'storeName': _storeNameController.text.trim(),
         'contact': _contactController.text.trim(),
+        if (imageUrl != null) 'imageUrl': imageUrl,
         'createdBy': user.uid,
         'approvalStatus': ApprovalStatus.pending,
         'createdAt': FieldValue.serverTimestamp(),
@@ -164,6 +176,17 @@ class _AddProductScreenState extends State<AddProductScreen> {
                     labelText: 'السعر',
                     hintText: 'مثال: 150 أو 150.5',
                     border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    final file = await StorageService.instance.pickImage();
+                    if (file != null) setState(() => _imageFile = file);
+                  },
+                  icon: const Icon(Icons.add_photo_alternate_outlined),
+                  label: Text(
+                    _imageFile == null ? 'إضافة صورة المنتج' : 'تم اختيار الصورة',
                   ),
                 ),
                 const SizedBox(height: 12),
