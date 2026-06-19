@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../academic/academic_models.dart';
+import '../moderation/delete_content_button.dart';
 import '../profile/academic_profile_service.dart';
 import '../store/product_list_screen.dart';
 import '../store/store_categories.dart';
@@ -99,6 +100,12 @@ class _SmartLabDetailScreenState extends State<SmartLabDetailScreen> {
         title: const Text('تفاصيل المختبر'),
         backgroundColor: Colors.purple[700],
         foregroundColor: Colors.white,
+        actions: deleteAppBarActions(
+          collection: 'labs',
+          documentId: lab.id,
+          ownerId: lab.ownerId,
+          itemLabel: lab.name,
+        ),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -204,6 +211,12 @@ class _SmartLabDetailScreenState extends State<SmartLabDetailScreen> {
             ..._fallbackRatings(),
           const SizedBox(height: 16),
           _buildRatingForm(),
+          ManageContentActions(
+            collection: 'labs',
+            documentId: lab.id,
+            ownerId: lab.ownerId,
+            itemLabel: lab.name,
+          ),
         ],
       ),
     );

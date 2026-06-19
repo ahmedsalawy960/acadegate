@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../auth/auth_guard.dart';
+import '../academic/faculty_categories.dart';
 import '../moderation/approval_status.dart';
 
 class SubmitSupervisorScreen extends StatefulWidget {
@@ -32,7 +33,8 @@ class _SubmitSupervisorScreenState extends State<SubmitSupervisorScreen> {
   @override
   void initState() {
     super.initState();
-    _category = widget.initialCategory ?? 'Engineering';
+    _category = widget.initialCategory ?? facultyCategories.first.id;
+    _facultyController.text = facultyTitleForCategory(_category);
   }
 
   @override
@@ -162,20 +164,26 @@ class _SubmitSupervisorScreenState extends State<SubmitSupervisorScreen> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
+                key: ValueKey(_category),
                 initialValue: _category,
                 decoration: const InputDecoration(
-                  labelText: 'قسم المشرفين *',
+                  labelText: 'الكلية / القسم *',
                   border: OutlineInputBorder(),
                 ),
-                items: const [
-                  DropdownMenuItem(value: 'Engineering', child: Text('هندسة')),
-                  DropdownMenuItem(value: 'Science', child: Text('علوم')),
-                  DropdownMenuItem(value: 'Medicine', child: Text('طب')),
-                  DropdownMenuItem(value: 'Law', child: Text('حقوق')),
-                  DropdownMenuItem(value: 'CS', child: Text('حاسبات')),
-                ],
+                items: facultyCategories
+                    .map(
+                      (faculty) => DropdownMenuItem(
+                        value: faculty.id,
+                        child: Text(faculty.titleAr),
+                      ),
+                    )
+                    .toList(),
                 onChanged: (value) {
-                  if (value != null) setState(() => _category = value);
+                  if (value == null) return;
+                  setState(() {
+                    _category = value;
+                    _facultyController.text = facultyTitleForCategory(value);
+                  });
                 },
               ),
               const SizedBox(height: 16),

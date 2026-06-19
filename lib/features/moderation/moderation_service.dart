@@ -28,6 +28,7 @@ class ModerationStats {
   final int pendingLabs;
   final int pendingProducts;
   final int pendingIdeas;
+  final int pendingCommunityPosts;
   final int totalUsers;
   final Map<String, int> usersByRole;
 
@@ -36,12 +37,17 @@ class ModerationStats {
     this.pendingLabs = 0,
     this.pendingProducts = 0,
     this.pendingIdeas = 0,
+    this.pendingCommunityPosts = 0,
     this.totalUsers = 0,
     this.usersByRole = const {},
   });
 
   int get totalPending =>
-      pendingSupervisors + pendingLabs + pendingProducts + pendingIdeas;
+      pendingSupervisors +
+      pendingLabs +
+      pendingProducts +
+      pendingIdeas +
+      pendingCommunityPosts;
 }
 
 class ModerationService {
@@ -56,6 +62,7 @@ class ModerationService {
     'labs',
     'product',
     'research_ideas',
+    'community_posts',
   ];
 
   Stream<List<PendingItem>> watchPendingItems() {
@@ -130,6 +137,8 @@ class ModerationService {
                 pending.where((i) => i.collection == 'product').length,
             pendingIdeas:
                 pending.where((i) => i.collection == 'research_ideas').length,
+            pendingCommunityPosts:
+                pending.where((i) => i.collection == 'community_posts').length,
             totalUsers: users.length,
             usersByRole: roleCounts,
           ),
@@ -179,6 +188,7 @@ class ModerationService {
     return data['ownerId']?.toString() ??
         data['createdBy']?.toString() ??
         data['publisherId']?.toString() ??
+        data['authorId']?.toString() ??
         '';
   }
 
@@ -188,6 +198,7 @@ class ModerationService {
       'labs' => data['name']?.toString() ?? 'مختبر',
       'product' => data['name']?.toString() ?? 'منتج',
       'research_ideas' => data['title']?.toString() ?? 'فكرة بحثية',
+      'community_posts' => data['title']?.toString() ?? 'منشور',
       _ => 'عنصر',
     };
   }
@@ -199,6 +210,8 @@ class ModerationService {
       'labs' => data['location']?.toString() ?? '',
       'product' => '${data['category'] ?? ''} • ${data['price'] ?? 0} ج.م',
       'research_ideas' => data['provider']?.toString() ?? '',
+      'community_posts' =>
+        '${data['roomId'] ?? ''} • ${data['type'] ?? ''}',
       _ => '',
     };
   }
@@ -209,6 +222,7 @@ class ModerationService {
       'labs' => 'مختبر',
       'product' => 'منتج',
       'research_ideas' => 'فكرة بحثية',
+      'community_posts' => 'منشور مجتمع',
       _ => collection,
     };
   }
@@ -250,6 +264,16 @@ class ModerationService {
         MapEntry('التفاصيل', data['details']?.toString() ?? ''),
         MapEntry('الميزانية', data['budget']?.toString() ?? ''),
         MapEntry('الحالة', data['status']?.toString() ?? ''),
+        MapEntry('الوسوم', _formatList(data['tags'])),
+      ],
+      'community_posts' => [
+        MapEntry('العنوان', data['title']?.toString() ?? ''),
+        MapEntry('الغرفة', data['roomId']?.toString() ?? ''),
+        MapEntry('النوع', data['type']?.toString() ?? ''),
+        MapEntry('المحتوى', data['body']?.toString() ?? ''),
+        MapEntry('الكاتب', data['authorName']?.toString() ?? ''),
+        MapEntry('الجامعة', data['university']?.toString() ?? ''),
+        MapEntry('تاريخ المناقشة', data['eventDate']?.toString() ?? ''),
         MapEntry('الوسوم', _formatList(data['tags'])),
       ],
       _ => [MapEntry('بيانات', data.toString())],

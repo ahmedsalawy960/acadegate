@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../academic/academic_models.dart';
+import '../moderation/delete_content_button.dart';
 import 'research_marketplace_service.dart';
 import 'submit_proposal_screen.dart';
 
@@ -78,6 +79,12 @@ class _ResearchIdeaMarketplaceDetailScreenState
         title: const Text('تفاصيل الفكرة'),
         backgroundColor: Colors.orange[800],
         foregroundColor: Colors.white,
+        actions: deleteAppBarActions(
+          collection: 'research_ideas',
+          documentId: idea.id,
+          ownerId: idea.publisherId,
+          itemLabel: idea.title,
+        ),
       ),
       body: Column(
         children: [
@@ -151,6 +158,12 @@ class _ResearchIdeaMarketplaceDetailScreenState
                       ),
                     ),
                   ],
+                  ManageContentActions(
+                    collection: 'research_ideas',
+                    documentId: idea.id,
+                    ownerId: idea.publisherId,
+                    itemLabel: idea.title,
+                  ),
                   if (canInteract) ...[
                     const SizedBox(height: 24),
                     const Text(

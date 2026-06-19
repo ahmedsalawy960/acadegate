@@ -125,6 +125,8 @@ class ProductListScreen extends StatelessWidget {
                             productData['storeName']?.toString() ??
                             'متجر غير معروف',
                         contact: productData['contact']?.toString() ?? '',
+                        productId: docs[index].id,
+                        createdBy: productData['createdBy']?.toString(),
                       ),
                     ),
                   );

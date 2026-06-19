@@ -85,6 +85,7 @@ class AcademicResearchIdea {
   final int votesCount;
   final int proposalsCount;
   final String approvalStatus;
+  final String publisherId;
 
   const AcademicResearchIdea({
     this.id,
@@ -97,6 +98,7 @@ class AcademicResearchIdea {
     this.votesCount = 0,
     this.proposalsCount = 0,
     this.approvalStatus = ApprovalStatus.approved,
+    this.publisherId = '',
   });
 
   bool get isOpen => status.toLowerCase() == 'open';
@@ -119,6 +121,7 @@ class AcademicResearchIdea {
       proposalsCount: _parseInt(map['proposalsCount']),
       approvalStatus:
           map['approvalStatus']?.toString() ?? ApprovalStatus.approved,
+      publisherId: map['publisherId']?.toString() ?? '',
     );
   }
 }

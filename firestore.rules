@@ -1,175 +1,287 @@
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    function userDoc() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid));
-    }
-
-    function isAdmin() {
-      return isSignedIn() && userDoc().data.role == 'admin';
-    }
-
-    function isApprovedContent() {
-      return !('approvalStatus' in resource.data)
-          || resource.data.approvalStatus == 'approved';
-    }
-
-    function isPendingCreate() {
-      return request.resource.data.approvalStatus == 'pending';
-    }
-
-    function approvalUnchanged() {
-      return request.resource.data.approvalStatus == resource.data.approvalStatus;
-    }
-
-    function isCounterUpdate() {
-      let changed = request.resource.data.diff(resource.data).affectedKeys();
-      return changed.hasOnly(['votesCount'])
-          || changed.hasOnly(['proposalsCount']);
-    }
-
-    // ─── حسابات المستخدمين ────────────────────────────────
-    match /users/{userId} {
-      allow read: if isSignedIn();
-      allow create: if isOwner(userId)
-                    && request.resource.data.role != 'admin';
-      allow update: if isAdmin()
-                    || (isOwner(userId)
-                        && request.resource.data.role == resource.data.role);
-      allow delete: if false;
-    }
-
-    // ─── ملف الطالب الأكاديمي ─────────────────────────────
-    match /student_profiles/{userId} {
-      allow read, write: if isOwner(userId);
-    }
-
-    // ─── التصنيفات (قراءة فقط من التطبيق) ─────────────────
-    match /categories/{docId} {
-      allow read: if true;
-      allow write: if false;
-    }
-
-    // ─── المتجر — المنتجات ─────────────────────────────────
-    match /product/{docId} {
-      allow read: if isApprovedContent()
-                  || (isSignedIn() && resource.data.createdBy == request.auth.uid)
-                  || isAdmin();
-      allow create: if isSignedIn()
-                    && request.resource.data.createdBy == request.auth.uid
-                    && isPendingCreate();
-      allow update: if isAdmin()
-                    || (isSignedIn()
-                        && resource.data.createdBy == request.auth.uid
-                        && approvalUnchanged()
-                        && resource.data.approvalStatus in ['pending', 'rejected']);
-      allow delete: if isAdmin()
-                    || (isSignedIn() && resource.data.createdBy == request.auth.uid);
-    }
-
-    // ─── المشرفون ───────────────────────────────────────────
-    match /supervisors/{docId} {
-      allow read: if isApprovedContent()
-                  || (isSignedIn() && resource.data.ownerId == request.auth.uid)
-                  || isAdmin();
-      allow create: if isSignedIn()
-                    && request.resource.data.ownerId == request.auth.uid
-                    && isPendingCreate();
-      allow update: if isAdmin()
-                    || (isSignedIn()
-                        && resource.data.ownerId == request.auth.uid
-                        && approvalUnchanged()
-                        && resource.data.approvalStatus in ['pending', 'rejected']);
-      allow delete: if isAdmin()
-                    || (isSignedIn() && resource.data.ownerId == request.auth.uid);
-    }
-
-    // ─── المختبرات ─────────────────────────────────────────
-    match /labs/{labId} {
-      allow read: if isApprovedContent()
-                  || (isSignedIn() && resource.data.ownerId == request.auth.uid)
-                  || isAdmin();
-
-      allow create: if isSignedIn()
-                    && request.resource.data.ownerId == request.auth.uid
-                    && isPendingCreate();
-
-      allow update: if isAdmin()
-                    || (isSignedIn()
-                        && resource.data.ownerId == request.auth.uid
-                        && approvalUnchanged()
-                        && resource.data.approvalStatus in ['pending', 'rejected']);
-
-      allow delete: if isAdmin()
-                    || (isSignedIn() && resource.data.ownerId == request.auth.uid);
-
-      match /bookings/{bookingId} {
-        allow read: if true;
-        allow create: if isSignedIn()
-                      && request.resource.data.userId == request.auth.uid
-                      && request.resource.data.status == 'confirmed';
-        allow update: if isSignedIn()
-                      && resource.data.userId == request.auth.uid
-                      && request.resource.data.status == 'cancelled';
-        allow delete: if false;
-      }
-
-      match /ratings/{ratingId} {
-        allow read: if true;
-        allow create, update: if isSignedIn()
-                              && request.auth.uid == ratingId
-                              && request.resource.data.rating >= 1
-                              && request.resource.data.rating <= 5;
-        allow delete: if false;
-      }
-    }
-
-    // ─── سوق الأفكار البحثية ─────────────────────────────
-    match /research_ideas/{ideaId} {
-      allow read: if isApprovedContent()
-                  || (isSignedIn() && resource.data.publisherId == request.auth.uid)
-                  || isAdmin();
-
-      allow create: if isSignedIn()
-                    && request.resource.data.publisherId == request.auth.uid
-                    && isPendingCreate();
-
-      allow update: if isAdmin()
-                    || (isSignedIn() && (
-                      isCounterUpdate()
-                      || (resource.data.publisherId == request.auth.uid
-                          && approvalUnchanged()
-                          && resource.data.approvalStatus in ['pending', 'rejected'])
-                    ));
-
-      allow delete: if isAdmin()
-                    || (isSignedIn()
-                        && resource.data.publisherId == request.auth.uid);
-
-      match /proposals/{proposalId} {
-        allow read: if true;
-        allow create: if isSignedIn()
-                      && request.resource.data.userId == request.auth.uid
-                      && request.resource.data.status == 'pending';
-        allow update, delete: if false;
-      }
-
-      match /votes/{voteId} {
-        allow read: if true;
-        allow create, delete: if isSignedIn()
-                              && request.auth.uid == voteId;
-        allow update: if false;
-      }
-    }
-  }
-}
-
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function isAdmin() {
+      return isSignedIn() && userDoc().data.role == 'admin';
+    }
+
+    function isApprovedContent() {
+      return !('approvalStatus' in resource.data)
+          || resource.data.approvalStatus == 'approved';
+    }
+
+    function isPendingCreate() {
+      return request.resource.data.approvalStatus == 'pending';
+    }
+
+    function approvalUnchanged() {
+      return request.resource.data.approvalStatus == resource.data.approvalStatus;
+    }
+
+    function isCounterUpdate() {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      return changed.hasOnly(['votesCount'])
+          || changed.hasOnly(['proposalsCount'])
+          || changed.hasOnly(['upvotesCount'])
+          || changed.hasOnly(['repliesCount']);
+    }
+
+    function canBootstrapAdmin() {
+      return isSignedIn()
+          && get(/databases/$(database)/documents/config/app).data.allowBootstrap == true;
+    }
+
+    // ─── إعدادات التطبيق ─────────────────────────────────
+    match /config/{docId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+                    && docId == 'app'
+                    && request.resource.data.allowBootstrap == true
+                    && !exists(/databases/$(database)/documents/config/app);
+      allow update, delete: if isAdmin();
+    }
+
+    // ─── حسابات المستخدمين ────────────────────────────────
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isOwner(userId)
+                    && request.resource.data.role != 'admin';
+      allow update: if isAdmin()
+                    || (isOwner(userId)
+                        && request.resource.data.role == resource.data.role)
+                    || (isOwner(userId)
+                        && resource.data.role != 'admin'
+                        && request.resource.data.role == 'admin'
+                        && canBootstrapAdmin());
+      allow delete: if false;
+    }
+
+    // ─── ملف الطالب الأكاديمي ─────────────────────────────
+    match /student_profiles/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // ─── التصنيفات (قراءة فقط من التطبيق) ─────────────────
+    match /categories/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // ─── المتجر — المنتجات ─────────────────────────────────
+    match /product/{docId} {
+      allow read: if isApprovedContent()
+                  || (isSignedIn() && resource.data.createdBy == request.auth.uid)
+                  || isAdmin();
+      allow create: if isSignedIn()
+                    && request.resource.data.createdBy == request.auth.uid
+                    && isPendingCreate();
+      allow update: if isAdmin()
+                    || (isSignedIn()
+                        && resource.data.createdBy == request.auth.uid
+                        && approvalUnchanged()
+                        && resource.data.approvalStatus in ['pending', 'rejected']);
+      allow delete: if isAdmin()
+                    || (isSignedIn() && resource.data.createdBy == request.auth.uid);
+    }
+
+    // ─── المشرفون ───────────────────────────────────────────
+    match /supervisors/{docId} {
+      allow read: if isApprovedContent()
+                  || (isSignedIn() && resource.data.ownerId == request.auth.uid)
+                  || isAdmin();
+      allow create: if isAdmin()
+                    || (isSignedIn()
+                        && request.resource.data.ownerId == request.auth.uid
+                        && isPendingCreate());
+      allow update: if isAdmin()
+                    || (isSignedIn()
+                        && resource.data.ownerId == request.auth.uid
+                        && approvalUnchanged()
+                        && resource.data.approvalStatus in ['pending', 'rejected']);
+      allow delete: if isAdmin()
+                    || (isSignedIn() && resource.data.ownerId == request.auth.uid);
+    }
+
+    // ─── المختبرات ─────────────────────────────────────────
+    match /labs/{labId} {
+      allow read: if isApprovedContent()
+                  || (isSignedIn() && resource.data.ownerId == request.auth.uid)
+                  || isAdmin();
+
+      allow create: if isSignedIn()
+                    && request.resource.data.ownerId == request.auth.uid
+                    && isPendingCreate();
+
+      allow update: if isAdmin()
+                    || (isSignedIn()
+                        && resource.data.ownerId == request.auth.uid
+                        && approvalUnchanged()
+                        && resource.data.approvalStatus in ['pending', 'rejected']);
+
+      allow delete: if isAdmin()
+                    || (isSignedIn() && resource.data.ownerId == request.auth.uid);
+
+      match /bookings/{bookingId} {
+        allow read: if true;
+        allow create: if isSignedIn()
+                      && request.resource.data.userId == request.auth.uid
+                      && request.resource.data.status == 'confirmed';
+        allow update: if isSignedIn()
+                      && resource.data.userId == request.auth.uid
+                      && request.resource.data.status == 'cancelled';
+        allow delete: if false;
+      }
+
+      match /ratings/{ratingId} {
+        allow read: if true;
+        allow create, update: if isSignedIn()
+                              && request.auth.uid == ratingId
+                              && request.resource.data.rating >= 1
+                              && request.resource.data.rating <= 5;
+        allow delete: if false;
+      }
+    }
+
+    // ─── سوق الأفكار البحثية ─────────────────────────────
+    match /research_ideas/{ideaId} {
+      allow read: if isApprovedContent()
+                  || (isSignedIn() && resource.data.publisherId == request.auth.uid)
+                  || isAdmin();
+
+      allow create: if isSignedIn()
+                    && request.resource.data.publisherId == request.auth.uid
+                    && isPendingCreate();
+
+      allow update: if isAdmin()
+                    || (isSignedIn() && (
+                      isCounterUpdate()
+                      || (resource.data.publisherId == request.auth.uid
+                          && approvalUnchanged()
+                          && resource.data.approvalStatus in ['pending', 'rejected'])
+                    ));
+
+      allow delete: if isAdmin()
+                    || (isSignedIn()
+                        && resource.data.publisherId == request.auth.uid);
+
+      match /proposals/{proposalId} {
+        allow read: if true;
+        allow create: if isSignedIn()
+                      && request.resource.data.userId == request.auth.uid
+                      && request.resource.data.status == 'pending';
+        allow update, delete: if false;
+      }
+
+      match /votes/{voteId} {
+        allow read: if true;
+        allow create, delete: if isSignedIn()
+                              && request.auth.uid == voteId;
+        allow update: if false;
+      }
+    }
+
+    // ─── المجتمع الأكاديمي ───────────────────────────────
+    match /community_posts/{postId} {
+      allow read: if isApprovedContent()
+                  || (isSignedIn() && resource.data.authorId == request.auth.uid)
+                  || isAdmin();
+
+      allow create: if isSignedIn()
+                    && request.resource.data.authorId == request.auth.uid
+                    && isPendingCreate();
+
+      allow update: if isAdmin()
+                    || (isSignedIn() && (
+                      isCounterUpdate()
+                      || (resource.data.authorId == request.auth.uid
+                          && approvalUnchanged()
+                          && resource.data.approvalStatus in ['pending', 'rejected'])
+                    ));
+
+      allow delete: if isAdmin()
+                    || (isSignedIn()
+                        && resource.data.authorId == request.auth.uid);
+
+      match /replies/{replyId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn()
+                      && request.resource.data.authorId == request.auth.uid;
+        allow update, delete: if false;
+      }
+
+      match /upvotes/{voteId} {
+        allow read: if isSignedIn();
+        allow create, delete: if isSignedIn()
+                              && request.auth.uid == voteId;
+        allow update: if false;
+      }
+    }
+
+    // ─── خدمات الكتابة الأكاديمية ─────────────────────────
+    // قاعدة collectionGroup — مطلوبة لشاشة «طلباتي»
+    match /{path=**}/writing_orders/{orderId} {
+      allow read: if isSignedIn()
+                  && (resource.data.userId == request.auth.uid
+                      || resource.data.serviceOwnerId == request.auth.uid);
+    }
+
+    match /writing_services/{serviceId} {
+      allow read: if isApprovedContent()
+                  || (isSignedIn() && resource.data.ownerId == request.auth.uid)
+                  || isAdmin();
+
+      allow create: if isSignedIn()
+                    && request.resource.data.ownerId == request.auth.uid
+                    && isPendingCreate();
+
+      allow update: if isAdmin()
+                    || (isSignedIn()
+                        && resource.data.ownerId == request.auth.uid
+                        && approvalUnchanged()
+                        && resource.data.approvalStatus in ['pending', 'rejected']);
+
+      allow delete: if isAdmin()
+                    || (isSignedIn() && resource.data.ownerId == request.auth.uid);
+
+      match /writing_orders/{orderId} {
+        allow read: if isSignedIn()
+                    && (resource.data.userId == request.auth.uid
+                        || resource.data.serviceOwnerId == request.auth.uid);
+        allow create: if isSignedIn()
+                      && request.resource.data.userId == request.auth.uid
+                      && request.resource.data.status == 'pending';
+        allow update: if isSignedIn()
+                      && resource.data.userId == request.auth.uid
+                      && request.resource.data.status == 'cancelled';
+        allow delete: if false;
+      }
+    }
+
+    // ─── أخبار علمية (مختارة من الإدارة + قراءة للجميع) ───
+    match /science_news/{docId} {
+      allow read: if isApprovedContent()
+                  || isAdmin();
+      allow create: if isSignedIn() && isPendingCreate();
+      allow update: if isAdmin()
+                    || (isSignedIn()
+                        && resource.data.createdBy == request.auth.uid
+                        && approvalUnchanged()
+                        && resource.data.approvalStatus in ['pending', 'rejected']);
+      allow delete: if isAdmin();
+    }
+  }
+}
+

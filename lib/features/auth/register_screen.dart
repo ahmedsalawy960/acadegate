@@ -107,17 +107,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 style: TextStyle(color: Colors.grey),
               ),
               const SizedBox(height: 16),
-              ...UserRole.all.map((role) {
-                return RadioListTile<String>(
-                  value: role,
-                  groupValue: _selectedRole,
-                  onChanged: (value) {
-                    if (value != null) setState(() => _selectedRole = value);
-                  },
-                  title: Text(UserRole.label(role)),
-                  contentPadding: EdgeInsets.zero,
-                );
-              }),
+              RadioGroup<String>(
+                groupValue: _selectedRole,
+                onChanged: (value) {
+                  if (value != null) setState(() => _selectedRole = value);
+                },
+                child: Column(
+                  children: UserRole.all.map((role) {
+                    return RadioListTile<String>(
+                      value: role,
+                      title: Text(UserRole.label(role)),
+                      contentPadding: EdgeInsets.zero,
+                    );
+                  }).toList(),
+                ),
+              ),
               const SizedBox(height: 20),
               TextFormField(
                 controller: _nameController,

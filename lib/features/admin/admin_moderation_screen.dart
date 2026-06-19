@@ -4,9 +4,12 @@ import '../auth/user_account_service.dart';
 import '../auth/user_role.dart';
 import '../moderation/approval_status.dart';
 import '../moderation/moderation_service.dart';
+import '../supervisor_import/admin_supervisor_import_screen.dart';
 
 class AdminModerationScreen extends StatefulWidget {
-  const AdminModerationScreen({super.key});
+  final String initialFilter;
+
+  const AdminModerationScreen({super.key, this.initialFilter = 'all'});
 
   @override
   State<AdminModerationScreen> createState() => _AdminModerationScreenState();
@@ -15,7 +18,7 @@ class AdminModerationScreen extends StatefulWidget {
 class _AdminModerationScreenState extends State<AdminModerationScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
-  String _filter = 'all';
+  late String _filter;
 
   late final Stream<List<PendingItem>> _pendingStream;
   late final Stream<ModerationStats> _statsStream;
@@ -23,6 +26,7 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
   @override
   void initState() {
     super.initState();
+    _filter = widget.initialFilter;
     _tabController = TabController(length: 3, vsync: this);
     _pendingStream = ModerationService.instance.watchPendingItems();
     _statsStream = ModerationService.instance.watchStats(
@@ -235,6 +239,20 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
         title: const Text('لوحة الإدارة'),
         backgroundColor: const Color(0xFF1A237E),
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            tooltip: 'استيراد مشرفين',
+            icon: const Icon(Icons.cloud_download_outlined),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const AdminSupervisorImportScreen(),
+                ),
+              );
+            },
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: Colors.amber,
@@ -299,6 +317,10 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
                   _filterChip(
                     'research_ideas',
                     'أفكار (${allItems.where((i) => i.collection == 'research_ideas').length})',
+                  ),
+                  _filterChip(
+                    'community_posts',
+                    'مجتمع (${allItems.where((i) => i.collection == 'community_posts').length})',
                   ),
                 ],
               ),
@@ -434,6 +456,11 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
                 _miniStat('مختبرات', stats.pendingLabs, Colors.purple),
                 _miniStat('منتجات', stats.pendingProducts, Colors.green),
                 _miniStat('أفكار', stats.pendingIdeas, Colors.orange),
+                _miniStat(
+                  'مجتمع',
+                  stats.pendingCommunityPosts,
+                  const Color(0xFF00695C),
+                ),
               ],
             ),
             const SizedBox(height: 20),

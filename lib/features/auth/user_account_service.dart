@@ -54,7 +54,10 @@ class UserAccountService {
 
   Future<void> ensureAccountExists(User user) async {
     final snapshot = await _doc(user.uid).get();
-    if (snapshot.exists) return;
+    if (snapshot.exists) {
+      await _applyBootstrapAdmin(user);
+      return;
+    }
 
     await _doc(user.uid).set({
       'uid': user.uid,
@@ -63,6 +66,59 @@ class UserAccountService {
       'role': UserRole.student,
       'createdAt': FieldValue.serverTimestamp(),
     });
+
+    await _applyBootstrapAdmin(user);
+  }
+
+  /// للتطوير: flutter run --dart-define=ADMIN_EMAIL=your@email.com
+  static const _bootstrapAdminEmail = String.fromEnvironment(
+    'ADMIN_EMAIL',
+    defaultValue: '',
+  );
+
+  Future<void> _applyBootstrapAdmin(User user) async {
+    final target = _bootstrapAdminEmail.trim().toLowerCase();
+    if (target.isEmpty) return;
+
+    final email = user.email?.trim().toLowerCase();
+    if (email == null || email != target) return;
+
+    final snapshot = await _doc(user.uid).get();
+    if (!snapshot.exists) return;
+
+    final currentRole = snapshot.data()?['role']?.toString();
+    if (currentRole == UserRole.admin) return;
+
+    await _ensureBootstrapConfig();
+    await _doc(user.uid).update({'role': UserRole.admin});
+  }
+
+  Future<void> _ensureBootstrapConfig() async {
+    final ref = _db.collection('config').doc('app');
+    final snap = await ref.get();
+    if (!snap.exists) {
+      await ref.set({'allowBootstrap': true});
+    }
+  }
+
+  Future<bool> tryClaimDevAdmin() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return false;
+
+    final configRef = _db.collection('config').doc('app');
+    final config = await configRef.get();
+
+    if (!config.exists) {
+      await configRef.set({'allowBootstrap': true});
+    } else if (config.data()?['allowBootstrap'] != true) {
+      return false;
+    }
+
+    final account = await loadCurrentAccount();
+    if (account?.isAdmin == true) return true;
+
+    await _doc(user.uid).update({'role': UserRole.admin});
+    return true;
   }
 
   Stream<List<UserAccount>> watchAllUsers() {

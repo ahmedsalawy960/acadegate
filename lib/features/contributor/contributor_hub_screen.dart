@@ -4,7 +4,9 @@ import '../auth/user_account.dart';
 import '../auth/user_account_service.dart';
 import '../auth/user_role.dart';
 import '../moderation/approval_status.dart';
+import '../admin/admin_moderation_screen.dart';
 import '../research_marketplace/publish_research_idea_screen.dart';
+import '../supervisor_import/admin_supervisor_import_screen.dart';
 import '../store/store_categories_screen.dart';
 import 'submit_lab_screen.dart';
 import 'submit_supervisor_screen.dart';
@@ -52,11 +54,49 @@ class ContributorHubScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
+              if (account.isAdmin) ...[
+                Card(
+                  color: const Color(0xFF1A237E),
+                  child: ListTile(
+                    leading: const Icon(Icons.fact_check, color: Colors.white),
+                    title: const Text(
+                      'مراجعة المحتوى — موافقة / رفض',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    subtitle: const Text(
+                      'المشرفون والمختبرات والمنتجات المعلقة',
+                      style: TextStyle(color: Colors.white70),
+                    ),
+                    trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 14),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const AdminModerationScreen(
+                            initialFilter: 'supervisors',
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
               const Text(
                 'إضافة محتوى',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
               const SizedBox(height: 8),
+              _actionTile(
+                context,
+                icon: Icons.cloud_download_outlined,
+                title: 'استيراد مشرفين',
+                subtitle: 'CSV أو OpenAlex — للمدير أو المساهمين',
+                screen: const AdminSupervisorImportScreen(),
+              ),
               if (_canSubmitSupervisor(account.role) ||
                   account.role == UserRole.student)
                 _actionTile(

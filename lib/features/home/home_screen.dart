@@ -2,24 +2,33 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../academic/academic_content_service.dart';
+import '../academic/faculty_categories.dart';
 import '../academic/academic_fallback_data.dart';
 import '../academic/academic_models.dart';
 import '../auth/welcome_screen.dart';
 import '../admin/admin_moderation_screen.dart';
 import '../auth/user_account_service.dart';
+import '../academic_writing/writing_hub_screen.dart';
+import '../ai_advisor/ai_advisor_screen.dart';
+import '../community/community_hub_screen.dart';
 import '../contributor/contributor_hub_screen.dart';
 import '../contributor/submit_supervisor_screen.dart';
+import '../supervisor_import/admin_supervisor_import_screen.dart';
 import '../matchmaking/matchmaking_screen.dart';
 import '../moderation/approval_status.dart';
+import '../moderation/delete_content_button.dart';
+import '../moderation/moderation_service.dart';
 import '../profile/academic_profile_screen.dart';
 import '../research_marketplace/research_idea_marketplace_detail_screen.dart';
 import '../research_marketplace/research_marketplace_screen.dart';
+import '../science_news/science_news_screen.dart';
 import '../smart_labs/smart_lab_detail_screen.dart';
 import '../smart_labs/smart_labs_screen.dart';
 import '../store/product_detail_screen.dart';
 import '../store/product_list_screen.dart';
 import '../store/store_categories.dart';
 import '../store/store_categories_screen.dart';
+import 'dashboard_card.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -38,12 +47,22 @@ class _HomeScreenState extends State<HomeScreen> {
   // الكلمة التي يبحث عنها المستخدم حالياً
   String _searchQuery = "";
 
+  @override
+  void initState() {
+    super.initState();
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      UserAccountService.instance.ensureAccountExists(user);
+    }
+  }
+
   // 1. قائمة الأقسام الرئيسية والتصنيفات
   final List<Map<String, dynamic>> _allServices = [
     {
       "title": "المشرفون",
       "icon": Icons.people_alt_rounded,
-      "image": "assets/images/supervisors.jpg", // 👈 أضفنا مسار الصورة هنا
+      "imageUrl": HomeServiceImages.supervisors,
+      "assetFallback": "assets/images/supervisors.jpg",
       "color": Colors.blue,
       "tags": ["كلية", "جامعة", "أساتذة", "دكتور", "مشرفين", "مشرف"],
       "screen": const FacultiesScreen(),
@@ -52,8 +71,8 @@ class _HomeScreenState extends State<HomeScreen> {
       "title": "أفكار بحثية",
       "icon": Icons.lightbulb_rounded,
       "color": Colors.orange,
-      "image":
-          "assets/images/ideas.jpg", // 👈 هذا هو السطر السحري الجديد لقسم الأفكار البحثية
+      "imageUrl": HomeServiceImages.ideas,
+      "assetFallback": "assets/images/ideas.jpg",
       "tags": ["بحث", "أفكار", "مقترح", "مشاريع", "طاقة", "مرور", "دراسة"],
       "screen": const ResearchMarketplaceScreen(),
     },
@@ -61,8 +80,8 @@ class _HomeScreenState extends State<HomeScreen> {
       "title": "مختبرات ذكية",
       "icon": Icons.science_rounded,
       "color": Colors.purple,
-      "image":
-          "assets/images/labs.jpg", // 👈 هذا هو السطر السحري الجديد لقسم المختبرات
+      "imageUrl": HomeServiceImages.labs,
+      "assetFallback": "assets/images/labs.jpg",
       "tags": ["مختبر", "مختبرات", "معمل", "أجهزة", "نانو", "تحليل", "كيمياء"],
       "screen": const SmartLabsScreen(),
     },
@@ -70,7 +89,8 @@ class _HomeScreenState extends State<HomeScreen> {
       "title": "المتجر",
       "icon": Icons.shopping_cart_rounded,
       "color": Colors.green,
-      "image": "assets/images/shop.jpg", // 👈 هذا هو السطر الخاص بالمتجر
+      "imageUrl": HomeServiceImages.shop,
+      "assetFallback": "assets/images/shop.jpg",
       "tags": [
         "متجر",
         "شراء",
@@ -83,41 +103,93 @@ class _HomeScreenState extends State<HomeScreen> {
       ],
       "screen": const StoreCategoriesScreen(),
     },
+    {
+      "title": "المجتمع الأكاديمي",
+      "icon": Icons.forum_rounded,
+      "color": const Color(0xFF00695C),
+      "imageUrl": HomeServiceImages.community,
+      "assetFallback": "assets/images/ideas.jpg",
+      "tags": [
+        "مجتمع",
+        "نقاش",
+        "سؤال",
+        "مجموعة",
+        "دراسة",
+        "مناقشة",
+        "أكاديمي",
+        "غرفة",
+      ],
+      "screen": const CommunityHubScreen(),
+    },
+    {
+      "title": "المساعد الأكاديمي",
+      "icon": Icons.psychology_alt_rounded,
+      "color": const Color(0xFF4527A0),
+      "imageUrl": HomeServiceImages.aiAdvisor,
+      "assetFallback": "assets/images/supervisors.jpg",
+      "tags": [
+        "مساعد",
+        "ذكي",
+        "ai",
+        "عناوين",
+        "سؤال بحثي",
+        "تلخيص",
+        "مشرف",
+        "رسالة",
+      ],
+      "screen": const AiAdvisorScreen(),
+    },
+    {
+      "title": "خدمات الكتابة",
+      "icon": Icons.edit_note_rounded,
+      "color": const Color(0xFF5D4037),
+      "imageUrl": HomeServiceImages.writingServices,
+      "assetFallback": "assets/images/ideas.jpg",
+      "tags": [
+        "كتابة",
+        "رسالة",
+        "بحث",
+        "إحصاء",
+        "SPSS",
+        "ماجستير",
+        "دكتوراه",
+        "تحرير",
+        "مراجعة أدبيات",
+        "حجز",
+      ],
+      "screen": const WritingHubScreen(),
+    },
+    {
+      "title": "أخبار علمية",
+      "icon": Icons.newspaper_rounded,
+      "color": const Color(0xFF0D47A1),
+      "imageUrl": HomeServiceImages.scienceNews,
+      "assetFallback": "assets/images/ideas.jpg",
+      "tags": [
+        "أخبار",
+        "علم",
+        "بحث",
+        "اكتشاف",
+        "nature",
+        "دراسة",
+        "منشور",
+        "إنجاز",
+      ],
+      "screen": const ScienceNewsScreen(),
+    },
   ];
 
   // 2. بيانات الكليات للبحث
-  final List<Map<String, dynamic>> _allFaculties = [
-    {
-      "name": "كلية الهندسة",
-      "category": "Engineering",
-      "icon": Icons.engineering,
-      "color": Colors.orange,
-    },
-    {
-      "name": "كلية العلوم",
-      "category": "Science",
-      "icon": Icons.science,
-      "color": Colors.green,
-    },
-    {
-      "name": "كلية الطب",
-      "category": "Medicine",
-      "icon": Icons.medical_services,
-      "color": Colors.red,
-    },
-    {
-      "name": "كلية الحقوق",
-      "category": "Law",
-      "icon": Icons.gavel,
-      "color": Colors.brown,
-    },
-    {
-      "name": "كلية الحاسبات",
-      "category": "CS",
-      "icon": Icons.computer,
-      "color": Colors.blue,
-    },
-  ];
+  List<Map<String, dynamic>> get _allFaculties => facultyCategories
+      .map(
+        (faculty) => {
+          'name': faculty.titleAr,
+          'category': faculty.id,
+          'icon': faculty.icon,
+          'color': faculty.color,
+        },
+      )
+      .toList();
 
   bool _matchesFields(String query, List<String> fields) {
     if (query.isEmpty) return false;
@@ -223,6 +295,18 @@ class _HomeScreenState extends State<HomeScreen> {
                     },
                   ),
                 ],
+              );
+            },
+          ),
+          IconButton(
+            tooltip: 'المساعد الأكاديمي',
+            icon: const Icon(Icons.psychology_alt_outlined),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const AiAdvisorScreen(),
+                ),
               );
             },
           ),
@@ -334,14 +418,17 @@ class _HomeScreenState extends State<HomeScreen> {
                       gridDelegate:
                           const SliverGridDelegateWithFixedCrossAxisCount(
                             crossAxisCount: 2,
-                            crossAxisSpacing: 16,
-                            mainAxisSpacing: 16,
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
+                            mainAxisExtent: 168,
                           ),
                       itemBuilder: (context, index) {
                         final item = _allServices[index];
                         return DashboardCard(
                           title: item["title"],
-                          imagePath: item["image"],
+                          imageUrl: item["imageUrl"],
+                          assetFallback: item["assetFallback"],
+                          icon: item["icon"],
                           color: item["color"],
                           onTap: () => Navigator.push(
                             context,
@@ -518,9 +605,12 @@ class _HomeScreenState extends State<HomeScreen> {
                                     (sup) => SupervisorListCard(
                                       name: sup.name,
                                       speciality: sup.speciality,
+                                      faculty: sup.faculty,
                                       university: sup.university,
                                       bio: sup.bio,
                                       isAvailable: sup.isAvailable,
+                                      supervisorId: sup.id,
+                                      ownerId: sup.ownerId,
                                     ),
                                   ),
                                 ],
@@ -667,6 +757,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                                       data['contact']
                                                           ?.toString() ??
                                                       '',
+                                                  productId: doc.id,
+                                                  createdBy:
+                                                      data['createdBy']
+                                                          ?.toString(),
                                                 ),
                                           ),
                                         ),
@@ -698,59 +792,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class DashboardCard extends StatelessWidget {
-  final String title;
-  final String imagePath; // 🟢 تم التغيير هنا ليكون مسار الصورة نصياً (String)
-  final Color color;
-  final VoidCallback onTap;
-
-  const DashboardCard({
-    super.key,
-    required this.title,
-    required this.imagePath, // 🟢 تم التحديث هنا لاستقبال حقل الصورة المطور
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 2,
-      color: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircleAvatar(
-                radius: 35,
-                // استخدام الـ التعديل الحديث بدلاً من withOpacity لتفادي أي تحذيرات زرقاء
-                backgroundColor: color.withValues(alpha: 0.1),
-                backgroundImage: AssetImage(
-                  imagePath,
-                ), // 🟢 لعرض الصورة ديناميكياً
-              ),
-              const SizedBox(height: 12),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 // =======================================================
 // قسم المشرفين
 // =======================================================
@@ -761,10 +802,77 @@ class FacultiesScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("اختر التخصص"),
+        title: const Text("اختر الكلية"),
         backgroundColor: const Color(0xFF1A237E),
         foregroundColor: Colors.white,
         actions: [
+          StreamBuilder(
+            stream: UserAccountService.instance.watchCurrentAccount(),
+            builder: (context, accountSnapshot) {
+              final isAdmin = accountSnapshot.data?.isAdmin == true;
+              if (!isAdmin) {
+                return IconButton(
+                  tooltip: 'استيراد مشرفين',
+                  icon: const Icon(Icons.cloud_download_outlined),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const AdminSupervisorImportScreen(),
+                      ),
+                    );
+                  },
+                );
+              }
+
+              return StreamBuilder<List<PendingItem>>(
+                stream: ModerationService.instance.watchPendingItems(),
+                builder: (context, pendingSnapshot) {
+                  final pending = pendingSnapshot.data ?? [];
+                  final pendingSupervisors = pending
+                      .where((item) => item.collection == 'supervisors')
+                      .length;
+
+                  return Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        tooltip: 'مراجعة المشرفين — موافقة / رفض',
+                        icon: Badge(
+                          isLabelVisible: pendingSupervisors > 0,
+                          label: Text('$pendingSupervisors'),
+                          child: const Icon(Icons.fact_check_outlined),
+                        ),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const AdminModerationScreen(
+                                initialFilter: 'supervisors',
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      IconButton(
+                        tooltip: 'استيراد مشرفين',
+                        icon: const Icon(Icons.cloud_download_outlined),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  const AdminSupervisorImportScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  );
+                },
+              );
+            },
+          ),
           IconButton(
             tooltip: 'سجّل كمشرف',
             icon: const Icon(Icons.person_add_alt_1),
@@ -787,70 +895,79 @@ class FacultiesScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          FacultyCard(
-            name: "كلية الهندسة",
-            icon: Icons.engineering,
-            color: Colors.orange,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) =>
-                    const SupervisorsListScreen(category: "Engineering"),
+      body: StreamBuilder<List<AcademicSupervisor>>(
+        stream: AcademicContentService.instance.supervisorsStream(),
+        builder: (context, snapshot) {
+          final supervisors = snapshot.data ?? [];
+
+          return ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              StreamBuilder(
+                stream: UserAccountService.instance.watchCurrentAccount(),
+                builder: (context, accountSnapshot) {
+                  final isAdmin = accountSnapshot.data?.isAdmin == true;
+                  if (!isAdmin) return const SizedBox.shrink();
+
+                  return StreamBuilder<List<PendingItem>>(
+                    stream: ModerationService.instance.watchPendingItems(),
+                    builder: (context, pendingSnapshot) {
+                      final pendingSupervisors = (pendingSnapshot.data ?? [])
+                          .where((item) => item.collection == 'supervisors')
+                          .length;
+                      if (pendingSupervisors == 0) return const SizedBox.shrink();
+
+                      return Card(
+                        color: Colors.orange.withValues(alpha: 0.12),
+                        margin: const EdgeInsets.only(bottom: 16),
+                        child: ListTile(
+                          leading: const Icon(Icons.pending_actions, color: Colors.orange),
+                          title: Text('$pendingSupervisors مشرف بانتظار الموافقة'),
+                          subtitle: const Text('اضغط للموافقة أو الرفض'),
+                          trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const AdminModerationScreen(
+                                  initialFilter: 'supervisors',
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      );
+                    },
+                  );
+                },
               ),
-            ),
-          ),
-          FacultyCard(
-            name: "كلية العلوم",
-            icon: Icons.science,
-            color: Colors.green,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) =>
-                    const SupervisorsListScreen(category: "Science"),
-              ),
-            ),
-          ),
-          FacultyCard(
-            name: "كلية الطب",
-            icon: Icons.medical_services,
-            color: Colors.red,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) =>
-                    const SupervisorsListScreen(category: "Medicine"),
-              ),
-            ),
-          ),
-          FacultyCard(
-            name: "كلية الحقوق",
-            icon: Icons.gavel,
-            color: Colors.brown,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) =>
-                    const SupervisorsListScreen(category: "Law"),
-              ),
-            ),
-          ),
-          FacultyCard(
-            name: "كلية الحاسبات",
-            icon: Icons.computer,
-            color: Colors.blue,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) =>
-                    const SupervisorsListScreen(category: "CS"),
-              ),
-            ),
-          ),
-        ],
+              ...facultyCategories.map((faculty) {
+                final inFaculty = supervisors
+                    .where((supervisor) => supervisor.category == faculty.id)
+                    .toList();
+                final previewNames =
+                    inFaculty.take(3).map((supervisor) => supervisor.name).toList();
+
+                return FacultyCard(
+                  name: faculty.titleAr,
+                  icon: faculty.icon,
+                  color: faculty.color,
+                  supervisorCount: inFaculty.length,
+                  previewNames: previewNames,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => SupervisorsListScreen(
+                        category: faculty.id,
+                        facultyTitle: faculty.titleAr,
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ],
+          );
+        },
       ),
 
       // ======= تم تعديل الزر هنا وحذف كلمة const ليعمل بنجاح دون أخطاء =======
@@ -872,16 +989,35 @@ class FacultyCard extends StatelessWidget {
   final String name;
   final IconData icon;
   final Color color;
+  final int supervisorCount;
+  final List<String> previewNames;
   final VoidCallback onTap;
+
   const FacultyCard({
     super.key,
     required this.name,
     required this.icon,
     required this.color,
+    this.supervisorCount = 0,
+    this.previewNames = const [],
     required this.onTap,
   });
+
   @override
   Widget build(BuildContext context) {
+    String subtitle;
+    if (supervisorCount == 0) {
+      subtitle = 'لا يوجد مشرفون بعد';
+    } else if (previewNames.isEmpty) {
+      subtitle = '$supervisorCount مشرف';
+    } else {
+      final names = previewNames.join('، ');
+      final extra = supervisorCount > previewNames.length
+          ? ' +${supervisorCount - previewNames.length}'
+          : '';
+      subtitle = '$supervisorCount مشرف • $names$extra';
+    }
+
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       elevation: 2,
@@ -900,14 +1036,27 @@ class FacultyCard extends StatelessWidget {
                 child: Icon(icon, color: color, size: 30),
               ),
               const SizedBox(width: 20),
-              Text(
-                name,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                    ),
+                  ],
                 ),
               ),
-              const Spacer(),
               const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
             ],
           ),
@@ -919,30 +1068,46 @@ class FacultyCard extends StatelessWidget {
 
 class SupervisorsListScreen extends StatelessWidget {
   final String category;
-  const SupervisorsListScreen({super.key, required this.category});
+  final String? facultyTitle;
 
-  String _titleForCategory(String value) {
-    switch (value) {
-      case 'Engineering':
-        return 'مشرفو الهندسة';
-      case 'Science':
-        return 'مشرفو العلوم';
-      case 'Medicine':
-        return 'مشرفو الطب';
-      case 'Law':
-        return 'مشرفو الحقوق';
-      default:
-        return 'مشرفو الحاسبات';
-    }
-  }
+  const SupervisorsListScreen({
+    super.key,
+    required this.category,
+    this.facultyTitle,
+  });
+
+  String get _title =>
+      facultyTitle ?? supervisorsTitleForCategory(category);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_titleForCategory(category)),
+        title: Text(_title),
         backgroundColor: const Color(0xFF1A237E),
         foregroundColor: Colors.white,
+        actions: [
+          StreamBuilder(
+            stream: UserAccountService.instance.watchCurrentAccount(),
+            builder: (context, snapshot) {
+              if (snapshot.data?.isAdmin != true) return const SizedBox.shrink();
+              return IconButton(
+                tooltip: 'مراجعة المعلقين',
+                icon: const Icon(Icons.fact_check_outlined),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AdminModerationScreen(
+                        initialFilter: 'supervisors',
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
@@ -995,9 +1160,12 @@ class SupervisorsListScreen extends StatelessWidget {
               return SupervisorListCard(
                 name: supervisor.name,
                 speciality: supervisor.speciality,
+                faculty: supervisor.faculty,
                 university: supervisor.university,
                 bio: supervisor.bio,
                 isAvailable: supervisor.isAvailable,
+                supervisorId: supervisor.id,
+                ownerId: supervisor.ownerId,
               );
             },
           );
@@ -1010,19 +1178,29 @@ class SupervisorsListScreen extends StatelessWidget {
 class SupervisorListCard extends StatelessWidget {
   final String name;
   final String speciality;
+  final String faculty;
   final String university;
   final String bio;
   final bool isAvailable;
+  final String? supervisorId;
+  final String? ownerId;
+
   const SupervisorListCard({
     super.key,
     required this.name,
     required this.speciality,
+    this.faculty = '',
     required this.university,
     this.bio = '',
     required this.isAvailable,
+    this.supervisorId,
+    this.ownerId,
   });
+
   @override
   Widget build(BuildContext context) {
+    final facultyLine = faculty.isNotEmpty ? faculty : speciality;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       color: Colors.white,
@@ -1036,6 +1214,8 @@ class SupervisorListCard extends StatelessWidget {
                 speciality: speciality,
                 university: university,
                 bio: bio.isEmpty ? 'أستاذ متخصص في $speciality.' : bio,
+                supervisorId: supervisorId,
+                ownerId: ownerId,
               ),
             ),
           );
@@ -1061,7 +1241,17 @@ class SupervisorListCard extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      "$speciality\n$university",
+                      facultyLine,
+                      style: TextStyle(
+                        color: Colors.grey[800],
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    Text(
+                      speciality.isNotEmpty && faculty.isNotEmpty
+                          ? '$speciality\n$university'
+                          : university,
                       style: TextStyle(color: Colors.grey[600], fontSize: 13),
                     ),
                   ],
@@ -1087,13 +1277,19 @@ class SupervisorProfileScreen extends StatelessWidget {
   final String speciality;
   final String university;
   final String bio;
+  final String? supervisorId;
+  final String? ownerId;
+
   const SupervisorProfileScreen({
     super.key,
     required this.name,
     required this.speciality,
     required this.university,
     required this.bio,
+    this.supervisorId,
+    this.ownerId,
   });
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1101,6 +1297,12 @@ class SupervisorProfileScreen extends StatelessWidget {
         title: const Text("الملف الشخصي"),
         backgroundColor: const Color(0xFF1A237E),
         foregroundColor: Colors.white,
+        actions: deleteAppBarActions(
+          collection: 'supervisors',
+          documentId: supervisorId,
+          ownerId: ownerId,
+          itemLabel: name,
+        ),
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -1187,6 +1389,12 @@ class SupervisorProfileScreen extends StatelessWidget {
                         ),
                       ),
                     ],
+                  ),
+                  ManageContentActions(
+                    collection: 'supervisors',
+                    documentId: supervisorId,
+                    ownerId: ownerId,
+                    itemLabel: name,
                   ),
                 ],
               ),

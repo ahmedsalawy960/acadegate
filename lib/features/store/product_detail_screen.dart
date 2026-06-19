@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 
+import '../moderation/delete_content_button.dart';
+
 class ProductDetailScreen extends StatelessWidget {
   final String name;
   final String price;
   final String description;
   final String storeName;
   final String contact;
+  final String? productId;
+  final String? createdBy;
 
   const ProductDetailScreen({
     super.key,
@@ -14,6 +18,8 @@ class ProductDetailScreen extends StatelessWidget {
     required this.description,
     required this.storeName,
     required this.contact,
+    this.productId,
+    this.createdBy,
   });
 
   @override
@@ -23,6 +29,12 @@ class ProductDetailScreen extends StatelessWidget {
         title: const Text('تفاصيل المنتج'),
         backgroundColor: Colors.green[700],
         foregroundColor: Colors.white,
+        actions: deleteAppBarActions(
+          collection: 'product',
+          documentId: productId,
+          ownerId: createdBy,
+          itemLabel: name,
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -121,6 +133,12 @@ class ProductDetailScreen extends StatelessWidget {
                   ),
                 ),
               ),
+            ),
+            ManageContentActions(
+              collection: 'product',
+              documentId: productId,
+              ownerId: createdBy,
+              itemLabel: name,
             ),
           ],
         ),
