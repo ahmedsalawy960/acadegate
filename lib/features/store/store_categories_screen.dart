@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../core/widgets/category_visual.dart';
 import 'store_categories.dart';
 import 'product_list_screen.dart';
 
@@ -38,9 +40,9 @@ class StoreCategoriesScreen extends StatelessWidget {
                 itemCount: storeCategories.length,
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                  childAspectRatio: 0.95,
+                  crossAxisSpacing: 14,
+                  mainAxisSpacing: 14,
+                  mainAxisExtent: 148,
                 ),
                 itemBuilder: (context, index) {
                   final category = storeCategories[index];
@@ -80,34 +82,44 @@ class _StoreCategoryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       elevation: 2,
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: category.color.withValues(alpha: 0.12),
-                  shape: BoxShape.circle,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            CategoryVisual(
+              imageUrl: category.imageUrl,
+              icon: category.icon,
+              color: category.color,
+              height: 76,
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                child: Row(
+                  children: [
+                    Icon(category.icon, size: 16, color: category.color),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        category.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          height: 1.25,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                child: Icon(category.icon, size: 36, color: category.color),
               ),
-              const SizedBox(height: 12),
-              Text(
-                category.title,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 15,
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

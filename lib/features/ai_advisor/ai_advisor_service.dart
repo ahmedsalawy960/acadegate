@@ -1,5 +1,8 @@
+import 'package:firebase_auth/firebase_auth.dart';
+
 import 'advisor_agent.dart';
 import 'advisor_agent_registry.dart';
+import 'advisor_attachment.dart';
 import 'advisor_branding.dart';
 import 'advisor_message.dart';
 import 'advisor_orchestrator.dart';
@@ -40,24 +43,32 @@ class AiAdvisorService {
         ? (GeminiAdvisorClient.runsOnWeb
             ? 'وضع ${AdvisorBranding.cloudBadge} — على المتصفح يُفضّل نشر Cloud Function أو التشغيل على Windows.'
             : 'وضع ${AdvisorBranding.cloudBadge} مفعّل — ردود Gemini الحقيقية.')
-        : 'وضع ${AdvisorBranding.localBadge} — أضف مفتاح API حقيقي وشغّل على Windows.';
+        : 'وضع ${AdvisorBranding.localBadge} — انسخ dart_defines.example.json إلى dart_defines.json '
+            'وشغّل من Cursor: AcadeGate (Windows + AI).';
+
+    final persistence = FirebaseAuth.instance.currentUser != null
+        ? 'محادثتك تُحفظ تلقائياً في حسابك.'
+        : 'سجّل دخولك لحفظ المحادثة عند مغادرة الشاشة.';
 
     return 'مرحباً! أنا **${AdvisorBranding.assistantTitle}** في ${AdvisorBranding.name}.\n\n'
         'محرك واحد يجمع وكلاء متخصصين:\n'
         '$agents\n\n'
-        'اكتب أي طلب أكاديمي — سأوجّهه تلقائياً للوكيل المناسب '
+        'اكتب أي طلب أكاديمي أو **أرفق صورة/ملف** (📎) — سأوجّهه تلقائياً للوكيل المناسب '
         '(أو أكثر من وكيل إذا لزم).\n\n'
-        '$mode';
+        '$mode\n'
+        '$persistence';
   }
 
   Future<AdvisorMessage> ask({
     required String message,
     List<AdvisorMessage> history = const [],
+    List<GeminiInlinePart> attachments = const [],
   }) async {
     final trimmed = message.trim();
     final result = await _orchestrator.process(
       message: trimmed,
       history: history,
+      attachments: attachments,
     );
 
     return AdvisorMessage(

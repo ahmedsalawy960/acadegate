@@ -31,47 +31,96 @@ service cloud.firestore {
       return request.resource.data.approvalStatus == resource.data.approvalStatus;
     }
 
-    function isCounterUpdate() {
+    function isCounterBump(field) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([field])
+          && request.resource.data[field] == resource.data[field] + 1;
+    }
+
+    function isCounterBumpOnly() {
+      return isCounterBump('votesCount')
+          || isCounterBump('proposalsCount')
+          || isCounterBump('upvotesCount')
+          || isCounterBump('repliesCount')
+          || isCounterBump('discussionsCount');
+    }
+
+    function isDiscussionMetaBump() {
       let changed = request.resource.data.diff(resource.data).affectedKeys();
-      return changed.hasOnly(['votesCount'])
-          || changed.hasOnly(['proposalsCount'])
-          || changed.hasOnly(['upvotesCount'])
-          || changed.hasOnly(['repliesCount']);
+      return changed.hasOnly(['repliesCount', 'searchText'])
+          && request.resource.data.repliesCount == resource.data.repliesCount + 1;
     }
 
-    function canBootstrapAdmin() {
-      return isSignedIn()
-          && get(/databases/$(database)/documents/config/app).data.allowBootstrap == true;
+    function isValidNotificationType() {
+      return request.resource.data.type in [
+        'general',
+        'store_order',
+        'payment_held',
+        'payment_released',
+        'payment_refunded',
+        'research_room_reply',
+        'research_discussion_reply',
+        'writing_order',
+        'supervision_request',
+        'sample_analysis',
+        'message',
+      ];
     }
 
-    // ─── إعدادات التطبيق ─────────────────────────────────
+    function isValidNotificationCreate() {
+      return request.resource.data.keys().hasAll([
+        'userId', 'title', 'body', 'type', 'senderId', 'read', 'createdAt',
+      ])
+          && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.read == false
+          && isValidNotificationType()
+          && request.resource.data.title is string
+          && request.resource.data.body is string
+          && request.resource.data.title.size() <= 200
+          && request.resource.data.body.size() <= 500;
+    }
+
+    // ─── إعدادات التطبيق (Console / Admin SDK فقط) ───────
     match /config/{docId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn()
-                    && docId == 'app'
-                    && request.resource.data.allowBootstrap == true
-                    && !exists(/databases/$(database)/documents/config/app);
-      allow update, delete: if isAdmin();
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // ─── أسرار الغرف البحثية (كلمة المرور — لا قراءة من العميل) ─
+    match /research_room_secrets/{roomId} {
+      allow read, write: if false;
     }
 
     // ─── حسابات المستخدمين ────────────────────────────────
     match /users/{userId} {
-      allow read: if isSignedIn();
+      allow read: if isOwner(userId) || isAdmin();
       allow create: if isOwner(userId)
                     && request.resource.data.role != 'admin';
       allow update: if isAdmin()
                     || (isOwner(userId)
-                        && request.resource.data.role == resource.data.role)
-                    || (isOwner(userId)
-                        && resource.data.role != 'admin'
-                        && request.resource.data.role == 'admin'
-                        && canBootstrapAdmin());
+                        && request.resource.data.role == resource.data.role);
       allow delete: if false;
     }
 
     // ─── ملف الطالب الأكاديمي ─────────────────────────────
     match /student_profiles/{userId} {
       allow read, write: if isOwner(userId);
+    }
+
+    // ─── محادثات المساعد الأكاديمي AI ─────────────────────
+    match /advisor_chats/{userId} {
+      allow read, write, delete: if isOwner(userId);
+
+      match /conversations/{conversationId} {
+        allow read, write, delete: if isOwner(userId);
+
+        match /messages/{messageId} {
+          allow read, write, delete: if isOwner(userId);
+        }
+      }
+
+      match /messages/{messageId} {
+        allow read, write, delete: if isOwner(userId);
+      }
     }
 
     // ─── التصنيفات (قراءة فقط من التطبيق) ─────────────────
@@ -121,9 +170,10 @@ service cloud.firestore {
                   || (isSignedIn() && resource.data.ownerId == request.auth.uid)
                   || isAdmin();
 
-      allow create: if isSignedIn()
-                    && request.resource.data.ownerId == request.auth.uid
-                    && isPendingCreate();
+      allow create: if isAdmin()
+                    || (isSignedIn()
+                        && request.resource.data.ownerId == request.auth.uid
+                        && isPendingCreate());
 
       allow update: if isAdmin()
                     || (isSignedIn()
@@ -135,7 +185,10 @@ service cloud.firestore {
                     || (isSignedIn() && resource.data.ownerId == request.auth.uid);
 
       match /bookings/{bookingId} {
-        allow read: if true;
+        allow read: if isSignedIn()
+                    && (resource.data.userId == request.auth.uid
+                        || get(/databases/$(database)/documents/labs/$(labId)).data.ownerId == request.auth.uid
+                        || isAdmin());
         allow create: if isSignedIn()
                       && request.resource.data.userId == request.auth.uid
                       && request.resource.data.status == 'confirmed';
@@ -146,7 +199,7 @@ service cloud.firestore {
       }
 
       match /ratings/{ratingId} {
-        allow read: if true;
+        allow read: if isSignedIn();
         allow create, update: if isSignedIn()
                               && request.auth.uid == ratingId
                               && request.resource.data.rating >= 1
@@ -167,7 +220,7 @@ service cloud.firestore {
 
       allow update: if isAdmin()
                     || (isSignedIn() && (
-                      isCounterUpdate()
+                      isCounterBumpOnly()
                       || (resource.data.publisherId == request.auth.uid
                           && approvalUnchanged()
                           && resource.data.approvalStatus in ['pending', 'rejected'])
@@ -178,7 +231,7 @@ service cloud.firestore {
                         && resource.data.publisherId == request.auth.uid);
 
       match /proposals/{proposalId} {
-        allow read: if true;
+        allow read: if isSignedIn();
         allow create: if isSignedIn()
                       && request.resource.data.userId == request.auth.uid
                       && request.resource.data.status == 'pending';
@@ -189,11 +242,76 @@ service cloud.firestore {
       }
 
       match /votes/{voteId} {
-        allow read: if true;
+        allow read: if isSignedIn();
         allow create, delete: if isSignedIn()
                               && request.auth.uid == voteId;
         allow update: if false;
       }
+    }
+
+    // ─── الغرف البحثية ─────────────────────────────────────
+    match /research_rooms/{roomId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+                    && request.resource.data.creatorId == request.auth.uid
+                    && !('passwordHash' in request.resource.data);
+      allow update: if isAdmin()
+                    || (isSignedIn()
+                        && isCounterBump('discussionsCount')
+                        && hasResearchRoomAccess(roomId))
+                    || (isSignedIn()
+                        && resource.data.creatorId == request.auth.uid
+                        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['passwordHash'])
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                            .hasOnly(['title', 'description', 'categoryId', 'updatedAt']));
+      allow delete: if isSignedIn()
+                    && (resource.data.creatorId == request.auth.uid || isAdmin());
+
+      match /members/{memberId} {
+        allow read: if isSignedIn()
+                    && (request.auth.uid == memberId
+                        || get(/databases/$(database)/documents/research_rooms/$(roomId)).data.creatorId == request.auth.uid
+                        || isAdmin());
+        allow create, update: if isSignedIn()
+                              && request.auth.uid == memberId
+                              && (
+                                get(/databases/$(database)/documents/research_rooms/$(roomId)).data.isPasswordProtected != true
+                                || get(/databases/$(database)/documents/research_rooms/$(roomId)).data.creatorId == request.auth.uid
+                              );
+        allow delete: if isSignedIn()
+                      && (request.auth.uid == memberId || isAdmin());
+      }
+
+      match /discussions/{discussionId} {
+        allow read: if isSignedIn() && hasResearchRoomAccess(roomId);
+        allow create: if isSignedIn()
+                      && hasResearchRoomAccess(roomId)
+                      && request.resource.data.authorId == request.auth.uid;
+        allow update: if isSignedIn()
+                      && hasResearchRoomAccess(roomId)
+                      && (isDiscussionMetaBump()
+                          || isCounterBumpOnly()
+                          || resource.data.authorId == request.auth.uid
+                          || isAdmin());
+        allow delete: if isAdmin()
+                      || (isSignedIn()
+                          && resource.data.authorId == request.auth.uid);
+
+        match /replies/{replyId} {
+          allow read: if isSignedIn() && hasResearchRoomAccess(roomId);
+          allow create: if isSignedIn()
+                        && hasResearchRoomAccess(roomId)
+                        && request.resource.data.authorId == request.auth.uid;
+          allow update, delete: if false;
+        }
+      }
+    }
+
+    function hasResearchRoomAccess(roomId) {
+      let room = get(/databases/$(database)/documents/research_rooms/$(roomId)).data;
+      return room.isPasswordProtected != true
+          || room.creatorId == request.auth.uid
+          || exists(/databases/$(database)/documents/research_rooms/$(roomId)/members/$(request.auth.uid));
     }
 
     // ─── المجتمع الأكاديمي ───────────────────────────────
@@ -208,7 +326,7 @@ service cloud.firestore {
 
       allow update: if isAdmin()
                     || (isSignedIn() && (
-                      isCounterUpdate()
+                      isCounterBumpOnly()
                       || (resource.data.authorId == request.auth.uid
                           && approvalUnchanged()
                           && resource.data.approvalStatus in ['pending', 'rejected'])
@@ -233,8 +351,7 @@ service cloud.firestore {
       }
     }
 
-    // ─── خدمات الكتابة الأكademيمية ─────────────────────────
-    // قاعدة collectionGroup — مطلوبة لشاشة «طلباتي» و«طلبات العملاء»
+    // ─── خدمات الكتابة الأكاديمية ─────────────────────────
     match /{path=**}/writing_orders/{orderId} {
       allow read: if isSignedIn()
                   && (resource.data.userId == request.auth.uid
@@ -244,9 +361,9 @@ service cloud.firestore {
         (resource.data.userId == request.auth.uid && (
           request.resource.data.status == 'cancelled'
           || (resource.data.status == 'delivered' && request.resource.data.status == 'completed')
-          || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['paymentStatus', 'paidAt', 'amount'])
-          || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['paymentStatus', 'paidAt', 'amount', 'status'])
-          || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'completedAt', 'studentRating'])
+          || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['paymentStatus', 'paidAt'])
+              && request.resource.data.amount == resource.data.amount)
+          || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'completedAt', 'studentRating']))
         ))
         || (resource.data.serviceOwnerId == request.auth.uid
             && request.resource.data.status in ['confirmed', 'rejected', 'in_progress', 'delivered'])
@@ -259,9 +376,10 @@ service cloud.firestore {
                   || (isSignedIn() && resource.data.ownerId == request.auth.uid)
                   || isAdmin();
 
-      allow create: if isSignedIn()
-                    && request.resource.data.ownerId == request.auth.uid
-                    && isPendingCreate();
+      allow create: if isAdmin()
+                    || (isSignedIn()
+                        && request.resource.data.ownerId == request.auth.uid
+                        && isPendingCreate());
 
       allow update: if isAdmin()
                     || (isSignedIn()
@@ -284,9 +402,9 @@ service cloud.firestore {
           (resource.data.userId == request.auth.uid && (
             request.resource.data.status == 'cancelled'
             || (resource.data.status == 'delivered' && request.resource.data.status == 'completed')
-            || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['paymentStatus', 'paidAt', 'amount'])
-            || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['paymentStatus', 'paidAt', 'amount', 'status'])
-            || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'completedAt', 'studentRating'])
+            || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['paymentStatus', 'paidAt'])
+                && request.resource.data.amount == resource.data.amount)
+            || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'completedAt', 'studentRating']))
           ))
           || (resource.data.serviceOwnerId == request.auth.uid
               && request.resource.data.status in ['confirmed', 'rejected', 'in_progress', 'delivered'])
@@ -296,11 +414,12 @@ service cloud.firestore {
       }
     }
 
-    // ─── أخبار علمية (مختارة من الإدارة + قراءة للجميع) ───
+    // ─── أخبار علمية ─────────────────────────────────────
     match /science_news/{docId} {
       allow read: if isApprovedContent()
                   || isAdmin();
-      allow create: if isSignedIn() && isPendingCreate();
+      allow create: if isAdmin()
+                    && isPendingCreate();
       allow update: if isAdmin()
                     || (isSignedIn()
                         && resource.data.createdBy == request.auth.uid
@@ -314,9 +433,12 @@ service cloud.firestore {
       allow read: if isSignedIn()
                   && request.auth.uid in resource.data.participantIds;
       allow create: if isSignedIn()
-                    && request.auth.uid in request.resource.data.participantIds;
+                    && request.auth.uid in request.resource.data.participantIds
+                    && request.resource.data.participantIds.size() == 2;
       allow update: if isSignedIn()
-                    && request.auth.uid in resource.data.participantIds;
+                    && request.auth.uid in resource.data.participantIds
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                        .hasOnly(['lastMessage', 'updatedAt']);
 
       match /messages/{messageId} {
         allow read: if isSignedIn()
@@ -332,11 +454,46 @@ service cloud.firestore {
     match /notifications/{notificationId} {
       allow read: if isSignedIn()
                   && resource.data.userId == request.auth.uid;
-      allow create: if isSignedIn();
+      allow create: if isSignedIn() && isValidNotificationCreate();
       allow update: if isSignedIn()
-                    && resource.data.userId == request.auth.uid;
+                    && resource.data.userId == request.auth.uid
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
       allow delete: if isSignedIn()
                     && resource.data.userId == request.auth.uid;
+    }
+
+    // ─── طلبات تحليل العينات ─────────────────────────────
+    match /sample_analysis_requests/{requestId} {
+      allow create: if isSignedIn()
+                    && request.resource.data.studentId == request.auth.uid
+                    && request.resource.data.status == 'pending';
+      allow read: if isSignedIn()
+                  && (resource.data.studentId == request.auth.uid
+                      || resource.data.labOwnerId == request.auth.uid
+                      || isAdmin());
+      allow update: if isSignedIn()
+                    && (resource.data.labOwnerId == request.auth.uid
+                        || isAdmin())
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                        .hasOnly(['status', 'updatedAt']);
+      allow delete: if isAdmin();
+    }
+
+    // ─── طلبات الإشراف والتواصل ─────────────────────────
+    match /supervision_requests/{requestId} {
+      allow create: if isSignedIn()
+                    && request.resource.data.studentId == request.auth.uid
+                    && request.resource.data.status == 'pending';
+      allow read: if isSignedIn()
+                  && (resource.data.studentId == request.auth.uid
+                      || resource.data.supervisorOwnerId == request.auth.uid
+                      || isAdmin());
+      allow update: if isSignedIn()
+                    && (resource.data.supervisorOwnerId == request.auth.uid
+                        || isAdmin())
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                        .hasOnly(['status', 'updatedAt']);
+      allow delete: if isAdmin();
     }
 
     // ─── طلبات المتجر (ضمان) ─────────────────────────────
@@ -346,13 +503,20 @@ service cloud.firestore {
                       || resource.data.sellerId == request.auth.uid
                       || isAdmin());
       allow create: if isSignedIn()
-                    && request.resource.data.buyerId == request.auth.uid;
-      allow update: if isSignedIn()
-                    && (resource.data.buyerId == request.auth.uid
-                        || resource.data.sellerId == request.auth.uid
-                        || isAdmin());
+                    && request.resource.data.buyerId == request.auth.uid
+                    && request.resource.data.productId is string
+                    && exists(/databases/$(database)/documents/product/$(request.resource.data.productId))
+                    && request.resource.data.price == get(/databases/$(database)/documents/product/$(request.resource.data.productId)).data.price
+                    && request.resource.data.amount == request.resource.data.price;
+      allow update: if isAdmin()
+                    || (isSignedIn() && resource.data.buyerId == request.auth.uid && (
+                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['paymentStatus', 'paidAt'])
+                      || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['paymentStatus', 'releasedAt'])
+                      || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+                    ))
+                    || (isSignedIn() && resource.data.sellerId == request.auth.uid
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']));
       allow delete: if false;
     }
   }
 }
-

@@ -1,6 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import '../home/home_screen.dart';
+import 'portal_gateway.dart';
+import 'portal_service.dart';
+import 'portal_type.dart';
 import 'user_account_service.dart';
 import 'user_role.dart';
 
@@ -46,10 +48,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
         role: _selectedRole,
       );
 
+      final suggested = PortalType.suggestedForRole(_selectedRole);
+      if (suggested != null) {
+        await PortalService.instance.setActivePortal(suggested);
+      }
+
       if (!mounted) return;
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
+        MaterialPageRoute(builder: (context) => const PortalGateway()),
         (route) => false,
       );
     } on FirebaseAuthException catch (e) {

@@ -86,6 +86,8 @@ class SupervisorImportService {
       'orcid': ?author.orcid,
       'scholarUrl': ?scholarUrl,
       'openAlexId': author.id,
+      'worksCount': author.worksCount,
+      'citedByCount': author.citedByCount,
       'importSource': 'openalex',
     };
   }
@@ -131,7 +133,8 @@ class SupervisorImportService {
         final doc = _db.collection('supervisors').doc();
         batch.set(doc, {
           ...item,
-          'ownerId': user.uid,
+          'importedBy': user.uid,
+          'ownerId': '',
           'approvalStatus':
               autoApprove ? ApprovalStatus.approved : ApprovalStatus.pending,
           'createdAt': FieldValue.serverTimestamp(),

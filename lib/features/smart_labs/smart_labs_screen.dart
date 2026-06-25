@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import '../academic/academic_content_service.dart';
 import '../academic/academic_models.dart';
+import '../academic/faculty_categories.dart';
+import '../analysis_labs/sample_requests_screens.dart';
+import '../auth/user_account_service.dart';
+import '../lab_import/admin_lab_import_screen.dart';
 import '../contributor/submit_lab_screen.dart';
 import '../matchmaking/smart_matchmaking_engine.dart';
 import '../profile/academic_profile.dart';
@@ -17,14 +21,29 @@ class SmartLabsScreen extends StatefulWidget {
 
 class _SmartLabsScreenState extends State<SmartLabsScreen> {
   String _selectedCity = 'الكل';
+  String? _selectedFacultyId;
   bool _groupByCity = true;
+  bool _sampleAnalysisOnly = false;
+  bool _showFacultySuggestions = false;
   AcademicProfile? _profile;
   List<MatchResult<AcademicLab>> _recommended = [];
+
+  final _facultySearchController = TextEditingController();
+  final _labSearchController = TextEditingController();
+  final _facultyFocusNode = FocusNode();
 
   @override
   void initState() {
     super.initState();
     _loadRecommendations();
+  }
+
+  @override
+  void dispose() {
+    _facultySearchController.dispose();
+    _labSearchController.dispose();
+    _facultyFocusNode.dispose();
+    super.dispose();
   }
 
   Future<void> _loadRecommendations() async {
@@ -51,8 +70,73 @@ class _SmartLabsScreenState extends State<SmartLabsScreen> {
   }
 
   List<AcademicLab> _filterLabs(List<AcademicLab> labs) {
-    if (_selectedCity == 'الكل') return labs;
-    return labs.where((lab) => lab.city == _selectedCity).toList();
+    var filtered = labs;
+    if (_selectedCity != 'الكل') {
+      filtered = filtered.where((lab) => lab.city == _selectedCity).toList();
+    }
+    if (_selectedFacultyId != null) {
+      filtered = filtered
+          .where((lab) => _labMatchesFaculty(lab, _selectedFacultyId!))
+          .toList();
+    }
+    final labQuery = _labSearchController.text.trim().toLowerCase();
+    if (labQuery.isNotEmpty) {
+      filtered = filtered.where((lab) => _labMatchesQuery(lab, labQuery)).toList();
+    }
+    if (_sampleAnalysisOnly) {
+      filtered = filtered
+          .where((lab) => lab.offersSampleAnalysis || lab.acceptsExternalSamples)
+          .toList();
+    }
+    return filtered;
+  }
+
+  bool _labMatchesQuery(AcademicLab lab, String query) {
+    final fields = [
+      lab.name,
+      lab.university,
+      lab.location,
+      lab.description,
+      lab.city,
+      ...lab.tags,
+      ...lab.sampleServices.map((s) => s.name),
+    ];
+    return fields.any((field) => field.toLowerCase().contains(query));
+  }
+
+  List<FacultyCategory> _matchingFaculties(String query) {
+    final trimmed = query.trim().toLowerCase();
+    if (trimmed.isEmpty) return facultyCategories;
+    return facultyCategories
+        .where(
+          (faculty) =>
+              faculty.titleAr.toLowerCase().contains(trimmed) ||
+              faculty.id.toLowerCase().contains(trimmed),
+        )
+        .toList();
+  }
+
+  bool _labMatchesFaculty(AcademicLab lab, String facultyId) {
+    return lab.matchesFaculty(facultyId);
+  }
+
+  void _selectFaculty(FacultyCategory faculty) {
+    setState(() {
+      _selectedFacultyId = faculty.id;
+      _facultySearchController.text = faculty.titleAr;
+      _showFacultySuggestions = false;
+      _labSearchController.clear();
+    });
+    _facultyFocusNode.unfocus();
+  }
+
+  void _clearFaculty() {
+    setState(() {
+      _selectedFacultyId = null;
+      _facultySearchController.clear();
+      _labSearchController.clear();
+      _showFacultySuggestions = false;
+    });
   }
 
   Map<String, List<AcademicLab>> _groupLabs(List<AcademicLab> labs) {
@@ -77,10 +161,38 @@ class _SmartLabsScreenState extends State<SmartLabsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('مختبرات ذكية'),
+        title: const Text('مختبرات ومراكز التحليل'),
         backgroundColor: Colors.purple[700],
         foregroundColor: Colors.white,
         actions: [
+          StreamBuilder(
+            stream: UserAccountService.instance.watchCurrentAccount(),
+            builder: (context, snapshot) {
+              if (snapshot.data?.isAdmin != true) {
+                return const SizedBox.shrink();
+              }
+              return IconButton(
+                tooltip: 'استيراد مختبرات CSV',
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AdminLabImportScreen(),
+                  ),
+                ),
+                icon: const Icon(Icons.upload_file),
+              );
+            },
+          ),
+          IconButton(
+            tooltip: 'طلبات تحليل العينات',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const MySampleAnalysisRequestsScreen(),
+              ),
+            ),
+            icon: const Icon(Icons.biotech_outlined),
+          ),
           IconButton(
             tooltip: 'حجوزاتي',
             onPressed: () => Navigator.push(
@@ -123,12 +235,9 @@ class _SmartLabsScreenState extends State<SmartLabsScreen> {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final labs = _filterLabs(snapshot.data ?? []);
-          final cities = _citiesFrom(snapshot.data ?? []);
-
-          if (labs.isEmpty) {
-            return const Center(child: Text('لا توجد مختبرات في هذه المدينة'));
-          }
+          final allLabs = snapshot.data ?? [];
+          final labs = _filterLabs(allLabs);
+          final cities = _citiesFrom(allLabs);
 
           return RefreshIndicator(
             onRefresh: _loadRecommendations,
@@ -136,7 +245,17 @@ class _SmartLabsScreenState extends State<SmartLabsScreen> {
               padding: const EdgeInsets.all(16),
               children: [
                 _buildHeaderCard(),
-                if (_recommended.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                _buildSearchPanel(labs.length, allLabs.length),
+                const SizedBox(height: 8),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('مراكز تقبل تحليل عينات خارجية فقط'),
+                  value: _sampleAnalysisOnly,
+                  onChanged: (value) => setState(() => _sampleAnalysisOnly = value),
+                ),
+                _buildCityDropdown(cities),
+                if (_recommended.isNotEmpty && _selectedFacultyId == null) ...[
                   const SizedBox(height: 16),
                   _sectionTitle('مقترحة لك', Icons.auto_awesome),
                   ..._recommended.map(
@@ -151,22 +270,37 @@ class _SmartLabsScreenState extends State<SmartLabsScreen> {
                   ),
                 ],
                 const SizedBox(height: 16),
-                _buildCityFilter(cities),
-                const SizedBox(height: 12),
-                _buildViewToggle(),
-                const SizedBox(height: 12),
-                if (_groupByCity)
-                  ..._groupLabs(labs).entries.map(
-                        (entry) => _CityGroup(
-                          city: entry.key,
-                          labs: entry.value,
-                          onOpenLab: _openLab,
-                        ),
-                      )
-                else
-                  ...labs.map(
-                    (lab) => SmartLabCard(lab: lab, onTap: () => _openLab(lab)),
+                if (_selectedFacultyId == null)
+                  _buildSelectFacultyHint()
+                else if (labs.isEmpty)
+                  _buildNoLabsHint()
+                else ...[
+                  _sectionTitle(
+                    'مختبرات ${facultyTitleForCategory(_selectedFacultyId!)}',
+                    Icons.science_outlined,
                   ),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      '${labs.length} مختبر/مركز متاح',
+                      style: TextStyle(color: Colors.grey[700], fontSize: 13),
+                    ),
+                  ),
+                  _buildViewToggle(),
+                  const SizedBox(height: 12),
+                  if (_groupByCity)
+                    ..._groupLabs(labs).entries.map(
+                          (entry) => _CityGroup(
+                            city: entry.key,
+                            labs: entry.value,
+                            onOpenLab: _openLab,
+                          ),
+                        )
+                  else
+                    ...labs.map(
+                      (lab) => SmartLabCard(lab: lab, onTap: () => _openLab(lab)),
+                    ),
+                ],
               ],
             ),
           );
@@ -198,11 +332,16 @@ class _SmartLabsScreenState extends State<SmartLabsScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    _profile?.isComplete == true
-                        ? 'نعرض لك المختبرات حسب ملفك الأكاديمي ومدينتك'
-                        : 'أكمل ملفك الأكاديمي لتوصيات أدق',
+                    'مختبرات جامعية ومراكز بحوث — حجز أجهزة أو طلب تحليل عينات لأي تخصص',
                     style: TextStyle(color: Colors.purple[800], fontSize: 13),
                   ),
+                  if (_profile?.isComplete == true) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'مقترحات مخصصة حسب ملفك الأكاديمي أدناه',
+                      style: TextStyle(color: Colors.purple[700], fontSize: 12),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -232,22 +371,169 @@ class _SmartLabsScreenState extends State<SmartLabsScreen> {
     );
   }
 
-  Widget _buildCityFilter(List<String> cities) {
-    return SizedBox(
-      height: 42,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: cities.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final city = cities[index];
-          final selected = city == _selectedCity;
-          return ChoiceChip(
-            label: Text(city),
-            selected: selected,
-            onSelected: (_) => setState(() => _selectedCity = city),
-            selectedColor: Colors.purple[200],
-          );
+  Widget _buildSearchPanel(int visibleCount, int totalCount) {
+    final facultySuggestions = _matchingFaculties(_facultySearchController.text);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextField(
+          controller: _facultySearchController,
+          focusNode: _facultyFocusNode,
+          textAlign: TextAlign.right,
+          decoration: InputDecoration(
+            labelText: 'ابحث عن الكلية',
+            hintText: 'مثال: الهندسة، الطب، العلوم...',
+            prefixIcon: const Icon(Icons.school_outlined),
+            suffixIcon: _selectedFacultyId != null
+                ? IconButton(
+                    tooltip: 'مسح',
+                    onPressed: _clearFaculty,
+                    icon: const Icon(Icons.close),
+                  )
+                : const Icon(Icons.search),
+            border: const OutlineInputBorder(),
+          ),
+          onTap: () => setState(() => _showFacultySuggestions = true),
+          onChanged: (value) {
+            setState(() {
+              final selectedTitle = _selectedFacultyId != null
+                  ? facultyTitleForCategory(_selectedFacultyId!)
+                  : null;
+              if (selectedTitle != null && value.trim() == selectedTitle) {
+                _showFacultySuggestions = false;
+                return;
+              }
+              _selectedFacultyId = null;
+              _showFacultySuggestions = true;
+            });
+          },
+        ),
+        if (_showFacultySuggestions &&
+            _selectedFacultyId == null &&
+            facultySuggestions.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Material(
+            elevation: 2,
+            borderRadius: BorderRadius.circular(8),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 220),
+              child: ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: facultySuggestions.length,
+                separatorBuilder: (_, _) => const Divider(height: 1),
+                itemBuilder: (context, index) {
+                  final faculty = facultySuggestions[index];
+                  return InkWell(
+                    onTap: () => _selectFaculty(faculty),
+                    child: ListTile(
+                      dense: true,
+                      leading: Icon(faculty.icon, color: faculty.color, size: 22),
+                      title: Text(faculty.titleAr),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
+        if (_selectedFacultyId != null) ...[
+          const SizedBox(height: 10),
+          InputChip(
+            avatar: Icon(
+              facultyById(_selectedFacultyId!)?.icon ?? Icons.school,
+              size: 18,
+              color: facultyById(_selectedFacultyId!)?.color,
+            ),
+            label: Text(facultyTitleForCategory(_selectedFacultyId!)),
+            onDeleted: _clearFaculty,
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _labSearchController,
+            textAlign: TextAlign.right,
+            decoration: InputDecoration(
+              labelText: 'ابحث عن المختبر أو مركز البحث',
+              hintText: 'اسم المختبر، الجامعة، نوع التحليل...',
+              prefixIcon: const Icon(Icons.biotech_outlined),
+              suffixIcon: _labSearchController.text.isNotEmpty
+                  ? IconButton(
+                      onPressed: () {
+                        _labSearchController.clear();
+                        setState(() {});
+                      },
+                      icon: const Icon(Icons.close),
+                    )
+                  : null,
+              border: const OutlineInputBorder(),
+            ),
+            onChanged: (_) => setState(() {}),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '$visibleCount مختبر/مركز'
+            '${_labSearchController.text.trim().isNotEmpty ? ' مطابق للبحث' : ''}'
+            ' — من $totalCount إجمالاً',
+            style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildSelectFacultyHint() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 32),
+      child: Column(
+        children: [
+          Icon(Icons.search, size: 56, color: Colors.grey[400]),
+          const SizedBox(height: 12),
+          const Text(
+            'ابحث عن الكلية واخترها',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'بعد اختيار الكلية يمكنك البحث عن مختبر أو مركز بحثي بالاسم',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey[600]),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNoLabsHint() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 24),
+      child: Text(
+        _labSearchController.text.trim().isNotEmpty
+            ? 'لا يوجد مختبر يطابق البحث في هذه الكلية'
+            : 'لا توجد مختبرات مسجّلة لهذه الكلية حالياً',
+        textAlign: TextAlign.center,
+        style: TextStyle(color: Colors.grey[600]),
+      ),
+    );
+  }
+
+  Widget _buildCityDropdown(List<String> cities) {
+    if (cities.length <= 1) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: DropdownButtonFormField<String>(
+        key: ValueKey(_selectedCity),
+        initialValue: _selectedCity,
+        decoration: const InputDecoration(
+          labelText: 'المدينة (اختياري)',
+          border: OutlineInputBorder(),
+          isDense: true,
+        ),
+        items: cities
+            .map((city) => DropdownMenuItem(value: city, child: Text(city)))
+            .toList(),
+        onChanged: (value) {
+          if (value != null) setState(() => _selectedCity = value);
         },
       ),
     );
@@ -351,8 +637,6 @@ class SmartLabCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(Icons.science, color: Colors.purple[700]),
-                  const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       lab.name,
@@ -362,6 +646,15 @@ class SmartLabCard extends StatelessWidget {
                       ),
                     ),
                   ),
+                  if (lab.isResearchCenter)
+                    Chip(
+                      label: Text(
+                        lab.labTypeLabel,
+                        style: const TextStyle(fontSize: 10),
+                      ),
+                      visualDensity: VisualDensity.compact,
+                      backgroundColor: Colors.purple[100],
+                    ),
                   if (lab.ratingAvg > 0) _RatingStars(rating: lab.ratingAvg),
                 ],
               ),
@@ -375,6 +668,18 @@ class SmartLabCard extends StatelessWidget {
                   lab.university,
                   style: TextStyle(color: Colors.grey[600], fontSize: 12),
                 ),
+              if (lab.hasFacultyLink) ...[
+                const SizedBox(height: 4),
+                Chip(
+                  label: Text(
+                    lab.displayFacultyName,
+                    style: const TextStyle(fontSize: 11),
+                  ),
+                  visualDensity: VisualDensity.compact,
+                  backgroundColor: Colors.purple[50],
+                  avatar: Icon(Icons.school, size: 14, color: Colors.purple[800]),
+                ),
+              ],
               const SizedBox(height: 10),
               Wrap(
                 spacing: 8,
@@ -388,6 +693,11 @@ class SmartLabCard extends StatelessWidget {
                     Icons.schedule,
                     'انتظار ${lab.minWaitDays} يوم',
                   ),
+                  if (lab.offersSampleAnalysis)
+                    _infoChip(
+                      Icons.biotech_outlined,
+                      '${lab.sampleServices.length} تحليل عينات',
+                    ),
                   if (lab.minCost > 0)
                     _infoChip(
                       Icons.payments_outlined,

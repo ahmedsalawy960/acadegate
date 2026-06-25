@@ -118,9 +118,10 @@ Future<void> openChatWithUser(
       MaterialPageRoute(builder: (context) => ChatScreen(conversation: conv)),
     );
   } catch (e) {
-    if (!context.mounted) return;
+    if (!context.mounted) rethrow;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('$e'), backgroundColor: Colors.red),
     );
+    rethrow;
   }
 }

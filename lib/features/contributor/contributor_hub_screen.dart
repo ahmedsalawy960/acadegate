@@ -8,6 +8,9 @@ import '../admin/admin_moderation_screen.dart';
 import '../academic_writing/expert_orders_screen.dart';
 import '../academic_writing/my_writing_orders_screen.dart';
 import '../messaging/conversations_screen.dart';
+import '../lab_import/admin_lab_import_screen.dart';
+import '../analysis_labs/sample_requests_screens.dart';
+import '../supervision/supervision_requests_screen.dart';
 import '../research_marketplace/publish_research_idea_screen.dart';
 import '../supervisor_import/admin_supervisor_import_screen.dart';
 import '../store/store_categories_screen.dart';
@@ -110,6 +113,34 @@ class ContributorHubScreen extends StatelessWidget {
                 subtitle: 'محادثات مع المشرفين والبائعين',
                 screen: const ConversationsScreen(),
               ),
+              _actionTile(
+                context,
+                icon: Icons.biotech_outlined,
+                title: 'طلبات تحليل العينات',
+                subtitle: 'متابعة ما أرسلته للمختبرات',
+                screen: const MySampleAnalysisRequestsScreen(),
+              ),
+              _actionTile(
+                context,
+                icon: Icons.science_outlined,
+                title: 'طلبات التحليل الواردة',
+                subtitle: 'عينات يرسلها الباحثون لمختبرك',
+                screen: const IncomingSampleAnalysisRequestsScreen(),
+              ),
+              _actionTile(
+                context,
+                icon: Icons.school_outlined,
+                title: 'طلبات الإشراف الواردة',
+                subtitle: 'رسائل وطلبات من الطلاب',
+                screen: const IncomingSupervisionRequestsScreen(),
+              ),
+              _actionTile(
+                context,
+                icon: Icons.outgoing_mail,
+                title: 'طلباتي — إشراف وتواصل',
+                subtitle: 'متابعة ما أرسلته للمشرفين',
+                screen: const MySupervisionRequestsScreen(),
+              ),
               const Text(
                 'إضافة محتوى',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
@@ -121,6 +152,13 @@ class ContributorHubScreen extends StatelessWidget {
                 title: 'استيراد مشرفين',
                 subtitle: 'CSV أو OpenAlex — للمدير أو المساهمين',
                 screen: const AdminSupervisorImportScreen(),
+              ),
+              _actionTile(
+                context,
+                icon: Icons.biotech,
+                title: 'استيراد مختبرات ومراكز بحوث',
+                subtitle: 'CSV — أضف مختبرات حقيقية دفعة واحدة',
+                screen: const AdminLabImportScreen(),
               ),
               if (_canSubmitSupervisor(account.role) ||
                   account.role == UserRole.student)

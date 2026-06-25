@@ -17,6 +17,7 @@ class CommunityService {
   Stream<List<CommunityPost>> watchRoomPosts({
     required String roomId,
     String? type,
+    String searchQuery = '',
   }) {
     return _posts
         .where('roomId', isEqualTo: roomId)
@@ -33,13 +34,28 @@ class CommunityService {
       }).where((post) {
         if (type == null || type.isEmpty) return true;
         return post.type == type;
+      }).where((post) {
+        if (searchQuery.trim().isEmpty) return true;
+        final q = searchQuery.trim().toLowerCase();
+        return post.title.toLowerCase().contains(q) ||
+            post.body.toLowerCase().contains(q) ||
+            post.authorName.toLowerCase().contains(q) ||
+            post.tags.any((tag) => tag.toLowerCase().contains(q));
       }).toList();
 
       if (posts.isEmpty) {
-        return fallbackCommunityPosts
+        final fallback = fallbackCommunityPosts
             .where((post) => post.roomId == roomId)
             .where((post) => type == null || type.isEmpty || post.type == type)
-            .toList();
+            .where((post) {
+          if (searchQuery.trim().isEmpty) return true;
+          final q = searchQuery.trim().toLowerCase();
+          return post.title.toLowerCase().contains(q) ||
+              post.body.toLowerCase().contains(q) ||
+              post.authorName.toLowerCase().contains(q) ||
+              post.tags.any((tag) => tag.toLowerCase().contains(q));
+        }).toList();
+        return fallback;
       }
 
       return posts;

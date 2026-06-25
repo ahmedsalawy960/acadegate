@@ -1,11 +1,13 @@
 import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../academic/faculty_categories.dart';
 import '../auth/user_account_service.dart';
+import '../../seed_data/import_package_paths.dart';
 import 'csv_supervisor_parser.dart';
 import 'import_models.dart';
 import 'openalex_client.dart';
@@ -36,6 +38,51 @@ class _AdminSupervisorImportScreenState extends State<AdminSupervisorImportScree
     super.dispose();
   }
 
+  Future<void> _showUniversitiesGuide() async {
+    try {
+      final text =
+          await rootBundle.loadString(ImportPackagePaths.universitiesGuide);
+      if (!context.mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('جامعات مصر — OpenAlex'),
+          content: SizedBox(
+            width: double.maxFinite,
+            height: 420,
+            child: SingleChildScrollView(
+              child: SelectableText(
+                text,
+                style: const TextStyle(fontSize: 13, height: 1.45),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: text));
+                Navigator.pop(dialogContext);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('تم نسخ دليل الجامعات')),
+                );
+              },
+              child: const Text('نسخ الكل'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('إغلاق'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('تعذر فتح الدليل: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -53,6 +100,13 @@ class _AdminSupervisorImportScreenState extends State<AdminSupervisorImportScree
             Tab(icon: Icon(Icons.travel_explore), text: 'OpenAlex'),
           ],
         ),
+        actions: [
+          IconButton(
+            tooltip: 'دليل جامعات OpenAlex',
+            icon: const Icon(Icons.menu_book_outlined),
+            onPressed: _showUniversitiesGuide,
+          ),
+        ],
       ),
       body: StreamBuilder(
         stream: UserAccountService.instance.watchCurrentAccount(),
@@ -62,7 +116,7 @@ class _AdminSupervisorImportScreenState extends State<AdminSupervisorImportScree
 
           return Column(
             children: [
-              if (!isAdmin)
+              if (!isAdmin && kDebugMode)
                 _AdminAccessBanner(
                   claiming: _claimingAdmin,
                   onClaimAdmin: () async {
@@ -140,8 +194,8 @@ class _AdminAccessBanner extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           const Text(
-            'يمكنك الاستيراد الآن (يُرسل للمراجعة). '
-            'لتفعيل المدير اضغط الزر أدناه — يُنشئ الإعداد تلقائياً.',
+            'عيّن دور admin من Firebase Console للمستخدم المناسب. '
+            'زر التطوير أدناه يتحقق فقط من صلاحيتك الحالية.',
             style: TextStyle(fontSize: 12, height: 1.4),
           ),
           const SizedBox(height: 8),
@@ -185,6 +239,34 @@ class _CsvImportTabState extends State<_CsvImportTab> {
   void initState() {
     super.initState();
     _autoApprove = widget.isAdmin;
+  }
+
+  Future<void> _loadPackageTemplate() async {
+    try {
+      final content =
+          await rootBundle.loadString(ImportPackagePaths.supervisorsTemplate);
+      final rows = CsvSupervisorParser.parse(content);
+      if (!mounted) return;
+      setState(() {
+        _preview = rows;
+        _fileName = 'قالب المشرفين (${rows.length} صف)';
+      });
+      _showMessage('تم تحميل القالب — عدّل البيانات أو استورد للتجربة');
+    } catch (error) {
+      _showMessage('تعذر تحميل القالب: $error', isError: true);
+    }
+  }
+
+  Future<void> _copyPackageTemplate() async {
+    try {
+      final content =
+          await rootBundle.loadString(ImportPackagePaths.supervisorsTemplate);
+      await Clipboard.setData(ClipboardData(text: content));
+      if (!mounted) return;
+      _showMessage('تم نسخ قالب CSV من حزمة seed_data');
+    } catch (error) {
+      _showMessage('تعذر نسخ القالب: $error', isError: true);
+    }
   }
 
   Future<void> _pickFile() async {
@@ -255,28 +337,28 @@ class _CsvImportTabState extends State<_CsvImportTab> {
       padding: const EdgeInsets.all(16),
       children: [
         _infoCard(
-          'ارفع ملف CSV يحتوي أعمدة: name, university, speciality, bio, faculty, category, tags, orcid...',
+          'ارفع ملف CSV أو استخدم «قالب الحزمة» من مجلد seed_data. '
+          'الأعمدة: name, university, speciality, bio, faculty, category, tags, orcid...',
         ),
         const SizedBox(height: 12),
-        Row(
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
           children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: _pickFile,
-                icon: const Icon(Icons.upload_file),
-                label: const Text('اختيار ملف CSV'),
-              ),
+            OutlinedButton.icon(
+              onPressed: _pickFile,
+              icon: const Icon(Icons.upload_file),
+              label: const Text('اختيار ملف CSV'),
             ),
-            const SizedBox(width: 8),
-            IconButton(
-              tooltip: 'نسخ نموذج CSV',
-              onPressed: () {
-                Clipboard.setData(
-                  ClipboardData(text: CsvSupervisorParser.templateCsv()),
-                );
-                _showMessage('تم نسخ نموذج CSV');
-              },
+            OutlinedButton.icon(
+              onPressed: _copyPackageTemplate,
               icon: const Icon(Icons.copy),
+              label: const Text('نسخ قالب CSV'),
+            ),
+            OutlinedButton.icon(
+              onPressed: _loadPackageTemplate,
+              icon: const Icon(Icons.inventory_2_outlined),
+              label: const Text('قالب الحزمة'),
             ),
           ],
         ),

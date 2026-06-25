@@ -4,6 +4,8 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import 'advisor_attachment.dart';
+
 class GeminiGenerateResult {
   final String? text;
   final String? error;
@@ -27,8 +29,10 @@ class GeminiAdvisorClient {
 
   static const _modelFallbacks = [
     'gemini-2.5-flash',
+    'gemini-2.0-flash',
     'gemini-2.5-pro',
     'gemini-2.0-flash-lite',
+    'gemini-1.5-flash',
     'gemini-flash-latest',
   ];
 
@@ -59,6 +63,7 @@ class GeminiAdvisorClient {
     required String systemPrompt,
     required String userMessage,
     List<Map<String, String>> history = const [],
+    List<GeminiInlinePart> attachments = const [],
     int maxOutputTokens = 8192,
   }) async {
     if (!isConfigured) {
@@ -80,14 +85,28 @@ class GeminiAdvisorClient {
 
     GeminiGenerateResult? lastError;
     for (final model in _modelsToTry) {
-      final result = await _generateViaHttp(
+      var result = await _generateViaHttp(
         model: model,
         systemPrompt: systemPrompt,
         userMessage: userMessage,
         history: history,
+        attachments: attachments,
         maxOutputTokens: maxOutputTokens,
       );
       if (result.isSuccess) return result;
+
+      if (history.isNotEmpty && _isHistorySignatureError(result.error)) {
+        result = await _generateViaHttp(
+          model: model,
+          systemPrompt: systemPrompt,
+          userMessage: userMessage,
+          history: const [],
+          attachments: attachments,
+          maxOutputTokens: maxOutputTokens,
+        );
+        if (result.isSuccess) return result;
+      }
+
       lastError = result;
     }
 
@@ -151,6 +170,7 @@ class GeminiAdvisorClient {
     required String systemPrompt,
     required String userMessage,
     required List<Map<String, String>> history,
+    required List<GeminiInlinePart> attachments,
     required int maxOutputTokens,
   }) async {
     try {
@@ -173,9 +193,7 @@ class GeminiAdvisorClient {
 
       contents.add({
         'role': 'user',
-        'parts': [
-          {'text': userMessage},
-        ],
+        'parts': _buildUserParts(userMessage, attachments),
       });
 
       final response = await http
@@ -192,6 +210,7 @@ class GeminiAdvisorClient {
               'generationConfig': {
                 'temperature': 0.85,
                 'maxOutputTokens': maxOutputTokens,
+                'thinkingConfig': {'thinkingBudget': 0},
               },
             }),
           )
@@ -205,26 +224,83 @@ class GeminiAdvisorClient {
       }
 
       final data = jsonDecode(response.body) as Map<String, dynamic>;
-      final candidates = data['candidates'] as List<dynamic>?;
-      if (candidates == null || candidates.isEmpty) {
+      final extracted = _extractResponseText(data);
+      if (extracted != null && extracted.isNotEmpty) {
+        return GeminiGenerateResult(text: extracted, modelUsed: model);
+      }
+
+      final blockReason = data['promptFeedback']?['blockReason']?.toString();
+      if (blockReason != null && blockReason.isNotEmpty) {
         return GeminiGenerateResult(
-          error: 'Gemini ($model): لم يصل رد — قد يكون المحتوى محظوراً',
+          error: 'Gemini ($model): المحتوى محظور ($blockReason)',
         );
       }
 
-      final content = candidates.first['content'] as Map<String, dynamic>?;
-      final parts = content?['parts'] as List<dynamic>?;
-      final text = parts?.first['text']?.toString().trim();
-
-      if (text == null || text.isEmpty) {
-        return const GeminiGenerateResult(error: 'رد فارغ من Gemini');
-      }
-
-      return GeminiGenerateResult(text: text, modelUsed: model);
+      return GeminiGenerateResult(
+        error: 'Gemini ($model): رد فارغ — جرّب صياغة أخرى أو نموذجاً مختلفاً',
+      );
     } catch (e) {
       final hint = kIsWeb ? ' (غالباً CORS على المتصفح)' : '';
       return GeminiGenerateResult(error: 'اتصال Gemini$hint: $e');
     }
+  }
+
+  static List<Map<String, dynamic>> _buildUserParts(
+    String userMessage,
+    List<GeminiInlinePart> attachments,
+  ) {
+    final parts = <Map<String, dynamic>>[];
+    final trimmed = userMessage.trim();
+    if (trimmed.isNotEmpty) {
+      parts.add({'text': trimmed});
+    }
+
+    for (final attachment in attachments) {
+      parts.add({
+        'inline_data': {
+          'mime_type': attachment.mimeType,
+          'data': attachment.base64Data,
+        },
+      });
+    }
+
+    if (parts.isEmpty) {
+      parts.add({'text': 'حلّل المرفقات المرفقة وأجب بالعربية.'});
+    } else if (attachments.isNotEmpty && trimmed.isEmpty) {
+      parts.insert(0, {
+        'text': 'حلّل الملفات المرفقة وأجب بالعربية.',
+      });
+    }
+
+    return parts;
+  }
+
+  static String? _extractResponseText(Map<String, dynamic> data) {
+    final candidates = data['candidates'] as List<dynamic>?;
+    if (candidates == null || candidates.isEmpty) return null;
+
+    final candidate = candidates.first as Map<String, dynamic>;
+    final content = candidate['content'] as Map<String, dynamic>?;
+    final parts = content?['parts'] as List<dynamic>?;
+    if (parts == null || parts.isEmpty) return null;
+
+    final chunks = <String>[];
+    for (final raw in parts) {
+      if (raw is! Map<String, dynamic>) continue;
+      final text = raw['text']?.toString().trim();
+      if (text != null && text.isNotEmpty) {
+        chunks.add(text);
+      }
+    }
+    if (chunks.isEmpty) return null;
+    return chunks.join('\n');
+  }
+
+  static bool _isHistorySignatureError(String? error) {
+    if (error == null) return false;
+    final lower = error.toLowerCase();
+    return lower.contains('thought_signature') ||
+        lower.contains('thought signature');
   }
 
   String _parseApiError(String body) {
@@ -241,12 +317,14 @@ class GeminiAdvisorClient {
     required String systemPrompt,
     required String userMessage,
     List<Map<String, String>> history = const [],
+    List<GeminiInlinePart> attachments = const [],
     int maxOutputTokens = 8192,
   }) async {
     final result = await generateResult(
       systemPrompt: systemPrompt,
       userMessage: userMessage,
       history: history,
+      attachments: attachments,
       maxOutputTokens: maxOutputTokens,
     );
     return result.text;

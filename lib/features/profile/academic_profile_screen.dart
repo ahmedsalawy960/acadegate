@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'academic_profile.dart';
 import 'academic_profile_service.dart';
@@ -23,6 +24,8 @@ class _AcademicProfileScreenState extends State<AcademicProfileScreen> {
   String _preferredLanguage = 'العربية';
   bool _isLoading = true;
   bool _isSaving = false;
+  bool _isDeleting = false;
+  bool _hasProfile = false;
 
   @override
   void initState() {
@@ -48,7 +51,80 @@ class _AcademicProfileScreenState extends State<AcademicProfileScreen> {
 
     setState(() {
       _isLoading = false;
+      _hasProfile = profile != null;
     });
+  }
+
+  void _resetForm() {
+    _fullNameController.clear();
+    _universityController.clear();
+    _specializationController.clear();
+    _researchInterestController.clear();
+    _cityController.clear();
+    _skillsController.clear();
+    _degree = 'ماجستير';
+    _methodology = 'كمي';
+    _preferredLanguage = 'العربية';
+  }
+
+  Future<void> _deleteProfile() async {
+    final isLoggedIn = FirebaseAuth.instance.currentUser != null;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('حذف الملف الأكاديمي'),
+        content: Text(
+          isLoggedIn
+              ? 'هل تريد حذف ملفك الأكاديمي نهائياً؟\n'
+                  'ستفقد التوصيات الذكية المبنية عليه ولا يمكن التراجع.'
+              : 'هل تريد مسح بيانات ملفك المحفوظة في هذه الجلسة؟',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('حذف'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isDeleting = true);
+
+    try {
+      await AcademicProfileService.instance.deleteProfile();
+      if (!mounted) return;
+
+      _resetForm();
+      setState(() {
+        _hasProfile = false;
+        _isDeleting = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('تم حذف الملف الأكاديمي'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      Navigator.pop(context, true);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _isDeleting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('تعذر الحذف: $error'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   Future<void> _save() async {
@@ -104,6 +180,14 @@ class _AcademicProfileScreenState extends State<AcademicProfileScreen> {
         title: const Text('ملفي الأكاديمي'),
         backgroundColor: const Color(0xFF1A237E),
         foregroundColor: Colors.white,
+        actions: [
+          if (_hasProfile && !_isLoading)
+            IconButton(
+              tooltip: 'حذف الملف',
+              icon: const Icon(Icons.delete_outline),
+              onPressed: (_isSaving || _isDeleting) ? null : _deleteProfile,
+            ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -251,7 +335,7 @@ class _AcademicProfileScreenState extends State<AcademicProfileScreen> {
                     SizedBox(
                       height: 52,
                       child: ElevatedButton(
-                        onPressed: _isSaving ? null : _save,
+                        onPressed: (_isSaving || _isDeleting) ? null : _save,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF1A237E),
                           foregroundColor: Colors.white,
@@ -269,6 +353,36 @@ class _AcademicProfileScreenState extends State<AcademicProfileScreen> {
                               ),
                       ),
                     ),
+                    if (_hasProfile) ...[
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 48,
+                        child: OutlinedButton.icon(
+                          onPressed: (_isSaving || _isDeleting)
+                              ? null
+                              : _deleteProfile,
+                          icon: _isDeleting
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(
+                                  Icons.delete_outline,
+                                  color: Colors.red,
+                                ),
+                          label: const Text(
+                            'حذف الملف الأكاديمي',
+                            style: TextStyle(color: Colors.red),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Colors.red),
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

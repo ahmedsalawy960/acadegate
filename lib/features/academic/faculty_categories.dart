@@ -146,3 +146,33 @@ String supervisorsTitleForCategory(String id) {
 
 List<String> facultyCategoryIds() =>
     facultyCategories.map((f) => f.id).toList();
+
+/// يربط اسم أو معرّف الكلية بمعرّف موحّد (Science, Medicine...).
+String? resolveFacultyId(String input) {
+  final trimmed = input.trim();
+  if (trimmed.isEmpty) return null;
+
+  for (final faculty in facultyCategories) {
+    if (faculty.id.toLowerCase() == trimmed.toLowerCase()) {
+      return faculty.id;
+    }
+    if (faculty.titleAr == trimmed) return faculty.id;
+  }
+
+  final lower = trimmed.toLowerCase();
+  for (final faculty in facultyCategories) {
+    final title = faculty.titleAr.toLowerCase();
+    final shortTitle = title.replaceAll('كلية ', '').trim();
+    if (title.contains(lower) || lower.contains(title)) return faculty.id;
+    if (shortTitle.isNotEmpty &&
+        (lower.contains(shortTitle) || shortTitle.contains(lower))) {
+      return faculty.id;
+    }
+  }
+
+  return null;
+}
+
+String facultyNameForStorage(String facultyId) {
+  return facultyTitleForCategory(facultyId);
+}

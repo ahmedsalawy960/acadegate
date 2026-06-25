@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../academic/academic_models.dart';
+import '../analysis_labs/request_sample_analysis_screen.dart';
 import '../moderation/delete_content_button.dart';
 import '../profile/academic_profile_service.dart';
 import '../store/product_list_screen.dart';
@@ -134,11 +135,30 @@ class _SmartLabDetailScreenState extends State<SmartLabDetailScreen> {
                 style: TextStyle(color: Colors.grey[600]),
               ),
             ),
+          if (lab.hasFacultyLink)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Chip(
+                avatar: Icon(Icons.school, size: 16, color: Colors.purple[800]),
+                label: Text('${lab.displayFacultyName} — مرتبط'),
+                backgroundColor: Colors.purple[50],
+              ),
+            ),
+          if (lab.description.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(lab.description),
+          ],
           const SizedBox(height: 12),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
+              Chip(label: Text(lab.labTypeLabel)),
+              if (lab.acceptsExternalSamples)
+                const Chip(
+                  avatar: Icon(Icons.check, size: 16),
+                  label: Text('يقبل عينات خارجية'),
+                ),
               if (lab.ratingAvg > 0)
                 Chip(
                   avatar: const Icon(Icons.star, color: Colors.amber, size: 18),
@@ -158,6 +178,24 @@ class _SmartLabDetailScreenState extends State<SmartLabDetailScreen> {
             ],
           ),
           const SizedBox(height: 20),
+          if (lab.sampleServices.isNotEmpty || lab.acceptsExternalSamples) ...[
+            const Text(
+              'خدمات تحليل العينات',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+            const SizedBox(height: 10),
+            ...lab.sampleServices.map(_buildSampleServiceCard),
+            if (lab.sampleServices.isEmpty)
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => openSampleAnalysisRequestScreen(context, lab: lab),
+                  icon: const Icon(Icons.biotech),
+                  label: const Text('طلب تحليل عينة'),
+                ),
+              ),
+            const SizedBox(height: 24),
+          ],
           const Text(
             'الأجهزة المتاحة',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
@@ -257,6 +295,35 @@ class _SmartLabDetailScreenState extends State<SmartLabDetailScreen> {
         ),
       ),
     ];
+  }
+
+  Widget _buildSampleServiceCard(SampleAnalysisService service) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      color: Colors.purple[50],
+      child: ListTile(
+        title: Text(service.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+        subtitle: Text(
+          [
+            if (service.description.isNotEmpty) service.description,
+            'مدة ${service.turnaroundDays} يوم',
+            if (service.priceFrom > 0) 'من ${service.priceFrom} ج.م',
+            if (service.sampleTypes.isNotEmpty)
+              'عينات: ${service.sampleTypes.join('، ')}',
+          ].join('\n'),
+        ),
+        isThreeLine: true,
+        trailing: FilledButton(
+          onPressed: () => openSampleAnalysisRequestScreen(
+            context,
+            lab: widget.lab,
+            preselectedService: service,
+          ),
+          style: FilledButton.styleFrom(backgroundColor: Colors.purple[700]),
+          child: const Text('طلب'),
+        ),
+      ),
+    );
   }
 
   Widget _buildEquipmentCard(LabEquipment equipment) {

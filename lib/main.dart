@@ -3,8 +3,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'core/notifications/push_notification_bootstrap.dart';
 import 'firebase_options.dart';
+import 'features/auth/portal_gateway.dart';
 import 'features/auth/welcome_screen.dart';
-import 'features/home/home_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -46,7 +46,7 @@ class AcadeGateApp extends StatelessWidget {
           }
           // إذا كان مسجلاً دخولاً سابقاً وصاحب الحساب موثق يتم إدخاله فوراً
           if (snapshot.hasData) {
-            return const HomeScreen();
+            return const PortalGateway();
           }
           // إذا لم يسجل دخوله بعد يفتح إجبارياً على شاشة الترحيب/الدخول
           return const WelcomeScreen();

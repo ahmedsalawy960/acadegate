@@ -24,6 +24,7 @@
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
     },
+    {
       "collectionGroup": "writing_orders",
       "queryScope": "COLLECTION_GROUP",
       "fields": [
@@ -45,6 +46,38 @@
       "fields": [
         { "fieldPath": "participantIds", "arrayConfig": "CONTAINS" },
         { "fieldPath": "updatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "supervision_requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "studentId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "supervision_requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "supervisorOwnerId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "sample_analysis_requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "studentId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "sample_analysis_requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "labOwnerId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
     }
   ],

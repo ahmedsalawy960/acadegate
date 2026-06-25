@@ -1,6 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import '../home/home_screen.dart';
+import 'portal_gateway.dart';
 import 'google_auth_service.dart';
 import 'user_account_service.dart';
 
@@ -23,7 +23,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
     Navigator.pushAndRemoveUntil(
       context,
-      MaterialPageRoute(builder: (context) => const HomeScreen()),
+      MaterialPageRoute(builder: (context) => const PortalGateway()),
       (route) => false,
     );
   }
@@ -57,8 +57,9 @@ class _LoginScreenState extends State<LoginScreen> {
         password: _passwordController.text.trim(),
       );
 
-      await UserAccountService.instance
-          .ensureAccountExists(FirebaseAuth.instance.currentUser!);
+      await UserAccountService.instance.ensureAccountExists(
+        FirebaseAuth.instance.currentUser!,
+      );
 
       if (mounted) {
         await _navigateHome();
@@ -209,7 +210,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     Expanded(child: Divider(color: Colors.grey[300])),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Text('أو', style: TextStyle(color: Colors.grey[600])),
+                      child: Text(
+                        'أو',
+                        style: TextStyle(color: Colors.grey[600]),
+                      ),
                     ),
                     Expanded(child: Divider(color: Colors.grey[300])),
                   ],

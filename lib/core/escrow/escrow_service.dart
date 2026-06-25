@@ -22,7 +22,6 @@ class EscrowService {
     await orderRef.update({
       'paymentStatus': PaymentStatus.held,
       'paidAt': FieldValue.serverTimestamp(),
-      'amount': amount,
     });
 
     await NotificationService.instance.send(

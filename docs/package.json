@@ -1,0 +1,12 @@
+{
+  "name": "acadegate-docs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate": "node generate-brochure.mjs"
+  },
+  "dependencies": {
+    "html-to-docx": "^1.8.0",
+    "puppeteer": "^24.2.0"
+  }
+}

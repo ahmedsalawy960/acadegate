@@ -233,11 +233,13 @@ class WritingService {
     final snap = await ref.get();
     if (snap.data()?['userId'] != user.uid) throw Exception('غير مصرح');
 
+    final storedAmount = snap.data()?['amount'] as num? ?? 0;
+
     await EscrowService.instance.markPaidHeld(
       orderRef: ref,
       notifyUserId: snap.data()?['serviceOwnerId']?.toString() ?? '',
       title: snap.data()?['topic']?.toString() ?? 'طلب كتابة',
-      amount: amount,
+      amount: storedAmount,
     );
 
     await ref.update({'status': 'in_progress'});

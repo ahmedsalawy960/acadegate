@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../home/home_screen.dart';
+import 'portal_gateway.dart';
 import 'google_auth_service.dart';
 import 'login_screen.dart';
 import 'register_screen.dart';
@@ -13,7 +13,7 @@ class WelcomeScreen extends StatelessWidget {
       if (user != null && context.mounted) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
+          MaterialPageRoute(builder: (context) => const PortalGateway()),
         );
       }
     } catch (e) {
@@ -182,9 +182,7 @@ class WelcomeScreen extends StatelessWidget {
                 TextButton(
                   onPressed: () => Navigator.pushReplacement(
                     context,
-                    MaterialPageRoute(
-                      builder: (context) => const HomeScreen(),
-                    ),
+                    MaterialPageRoute(builder: (context) => const PortalGateway()),
                   ),
                   child: const Text('تصفح كضيف'),
                 ),

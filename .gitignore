@@ -48,6 +48,10 @@ app.*.map.json
 .env
 .env.*
 *.secrets
+dart_defines.json
 
 # Firebase Functions dependencies
 functions/node_modules/
+
+# Docs build dependencies (keep HTML/PDF/DOCX only)
+docs/node_modules/

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/widgets/category_visual.dart';
 import 'my_writing_orders_screen.dart';
 import 'publish_writing_service_screen.dart';
 import 'writing_categories.dart';
@@ -40,7 +41,7 @@ class WritingHubScreen extends StatelessWidget {
           children: [
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: _brandColor.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(14),
@@ -49,12 +50,16 @@ class WritingHubScreen extends StatelessWidget {
               child: Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(10),
+                    padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
                       color: _brandColor.withValues(alpha: 0.15),
-                      shape: BoxShape.circle,
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(Icons.groups_3_outlined, color: _brandColor),
+                    child: const Icon(
+                      Icons.groups_3_outlined,
+                      color: _brandColor,
+                      size: 20,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   const Expanded(
@@ -89,7 +94,7 @@ class WritingHubScreen extends StatelessWidget {
                   crossAxisCount: 2,
                   crossAxisSpacing: 14,
                   mainAxisSpacing: 14,
-                  childAspectRatio: 0.88,
+                  mainAxisExtent: 168,
                 ),
                 itemBuilder: (context, index) {
                   final category = writingCategories[index];
@@ -148,40 +153,59 @@ class _CategoryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       elevation: 2,
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: category.color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            CategoryVisual(
+              imageUrl: category.imageUrl,
+              icon: category.icon,
+              color: category.color,
+              height: 76,
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(category.icon, size: 15, color: category.color),
+                        const SizedBox(width: 5),
+                        Expanded(
+                          child: Text(
+                            category.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      category.subtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.grey[600],
+                        height: 1.25,
+                      ),
+                    ),
+                  ],
                 ),
-                child: Icon(category.icon, color: category.color, size: 28),
               ),
-              const Spacer(),
-              Text(
-                category.title,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 15,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                category.subtitle,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 11, color: Colors.grey[600], height: 1.3),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

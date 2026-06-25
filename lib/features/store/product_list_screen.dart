@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import '../../core/widgets/category_visual.dart';
 import '../moderation/approval_status.dart';
 import 'add_product_screen.dart';
 import 'product_detail_screen.dart';
@@ -37,7 +38,9 @@ class ProductListScreen extends StatelessWidget {
               if (created == true) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('تم إرسال المنتج للمراجعة — سيظهر بعد الموافقة'),
+                    content: Text(
+                      'تم إرسال المنتج للمراجعة — سيظهر بعد الموافقة',
+                    ),
                     behavior: SnackBarBehavior.floating,
                   ),
                 );
@@ -111,6 +114,8 @@ class ProductListScreen extends StatelessWidget {
                 price: '${productData['price'] ?? 0} ج.م',
                 icon: category?.icon ?? Icons.shopping_bag_outlined,
                 color: accentColor,
+                imageUrl: productData['imageUrl']?.toString(),
+                fallbackImageUrl: category?.imageUrl,
                 onTap: () {
                   Navigator.push(
                     context,
@@ -147,6 +152,8 @@ class _ProductCard extends StatelessWidget {
   final String price;
   final IconData icon;
   final Color color;
+  final String? imageUrl;
+  final String? fallbackImageUrl;
   final VoidCallback onTap;
 
   const _ProductCard({
@@ -154,29 +161,46 @@ class _ProductCard extends StatelessWidget {
     required this.price,
     required this.icon,
     required this.color,
+    this.imageUrl,
+    this.fallbackImageUrl,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final visualUrl = (imageUrl != null && imageUrl!.trim().isNotEmpty)
+        ? imageUrl!.trim()
+        : (fallbackImageUrl ?? '');
+
     return Card(
       elevation: 2,
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.1),
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(12),
-                  ),
-                ),
-                child: Icon(icon, size: 45, color: color),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return visualUrl.isNotEmpty
+                      ? CategoryVisual(
+                          imageUrl: visualUrl,
+                          icon: icon,
+                          color: color,
+                          height: constraints.maxHeight,
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(12),
+                          ),
+                        )
+                      : Container(
+                          color: color.withValues(alpha: 0.1),
+                          alignment: Alignment.center,
+                          child: Icon(icon, size: 22, color: color),
+                        );
+                },
               ),
             ),
             Padding(
@@ -184,19 +208,31 @@ class _ProductCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    name,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
+                  Row(
+                    children: [
+                      Icon(icon, size: 14, color: color),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 4),
                   Text(
                     price,
-                    style: TextStyle(color: color, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      color: color,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                    ),
                   ),
                 ],
               ),

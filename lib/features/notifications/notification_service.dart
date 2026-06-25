@@ -21,11 +21,15 @@ class NotificationService {
   }) async {
     if (userId.isEmpty) return;
 
+    final sender = FirebaseAuth.instance.currentUser;
+    if (sender == null) return;
+
     await _notifications.add({
       'userId': userId,
-      'title': title,
-      'body': body,
+      'title': title.trim(),
+      'body': body.trim(),
       'type': type,
+      'senderId': sender.uid,
       'read': false,
       'createdAt': FieldValue.serverTimestamp(),
     });

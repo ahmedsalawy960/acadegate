@@ -1,7 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../academic/faculty_categories.dart';
 import '../auth/auth_guard.dart';
+import '../academic/academic_models.dart';
 import '../moderation/approval_status.dart';
 import '../store/store_categories.dart';
 
@@ -48,8 +50,13 @@ class _SubmitLabScreenState extends State<SubmitLabScreen> {
   final _cityController = TextEditingController();
   final _universityController = TextEditingController();
   final _tagsController = TextEditingController();
+  final _descriptionController = TextEditingController();
+  final _sampleServicesController = TextEditingController();
   final List<_EquipmentDraft> _equipment = [_EquipmentDraft()];
 
+  String _labType = 'university_lab';
+  String _category = facultyCategoryIds().first;
+  bool _acceptsExternalSamples = true;
   bool _isSaving = false;
 
   @override
@@ -59,6 +66,8 @@ class _SubmitLabScreenState extends State<SubmitLabScreen> {
     _cityController.dispose();
     _universityController.dispose();
     _tagsController.dispose();
+    _descriptionController.dispose();
+    _sampleServicesController.dispose();
     for (final item in _equipment) {
       item.dispose();
     }
@@ -103,6 +112,13 @@ class _SubmitLabScreenState extends State<SubmitLabScreen> {
         'equipment': mainEquipment,
         'equipmentList': equipmentList,
         'tags': tags,
+        'labType': _labType,
+        'facultyId': _category,
+        'facultyNameAr': facultyTitleForCategory(_category),
+        'category': _category,
+        'description': _descriptionController.text.trim(),
+        'acceptsExternalSamples': _acceptsExternalSamples,
+        'sampleServices': _parseSampleServices(),
         'waitDays': equipmentList
             .map((item) => item['waitDays'] as int)
             .reduce((a, b) => a < b ? a : b),
@@ -120,6 +136,21 @@ class _SubmitLabScreenState extends State<SubmitLabScreen> {
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
+  }
+
+  List<Map<String, dynamic>> _parseSampleServices() {
+    return _sampleServicesController.text
+        .split(RegExp(r'[،,\n]'))
+        .map((part) => part.trim())
+        .where((part) => part.isNotEmpty)
+        .map(
+          (name) => SampleAnalysisService(
+            id: name.toLowerCase().replaceAll(' ', '-'),
+            name: name,
+            specialties: [_category],
+          ).toMap(),
+        )
+        .toList();
   }
 
   void _showMessage(String text, {bool isError = false}) {
@@ -148,7 +179,7 @@ class _SubmitLabScreenState extends State<SubmitLabScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _infoBanner(
-                'أضف بيانات المختبر والأجهزة والأسعار. يُراجع الطلب قبل النشر.',
+                'اربط المختبر بالكلية — عند البحث عن الكلية ستظهر المختبرات المرتبطة بها تلقائياً.',
               ),
               const SizedBox(height: 16),
               const Text(
@@ -194,6 +225,80 @@ class _SubmitLabScreenState extends State<SubmitLabScreen> {
                 ),
                 validator: (v) =>
                     (v ?? '').trim().isEmpty ? 'الجامعة مطلوبة' : null,
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                key: ValueKey(_labType),
+                initialValue: _labType,
+                decoration: const InputDecoration(
+                  labelText: 'نوع المنشأة',
+                  border: OutlineInputBorder(),
+                ),
+                items: const [
+                  DropdownMenuItem(
+                    value: 'university_lab',
+                    child: Text('مختبر جامعي'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'research_center',
+                    child: Text('مركز بحوث'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'core_facility',
+                    child: Text('منشأة تحليل مركزية'),
+                  ),
+                ],
+                onChanged: (value) {
+                  if (value != null) setState(() => _labType = value);
+                },
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                key: ValueKey(_category),
+                initialValue: _category,
+                decoration: const InputDecoration(
+                  labelText: 'الكلية *',
+                  helperText: 'يُستخدم لربط المختبر بالكلية في البحث',
+                  border: OutlineInputBorder(),
+                ),
+                items: facultyCategoryIds()
+                    .map(
+                      (id) => DropdownMenuItem(
+                        value: id,
+                        child: Text(facultyTitleForCategory(id)),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  if (value != null) setState(() => _category = value);
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _descriptionController,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'وصف المختبر / الخدمات',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _sampleServicesController,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  labelText: 'خدمات تحليل العينات (افصل بفاصلة)',
+                  hintText: 'SEM, XRD, HPLC, تحليل تربة',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('يقبل عينات من خارج الجامعة'),
+                value: _acceptsExternalSamples,
+                onChanged: (value) =>
+                    setState(() => _acceptsExternalSamples = value),
               ),
               const SizedBox(height: 12),
               TextFormField(

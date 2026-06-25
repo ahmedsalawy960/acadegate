@@ -6,6 +6,7 @@ class WritingCategory {
   final String subtitle;
   final IconData icon;
   final Color color;
+  final String imageUrl;
 
   const WritingCategory({
     required this.id,
@@ -13,6 +14,7 @@ class WritingCategory {
     required this.subtitle,
     required this.icon,
     required this.color,
+    required this.imageUrl,
   });
 }
 
@@ -24,6 +26,8 @@ const List<WritingCategory> writingCategories = [
     subtitle: 'مقالات، أوراق مؤتمرات، نشر علمي',
     icon: Icons.article_outlined,
     color: Color(0xFF1565C0),
+    imageUrl:
+        'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?auto=format&fit=crop&w=600&h=360&q=80',
   ),
   WritingCategory(
     id: 'thesis',
@@ -31,6 +35,8 @@ const List<WritingCategory> writingCategories = [
     subtitle: 'ماجستير، دكتوراه، مشروع تخرج',
     icon: Icons.menu_book_outlined,
     color: Color(0xFF6A1B9A),
+    imageUrl:
+        'https://images.unsplash.com/photo-1524995997942-a1c2e315a42f?auto=format&fit=crop&w=600&h=360&q=80',
   ),
   WritingCategory(
     id: 'statistics',
@@ -38,6 +44,8 @@ const List<WritingCategory> writingCategories = [
     subtitle: 'SPSS، R، Excel، تفسير النتائج',
     icon: Icons.bar_chart_rounded,
     color: Color(0xFF00838F),
+    imageUrl:
+        'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=600&h=360&q=80',
   ),
   WritingCategory(
     id: 'literature_review',
@@ -45,6 +53,8 @@ const List<WritingCategory> writingCategories = [
     subtitle: 'نقد، تلخيص، خريطة مفاهيمية',
     icon: Icons.library_books_outlined,
     color: Color(0xFFEF6C00),
+    imageUrl:
+        'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?auto=format&fit=crop&w=600&h=360&q=80',
   ),
   WritingCategory(
     id: 'proposal',
@@ -52,6 +62,8 @@ const List<WritingCategory> writingCategories = [
     subtitle: 'خطة بحث، أهداف، منهجية',
     icon: Icons.lightbulb_outline,
     color: Color(0xFF558B2F),
+    imageUrl:
+        'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=600&h=360&q=80',
   ),
   WritingCategory(
     id: 'editing',
@@ -59,6 +71,8 @@ const List<WritingCategory> writingCategories = [
     subtitle: 'لغة، أسلوب، إعادة صياغة',
     icon: Icons.spellcheck_outlined,
     color: Color(0xFFAD1457),
+    imageUrl:
+        'https://images.unsplash.com/photo-1455397842260-daaac442a9d0?auto=format&fit=crop&w=600&h=360&q=80',
   ),
   WritingCategory(
     id: 'formatting',
@@ -66,6 +80,8 @@ const List<WritingCategory> writingCategories = [
     subtitle: 'APA، MLA، Harvard، IEEE',
     icon: Icons.format_align_right,
     color: Color(0xFF4527A0),
+    imageUrl:
+        'https://images.unsplash.com/photo-1507842217343-583bb7270b66?auto=format&fit=crop&w=600&h=360&q=80',
   ),
   WritingCategory(
     id: 'translation',
@@ -73,6 +89,8 @@ const List<WritingCategory> writingCategories = [
     subtitle: 'عربي ↔ إنجليزي، مصطلحات دقيقة',
     icon: Icons.translate,
     color: Color(0xFF283593),
+    imageUrl:
+        'https://images.unsplash.com/photo-1526628953301-3e589a6a8b74?auto=format&fit=crop&w=600&h=360&q=80',
   ),
 ];
 

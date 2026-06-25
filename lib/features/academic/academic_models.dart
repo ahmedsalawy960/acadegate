@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../moderation/approval_status.dart';
+import 'faculty_categories.dart';
 
 List<String> parseStringList(
   dynamic value, {
@@ -35,6 +36,13 @@ class AcademicSupervisor {
   final String orcid;
   final String universityEmail;
   final String photoUrl;
+  final String openAlexId;
+  final int worksCount;
+  final int citedByCount;
+  final int hIndex;
+  final String scholarUrl;
+  final String researchGateUrl;
+  final String importSource;
 
   const AcademicSupervisor({
     this.id,
@@ -53,7 +61,29 @@ class AcademicSupervisor {
     this.orcid = '',
     this.universityEmail = '',
     this.photoUrl = '',
+    this.openAlexId = '',
+    this.worksCount = 0,
+    this.citedByCount = 0,
+    this.hIndex = 0,
+    this.scholarUrl = '',
+    this.researchGateUrl = '',
+    this.importSource = '',
   });
+
+  /// ملف مستورد من OpenAlex/CSV — ليس حساباً حقيقياً للمشرف بعد.
+  bool get isImportedListing =>
+      importSource == 'openalex' ||
+      importSource == 'csv' ||
+      (importSource.isEmpty && openAlexId.isNotEmpty);
+
+  /// مشرف مسجّل فعلياً ويمكن مراسلته مباشرة داخل التطبيق.
+  bool get hasMessagingAccount =>
+      ownerId.isNotEmpty && !isImportedListing;
+
+  bool get hasPublicationIds =>
+      openAlexId.isNotEmpty || orcid.isNotEmpty;
+
+  bool get hasStoredMetrics => worksCount > 0 || citedByCount > 0;
 
   bool get isPubliclyVisible => ApprovalStatus.isPublic(approvalStatus);
 
@@ -82,6 +112,13 @@ class AcademicSupervisor {
       orcid: map['orcid']?.toString() ?? '',
       universityEmail: map['universityEmail']?.toString() ?? '',
       photoUrl: map['photoUrl']?.toString() ?? '',
+      openAlexId: map['openAlexId']?.toString() ?? '',
+      worksCount: _parseInt(map['worksCount']),
+      citedByCount: _parseInt(map['citedByCount']),
+      hIndex: _parseInt(map['hIndex']),
+      scholarUrl: map['scholarUrl']?.toString() ?? '',
+      researchGateUrl: map['researchGateUrl']?.toString() ?? '',
+      importSource: map['importSource']?.toString() ?? '',
     );
   }
 }
@@ -323,6 +360,49 @@ class LabRating {
   }
 }
 
+/// خدمة تحليل عينات في مختبر أو مركز بحوث.
+class SampleAnalysisService {
+  final String id;
+  final String name;
+  final String description;
+  final List<String> specialties;
+  final List<String> sampleTypes;
+  final int turnaroundDays;
+  final num priceFrom;
+
+  const SampleAnalysisService({
+    required this.id,
+    required this.name,
+    this.description = '',
+    this.specialties = const [],
+    this.sampleTypes = const [],
+    this.turnaroundDays = 5,
+    this.priceFrom = 0,
+  });
+
+  factory SampleAnalysisService.fromMap(Map<String, dynamic> map, {String? id}) {
+    return SampleAnalysisService(
+      id: id ?? map['id']?.toString() ?? map['name']?.toString() ?? 'service',
+      name: map['name']?.toString() ?? 'تحليل',
+      description: map['description']?.toString() ?? '',
+      specialties: parseStringList(map['specialties']),
+      sampleTypes: parseStringList(map['sampleTypes']),
+      turnaroundDays: _parseInt(map['turnaroundDays'], fallback: 5),
+      priceFrom: _parseNum(map['priceFrom'] ?? map['price']),
+    );
+  }
+
+  Map<String, dynamic> toMap() => {
+        'id': id,
+        'name': name,
+        'description': description,
+        'specialties': specialties,
+        'sampleTypes': sampleTypes,
+        'turnaroundDays': turnaroundDays,
+        'priceFrom': priceFrom,
+      };
+}
+
 class AcademicLab {
   final String? id;
   final String name;
@@ -337,6 +417,14 @@ class AcademicLab {
   final List<LabEquipment> equipmentList;
   final String ownerId;
   final String approvalStatus;
+  final String labType;
+  final String category;
+  final String facultyId;
+  final String facultyNameAr;
+  final String description;
+  final bool acceptsExternalSamples;
+  final String contactEmail;
+  final List<SampleAnalysisService> sampleServices;
 
   const AcademicLab({
     this.id,
@@ -352,10 +440,43 @@ class AcademicLab {
     this.equipmentList = const [],
     this.ownerId = '',
     this.approvalStatus = ApprovalStatus.approved,
+    this.labType = 'university_lab',
+    this.category = '',
+    this.facultyId = '',
+    this.facultyNameAr = '',
+    this.description = '',
+    this.acceptsExternalSamples = true,
+    this.contactEmail = '',
+    this.sampleServices = const [],
   });
 
   bool get isFromFirebase => id != null && id!.isNotEmpty;
   bool get isPubliclyVisible => ApprovalStatus.isPublic(approvalStatus);
+  bool get isResearchCenter =>
+      labType == 'research_center' || labType == 'core_facility';
+  bool get offersSampleAnalysis => sampleServices.isNotEmpty;
+
+  String get labTypeLabel => switch (labType) {
+        'research_center' => 'مركز بحوث',
+        'core_facility' => 'منشأة تحليل مركزية',
+        _ => 'مختبر جامعي',
+      };
+
+  String get linkedFacultyId =>
+      facultyId.isNotEmpty ? facultyId : category;
+
+  String get displayFacultyName => facultyNameAr.isNotEmpty
+      ? facultyNameAr
+      : facultyTitleForCategory(linkedFacultyId);
+
+  bool get hasFacultyLink => linkedFacultyId.isNotEmpty;
+
+  /// هل ينتمي المختبر/المركز لهذه الكلية؟
+  bool matchesFaculty(String facultyCategoryId) {
+    if (facultyCategoryId.isEmpty || facultyCategoryId == 'All') return true;
+    if (linkedFacultyId == facultyCategoryId) return true;
+    return matchesSpecialty(facultyCategoryId);
+  }
 
   String get displayEquipment {
     if (equipmentList.isNotEmpty) {
@@ -365,6 +486,11 @@ class AcademicLab {
   }
 
   int get minWaitDays {
+    if (sampleServices.isNotEmpty) {
+      return sampleServices
+          .map((s) => s.turnaroundDays)
+          .reduce((a, b) => a < b ? a : b);
+    }
     if (equipmentList.isEmpty) return defaultWaitDays;
     return equipmentList.map((item) => item.waitDays).reduce(
           (a, b) => a < b ? a : b,
@@ -372,6 +498,12 @@ class AcademicLab {
   }
 
   num get minCost {
+    if (sampleServices.isNotEmpty) {
+      final prices = sampleServices.map((s) => s.priceFrom).where((p) => p > 0);
+      if (prices.isNotEmpty) {
+        return prices.reduce((a, b) => a < b ? a : b);
+      }
+    }
     if (equipmentList.isEmpty) return 0;
     return equipmentList.map((item) => item.costPerSession).reduce(
           (a, b) => a < b ? a : b,
@@ -390,6 +522,19 @@ class AcademicLab {
     ];
   }
 
+  bool matchesSpecialty(String specialtyId) {
+    if (specialtyId.isEmpty || specialtyId == 'All') return true;
+    if (category == specialtyId) return true;
+    if (tags.any((tag) => tag.toLowerCase().contains(specialtyId.toLowerCase()))) {
+      return true;
+    }
+    return sampleServices.any(
+      (service) => service.specialties.any(
+        (s) => s.toLowerCase() == specialtyId.toLowerCase(),
+      ),
+    );
+  }
+
   factory AcademicLab.fromMap(
     Map<String, dynamic> map, {
     String? id,
@@ -401,6 +546,19 @@ class AcademicLab {
           .whereType<Map>()
           .map(
             (item) => LabEquipment.fromMap(
+              Map<String, dynamic>.from(item),
+            ),
+          )
+          .toList();
+    }
+
+    final rawServices = map['sampleServices'];
+    List<SampleAnalysisService> parsedServices = const [];
+    if (rawServices is List) {
+      parsedServices = rawServices
+          .whereType<Map>()
+          .map(
+            (item) => SampleAnalysisService.fromMap(
               Map<String, dynamic>.from(item),
             ),
           )
@@ -423,8 +581,29 @@ class AcademicLab {
       ownerId: map['ownerId']?.toString() ?? '',
       approvalStatus:
           map['approvalStatus']?.toString() ?? ApprovalStatus.approved,
+      labType: map['labType']?.toString() ?? 'university_lab',
+      facultyId: _readFacultyId(map),
+      facultyNameAr: _readFacultyNameAr(map),
+      category: _readFacultyId(map),
+      description: map['description']?.toString() ?? '',
+      acceptsExternalSamples: map['acceptsExternalSamples'] as bool? ?? true,
+      contactEmail: map['contactEmail']?.toString() ?? '',
+      sampleServices: parsedServices,
     );
   }
+}
+
+String _readFacultyId(Map<String, dynamic> map) {
+  final raw = map['facultyId']?.toString() ?? map['category']?.toString() ?? '';
+  return resolveFacultyId(raw) ?? raw;
+}
+
+String _readFacultyNameAr(Map<String, dynamic> map) {
+  final stored = map['facultyNameAr']?.toString() ?? '';
+  if (stored.isNotEmpty) return stored;
+  final facultyId = _readFacultyId(map);
+  if (facultyId.isEmpty) return '';
+  return facultyNameForStorage(facultyId);
 }
 
 class AcademicContent {

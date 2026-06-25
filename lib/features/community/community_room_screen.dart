@@ -19,6 +19,8 @@ class CommunityRoomScreen extends StatefulWidget {
 class _CommunityRoomScreenState extends State<CommunityRoomScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
+  final _searchController = TextEditingController();
+  String _searchQuery = '';
 
   static const _tabs = <String?, String>{
     null: 'الكل',
@@ -36,6 +38,7 @@ class _CommunityRoomScreenState extends State<CommunityRoomScreen>
 
   @override
   void dispose() {
+    _searchController.dispose();
     _tabController.dispose();
     super.dispose();
   }
@@ -84,10 +87,39 @@ class _CommunityRoomScreenState extends State<CommunityRoomScreen>
         icon: const Icon(Icons.add),
         label: const Text('منشور جديد'),
       ),
-      body: StreamBuilder<List<CommunityPost>>(
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'ابحث في مناقشات الغرفة...',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchQuery.isEmpty
+                    ? null
+                    : IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _searchQuery = '');
+                        },
+                      ),
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onChanged: (value) => setState(() => _searchQuery = value),
+            ),
+          ),
+          Expanded(
+            child: StreamBuilder<List<CommunityPost>>(
         stream: CommunityService.instance.watchRoomPosts(
           roomId: widget.room.id,
           type: _selectedType,
+          searchQuery: _searchQuery,
         ),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting &&
@@ -105,7 +137,9 @@ class _CommunityRoomScreenState extends State<CommunityRoomScreen>
               child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Text(
-                  'لا توجد منشورات في هذا القسم بعد.\nاضغط «منشور جديد» لتبدأ النقاش.',
+                  _searchQuery.trim().isEmpty
+                      ? 'لا توجد منشورات في هذا القسم بعد.\nاضغط «منشور جديد» لتبدأ النقاش.'
+                      : 'لا توجد نتائج لـ «$_searchQuery»',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.grey[700], height: 1.5),
                 ),
@@ -136,6 +170,9 @@ class _CommunityRoomScreenState extends State<CommunityRoomScreen>
             },
           );
         },
+      ),
+          ),
+        ],
       ),
     );
   }

@@ -20,6 +20,8 @@ class HomeServiceImages {
       'https://images.unsplash.com/photo-1507413245160-754ec704b2d6?auto=format&fit=crop&w=800&h=500&q=80';
   static const writingServices =
       'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?auto=format&fit=crop&w=800&h=500&q=80';
+  static const supplyChain =
+      'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=800&h=500&q=80';
 }
 
 class DashboardCard extends StatelessWidget {

@@ -6,6 +6,7 @@ class UserAccount {
   final String email;
   final String displayName;
   final String role;
+  final String? activePortal;
   final DateTime? createdAt;
 
   const UserAccount({
@@ -13,6 +14,7 @@ class UserAccount {
     required this.email,
     required this.displayName,
     required this.role,
+    this.activePortal,
     this.createdAt,
   });
 
@@ -30,6 +32,7 @@ class UserAccount {
       email: map['email']?.toString() ?? '',
       displayName: map['displayName']?.toString() ?? '',
       role: map['role']?.toString() ?? UserRole.student,
+      activePortal: map['activePortal']?.toString(),
       createdAt: created,
     );
   }

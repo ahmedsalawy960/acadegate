@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AcadeGate — دليل المنصة الشامل</title>
+  <style>
+    @page { size: A4; margin: 18mm 14mm; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+      line-height: 1.75;
+      color: #1a1a2e;
+      margin: 0;
+      padding: 0;
+      font-size: 11.5pt;
+      background: #fff;
+    }
+    .cover {
+      min-height: 95vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      background: linear-gradient(135deg, #1a237e 0%, #283593 45%, #006064 100%);
+      color: #fff;
+      padding: 48px 32px;
+      page-break-after: always;
+    }
+    .cover h1 { font-size: 42pt; margin: 0 0 12px; letter-spacing: 1px; }
+    .cover .tagline { font-size: 18pt; opacity: 0.95; margin-bottom: 32px; }
+    .cover .subtitle { font-size: 14pt; max-width: 720px; line-height: 1.8; opacity: 0.9; }
+    .cover .meta { margin-top: 48px; font-size: 11pt; opacity: 0.8; }
+    h1 { color: #1a237e; font-size: 22pt; border-bottom: 3px solid #1a237e; padding-bottom: 8px; margin-top: 36px; page-break-after: avoid; }
+    h2 { color: #283593; font-size: 16pt; margin-top: 28px; page-break-after: avoid; }
+    h3 { color: #006064; font-size: 13pt; margin-top: 20px; page-break-after: avoid; }
+    h4 { color: #37474f; font-size: 11.5pt; margin-top: 16px; }
+    p { margin: 8px 0; text-align: justify; }
+    ul, ol { margin: 8px 0; padding-right: 24px; }
+    li { margin: 4px 0; }
+    table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 10.5pt; page-break-inside: avoid; }
+    th { background: #1a237e; color: #fff; padding: 10px 8px; text-align: right; font-weight: 600; }
+    td { border: 1px solid #cfd8dc; padding: 8px; vertical-align: top; }
+    tr:nth-child(even) td { background: #f5f7fa; }
+    .toc { page-break-after: always; }
+    .toc ol { font-size: 12pt; line-height: 2; }
+    .highlight { background: #e8eaf6; border-right: 4px solid #1a237e; padding: 14px 18px; margin: 16px 0; border-radius: 4px; }
+    .warning { background: #fff3e0; border-right: 4px solid #ef6c00; padding: 14px 18px; margin: 16px 0; }
+    .success { background: #e8f5e9; border-right: 4px solid #2e7d32; padding: 14px 18px; margin: 16px 0; }
+    .page-break { page-break-before: always; }
+    .badge { display: inline-block; background: #1a237e; color: #fff; padding: 2px 10px; border-radius: 12px; font-size: 9pt; margin: 2px; }
+    .badge-green { background: #2e7d32; }
+    .badge-orange { background: #ef6c00; }
+    .badge-purple { background: #6a1b9a; }
+    .section-num { color: #78909c; font-size: 10pt; }
+    footer.doc-footer { margin-top: 40px; padding-top: 12px; border-top: 1px solid #cfd8dc; font-size: 9pt; color: #78909c; text-align: center; }
+    .flow { font-family: Consolas, monospace; background: #eceff1; padding: 16px; border-radius: 6px; text-align: center; font-size: 11pt; margin: 16px 0; }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media print {
+      body { font-size: 10.5pt; }
+      .cover { min-height: 100vh; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- صفحة الغلاف -->
+<div class="cover">
+  <div style="font-size: 56pt; margin-bottom: 8px;">🎓</div>
+  <h1>AcadeGate</h1>
+  <div class="tagline">بوابتك للتميز في الدراسات العليا</div>
+  <div class="subtitle">
+    دليل شامل للمنصة — الخدمات، الشركاء، النموذج التقني، وفرص الاستثمار<br/>
+    منصة عربية متكاملة تربط رحلة البحث العلمي من الفكرة إلى التنفيذ
+  </div>
+  <div class="meta">
+    الإصدار 1.0.0 | يونيو 2025<br/>
+    وثيقة للمستثمرين · التجار · المختبرات · الجامعات · مقدمي الخدمات
+  </div>
+</div>
+
+<!-- الفهرس -->
+<div class="toc">
+  <h1>فهرس المحتويات</h1>
+  <ol>
+    <li>الملخص التنفيذي وعرض القيمة</li>
+    <li>الجمهور المستهدف وشرائح الشركاء</li>
+    <li>نظام البوابات والأدوار</li>
+    <li>الخدمات الرئيسية التسعة (تفصيل كامل)</li>
+    <li>الميزات الداعمة والبنية التحتية للمستخدم</li>
+    <li>بوابة مقدم الخدمة ولوحة المساهمة</li>
+    <li>الإدارة والمراجعة واستيراد المحتوى</li>
+    <li>نموذج الإيرادات وقنوات الربح</li>
+    <li>المكدس التقني وقواعد البيانات</li>
+    <li>الأمان والخصوصية</li>
+    <li>حالة التنفيذ والخارطة القادمة</li>
+    <li>فرص الشراكة حسب نوع الشريك</li>
+    <li>الملحق: الجداول المرجعية الكاملة</li>
+  </ol>
+</div>
+
+<!-- 1. الملخص التنفيذي -->
+<h1><span class="section-num">1 —</span> الملخص التنفيذي وعرض القيمة</h1>
+
+<div class="highlight">
+  <strong>AcadeGate</strong> هي المنصة العربية الأولى التي تجمع رحلة الباحث والطالب في الدراسات العليا في مكان واحد — من اكتشاف الفكرة والمشرف والمختبر والمعدات إلى الكتابة والمجتمع والذكاء الاصطناعي.
+</div>
+
+<h2>1.1 المشكلة التي نحلها</h2>
+<p>يواجه طلاب الدراسات العليا والباحثون في العالم العربي تحديات متفرقة:</p>
+<ul>
+  <li>صعوبة إيجاد مشرف مناسب حسب التخصص والجامعة ومؤشرات النشر</li>
+  <li>غياب دليل موحّد للمختبرات ومراكز التحليل وخدمات الأجهزة</li>
+  <li>تشتت مصادر المعدات الأكاديمية والخدمات الكتابية</li>
+  <li>عدم وجود مسار متكامل يربط الفكرة البحثية بموارد التنفيذ</li>
+  <li>اعتماد على قنوات غير منظمة للتواصل والتعاقد بدون ضمان</li>
+</ul>
+
+<h2>1.2 الحل: منصة متكاملة ثنائية البوابة</h2>
+<div class="flow">
+  فكرة بحثية → مشرف أكاديمي → مختبر وتحليل → معدات من المتجر → كتابة أكاديمية → مجتمع وغرف بحثية → مساعد ذكي (AI)
+</div>
+
+<h2>1.3 الميزة التنافسية</h2>
+<table>
+  <tr><th>الميزة</th><th>AcadeGate</th><th>البدائل التقليدية</th></tr>
+  <tr><td>تكامل الرحلة</td><td>9 خدمات مترابطة + مسار بحث ذكي</td><td>مواقع منفصلة لكل خدمة</td></tr>
+  <tr><td>اللغة والواجهة</td><td>عربي كامل RTL</td><td>غالباً إنجليزي أو جزئي</td></tr>
+  <tr><td>الضمان المالي</td><td>نظام Escrow داخلي (MVP)</td><td>تحويلات مباشرة بدون حماية</td></tr>
+  <tr><td>الذكاء الاصطناعي</td><td>11 وكيلاً متخصصاً + Gemini</td><td>ChatGPT عام بدون سياق أكاديمي</td></tr>
+  <tr><td>بيانات المشرفين</td><td>OpenAlex + Scimago + استيراد جماعي</td><td>قوائم يدوية قديمة</td></tr>
+  <tr><td>بوابة مقدم الخدمة</td><td>لوحة موحّدة للتجار والمختبرات والكتاب</td><td>لا توجد بوابة شاملة</td></tr>
+</table>
+
+<h2>1.4 الأرقام والنطاق</h2>
+<ul>
+  <li><strong>17 كلية</strong> أكاديمية مدعومة في دليل المشرفين</li>
+  <li><strong>9 خدمات</strong> رئيسية في بوابة المستخدم</li>
+  <li><strong>11 وكيل AI</strong> متخصص في المساعد الأكاديمي</li>
+  <li><strong>8 أقسام</strong> لخدمات الكتابة + <strong>5 أقسام</strong> للمتجر</li>
+  <li><strong>7 غرف</strong> مجتمع تخصصية + غرف بحثية خاصة محمية</li>
+  <li><strong>6 أدوار</strong> للمستخدمين + دور المدير</li>
+  <li><strong>140+</strong> ملف شاشة/خدمة في التطبيق</li>
+</ul>
+
+<!-- 2. الجمهور المستهدف -->
+<h1 class="page-break"><span class="section-num">2 —</span> الجمهور المستهدف وشرائح الشركاء</h1>
+
+<table>
+  <tr><th>الشريك / الجمهور</th><th>ما يحصل عليه من AcadeGate</th><th>ما يقدمه للمنصة</th></tr>
+  <tr>
+    <td><strong>طلاب وباحثو الدراسات العليا</strong></td>
+    <td>اكتشاف مشرفين، مختبرات، معدات، كتابة، AI، مجتمع، مطابقة ذكية</td>
+    <td>بيانات الملف الأكاديمي، طلبات، تفاعل، عمولات</td>
+  </tr>
+  <tr>
+    <td><strong>المشرفون الأكاديميون</strong></td>
+    <td>ملف منشور، مقاييس نشر (OpenAlex/Scimago)، طلبات إشراف واردة</td>
+    <td>محتوى خبير، طلبات إشراف، خدمات كتابة (اختياري)</td>
+  </tr>
+  <tr>
+    <td><strong>المختبرات ومراكز التحليل</strong></td>
+    <td>ظهور في الدليل، حجز أجهزة، طلبات تحليل عينات</td>
+    <td>بيانات المختبر، خدمات، أسعار، تقييمات</td>
+  </tr>
+  <tr>
+    <td><strong>التجار والموردون</strong></td>
+    <td>متجر أكاديمي بـ 5 أقسام، طلبات مع ضمان Escrow</td>
+    <td>منتجات، أسعار، تنفيذ طلبات</td>
+  </tr>
+  <tr>
+    <td><strong>خبراء الكتابة الأكاديمية</strong></td>
+    <td>8 تخصصات كتابة، طلبات واردة، تتبع الطلبات</td>
+    <td>خدمات كتابة بشرية (ليست AI)</td>
+  </tr>
+  <tr>
+    <td><strong>ناشرو الأفكار البحثية</strong></td>
+    <td>سوق أفكار، تصويت، مقترحات من الباحثين</td>
+    <td>مشاكل بحثية وأفكار للتطوير</td>
+  </tr>
+  <tr>
+    <td><strong>الجامعات والمراكز البحثية</strong></td>
+    <td>قناة رقمية لعرض مختبراتها ومشرفيها، مجتمع منظم</td>
+    <td>شراكة محتوى، اعتماد رسمي، بيانات OpenAlex</td>
+  </tr>
+  <tr>
+    <td><strong>المستثمرون</strong></td>
+    <td>منصة SaaS/Marketplace متعددة القنوات، نموذج إيرادات واضح</td>
+    <td>تمويل، توسع، بوابات دفع</td>
+  </tr>
+</table>
+
+<!-- 3. البوابات والأدوار -->
+<h1 class="page-break"><span class="section-num">3 —</span> نظام البوابات والأدوار</h1>
+
+<h2>3.1 البوابتان الرئيسيتان</h2>
+
+<h3>بوابة المستخدم (بوابة الباحث والطالب)</h3>
+<p>الواجهة الرئيسية لاستهلاك الخدمات. تحتوي على 9 بطاقات خدمات، بحث شامل عبر المنصة، إشعارات، رسائل، ملف أكاديمي، مطابقة ذكية، ومساعد AI.</p>
+
+<h3>بوابة مقدم الخدمة</h3>
+<p>لوحة تحكم للتجار والمختبرات والكتاب وناشري الأفكار والمشرفين. تعرض الطلبات الواردة، أدوات النشر، ومتابعة الطلبات الصادرة. تتضمن زر «لوحة المساهمة الكاملة» للوصول المركزي.</p>
+
+<h3>شاشة اختيار البوابة</h3>
+<p>بعد تسجيل الدخول، يختار المستخدم البوابة المناسبة. النظام يقترح بوابة افتراضية حسب دور الحساب مع إمكانية التبديل في أي وقت عبر زر التبديل.</p>
+
+<h3>التصفح كضيف</h3>
+<p>يمكن للزائر تصفح المنصة بدون حساب من شاشة الترحيب، مع تقييد العمليات الحساسة (الشراء، الحجز، المحادثة) عبر حارس الدخول.</p>
+
+<h2>3.2 أدوار الحساب</h2>
+<table>
+  <tr><th>الدور</th><th>الاسم العربي</th><th>البوابة المقترحة</th><th>الصلاحيات الرئيسية</th></tr>
+  <tr><td>student</td><td>طالب / باحث</td><td>بوابة المستخدم</td><td>استهلاك كل الخدمات، طلب إشراف، شراء، حجز</td></tr>
+  <tr><td>supervisor</td><td>مشرف أكاديمي</td><td>اختيار يدوي</td><td>ملف مشرف، طلبات إشراف واردة، خدمات كتابة</td></tr>
+  <tr><td>merchant</td><td>تاجر / مورد</td><td>مقدم الخدمة</td><td>إضافة منتجات، استقبال طلبات المتجر</td></tr>
+  <tr><td>lab_manager</td><td>مسؤول مختبر</td><td>مقدم الخدمة</td><td>تسجيل مختبر، طلبات تحليل عينات</td></tr>
+  <tr><td>idea_publisher</td><td>ناشر أفكار بحثية</td><td>مقدم الخدمة</td><td>نشر أفكار في السوق</td></tr>
+  <tr><td>admin</td><td>مدير النظام</td><td>كلاهما</td><td>مراجعة محتوى، استيراد جماعي، موافقة فورية</td></tr>
+</table>
+
+<h2>3.3 المصادقة والأمان</h2>
+<ul>
+  <li>تسجيل بالبريد الإلكتروني وكلمة المرور</li>
+  <li>تسجيل الدخول بحساب Google</li>
+  <li>لا يمكن إنشاء حساب مدير من التطبيق — يُعيَّن من Firebase Console فقط</li>
+  <li>حارس دخول (<code>AuthGuard</code>) يحمي العمليات الحساسة</li>
+</ul>
+
+<!-- 4. الخدمات الرئيسية -->
+<h1 class="page-break"><span class="section-num">4 —</span> الخدمات الرئيسية التسعة — تفصيل كامل</h1>
+
+<!-- 4.1 المشرفون -->
+<h2>4.1 المشرفون الأكاديميون <span class="badge">Supervisors</span></h2>
+<p><strong>الوصف:</strong> دليل شامل للمشرفين الأكاديميين مصنّف حسب 17 كلية جامعية، مع ملفات تفصيلية ومقاييس نشر علمي.</p>
+
+<h3>الميزات الفرعية</h3>
+<ul>
+  <li>تصفح حسب الكلية (17 كلية — انظر الملحق)</li>
+  <li>عرض ملف المشرف: التخصص، السيرة، الوسوم، المنهجيات</li>
+  <li>لوحة مقاييس النشر: عدد الأعمال، الاستشهادات، h-index من OpenAlex</li>
+  <li>تصنيف مجلات Q1–Q4 من Scimago</li>
+  <li>روابط ORCID وGoogle Scholar وResearchGate</li>
+  <li>مراسلة المشرف مباشرة</li>
+  <li>طلب إشراف رسمي (إشراف / تواصل)</li>
+  <li>تسجيل مشرف جديد (يُرسل للمراجعة)</li>
+  <li>استيراد جماعي عبر OpenAlex أو CSV (للمدير)</li>
+</ul>
+
+<h3>الشاشات</h3>
+<p>FacultiesScreen → SupervisorsListScreen → SupervisorProfileScreen → ContactSupervisor / SupervisionRequest</p>
+<p>إضافية: SubmitSupervisorScreen، MatchmakingScreen، AdminSupervisorImportScreen، My/Incoming SupervisionRequestsScreen</p>
+
+<h3>مصادر البيانات</h3>
+<p>Firestore: <code>supervisors</code> | APIs: OpenAlex، Scimago | Fallback محلي عند فراغ القاعدة</p>
+
+<h3>نموذج الإيرادات</h3>
+<p>عمولة على طلبات الإشراف المدفوعة (مستقبلاً) · اشتراك ملف مشرف مميز · إعلانات أكاديمية</p>
+
+<!-- 4.2 أفكار بحثية -->
+<h2>4.2 سوق الأفكار البحثية <span class="badge badge-orange">Research Ideas</span></h2>
+<p><strong>الوصف:</strong> سوق لتبادل المشاكل البحثية والأفكار بين ناشري الأفكار والباحثين.</p>
+
+<h3>الميزات الفرعية</h3>
+<ul>
+  <li>نشر فكرة بحثية مع وصف المشكلة والتخصص</li>
+  <li>تصويت على الأفكار (Upvote)</li>
+  <li>تقديم مقترحات بحثية من الباحثين</li>
+  <li>مراجعة المقترحات من قبل ناشر الفكرة</li>
+  <li>فلترة وبحث في السوق</li>
+  <li>مراجعة إدارية قبل النشر</li>
+</ul>
+
+<h3>الشاشات</h3>
+<p>ResearchMarketplaceScreen → ResearchIdeaMarketplaceDetailScreen → SubmitProposalScreen / PublishResearchIdeaScreen</p>
+
+<h3>مصادر البيانات</h3>
+<p>Firestore: <code>research_ideas</code> + subcollections: <code>proposals</code>، <code>votes</code></p>
+
+<!-- 4.3 مسار البحث الذكي -->
+<h2>4.3 مسار البحث الذكي <span class="badge badge-green">Smart Research Path</span></h2>
+<p><strong>الوصف:</strong> الميزة الرئيسية التكاملية — يُدخل الباحث موضوع بحثه فيحصل على حزمة متكاملة مربوطة بموارد المنصة.</p>
+
+<h3>مكونات الحزمة</h3>
+<ol>
+  <li><strong>فكرة بحثية</strong> مطابقة من سوق الأفكار</li>
+  <li><strong>مشرف</strong> مناسب حسب التخصص والملف الأكاديمي</li>
+  <li><strong>مختبر</strong> يقدم الخدمات التحليلية المطلوبة</li>
+  <li><strong>منتجات من المتجر</strong> (معدات وأدوات)</li>
+  <li><strong>خبير كتابة</strong> حسب نوع المساعدة المطلوبة</li>
+  <li><strong>تحليل AI</strong> عبر Gemini يقدم رؤى وتوصيات للحزمة</li>
+</ol>
+
+<h3>المحركات</h3>
+<ul>
+  <li><code>ResearchSupplyChainEngine</code> — مطابقة محلية ذكية</li>
+  <li><code>ResearchPathAiService</code> — إثراء بالذكاء الاصطناعي (Gemini)</li>
+  <li>يعتمد على الملف الأكاديمي للمستخدم عند توفره</li>
+</ul>
+
+<h3>الشاشة</h3>
+<p>ResearchSupplyChainScreen</p>
+
+<!-- 4.4 المختبرات -->
+<h2 class="page-break">4.4 مختبرات ومراكز التحليل <span class="badge badge-purple">Smart Labs</span></h2>
+<p><strong>الوصف:</strong> دليل ذكي للمختبرات ومراكز البحوث ومرافق الجامعات مع خدمات حجز وتحليل.</p>
+
+<h3>أنواع المختبرات</h3>
+<ul>
+  <li><code>research_center</code> — مركز بحوث</li>
+  <li><code>core_facility</code> — منشأة مركزية مشتركة</li>
+  <li><code>university_lab</code> — معمل جامعي</li>
+</ul>
+
+<h3>الميزات الفرعية</h3>
+<ul>
+  <li>دليل مختبرات مع فلترة بالمدينة والتخصص ونوع المختبر</li>
+  <li>فلتر «يقبل عينات خارجية»</li>
+  <li>عرض تفصيلي: الأجهزة، الخدمات، التقييمات، البريد</li>
+  <li>حجز جلسة على جهاز محدد (تكلفة لكل جلسة)</li>
+  <li>طلب تحليل عينة (مع وصف العينة والخدمة المطلوبة)</li>
+  <li>تقييم المختبر بعد الاستخدام</li>
+  <li>متابعة حجوزاتي وطلبات التحليل</li>
+  <li>استقبال طلبات واردة (لمسؤول المختبر)</li>
+  <li>تسجيل مختبر جديد</li>
+  <li>استيراد CSV + حزمة مصر الجاهزة (18 مختبر نموذجي)</li>
+</ul>
+
+<h3>الشاشات</h3>
+<p>SmartLabsScreen → SmartLabDetailScreen → BookEquipmentScreen / RequestSampleAnalysisScreen</p>
+<p>MyLabBookingsScreen، My/Incoming SampleAnalysisRequestsScreen، SubmitLabScreen، AdminLabImportScreen</p>
+
+<h3>مصادر البيانات</h3>
+<p>Firestore: <code>labs</code> + <code>bookings</code>، <code>ratings</code> | <code>sample_analysis_requests</code></p>
+
+<h3>ملاحظة للشركاء</h3>
+<div class="warning">حزمة «مصر الجاهزة» (18 مختبر) هي بيانات نموذجية للتجربة — ليست مختبرات موثّقة. يجب استبدالها ببيانات حقيقية قبل الإطلاق العام.</div>
+
+<!-- 4.5 المتجر -->
+<h2>4.5 المتجر الأكاديمي <span class="badge">Academic Store</span></h2>
+<p><strong>الوصف:</strong> سوق لبيع وشراء المعدات والأدوات الأكاديمية مع نظام ضمان مالي (Escrow).</p>
+
+<h3>أقسام المتجر (5)</h3>
+<table>
+  <tr><th>المعرّف</th><th>الاسم</th><th>أمثلة منتجات</th></tr>
+  <tr><td>chemical</td><td>متجر كيميائي</td><td>كواشف، أدوات معملية، زجاجيات</td></tr>
+  <tr><td>engineering</td><td>متجر هندسي</td><td>مكونات، أدوات قياس، قطع غيار</td></tr>
+  <tr><td>medical</td><td>متجر طبي</td><td>مستلزمات طبية، أجهزة مساعدة</td></tr>
+  <tr><td>agricultural</td><td>متجر زراعي</td><td>بذور، أسمدة، أدوات زراعية</td></tr>
+  <tr><td>general</td><td>متجر عام</td><td>مستلزمات أكاديمية متنوعة</td></tr>
+</table>
+
+<h3>تدفق الشراء (Escrow MVP)</h3>
+<ol>
+  <li>الباحث يختار منتجاً ويُنشئ طلباً</li>
+  <li>السعر يُتحقق من Firestore (لا يمكن التلاعب بالسعر من العميل)</li>
+  <li>حالة الدفع: <code>pending</code> → <code>held</code> (محجوز) → <code>released</code> (للبائع) أو <code>refunded</code></li>
+  <li>الباحث يؤكد الاستلام → إفراج المبلغ للبائع</li>
+</ol>
+
+<h3>الشاشات</h3>
+<p>StoreCategoriesScreen → ProductListScreen → ProductDetailScreen → AddProductScreen (تاجر)</p>
+
+<h3>مصادر البيانات</h3>
+<p>Firestore: <code>product</code>، <code>store_orders</code> | Storage: صور المنتجات</p>
+
+<div class="warning">لا توجد بوابة دفع خارجية حالياً (PayMob/Fawry/Stripe) — النظام MVP داخلي.</div>
+
+<!-- 4.6 المجتمع -->
+<h2>4.6 المجتمع الأكاديمي <span class="badge badge-green">Community</span></h2>
+<p><strong>الوصف:</strong> منصة تواصل أكاديمي منظمة بغرف تخصص عامة وغرف بحثية خاصة.</p>
+
+<h3>غرف التخصص العامة (7)</h3>
+<table>
+  <tr><th>الغرفة</th><th>الوصف</th></tr>
+  <tr><td>هندسة</td><td>نقاشات ومشاريع هندسية</td></tr>
+  <tr><td>علوم</td><td>كيمياء، فيزياء، وأبحاث علمية</td></tr>
+  <tr><td>طب</td><td>حالات سريرية ودراسات طبية</td></tr>
+  <tr><td>حقوق</td><td>قانون وبحوث قانونية</td></tr>
+  <tr><td>حاسبات</td><td>برمجة، ذكاء اصطناعي، وبيانات</td></tr>
+  <tr><td>زراعة</td><td>أبحاث زراعية وبيئية</td></tr>
+  <tr><td>عام</td><td>مواضيع أكاديمية متنوعة</td></tr>
+</table>
+
+<h3>أنواع المنشورات</h3>
+<p>سؤال · نقاش · إعلان مناقشة · مجموعة دراسة</p>
+
+<h3>الغرف البحثية الخاصة</h3>
+<ul>
+  <li>إنشاء غرفة بحثية باسم ووصف</li>
+  <li>حماية بكلمة مرور (تُخزَّن server-side فقط عبر Cloud Function)</li>
+  <li>مناقشات وردود داخل الغرفة</li>
+  <li>إدارة الأعضاء</li>
+</ul>
+
+<h3>الشاشات</h3>
+<p>CommunityHubScreen → CommunityRoomScreen → CommunityPostDetailScreen / CreateCommunityPostScreen</p>
+<p>ResearchRoomScreen، ResearchRoomGateScreen، CreateResearchRoomScreen، CreateResearchDiscussionScreen</p>
+
+<h3>مصادر البيانات</h3>
+<p><code>community_posts</code> + replies/upvotes | <code>research_rooms</code> + members/discussions/replies | <code>research_room_secrets</code> (server-only)</p>
+
+<!-- 4.7 AI -->
+<h2 class="page-break">4.7 المساعد الأكاديمي — AcadeGate AI <span class="badge badge-purple">AI Advisor</span></h2>
+<p><strong>الوصف:</strong> مساعد ذكي متعدد الوكلاء المتخصصين، يدعم المرفقات ويحفظ المحادثات.</p>
+
+<h3>الوكلاء المتخصصون (11)</h3>
+<table>
+  <tr><th>#</th><th>الوكيل</th><th>التخصص</th><th>أمثلة استخدام</th></tr>
+  <tr><td>1</td><td>وكيل الأفكار البحثية</td><td>تقييم وتطوير أفكار الماجستير/الدكتوراه</td><td>«هل فكرتي مناسبة للماجستير؟»</td></tr>
+  <tr><td>2</td><td>وكيل كتابة الرسائل</td><td>صياغة فصول بأسلوب أكاديمي طبيعي</td><td>«اكتب مقدمة عن التعلم الإلكتروني»</td></tr>
+  <tr><td>3</td><td>وكيل محاكاة النتائج</td><td>سيناريوهات نتائج افتراضية للتدريب</td><td>«حاكِ نتائج دراسة كمية»</td></tr>
+  <tr><td>4</td><td>وكيل المراجعة الأدبية</td><td>تحليل أوراق وإطار نظري</td><td>«حلّل ورقة عن AI في التعليم»</td></tr>
+  <tr><td>5</td><td>وكيل المراجع والتوثيق</td><td>APA، IEEE، Chicago، Harvard</td><td>«رتّب مراجعي بأسلوب APA»</td></tr>
+  <tr><td>6</td><td>وكيل التحرير والتدقيق</td><td>صياغة وتدقيق لغوي عربي</td><td>«حرّر هذا النص أكاديمياً»</td></tr>
+  <tr><td>7</td><td>وكيل تحليل البيانات</td><td>SPSS، Python، R، إحصاء</td><td>«اقترح تحليلاً لاستبيان 120 مشاركاً»</td></tr>
+  <tr><td>8</td><td>وكيل العروض التقديمية</td><td>هيكل شرائح المناقشة</td><td>«جهّز عرض 15 دقيقة»</td></tr>
+  <tr><td>9</td><td>وكيل تخطيط البحث</td><td>عناوين، أسئلة بحثية، منهجية</td><td>«اقترح 10 عناوين رسالة»</td></tr>
+  <tr><td>10</td><td>وكيل اختيار المشرف</td><td>مطابقة مع مشرفي التطبيق</td><td>«ما المشرف الأنسب لفكرتي؟»</td></tr>
+  <tr><td>11</td><td>المنسق الأكاديمي</td><td>توجيه عام لأي طلب أكاديمي</td><td>«ساعدني في خطة رسالة ماجستير»</td></tr>
+</table>
+
+<h3>ميزات إضافية</h3>
+<ul>
+  <li>توجيه ذكي تلقائي للوكيل المناسب حسب كلمات السؤال</li>
+  <li>دعم تعدد الوكلاء في إجابة واحدة</li>
+  <li>مرفقات: صور، PDF، نصوص</li>
+  <li>حفظ المحادثات للمستخدمين المسجّلين</li>
+  <li>محرك محلي بديل عند عدم توفر Gemini</li>
+</ul>
+
+<h3>التقنية</h3>
+<p>Gemini عبر Cloud Function <code>geminiAdvisor</code> (يتطلب مصادقة) | Storage: <code>uploads/{uid}/advisor/</code> | Firestore: <code>advisor_chats</code></p>
+
+<!-- 4.8 الكتابة -->
+<h2>4.8 خدمات الكتابة الأكاديمية <span class="badge">Writing Services</span></h2>
+<p><strong>الوصف:</strong> خدمات كتابة بشرية متخصصة (ليست AI) — حجز، ضمان، وتتبع.</p>
+
+<h3>أقسام الكتابة (8)</h3>
+<table>
+  <tr><th>القسم</th><th>الوصف</th></tr>
+  <tr><td>أوراق بحثية</td><td>مقالات، أوراق مؤتمرات، نشر علمي</td></tr>
+  <tr><td>رسائل علمية</td><td>ماجستير، دكتوراه، مشروع تخرج</td></tr>
+  <tr><td>إحصاء وتحليل</td><td>SPSS، R، Excel، تفسير النتائج</td></tr>
+  <tr><td>مراجعة أدبيات</td><td>نقد، تلخيص، خريطة مفاهيمية</td></tr>
+  <tr><td>مقترحات بحث</td><td>خطة بحث، أهداف، منهجية</td></tr>
+  <tr><td>تحرير وتدقيق</td><td>لغة، أسلوب، إعادة صياغة</td></tr>
+  <tr><td>تنسيق وتوثيق</td><td>APA، MLA، Harvard، IEEE</td></tr>
+  <tr><td>ترجمة علمية</td><td>عربي ↔ إنجليزي، مصطلحات دقيقة</td></tr>
+</table>
+
+<h3>خيارات الطلب</h3>
+<ul>
+  <li><strong>المستوى الأكاديمي:</strong> بكالوريوس، ماجستير، دكتوراه، ورقة مؤتمر، ورقة مجلة Q1–Q4، تقرير</li>
+  <li><strong>أنماط التوثيق:</strong> APA (7th)، MLA، Harvard، Chicago، IEEE، Vancouver، ISO 690</li>
+  <li><strong>اللغة:</strong> عربي، إنجليزي، ثنائي اللغة</li>
+  <li><strong>الاستعجال:</strong> عادي (7–14 يوم)، مستعجل (3–6 أيام)، فائق (24–48 ساعة)</li>
+  <li><strong>أدوات الإحصاء:</strong> SPSS، R، Excel، STATA، AMOS، SmartPLS، Python</li>
+  <li><strong>إضافات:</strong> تقرير أصالة، ملخص تنفيذي، PowerPoint، جلسة شرح، تعديل بعد المناقشة</li>
+</ul>
+
+<h3>الشاشات</h3>
+<p>WritingHubScreen → WritingExpertListScreen → WritingExpertDetailScreen → BookWritingOrderScreen</p>
+<p>MyWritingOrdersScreen (طالب) · ExpertOrdersScreen (خبير) · PublishWritingServiceScreen</p>
+
+<h3>مصادر البيانات</h3>
+<p><code>writing_services</code> + <code>writing_orders</code> | نطاق أسعار تجريبي: 800–8000 ج.م</p>
+
+<!-- 4.9 أخبار -->
+<h2>4.9 أخبار علمية <span class="badge badge-orange">Science News</span></h2>
+<p><strong>الوصف:</strong> قسم أخبار علمية مُنسّق مع تغذية RSS حية من مصادر عالمية.</p>
+
+<h3>مصادر RSS</h3>
+<ul>
+  <li>Nature</li>
+  <li>Phys.org</li>
+  <li>Medical Xpress</li>
+  <li>Tech Xplore</li>
+</ul>
+
+<p>مع محتوى مُنسّق في Firestore (<code>science_news</code>) وfallback محلي عند فشل الشبكة.</p>
+
+<h3>الشاشة</h3>
+<p>ScienceNewsScreen</p>
+
+<!-- 5. الميزات الداعمة -->
+<h1 class="page-break"><span class="section-num">5 —</span> الميزات الداعمة والبنية التحتية للمستخدم</h1>
+
+<h2>5.1 الملف الأكاديمي</h2>
+<p>يُخزَّن في <code>student_profiles/{userId}</code> ويشمل:</p>
+<ul>
+  <li>الاسم، الجامعة، التخصص، الاهتمام البحثي</li>
+  <li>المدينة، المهارات، الدرجة العلمية</li>
+  <li>المنهجية (كمي/نوعي/مختلط)</li>
+  <li>لغة البحث المفضلة</li>
+</ul>
+<p>يُستخدم في: المطابقة الذكية، مسار البحث الذكي، وكيل اختيار المشرف.</p>
+
+<h2>5.2 المطابقة الذكية (Smart Matchmaking)</h2>
+<p>محرك <code>SmartMatchmakingEngine</code> يطابق الملف الأكاديمي مع:</p>
+<ul>
+  <li>مشرفين مناسبين (نقاط تطابق)</li>
+  <li>أفكار بحثية متوافقة</li>
+  <li>مختبرات تخدم التخصص</li>
+</ul>
+<p>يتطلب ملفاً أكاديمياً مكتملاً. شاشة: MatchmakingScreen.</p>
+
+<h2>5.3 البحث الشامل في الصفحة الرئيسية</h2>
+<p>بحث فوري عبر: الخدمات، الكليات، المشرفين، الأفكار، المختبرات، أقسام المتجر، المنتجات — من Firestore مباشرة.</p>
+
+<h2>5.4 الرسائل الخاصة</h2>
+<ul>
+  <li>محادثات ثنائية بين مستخدمين</li>
+  <li>قائمة المحادثات + شاشة دردشة</li>
+  <li>Firestore: <code>conversations</code> + <code>messages</code></li>
+  <li>قواعد أمان: مشاركان فقط، لا تعديل/حذف رسائل</li>
+</ul>
+
+<h2>5.5 الإشعارات</h2>
+<table>
+  <tr><th>النوع</th><th>متى يُرسل</th></tr>
+  <tr><td>عام</td><td>إشعارات النظام</td></tr>
+  <tr><td>طلب متجر</td><td>طلب جديد / تحديث حالة</td></tr>
+  <tr><td>دفع محجوز/مُفرج/مسترد</td><td>تحديثات Escrow</td></tr>
+  <tr><td>غرفة بحثية</td><td>دعوات وتحديثات</td></tr>
+  <tr><td>كتابة</td><td>طلبات وتحديثات الكتابة</td></tr>
+  <tr><td>إشراف</td><td>طلبات إشراف جديدة</td></tr>
+  <tr><td>تحليل عينات</td><td>طلبات المختبر</td></tr>
+  <tr><td>رسالة</td><td>رسائل جديدة</td></tr>
+</table>
+<p>FCM Push: مدعوم جزئياً (Web/Windows محدود).</p>
+
+<h2>5.6 حذف المحتوى</h2>
+<p>يمكن لمالك المحتوى أو المدير حذف المحتوى عبر <code>DeleteContentButton</code> و<code>ContentDeleteService</code>.</p>
+
+<!-- 6. بوابة مقدم الخدمة -->
+<h1 class="page-break"><span class="section-num">6 —</span> بوابة مقدم الخدمة ولوحة المساهمة</h1>
+
+<h2>6.1 بوابة مقدم الخدمة — ProviderHomeScreen</h2>
+
+<h3>إدارة النظام (مدير فقط)</h3>
+<ul><li>مراجعة المحتوى — موافقة/رفض المشرفين والمختبرات والمنتجات والأفكار</li></ul>
+
+<h3>الطلبات الواردة (حسب الدور)</h3>
+<table>
+  <tr><th>الطلب</th><th>من يراه</th></tr>
+  <tr><td>طلبات الكتابة الواردة</td><td>مشرف / مدير</td></tr>
+  <tr><td>طلبات تحليل العينات</td><td>مسؤول مختبر / مدير</td></tr>
+  <tr><td>طلبات الإشراف الواردة</td><td>مشرف / مدير</td></tr>
+</table>
+
+<h3>إضافة ونشر المحتوى (حسب الدور)</h3>
+<table>
+  <tr><th>الإجراء</th><th>الأدوار المسموحة</th></tr>
+  <tr><td>إضافة منتج للمتجر</td><td>تاجر، مدير</td></tr>
+  <tr><td>تسجيل مختبر</td><td>مسؤول مختبر، مدير، طالب</td></tr>
+  <tr><td>تسجيل ملف مشرف</td><td>مشرف، مدير، طالب</td></tr>
+  <tr><td>نشر فكرة بحثية</td><td>ناشر أفكار، مشرف، مدير</td></tr>
+</table>
+
+<h3>متابعة الطلبات الصادرة</h3>
+<ul>
+  <li>طلباتي — إشراف وتواصل</li>
+  <li>طلبات تحليلي للمختبرات</li>
+</ul>
+
+<h2>6.2 لوحة المساهمة الكاملة — ContributorHubScreen</h2>
+<p>مركز موحّد لكل مقدم خدمة يتضمن:</p>
+<ul>
+  <li>مراجعة المحتوى (مدير)</li>
+  <li>طلبات الكتابة الواردة والصادرة</li>
+  <li>الرسائل</li>
+  <li>طلبات تحليل العينات (واردة/صادرة)</li>
+  <li>طلبات الإشراف (واردة/صادرة)</li>
+  <li>استيراد مشرفين (OpenAlex + CSV)</li>
+  <li>استيراد مختبرات (CSV + حزمة مصر)</li>
+  <li>تسجيل مشرف / مختبر / منتج / فكرة</li>
+  <li>قائمة «طلباتي قيد المراجعة»</li>
+</ul>
+
+<!-- 7. الإدارة -->
+<h1 class="page-break"><span class="section-num">7 —</span> الإدارة والمراجعة واستيراد المحتوى</h1>
+
+<h2>7.1 مراجعة المحتوى — AdminModerationScreen</h2>
+<p>المدير يراجع ويوافق أو يرفض:</p>
+<ul>
+  <li>المشرفين (<code>supervisors</code>)</li>
+  <li>المختبرات (<code>labs</code>)</li>
+  <li>المنتجات (<code>product</code>)</li>
+  <li>الأفكار البحثية (<code>research_ideas</code>)</li>
+  <li>منشورات المجتمع (<code>community_posts</code>)</li>
+</ul>
+<p>حالات الموافقة: <code>pending</code> → <code>approved</code> / <code>rejected</code></p>
+<p>المحتوى العام يظهر فقط بعد <code>approved</code>.</p>
+
+<h2>7.2 استيراد المشرفين</h2>
+<h3>تبويب OpenAlex</h3>
+<ul>
+  <li>بحث بجامعة مصرية (بالإنجليزية)</li>
+  <li>فلترة بالتخصص (Engineering, Science, Medicine...)</li>
+  <li>استيراد جماعي مع مراجعة</li>
+  <li>دليل جامعات مصر من <code>openalex_egypt.md</code></li>
+</ul>
+
+<h3>تبويب CSV</h3>
+<ul>
+  <li>رفع ملف CSV</li>
+  <li>نسخ قالب من الحزمة</li>
+  <li>تحميل قالب الحزمة للمعاينة</li>
+</ul>
+
+<h2>7.3 استيراد المختبرات</h2>
+<ul>
+  <li>رفع CSV مخصص</li>
+  <li>نسخ قالب CSV</li>
+  <li>زر «حزمة مصر الجاهزة» — 18 مختبر نموذجي</li>
+</ul>
+
+<h2>7.4 حزمة seed_data</h2>
+<table>
+  <tr><th>الملف</th><th>الغرض</th></tr>
+  <tr><td>csv/labs_template.csv</td><td>قالب فارغ للمختبرات</td></tr>
+  <tr><td>csv/labs_egypt_starter.csv</td><td>18 مختبر نموذجي</td></tr>
+  <tr><td>csv/supervisors_template.csv</td><td>قالب مشرفين يدوي</td></tr>
+  <tr><td>universities/openalex_egypt.md</td><td>دليل جامعات مصر لـ OpenAlex</td></tr>
+</table>
+
+<h3>خطة التعبئة المقترحة (أسبوع)</h3>
+<table>
+  <tr><th>اليوم</th><th>المهمة</th><th>الهدف</th></tr>
+  <tr><td>1–2</td><td>OpenAlex لـ 3 جامعات</td><td>150+ مشرف</td></tr>
+  <tr><td>3</td><td>استيراد labs_egypt_starter + تعديل</td><td>18+ مختبر</td></tr>
+  <tr><td>4</td><td>10 أفكار بحثية يدوياً</td><td>10 أفكار</td></tr>
+  <tr><td>5</td><td>5 منتجات تجريبية</td><td>5 منتجات</td></tr>
+</table>
+
+<!-- 8. نموذج الإيرادات -->
+<h1 class="page-break"><span class="section-num">8 —</span> نموذج الإيرادات وقنوات الربح</h1>
+
+<table>
+  <tr><th>القناة</th><th>الآلية الحالية</th><th>إمكانية التوسع</th><th>التقدير</th></tr>
+  <tr><td>المتجر الأكاديمي</td><td>Escrow + سعر بالجنيه</td><td>عمولة 5–15% + PayMob/Fawry</td><td>عالية</td></tr>
+  <tr><td>خدمات الكتابة</td><td>طلبات بمبالغ + Escrow</td><td>عمولة 10–20% + اشتراك خبير</td><td>عالية</td></tr>
+  <tr><td>تحليل العينات</td><td>priceFrom لكل خدمة</td><td>عمولة على كل طلب</td><td>متوسطة–عالية</td></tr>
+  <tr><td>حجز المختبر</td><td>costPerSession للأجهزة</td><td>عمولة حجز</td><td>متوسطة</td></tr>
+  <tr><td>AI Advisor</td><td>Gemini (تكلفة API)</td><td>Freemium + اشتراك شهري 99–299 ج.م</td><td>عالية (هامش جيد)</td></tr>
+  <tr><td>مسار البحث الذكي</td><td>AI enrichment</td><td>Premium bundle</td><td>متوسطة</td></tr>
+  <tr><td>سوق الأفكار</td><td>مجاني حالياً</td><td>رسوم نشر + عمولة مطابقة</td><td>متوسطة</td></tr>
+  <tr><td>المشرفون</td><td>طلب إشراف مجاني</td><td>اشتراك ملف مميز</td><td>منخفضة–متوسطة</td></tr>
+  <tr><td>الإعلانات</td><td>—</td><td>متجر/أخبار/مجتمع</td><td>متوسطة (لاحقاً)</td></tr>
+  <tr><td>اشتراك جامعي B2B</td><td>—</td><td>ترخيص للجامعات</td><td>عالية (مستقبل)</td></tr>
+</table>
+
+<div class="highlight">
+  <strong>نموذج العمل المقترح:</strong> Marketplace + SaaS — عمولات على المعاملات + اشتراكات Premium للـ AI والمطابقة + تراخيص B2B للجامعات.
+</div>
+
+<!-- 9. المكدس التقني -->
+<h1 class="page-break"><span class="section-num">9 —</span> المكدس التقني وقواعد البيانات</h1>
+
+<h2>9.1 التقنيات</h2>
+<table>
+  <tr><th>الطبقة</th><th>التقنية</th></tr>
+  <tr><td>Frontend</td><td>Flutter 3.12+، Material 3، RTL عربي كامل</td></tr>
+  <tr><td>المصادقة</td><td>Firebase Auth (Email + Google)</td></tr>
+  <tr><td>قاعدة البيانات</td><td>Cloud Firestore</td></tr>
+  <tr><td>التخزين</td><td>Firebase Storage</td></tr>
+  <tr><td>الدوال السحابية</td><td>Cloud Functions (geminiAdvisor، joinResearchRoom)</td></tr>
+  <tr><td>الإشعارات</td><td>Firebase Cloud Messaging</td></tr>
+  <tr><td>APIs خارجية</td><td>OpenAlex، Scimago، Gemini، RSS</td></tr>
+  <tr><td>منصات التشغيل</td><td>Windows، Web، Android، iOS (Flutter متعدد المنصات)</td></tr>
+</table>
+
+<h2>9.2 جداول Firestore</h2>
+<table>
+  <tr><th>Collection</th><th>الغرض</th></tr>
+  <tr><td>users</td><td>حسابات، أدوار، FCM token</td></tr>
+  <tr><td>student_profiles</td><td>الملف الأكاديمي</td></tr>
+  <tr><td>supervisors</td><td>المشرفون</td></tr>
+  <tr><td>labs + bookings, ratings</td><td>المختبرات والحجوزات</td></tr>
+  <tr><td>product</td><td>منتجات المتجر</td></tr>
+  <tr><td>store_orders</td><td>طلبات المتجر + Escrow</td></tr>
+  <tr><td>research_ideas + proposals, votes</td><td>سوق الأفكار</td></tr>
+  <tr><td>writing_services + writing_orders</td><td>خدمات الكتابة</td></tr>
+  <tr><td>community_posts + replies, upvotes</td><td>المجتمع</td></tr>
+  <tr><td>research_rooms + members, discussions, replies</td><td>الغرف البحثية</td></tr>
+  <tr><td>research_room_secrets</td><td>كلمات مرور (server-only)</td></tr>
+  <tr><td>supervision_requests</td><td>طلبات الإشراف</td></tr>
+  <tr><td>sample_analysis_requests</td><td>طلبات تحليل العينات</td></tr>
+  <tr><td>conversations + messages</td><td>الرسائل</td></tr>
+  <tr><td>notifications</td><td>الإشعارات</td></tr>
+  <tr><td>advisor_chats</td><td>محادثات AI</td></tr>
+  <tr><td>science_news</td><td>أخبار مُنسّقة</td></tr>
+  <tr><td>config</td><td>إعدادات (Admin SDK فقط)</td></tr>
+</table>
+
+<!-- 10. الأمان -->
+<h1 class="page-break"><span class="section-num">10 —</span> الأمان والخصوصية</h1>
+
+<ul>
+  <li>لا يمكن إنشاء حساب admin من التطبيق</li>
+  <li>المحتوى العام يظهر فقط بـ <code>approvalStatus: approved</code></li>
+  <li>المالك يرى محتواه المعلق؛ المدير يرى الكل</li>
+  <li>Escrow: السعر يُتحقق من Firestore عند إنشاء الطلب</li>
+  <li>الغرف المحمية: كلمة المرور في research_room_secrets — لا قراءة من العميل</li>
+  <li>joinResearchRoom Cloud Function للتحقق server-side</li>
+  <li>geminiAdvisor يتطلب مصادقة Firebase</li>
+  <li>Storage: حدود حجم (5MB صور، 10MB مرفقات AI)</li>
+  <li>الإشعارات: أنواع محددة، طول عنوان/نص محدود</li>
+  <li>المحادثات: مشاركان فقط، لا تعديل/حذف رسائل</li>
+</ul>
+
+<!-- 11. حالة التنفيذ -->
+<h1 class="page-break"><span class="section-num">11 —</span> حالة التنفيذ والخارطة القادمة</h1>
+
+<h2>11.1 مُنفّذ بالكامل</h2>
+<div class="success">
+  البوابات · Auth · 9 خدمات رئيسية · مجتمع · غرف بحثية · AI (مع مفتاح) · Escrow MVP · مراجعة محتوى · استيراد · مطابقة · رسائل · إشعارات داخل التطبيق · بحث شامل · ملف أكاديمي
+</div>
+
+<h2>11.2 جزئي / MVP</h2>
+<ul>
+  <li>بوابة دفع حقيقية (PayMob/Fawry/Stripe)</li>
+  <li>FCM Push على Web/Windows</li>
+  <li>Cloud Functions تحتاج خطة Blaze</li>
+  <li>Firebase Storage غير مفعّل بعد على المشروع</li>
+</ul>
+
+<h2>11.3 بيانات تجريبية</h2>
+<ul>
+  <li>Fallback محلي عند فراغ Firestore (مشرفون، خبراء كتابة، أخبار)</li>
+  <li>حزمة 18 مختبر نموذجي (ليست حقيقية)</li>
+</ul>
+
+<h2>11.4 الخارطة القادمة المقترحة</h2>
+<ol>
+  <li>تفعيل Storage ونشر Cloud Functions</li>
+  <li>ربط PayMob/Fawry للمدفوعات الحقيقية</li>
+  <li>تعبئة المحتوى: 150+ مشرف، 20+ مختبر حقيقي</li>
+  <li>Pilot مغلق مع 2–3 جامعات</li>
+  <li>إطلاق عام + حملة تسويق أكاديمي</li>
+  <li>اشتراك AI Premium + تراخيص B2B جامعية</li>
+</ol>
+
+<!-- 12. فرص الشراكة -->
+<h1 class="page-break"><span class="section-num">12 —</span> فرص الشراكة حسب نوع الشريك</h1>
+
+<h2>12.1 للمستثمرين</h2>
+<ul>
+  <li>سوق أكاديمي متعدد القنوات في سوق عربي ضخم (ملايين طلاب الدراسات العليا)</li>
+  <li>نموذج إيرادات متنوع: عمولات + اشتراكات + B2B</li>
+  <li>منتج MVP جاهز للتجربة — يحتاج تمويل للمحتوى والتسويق وبوابات الدفع</li>
+  <li>حاجز دخول: تكامل 9 خدمات + AI متخصص + بيانات OpenAlex</li>
+</ul>
+
+<h2>12.2 للجامعات</h2>
+<ul>
+  <li>قناة رقمية لعرض مختبراتها ومشرفيها</li>
+  <li>مجتمع أكاديمي منظم لطلابها</li>
+  <li>استيراد جماعي للمشرفين من OpenAlex</li>
+  <li>ترخيص مؤسسي (B2B) مستقبلاً</li>
+</ul>
+
+<h2>12.3 للمختبرات</h2>
+<ul>
+  <li>ظهور في دليل وطني/إقليمي</li>
+  <li>استقبال طلبات تحليل عينات وحجز أجهزة</li>
+  <li>تقييمات وسمعة رقمية</li>
+  <li>لوحة إدارة طلبات واردة</li>
+</ul>
+
+<h2>12.4 للتجار</h2>
+<ul>
+  <li>5 أقسام متخصصة للسوق الأكاديمي</li>
+  <li>نظام ضمان Escrow يبني ثقة المشتري</li>
+  <li>وصول مباشر لجمهور باحثين ومختبرات</li>
+</ul>
+
+<h2>12.5 لخبراء الكتابة</h2>
+<ul>
+  <li>8 تخصصات كتابة</li>
+  <li>طلبات واردة من طلاب ماجستير ودكتوراه</li>
+  <li>تتبع الطلبات والدفع المحمي</li>
+</ul>
+
+<!-- 13. الملحق -->
+<h1 class="page-break"><span class="section-num">13 —</span> الملحق: الجداول المرجعية الكاملة</h1>
+
+<h2>13.1 الكليات المدعومة (17)</h2>
+<table>
+  <tr><th>المعرّف</th><th>الاسم العربي</th></tr>
+  <tr><td>Engineering</td><td>كلية الهندسة</td></tr>
+  <tr><td>Science</td><td>كلية العلوم</td></tr>
+  <tr><td>Medicine</td><td>كلية الطب</td></tr>
+  <tr><td>Dentistry</td><td>كلية طب الأسنان</td></tr>
+  <tr><td>Pharmacy</td><td>كلية الصيدلة</td></tr>
+  <tr><td>Nursing</td><td>كلية التمريض</td></tr>
+  <tr><td>Veterinary</td><td>كلية الطب البيطري</td></tr>
+  <tr><td>Law</td><td>كلية الحقوق</td></tr>
+  <tr><td>CS</td><td>كلية الحاسبات</td></tr>
+  <tr><td>Agriculture</td><td>كلية الزراعة</td></tr>
+  <tr><td>Business</td><td>كلية التجارة</td></tr>
+  <tr><td>Education</td><td>كلية التربية</td></tr>
+  <tr><td>Arts</td><td>كلية الآداب</td></tr>
+  <tr><td>Architecture</td><td>كلية العمارة</td></tr>
+  <tr><td>MassCommunication</td><td>كلية الإعلام</td></tr>
+  <tr><td>Tourism</td><td>كلية السياحة والفنادق</td></tr>
+  <tr><td>PhysicalEducation</td><td>كلية التربية الرياضية</td></tr>
+  <tr><td>FineArts</td><td>كلية الفنون الجميلة</td></tr>
+</table>
+
+<h2>13.2 خريطة الشاشات الكاملة</h2>
+<pre style="background:#eceff1;padding:16px;border-radius:6px;font-size:9.5pt;line-height:1.6;white-space:pre-wrap;">
+Auth: Welcome → Login / Register / PortalSelection / PortalGateway
+User Home → [Supervisors | Ideas | Research Path | Labs | Store | Community | AI | Writing | News]
+Provider Home → [Orders | Submit Content | Contributor Hub]
+Admin: Moderation, Supervisor Import, Lab Import
+Supporting: Profile, Matchmaking, Messages, Notifications, Chat
+Community: Hub → Faculty Rooms | Research Rooms → Discussions
+Store: Categories → Products → Detail → Order
+Writing: Hub → Experts → Book → My Orders / Expert Orders
+Labs: List → Detail → Book Equipment | Sample Analysis
+Supervisors: Faculties → List → Profile → Supervision Request
+Ideas: Marketplace → Detail → Proposal / Vote
+AI: Advisor Screen (multi-agent chat + attachments)
+</pre>
+
+<h2>13.3 معلومات الاتصال والمشروع</h2>
+<table>
+  <tr><th>البند</th><th>التفاصيل</th></tr>
+  <tr><td>اسم المشروع</td><td>AcadeGate</td></tr>
+  <tr><td>الإصدار</td><td>1.0.0+1</td></tr>
+  <tr><td>Firebase Project</td><td>acadegate-new</td></tr>
+  <tr><td>اللغة</td><td>عربي (RTL) — واجهة كاملة</td></tr>
+  <tr><td>المنصات</td><td>Windows · Web · Android · iOS</td></tr>
+  <tr><td>SDK</td><td>Flutter ^3.12.1</td></tr>
+</table>
+
+<footer class="doc-footer">
+  AcadeGate — دليل المنصة الشامل | الإصدار 1.0 | يونيو 2025<br/>
+  هذه الوثيقة مبنية على كود المصدر الفعلي للمشروع وتعكس الحالة الحالية للتطبيق.
+</footer>
+
+</body>
+</html>

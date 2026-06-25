@@ -1,0 +1,2 @@
+name,university,city,location,labType,faculty,description,sampleServices,equipment,tags,contactEmail,acceptsExternalSamples
+"مثال: مركز تحليل المواد",جامعة القاهرة,القاهرة,كلية العلوم - الدور الثالث,research_center,Science,"وصف مختصر للمختبر وخدماته","SEM;XRD;FTIR","SEM;XRD","تحليل;مواد",lab@example.edu.eg,true

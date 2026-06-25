@@ -70,23 +70,31 @@ class StoreOrderService {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) throw Exception('يجب تسجيل الدخول');
 
+    final productSnap =
+        await FirebaseFirestore.instance.collection('product').doc(productId).get();
+    if (!productSnap.exists) throw Exception('المنتج غير موجود');
+
+    final serverPrice = productSnap.data()?['price'] as num?;
+    if (serverPrice == null) throw Exception('سعر المنتج غير متاح');
+    final verifiedSeller = productSnap.data()?['createdBy']?.toString() ?? sellerId;
+
     final doc = await _orders.add({
       'productId': productId,
       'productName': productName,
-      'price': price,
-      'amount': price,
+      'price': serverPrice,
+      'amount': serverPrice,
       'buyerId': user.uid,
       'buyerName': user.displayName ?? user.email?.split('@').first ?? 'مشتري',
-      'sellerId': sellerId,
+      'sellerId': verifiedSeller,
       'status': 'pending',
       'paymentStatus': PaymentStatus.pending,
       'createdAt': FieldValue.serverTimestamp(),
     });
 
     await NotificationService.instance.send(
-      userId: sellerId,
+      userId: verifiedSeller,
       title: 'طلب شراء جديد',
-      body: '$productName — $price ج.م',
+      body: '$productName — $serverPrice ج.م',
       type: 'store_order',
     );
 

@@ -48,4 +48,15 @@ class AcademicProfileService {
   void clearCache() {
     _cachedProfile = null;
   }
+
+  Future<void> deleteProfile() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      await FirebaseFirestore.instance
+          .collection('student_profiles')
+          .doc(user.uid)
+          .delete();
+    }
+    clearCache();
+  }
 }

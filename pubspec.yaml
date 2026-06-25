@@ -24,6 +24,7 @@ dependencies:
   firebase_storage: ^13.0.0
   image_picker: ^1.1.2
   firebase_messaging: ^16.0.0
+  crypto: ^3.0.6
 
 dev_dependencies:
   flutter_test:
@@ -36,3 +37,5 @@ flutter:
 
   assets:
     - assets/images/
+    - seed_data/csv/
+    - seed_data/universities/
