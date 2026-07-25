@@ -2,8 +2,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../academic/faculty_categories.dart';
+import '../../core/locale/l10n_lookup.dart';
 import '../moderation/approval_status.dart';
 import 'import_models.dart';
+import 'openalex_faculty_mapper.dart';
+import 'openalex_search_aliases.dart';
 
 class SupervisorImportService {
   SupervisorImportService._();
@@ -16,7 +19,7 @@ class SupervisorImportService {
 
   Future<SupervisorImportResult> importCsvRows({
     required List<CsvSupervisorRow> rows,
-    bool autoApprove = true,
+    bool autoApprove = false,
   }) {
     return _importMaps(
       rows.map(_mapFromCsv).toList(),
@@ -26,16 +29,14 @@ class SupervisorImportService {
 
   Future<SupervisorImportResult> importOpenAlexAuthors({
     required List<OpenAlexAuthor> authors,
-    required String category,
-    required String faculty,
-    bool autoApprove = true,
+    String? institutionName,
+    bool autoApprove = false,
   }) {
     final maps = authors
         .map(
           (author) => _mapFromOpenAlex(
             author,
-            category: category,
-            faculty: faculty,
+            institutionName: institutionName,
           ),
         )
         .toList();
@@ -48,7 +49,9 @@ class SupervisorImportService {
       'university': row.university,
       'speciality': row.speciality,
       'bio': row.bio.isEmpty
-          ? 'مشرف أكاديمي في ${row.speciality.isEmpty ? row.faculty : row.speciality}'
+          ? L10nLookup.supervisorBioDefault(
+              row.speciality.isEmpty ? row.faculty : row.speciality,
+            )
           : row.bio,
       'faculty': row.faculty.isNotEmpty
           ? row.faculty
@@ -66,29 +69,43 @@ class SupervisorImportService {
 
   Map<String, dynamic> _mapFromOpenAlex(
     OpenAlexAuthor author, {
-    required String category,
-    required String faculty,
+    String? institutionName,
   }) {
+    final inferred = OpenAlexFacultyMapper.resolve(author);
+    final faculty = inferred.facultyTitle;
+    final category = inferred.categoryId;
+
     final scholarUrl = author.orcid != null
         ? 'https://scholar.google.com/scholar?q=${Uri.encodeComponent(author.name)}'
         : null;
 
+    final institution = author.institutionName.trim().isNotEmpty
+        ? author.institutionName.trim()
+        : (institutionName?.trim() ?? '');
+
+    final universityLabel = OpenAlexSearchAliases.formatUniversityWithFaculty(
+      faculty: faculty,
+      institution: institution,
+    );
+
     return {
       'name': author.name,
-      'university': author.institutionName,
+      'university': universityLabel,
       'speciality': author.speciality,
       'bio': author.bio,
       'faculty': faculty,
       'category': category,
       'tags': author.tags,
-      'methodologies': const ['كمي', 'نوعي', 'مختلط'],
-      'isAvailable': true,
+      'methodologies': L10nLookup.defaultMethodologies,
+      'isAvailable': false,
       'orcid': ?author.orcid,
       'scholarUrl': ?scholarUrl,
       'openAlexId': author.id,
       'worksCount': author.worksCount,
       'citedByCount': author.citedByCount,
+      'hIndex': author.hIndex,
       'importSource': 'openalex',
+      'verificationStatus': 'imported_unverified',
     };
   }
 
@@ -98,7 +115,7 @@ class SupervisorImportService {
   }) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      throw Exception('يجب تسجيل الدخول');
+      throw Exception(L10nLookup.loginRequiredMessage);
     }
 
     final existingKeys = await _loadExistingKeys();
@@ -137,6 +154,8 @@ class SupervisorImportService {
           'ownerId': '',
           'approvalStatus':
               autoApprove ? ApprovalStatus.approved : ApprovalStatus.pending,
+          'verificationStatus': item['verificationStatus'] ??
+              (autoApprove ? 'verified' : 'pending_review'),
           'createdAt': FieldValue.serverTimestamp(),
           'importedAt': FieldValue.serverTimestamp(),
         });

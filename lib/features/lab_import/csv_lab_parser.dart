@@ -1,5 +1,6 @@
 import '../academic/academic_models.dart';
 import '../academic/faculty_categories.dart';
+import '../../core/locale/app_translate.dart';
 
 class CsvLabRow {
   final String name;
@@ -12,8 +13,18 @@ class CsvLabRow {
   final List<String> tags;
   final List<String> sampleServices;
   final List<String> equipmentNames;
+  /// Optional prices aligned by index with [sampleServices] (0 = unknown).
+  final List<num> sampleServicePrices;
+  /// Optional prices aligned by index with [equipmentNames] (0 = unknown).
+  final List<num> equipmentPrices;
   final String contactEmail;
+  final String contactPhone;
+  final String contactName;
+  final List<Map<String, dynamic>> contacts;
   final bool acceptsExternalSamples;
+  final String importSource;
+  final String sourceUrl;
+  final String externalId;
 
   const CsvLabRow({
     required this.name,
@@ -26,8 +37,16 @@ class CsvLabRow {
     this.tags = const [],
     this.sampleServices = const [],
     this.equipmentNames = const [],
+    this.sampleServicePrices = const [],
+    this.equipmentPrices = const [],
     this.contactEmail = '',
+    this.contactPhone = '',
+    this.contactName = '',
+    this.contacts = const [],
     this.acceptsExternalSamples = true,
+    this.importSource = 'csv',
+    this.sourceUrl = '',
+    this.externalId = '',
   });
 }
 
@@ -63,9 +82,9 @@ class CsvLabParser {
   static String templateCsv() {
     return 'name,university,city,location,labType,faculty,description,sampleServices,equipment,tags,contactEmail\n'
         'مركز تحليل المواد,جامعة القاهرة,القاهرة,كلية العلوم,research_center,كلية العلوم,'
-        'منشأة تحليل مركزية,"SEM;XRD;FTIR","SEM;XRD","تحليل;مواد",lab@cairouniv.edu.eg\n'
+        'منشأة تحليل مركزية,"SEM:800;XRD:600;FTIR:350","SEM:800;XRD:600","تحليل;مواد",lab@cairouniv.edu.eg\n'
         'مركز البحوث الطبية,جامعة عين شمس,القاهرة,مستشفى عين شمس,research_center,كلية الطب,'
-        'تحليل عينات سريرية,"HPLC;PCR","HPLC","طب;تحليل",research@aun.edu.eg\n';
+        'تحليل عينات سريرية,"HPLC:500;PCR:400","HPLC:500","طب;تحليل",research@aun.edu.eg\n';
   }
 
   static List<CsvLabRow> parse(String content) {
@@ -77,7 +96,12 @@ class CsvLabParser {
     final columnMap = _mapHeaders(headerCells);
 
     if (!columnMap.containsKey('name')) {
-      throw FormatException('الملف يجب أن يحتوي على عمود name أو الاسم');
+      throw FormatException(
+        appTr(
+          'الملف يجب أن يحتوي على عمود name أو الاسم',
+          'File must contain a name or الاسم column',
+        ),
+      );
     }
 
     final rows = <CsvLabRow>[];
@@ -109,11 +133,33 @@ class CsvLabParser {
           .toList();
     }
 
+    /// Supports `SEM` or `SEM:800` (name:price).
+    ({List<String> names, List<num> prices}) splitNamedPrices(String raw) {
+      final names = <String>[];
+      final prices = <num>[];
+      for (final part in splitList(raw)) {
+        final sep = part.lastIndexOf(':');
+        if (sep > 0) {
+          final name = part.substring(0, sep).trim();
+          final price = num.tryParse(part.substring(sep + 1).trim()) ?? 0;
+          if (name.isEmpty) continue;
+          names.add(name);
+          prices.add(price);
+        } else {
+          names.add(part);
+          prices.add(0);
+        }
+      }
+      return (names: names, prices: prices);
+    }
+
     final labType = _normalizeLabType(cell('labtype'));
     final facultyRaw = cell('faculty').isNotEmpty
         ? cell('faculty')
         : cell('category');
     final category = _normalizeCategory(facultyRaw);
+    final services = splitNamedPrices(cell('sampleservices'));
+    final equipment = splitNamedPrices(cell('equipment'));
 
     return CsvLabRow(
       name: cell('name'),
@@ -124,8 +170,10 @@ class CsvLabParser {
       category: category,
       description: cell('description'),
       tags: splitList(cell('tags')),
-      sampleServices: splitList(cell('sampleservices')),
-      equipmentNames: splitList(cell('equipment')),
+      sampleServices: services.names,
+      sampleServicePrices: services.prices,
+      equipmentNames: equipment.names,
+      equipmentPrices: equipment.prices,
       contactEmail: cell('contactemail'),
       acceptsExternalSamples: _parseBool(cell('acceptsexternalsamples'), defaultValue: true),
     );
@@ -219,28 +267,35 @@ Map<String, dynamic> csvLabRowToFirestoreMap(CsvLabRow row) {
   final facultyId = resolveFacultyId(row.category) ?? row.category;
   final facultyNameAr = facultyNameForStorage(facultyId);
 
-  final equipmentList = row.equipmentNames
-      .map(
-        (name) => {
-          'id': name.toLowerCase().replaceAll(' ', '-'),
-          'name': name,
-          'code': name,
-          'costPerSession': 0,
-          'durationMinutes': 120,
-          'waitDays': 5,
-        },
-      )
-      .toList();
+  final equipmentList = <Map<String, dynamic>>[];
+  for (var i = 0; i < row.equipmentNames.length; i++) {
+    final name = row.equipmentNames[i];
+    final price = i < row.equipmentPrices.length ? row.equipmentPrices[i] : 0;
+    equipmentList.add({
+      'id': name.toLowerCase().replaceAll(' ', '-'),
+      'name': name,
+      'code': name,
+      'costPerSession': price,
+      'durationMinutes': 120,
+      'waitDays': 5,
+    });
+  }
 
-  final sampleServices = row.sampleServices
-      .map(
-          (name) => SampleAnalysisService(
-            id: name.toLowerCase().replaceAll(' ', '-'),
-            name: name,
-            specialties: [facultyId],
-          ).toMap(),
-      )
-      .toList();
+  final sampleServices = <Map<String, dynamic>>[];
+  for (var i = 0; i < row.sampleServices.length; i++) {
+    final name = row.sampleServices[i];
+    final price =
+        i < row.sampleServicePrices.length ? row.sampleServicePrices[i] : 0;
+    sampleServices.add(
+      SampleAnalysisService(
+        id: name.toLowerCase().replaceAll(' ', '-'),
+        name: name,
+        specialties: [facultyId],
+        priceFrom: price,
+        turnaroundDays: 5,
+      ).toMap(),
+    );
+  }
 
   return {
     'name': row.name,
@@ -255,14 +310,27 @@ Map<String, dynamic> csvLabRowToFirestoreMap(CsvLabRow row) {
     'category': facultyId,
     'description': row.description.isNotEmpty
         ? row.description
-        : 'مختبر/مركز بحوث — ${row.name}',
+        : appTr(
+            'مختبر/مركز بحوث — ${row.name}',
+            'Lab/research center — ${row.name}',
+          ),
     'tags': row.tags,
     'equipment': row.equipmentNames.join('، '),
     'equipmentList': equipmentList,
     'sampleServices': sampleServices,
     'acceptsExternalSamples': row.acceptsExternalSamples,
     if (row.contactEmail.isNotEmpty) 'contactEmail': row.contactEmail,
+    if (row.contactPhone.isNotEmpty) 'contactPhone': row.contactPhone,
+    if (row.contactName.isNotEmpty) 'contactName': row.contactName,
+    if (row.contacts.isNotEmpty) 'contacts': row.contacts,
     'waitDays': 5,
-    'importSource': 'csv',
+    'importSource':
+        row.importSource.isNotEmpty ? row.importSource : 'csv',
+    if (row.sourceUrl.isNotEmpty) 'sourceUrl': row.sourceUrl,
+    if (row.externalId.isNotEmpty) 'externalId': row.externalId,
+    if (row.importSource == 'nbsle' && row.externalId.isNotEmpty)
+      'nbsleLabId': row.externalId,
+    if (row.importSource == 'crci' && row.externalId.isNotEmpty)
+      'crciCenterId': row.externalId,
   };
 }

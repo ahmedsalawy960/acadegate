@@ -1,5 +1,7 @@
 import '../academic/academic_models.dart';
+import '../academic/faculty_categories.dart';
 import '../profile/academic_profile.dart';
+import '../../core/locale/app_translate.dart';
 
 class MatchResult<T> {
   final T item;
@@ -21,23 +23,60 @@ class SmartMatchmakingEngine {
   }) {
     if (supervisors.isEmpty) return [];
 
-    final results = supervisors
-        .map((supervisor) => _scoreSupervisor(profile, supervisor))
+    final facultyId = profile.resolvedFacultyCategory;
+    var pool = _supervisorPool(supervisors, facultyId, profile);
+
+    final results = pool
+        .map((supervisor) => _scoreSupervisor(
+              profile,
+              supervisor,
+              facultyId: facultyId,
+            ))
         .toList()
       ..sort((a, b) => b.score.compareTo(a.score));
 
-    final matched = results.where((result) => result.score > 0).take(limit).toList();
-    if (matched.isNotEmpty) return matched;
+    return results.where((result) => result.score > 0).take(limit).toList();
+  }
 
-    return results.take(limit).map((result) {
-      return MatchResult(
-        item: result.item,
-        score: result.score > 0 ? result.score : 25,
-        reasons: result.reasons.isEmpty
-            ? ['اقتراح عام — عدّل ملفك لمطابقة أدق']
-            : result.reasons,
-      );
-    }).toList();
+  static List<AcademicSupervisor> _supervisorPool(
+    List<AcademicSupervisor> supervisors,
+    String? facultyId,
+    AcademicProfile profile,
+  ) {
+    var pool = supervisors;
+
+    final realSupervisors = supervisors.where((item) => !item.isDemo).toList();
+    if (realSupervisors.isNotEmpty) {
+      pool = realSupervisors;
+    }
+
+    if (facultyId != null) {
+      final inFaculty =
+          pool.where((item) => _supervisorMatchesFaculty(item, facultyId)).toList();
+      if (inFaculty.isNotEmpty) {
+        pool = inFaculty;
+      }
+    }
+
+    return pool;
+  }
+
+  static bool _supervisorMatchesFaculty(
+    AcademicSupervisor supervisor,
+    String facultyId,
+  ) {
+    if (supervisor.category == facultyId) return true;
+
+    final facultyTitle = facultyTitleForCategory(facultyId).toLowerCase();
+    final shortTitle = facultyTitle.replaceAll('كلية ', '').trim();
+    final supervisorFaculty = supervisor.faculty.toLowerCase();
+
+    if (supervisorFaculty.contains(facultyTitle) ||
+        (shortTitle.isNotEmpty && supervisorFaculty.contains(shortTitle))) {
+      return true;
+    }
+
+    return resolveFacultyId(supervisor.faculty) == facultyId;
   }
 
   static List<MatchResult<AcademicResearchIdea>> matchResearchIdeas(
@@ -52,18 +91,7 @@ class SmartMatchmakingEngine {
         .toList()
       ..sort((a, b) => b.score.compareTo(a.score));
 
-    final matched = results.where((result) => result.score > 0).take(limit).toList();
-    if (matched.isNotEmpty) return matched;
-
-    return results.take(limit).map((result) {
-      return MatchResult(
-        item: result.item,
-        score: result.score > 0 ? result.score : 25,
-        reasons: result.reasons.isEmpty
-            ? ['فكرة مقترحة لك']
-            : result.reasons,
-      );
-    }).toList();
+    return results.where((result) => result.score > 0).take(limit).toList();
   }
 
   static List<MatchResult<AcademicLab>> matchLabs(
@@ -73,31 +101,44 @@ class SmartMatchmakingEngine {
   }) {
     if (labs.isEmpty) return [];
 
-    final results = labs
+    final facultyId = profile.resolvedFacultyCategory;
+    var pool = labs;
+    if (facultyId != null) {
+      final inFaculty = labs
+          .where(
+            (lab) =>
+                lab.facultyId == facultyId ||
+                lab.category == facultyId ||
+                resolveFacultyId(lab.facultyNameAr) == facultyId,
+          )
+          .toList();
+      if (inFaculty.isNotEmpty) {
+        pool = inFaculty;
+      }
+    }
+
+    final results = pool
         .map((lab) => _scoreLab(profile, lab))
         .toList()
       ..sort((a, b) => b.score.compareTo(a.score));
 
-    final matched = results.where((result) => result.score > 0).take(limit).toList();
-    if (matched.isNotEmpty) return matched;
-
-    return results.take(limit).map((result) {
-      return MatchResult(
-        item: result.item,
-        score: result.score > 0 ? result.score : 25,
-        reasons: result.reasons.isEmpty
-            ? ['مختبر متاح للاستكشاف']
-            : result.reasons,
-      );
-    }).toList();
+    return results.where((result) => result.score > 0).take(limit).toList();
   }
 
   static MatchResult<AcademicSupervisor> _scoreSupervisor(
     AcademicProfile profile,
-    AcademicSupervisor supervisor,
-  ) {
+    AcademicSupervisor supervisor, {
+    String? facultyId,
+  }) {
     var score = 0;
     final reasons = <String>[];
+
+    if (facultyId != null && _supervisorMatchesFaculty(supervisor, facultyId)) {
+      score += 30;
+      reasons.add(
+        appTr('نفس كليتك الأكاديمية', 'Same academic faculty as you'),
+      );
+    }
 
     final profileKeywords = profile.keywords;
     final supervisorText = [
@@ -116,27 +157,46 @@ class SmartMatchmakingEngine {
 
     if (tagMatches > 0) {
       score += (tagMatches * 12).clamp(0, 48);
-      reasons.add('تطابق في مجال البحث والتخصص');
+      reasons.add(
+        appTr(
+          'تطابق في مجال البحث والتخصص',
+          'Match in research field and specialization',
+        ),
+      );
     }
 
     if (_containsEither(profile.specialization, supervisor.speciality)) {
       score += 20;
-      reasons.add('تخصصك قريب من تخصص المشرف');
+      reasons.add(
+        appTr(
+          'تخصصك قريب من تخصص المشرف',
+          'Your field aligns with the supervisor\'s',
+        ),
+      );
     }
 
     if (_containsEither(profile.university, supervisor.university)) {
       score += 12;
-      reasons.add('نفس الجامعة أو جهة قريبة');
+      reasons.add(
+        appTr('نفس الجامعة أو جهة قريبة', 'Same or nearby university'),
+      );
     }
 
     if (supervisor.methodologies.contains(profile.methodology)) {
       score += 10;
-      reasons.add('المنهجية البحثية متوافقة');
+      reasons.add(
+        appTr('المنهجية البحثية متوافقة', 'Compatible research methodology'),
+      );
     }
 
     if (_containsEither(profile.researchInterest, supervisor.bio)) {
       score += 15;
-      reasons.add('اهتمامك البحثي يتوافق مع خبرة المشرف');
+      reasons.add(
+        appTr(
+          'اهتمامك البحثي يتوافق مع خبرة المشرف',
+          'Your research interest matches the supervisor\'s expertise',
+        ),
+      );
     }
 
     if (supervisor.isAvailable) {
@@ -171,17 +231,29 @@ class SmartMatchmakingEngine {
 
     if (matches > 0) {
       score += (matches * 15).clamp(0, 60);
-      reasons.add('الفكرة قريبة من اهتمامك البحثي');
+      reasons.add(
+        appTr(
+          'الفكرة قريبة من اهتمامك البحثي',
+          'Idea aligns with your research interest',
+        ),
+      );
     }
 
     if (_containsEither(profile.researchInterest, idea.title)) {
       score += 20;
-      reasons.add('عنوان الفكرة يشبه موضوع بحثك');
+      reasons.add(
+        appTr(
+          'عنوان الفكرة يشبه موضوع بحثك',
+          'Idea title resembles your research topic',
+        ),
+      );
     }
 
     if (_containsEither(profile.specialization, idea.details)) {
       score += 10;
-      reasons.add('تفاصيل الفكرة تخدم تخصصك');
+      reasons.add(
+        appTr('تفاصيل الفكرة تخدم تخصصك', 'Idea details support your specialization'),
+      );
     }
 
     return MatchResult(
@@ -212,17 +284,23 @@ class SmartMatchmakingEngine {
 
     if (matches > 0) {
       score += (matches * 14).clamp(0, 56);
-      reasons.add('المختبر يخدم مجال دراستك');
+      reasons.add(
+        appTr('المختبر يخدم مجال دراستك', 'Lab serves your field of study'),
+      );
     }
 
     if (_containsEither(profile.university, lab.location)) {
       score += 15;
-      reasons.add('المختبر قريب من جامعتك');
+      reasons.add(
+        appTr('المختبر قريب من جامعتك', 'Lab is near your university'),
+      );
     }
 
     if (_containsEither(profile.researchInterest, lab.equipment)) {
       score += 12;
-      reasons.add('معدات المختبر مناسبة لبحثك');
+      reasons.add(
+        appTr('معدات المختبر مناسبة لبحثك', 'Lab equipment suits your research'),
+      );
     }
 
     return MatchResult(

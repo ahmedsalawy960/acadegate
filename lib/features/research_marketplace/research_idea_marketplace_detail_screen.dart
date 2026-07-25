@@ -1,6 +1,12 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
+
+import '../../core/locale/locale_extensions.dart';
 import '../academic/academic_models.dart';
 import '../moderation/delete_content_button.dart';
+import '../research_fund/research_fund_models.dart';
 import 'research_marketplace_service.dart';
 import 'submit_proposal_screen.dart';
 
@@ -21,6 +27,7 @@ class _ResearchIdeaMarketplaceDetailScreenState
     extends State<ResearchIdeaMarketplaceDetailScreen> {
   bool _isVoting = false;
   bool _isPublisher = false;
+  bool _claimLoading = false;
 
   @override
   void initState() {
@@ -53,13 +60,71 @@ class _ResearchIdeaMarketplaceDetailScreenState
     }
   }
 
+  Future<void> _claimTopic() async {
+    setState(() => _claimLoading = true);
+    try {
+      await ResearchMarketplaceService.instance.claimIdea(widget.idea);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.t(
+            'تم اختيار الموضوع — أصبح ملكك ولن يستطيع غيرك اختياره',
+            'Topic claimed — it is now yours and others cannot claim it',
+          )),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$e'.replaceFirst('Exception: ', '')),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _claimLoading = false);
+    }
+  }
+
+  Future<void> _releaseTopic() async {
+    setState(() => _claimLoading = true);
+    try {
+      await ResearchMarketplaceService.instance.releaseIdea(widget.idea);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.t(
+            'تم إلغاء حجز الموضوع — أصبح متاحاً للآخرين',
+            'Topic released — it is available for others again',
+          )),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$e'.replaceFirst('Exception: ', '')),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _claimLoading = false);
+    }
+  }
+
   Future<void> _openProposalForm() async {
     if (!widget.idea.isFromFirebase) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
+        SnackBar(
+          content: Text(context.t(
             'التقديم متاح للأفكار المضافة في Firebase. انشر فكرة جديدة من زر (+).',
-          ),
+            'Submission is available for Firebase ideas. Publish a new idea with (+).',
+          )),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -75,8 +140,11 @@ class _ResearchIdeaMarketplaceDetailScreenState
 
     if (submitted == true && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('تم إرسال مقترحك بنجاح'),
+        SnackBar(
+          content: Text(context.t(
+            'تم إرسال مقترحك بنجاح',
+            'Your proposal was submitted successfully',
+          )),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -93,7 +161,9 @@ class _ResearchIdeaMarketplaceDetailScreenState
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(accept ? 'تم قبول المقترح' : 'تم رفض المقترح'),
+            content: Text(accept
+                ? context.t('تم قبول المقترح', 'Proposal accepted')
+                : context.t('تم رفض المقترح', 'Proposal rejected')),
           ),
         );
       }
@@ -108,12 +178,39 @@ class _ResearchIdeaMarketplaceDetailScreenState
 
   @override
   Widget build(BuildContext context) {
-    final idea = widget.idea;
+    if (!widget.idea.isFromFirebase) {
+      return _buildScaffold(context, widget.idea);
+    }
+
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance
+          .collection('research_ideas')
+          .doc(widget.idea.id)
+          .snapshots(),
+      builder: (context, snapshot) {
+        final idea = snapshot.hasData && snapshot.data!.exists
+            ? AcademicResearchIdea.fromMap(
+                snapshot.data!.data()!,
+                id: snapshot.data!.id,
+              )
+            : widget.idea;
+        return _buildScaffold(context, idea);
+      },
+    );
+  }
+
+  Widget _buildScaffold(BuildContext context, AcademicResearchIdea idea) {
     final canInteract = idea.isFromFirebase && idea.isPubliclyVisible;
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final isMyClaim = idea.claimedBy.isNotEmpty && idea.claimedBy == uid;
+    final canClaim = canInteract && idea.isAvailableForClaim && uid.isNotEmpty;
+    final canRelease = canInteract &&
+        idea.isClaimed &&
+        (isMyClaim || _isPublisher);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('تفاصيل الفكرة'),
+      appBar: AcadeGateAppBar(
+        title: Text(context.t('تفاصيل الفكرة', 'Idea details')),
         backgroundColor: Colors.orange[800],
         foregroundColor: Colors.white,
         actions: deleteAppBarActions(
@@ -150,25 +247,52 @@ class _ResearchIdeaMarketplaceDetailScreenState
                     runSpacing: 8,
                     children: [
                       Chip(
-                        label: Text(idea.isOpen ? 'مفتوحة للتقديم' : 'مغلقة'),
-                        backgroundColor: idea.isOpen
-                            ? Colors.green.withValues(alpha: 0.12)
-                            : Colors.grey.withValues(alpha: 0.12),
+                        label: Text(idea.isClaimed
+                            ? context.t('تم اختياره', 'Claimed')
+                            : idea.isOpen
+                                ? context.t('مفتوحة للتقديم', 'Open for submission')
+                                : context.t('مغلقة', 'Closed')),
+                        backgroundColor: idea.isClaimed
+                            ? Colors.blue.withValues(alpha: 0.12)
+                            : idea.isOpen
+                                ? Colors.green.withValues(alpha: 0.12)
+                                : Colors.grey.withValues(alpha: 0.12),
+                      ),
+                      if (idea.isClaimed && idea.claimedByName.isNotEmpty)
+                        Chip(
+                          avatar: const Icon(Icons.person, size: 16),
+                          label: Text(
+                            isMyClaim
+                                ? context.t('اخترته أنت', 'Claimed by you')
+                                : context.t(
+                                    'اختيار: ${idea.claimedByName}',
+                                    'Claimed by ${idea.claimedByName}',
+                                  ),
+                          ),
+                          backgroundColor: Colors.indigo.withValues(alpha: 0.1),
+                        ),
+                      Chip(
+                        label: Text(context.t(
+                          '${idea.votesCount} تصويت',
+                          '${idea.votesCount} votes',
+                        )),
                       ),
                       Chip(
-                        label: Text('${idea.votesCount} تصويت'),
-                      ),
-                      Chip(
-                        label: Text('${idea.proposalsCount} مقترح'),
+                        label: Text(context.t(
+                          '${idea.proposalsCount} مقترح',
+                          '${idea.proposalsCount} proposals',
+                        )),
                       ),
                       if (idea.budget.isNotEmpty)
                         Chip(label: Text(idea.budget)),
+                      if (canInteract)
+                        _FundEligibilityChip(idea: idea),
                     ],
                   ),
                   const SizedBox(height: 20),
-                  const Text(
-                    'وصف المشكلة:',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                  Text(
+                    context.t('وصف المشكلة:', 'Problem description:'),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
                   ),
                   const SizedBox(height: 8),
                   Text(idea.details, style: const TextStyle(height: 1.5)),
@@ -190,9 +314,10 @@ class _ResearchIdeaMarketplaceDetailScreenState
                         color: Colors.amber.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Text(
+                      child: Text(context.t(
                         'هذه فكرة تجريبية. للتصويت والتقديم، أضف أفكاراً في Firebase أو انشر فكرة جديدة.',
-                      ),
+                        'This is a demo idea. To vote and submit, add ideas in Firebase or publish a new one.',
+                      )),
                     ),
                   ],
                   ManageContentActions(
@@ -203,9 +328,9 @@ class _ResearchIdeaMarketplaceDetailScreenState
                   ),
                   if (canInteract) ...[
                     const SizedBox(height: 24),
-                    const Text(
-                      'المقترحات المقدمة:',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                    Text(
+                      context.t('المقترحات المقدمة:', 'Submitted proposals:'),
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
                     ),
                     const SizedBox(height: 8),
                     StreamBuilder<List<ResearchProposal>>(
@@ -223,7 +348,10 @@ class _ResearchIdeaMarketplaceDetailScreenState
 
                         final proposals = snapshot.data ?? [];
                         if (proposals.isEmpty) {
-                          return const Text('لا توجد مقترحات بعد — كن الأول!');
+                          return Text(context.t(
+                            'لا توجد مقترحات بعد — كن الأول!',
+                            'No proposals yet — be the first!',
+                          ));
                         }
 
                         return Column(
@@ -249,7 +377,7 @@ class _ResearchIdeaMarketplaceDetailScreenState
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
                                               IconButton(
-                                                tooltip: 'قبول',
+                                                tooltip: context.t('قبول', 'Accept'),
                                                 icon: const Icon(
                                                   Icons.check_circle,
                                                   color: Colors.green,
@@ -261,7 +389,7 @@ class _ResearchIdeaMarketplaceDetailScreenState
                                                 ),
                                               ),
                                               IconButton(
-                                                tooltip: 'رفض',
+                                                tooltip: context.t('رفض', 'Reject'),
                                                 icon: const Icon(
                                                   Icons.cancel,
                                                   color: Colors.red,
@@ -292,13 +420,51 @@ class _ResearchIdeaMarketplaceDetailScreenState
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(16),
-              child: Row(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: !canInteract || _isVoting || !idea.isOpen
-                          ? null
-                          : _toggleVote,
+                  if (canClaim || canRelease) ...[
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: _claimLoading
+                            ? null
+                            : (canRelease ? _releaseTopic : _claimTopic),
+                        style: FilledButton.styleFrom(
+                          backgroundColor:
+                              canRelease ? Colors.grey[700] : const Color(0xFF1A237E),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        icon: _claimLoading
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : Icon(canRelease ? Icons.lock_open : Icons.bookmark_add),
+                        label: Text(
+                          canRelease
+                              ? context.t('إلغاء حجز الموضوع', 'Release topic claim')
+                              : context.t('اختيار هذا الموضوع (حجز حصري)', 'Claim this topic (exclusive)'),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: !canInteract ||
+                                  _isVoting ||
+                                  !idea.isOpen ||
+                                  idea.isClaimed
+                              ? null
+                              : _toggleVote,
                       icon: _isVoting
                           ? const SizedBox(
                               width: 16,
@@ -312,25 +478,31 @@ class _ResearchIdeaMarketplaceDetailScreenState
                                   .hasUserVoted(idea.id!),
                               builder: (context, snapshot) {
                                 final voted = snapshot.data ?? false;
-                                return Text(voted ? 'إلغاء التصويت' : 'صوّت');
+                                return Text(voted
+                                    ? context.t('إلغاء التصويت', 'Remove vote')
+                                    : context.t('صوّت', 'Vote'));
                               },
                             )
-                          : const Text('صوّت'),
+                          : Text(context.t('صوّت', 'Vote')),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     flex: 2,
                     child: ElevatedButton.icon(
-                      onPressed: idea.isOpen ? _openProposalForm : null,
+                      onPressed: idea.isOpen && !idea.isClaimed
+                          ? _openProposalForm
+                          : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.orange[800],
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
                       icon: const Icon(Icons.send),
-                      label: const Text('قدّم مقترحك'),
+                      label: Text(context.t('قدّم مقترحك', 'Submit your proposal')),
                     ),
+                  ),
+                    ],
                   ),
                 ],
               ),
@@ -350,9 +522,9 @@ class _ProposalStatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label = switch (status) {
-      'accepted' => 'مقبول',
-      'rejected' => 'مرفوض',
-      _ => 'قيد المراجعة',
+      'accepted' => context.t('مقبول', 'Accepted'),
+      'rejected' => context.t('مرفوض', 'Rejected'),
+      _ => context.t('قيد المراجعة', 'Under review'),
     };
 
     final color = switch (status) {
@@ -371,6 +543,56 @@ class _ProposalStatusBadge extends StatelessWidget {
         label,
         style: TextStyle(color: color, fontSize: 11),
       ),
+    );
+  }
+}
+
+class _FundEligibilityChip extends StatelessWidget {
+  final AcademicResearchIdea idea;
+
+  const _FundEligibilityChip({required this.idea});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<ResearchFundConfig>(
+      stream: ResearchFundService.instance.watchConfig(),
+      builder: (context, configSnap) {
+        final config = configSnap.data ?? const ResearchFundConfig();
+        if (!config.isConfigured) return const SizedBox.shrink();
+
+        if (idea.funded) {
+          final amount = idea.fundedAmount;
+          final label = amount != null
+              ? context.t(
+                  'ممولة · $amount ${idea.fundedCurrency}',
+                  'Funded · $amount ${idea.fundedCurrency}',
+                )
+              : context.t('ممولة', 'Funded');
+          return Chip(
+            avatar: const Icon(Icons.volunteer_activism, size: 16),
+            label: Text(label),
+            backgroundColor: const Color(0xFFBF360C).withValues(alpha: 0.12),
+          );
+        }
+
+        if (idea.votesCount >= config.minVotes) {
+          return Chip(
+            avatar: const Icon(Icons.star_outline, size: 16),
+            label: Text(context.t('مؤهلة للتمويل', 'Fund eligible')),
+            backgroundColor: Colors.amber.withValues(alpha: 0.15),
+          );
+        }
+
+        final remaining = (config.minVotes - idea.votesCount).clamp(0, config.minVotes);
+        return Chip(
+          avatar: const Icon(Icons.trending_up, size: 16),
+          label: Text(context.t(
+            '${idea.votesCount}/${config.minVotes} للتمويل · يتبقى $remaining',
+            '${idea.votesCount}/${config.minVotes} to fund · $remaining left',
+          )),
+          backgroundColor: Colors.blueGrey.withValues(alpha: 0.1),
+        );
+      },
     );
   }
 }

@@ -6,6 +6,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../core/locale/app_translate.dart';
 import 'advisor_attachment.dart';
 
 class AdvisorAttachmentService {
@@ -84,10 +85,16 @@ class AdvisorAttachmentService {
     required bool isImage,
   }) {
     if (bytes.length > maxBytes) {
-      throw Exception('حجم الملف يجب ألا يتجاوز 10 ميجابايت');
+      throw Exception(appTr(
+        'حجم الملف يجب ألا يتجاوز 10 ميجابايت',
+        'File size must not exceed 10 MB',
+      ));
     }
     if (!_isAllowedMime(mimeType)) {
-      throw Exception('نوع الملف غير مدعوم. جرّب صورة أو PDF أو Word أو نص.');
+      throw Exception(appTr(
+        'نوع الملف غير مدعوم. جرّب صورة أو PDF أو Word أو نص.',
+        'Unsupported file type. Try an image, PDF, Word, or text file.',
+      ));
     }
 
     return PendingAdvisorAttachment(

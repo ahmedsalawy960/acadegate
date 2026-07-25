@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../core/locale/l10n_lookup.dart';
 import 'approval_status.dart';
 
 class PendingItem {
@@ -194,12 +195,15 @@ class ModerationService {
 
   String _titleFor(String collection, Map<String, dynamic> data) {
     return switch (collection) {
-      'supervisors' => data['name']?.toString() ?? 'مشرف',
-      'labs' => data['name']?.toString() ?? 'مختبر',
-      'product' => data['name']?.toString() ?? 'منتج',
-      'research_ideas' => data['title']?.toString() ?? 'فكرة بحثية',
-      'community_posts' => data['title']?.toString() ?? 'منشور',
-      _ => 'عنصر',
+      'supervisors' =>
+        data['name']?.toString() ?? L10nLookup.supervisor,
+      'labs' => data['name']?.toString() ?? L10nLookup.lab,
+      'product' => data['name']?.toString() ?? L10nLookup.product,
+      'research_ideas' =>
+        data['title']?.toString() ?? L10nLookup.researchIdea,
+      'community_posts' =>
+        data['title']?.toString() ?? L10nLookup.communityPost,
+      _ => L10nLookup.item,
     };
   }
 
@@ -208,7 +212,10 @@ class ModerationService {
       'supervisors' =>
         '${data['university'] ?? ''} • ${data['speciality'] ?? ''}',
       'labs' => data['location']?.toString() ?? '',
-      'product' => '${data['category'] ?? ''} • ${data['price'] ?? 0} ج.م',
+      'product' => L10nLookup.currencyPriceCategory(
+        data['category']?.toString() ?? '',
+        (data['price'] as num?) ?? 0,
+      ),
       'research_ideas' => data['provider']?.toString() ?? '',
       'community_posts' =>
         '${data['roomId'] ?? ''} • ${data['type'] ?? ''}',
@@ -216,72 +223,106 @@ class ModerationService {
     };
   }
 
-  String collectionLabel(String collection) {
-    return switch (collection) {
-      'supervisors' => 'مشرف',
-      'labs' => 'مختبر',
-      'product' => 'منتج',
-      'research_ideas' => 'فكرة بحثية',
-      'community_posts' => 'منشور مجتمع',
-      _ => collection,
-    };
-  }
+  String collectionLabel(String collection) =>
+      L10nLookup.collectionLabel(collection);
 
   List<MapEntry<String, String>> detailFields(PendingItem item) {
     final data = item.data;
     return switch (item.collection) {
       'supervisors' => [
-        MapEntry('الاسم', data['name']?.toString() ?? ''),
-        MapEntry('الجامعة', data['university']?.toString() ?? ''),
-        MapEntry('التخصص', data['speciality']?.toString() ?? ''),
-        MapEntry('الكلية', data['faculty']?.toString() ?? ''),
-        MapEntry('التصنيف', data['category']?.toString() ?? ''),
-        MapEntry('المنهجية', _formatList(data['methodologies'])),
-        MapEntry('متاح', data['isAvailable'] == true ? 'نعم' : 'لا'),
-        MapEntry('نبذة', data['bio']?.toString() ?? ''),
-        MapEntry('الوسوم', _formatList(data['tags'])),
+        MapEntry(L10nLookup.moderationDetailField('name'),
+            data['name']?.toString() ?? ''),
+        MapEntry(L10nLookup.moderationDetailField('university'),
+            data['university']?.toString() ?? ''),
+        MapEntry(L10nLookup.moderationDetailField('speciality'),
+            data['speciality']?.toString() ?? ''),
+        MapEntry(L10nLookup.moderationDetailField('faculty'),
+            data['faculty']?.toString() ?? ''),
+        MapEntry(L10nLookup.moderationDetailField('category'),
+            data['category']?.toString() ?? ''),
+        MapEntry(L10nLookup.moderationDetailField('methodology'),
+            _formatList(data['methodologies'])),
+        MapEntry(
+          L10nLookup.moderationDetailField('available'),
+          data['isAvailable'] == true ? L10nLookup.yes : L10nLookup.no,
+        ),
+        MapEntry(L10nLookup.moderationDetailField('bio'),
+            data['bio']?.toString() ?? ''),
+        MapEntry(L10nLookup.moderationDetailField('tags'),
+            _formatList(data['tags'])),
       ],
       'labs' => [
-        MapEntry('الاسم', data['name']?.toString() ?? ''),
-        MapEntry('الموقع', data['location']?.toString() ?? ''),
-        MapEntry('المدينة', data['city']?.toString() ?? ''),
-        MapEntry('الجامعة', data['university']?.toString() ?? ''),
-        MapEntry('الأجهزة', data['equipment']?.toString() ?? ''),
-        MapEntry('قائمة الأجهزة', _formatEquipmentList(data['equipmentList'])),
-        MapEntry('الوسوم', _formatList(data['tags'])),
+        MapEntry(L10nLookup.moderationDetailField('name'),
+            data['name']?.toString() ?? ''),
+        MapEntry(L10nLookup.moderationDetailField('location'),
+            data['location']?.toString() ?? ''),
+        MapEntry(L10nLookup.moderationDetailField('city'),
+            data['city']?.toString() ?? ''),
+        MapEntry(L10nLookup.moderationDetailField('university'),
+            data['university']?.toString() ?? ''),
+        MapEntry(L10nLookup.moderationDetailField('equipment'),
+            data['equipment']?.toString() ?? ''),
+        MapEntry(L10nLookup.moderationDetailField('equipmentList'),
+            _formatEquipmentList(data['equipmentList'])),
+        MapEntry(L10nLookup.moderationDetailField('tags'),
+            _formatList(data['tags'])),
       ],
       'product' => [
-        MapEntry('الاسم', data['name']?.toString() ?? ''),
-        MapEntry('السعر', '${data['price'] ?? 0} ج.م'),
-        MapEntry('القسم', data['category']?.toString() ?? ''),
-        MapEntry('الوصف', data['description']?.toString() ?? ''),
-        MapEntry('المتجر', data['storeName']?.toString() ?? ''),
-        MapEntry('التواصل', data['contact']?.toString() ?? ''),
+        MapEntry(L10nLookup.moderationDetailField('name'),
+            data['name']?.toString() ?? ''),
+        MapEntry(
+          L10nLookup.moderationDetailField('price'),
+          L10nLookup.currencyEgp((data['price'] as num?) ?? 0),
+        ),
+        MapEntry(L10nLookup.moderationDetailField('department'),
+            data['category']?.toString() ?? ''),
+        MapEntry(L10nLookup.moderationDetailField('description'),
+            data['description']?.toString() ?? ''),
+        MapEntry(L10nLookup.moderationDetailField('store'),
+            data['storeName']?.toString() ?? ''),
+        MapEntry(L10nLookup.moderationDetailField('contact'),
+            data['contact']?.toString() ?? ''),
       ],
       'research_ideas' => [
-        MapEntry('العنوان', data['title']?.toString() ?? ''),
-        MapEntry('الجهة', data['provider']?.toString() ?? ''),
-        MapEntry('التفاصيل', data['details']?.toString() ?? ''),
-        MapEntry('الميزانية', data['budget']?.toString() ?? ''),
-        MapEntry('الحالة', data['status']?.toString() ?? ''),
-        MapEntry('الوسوم', _formatList(data['tags'])),
+        MapEntry(L10nLookup.moderationDetailField('title'),
+            data['title']?.toString() ?? ''),
+        MapEntry(L10nLookup.moderationDetailField('provider'),
+            data['provider']?.toString() ?? ''),
+        MapEntry(L10nLookup.moderationDetailField('details'),
+            data['details']?.toString() ?? ''),
+        MapEntry(L10nLookup.moderationDetailField('budget'),
+            data['budget']?.toString() ?? ''),
+        MapEntry(L10nLookup.moderationDetailField('status'),
+            data['status']?.toString() ?? ''),
+        MapEntry(L10nLookup.moderationDetailField('tags'),
+            _formatList(data['tags'])),
       ],
       'community_posts' => [
-        MapEntry('العنوان', data['title']?.toString() ?? ''),
-        MapEntry('الغرفة', data['roomId']?.toString() ?? ''),
-        MapEntry('النوع', data['type']?.toString() ?? ''),
-        MapEntry('المحتوى', data['body']?.toString() ?? ''),
-        MapEntry('الكاتب', data['authorName']?.toString() ?? ''),
-        MapEntry('الجامعة', data['university']?.toString() ?? ''),
-        MapEntry('تاريخ المناقشة', data['eventDate']?.toString() ?? ''),
-        MapEntry('الوسوم', _formatList(data['tags'])),
+        MapEntry(L10nLookup.moderationDetailField('title'),
+            data['title']?.toString() ?? ''),
+        MapEntry(L10nLookup.moderationDetailField('room'),
+            data['roomId']?.toString() ?? ''),
+        MapEntry(L10nLookup.moderationDetailField('type'),
+            data['type']?.toString() ?? ''),
+        MapEntry(L10nLookup.moderationDetailField('content'),
+            data['body']?.toString() ?? ''),
+        MapEntry(L10nLookup.moderationDetailField('author'),
+            data['authorName']?.toString() ?? ''),
+        MapEntry(L10nLookup.moderationDetailField('university'),
+            data['university']?.toString() ?? ''),
+        MapEntry(L10nLookup.moderationDetailField('eventDate'),
+            data['eventDate']?.toString() ?? ''),
+        MapEntry(L10nLookup.moderationDetailField('tags'),
+            _formatList(data['tags'])),
       ],
-      _ => [MapEntry('بيانات', data.toString())],
+      _ => [MapEntry(L10nLookup.data, data.toString())],
     };
   }
 
   String _formatList(dynamic value) {
-    if (value is List) return value.map((e) => e.toString()).join('، ');
+    if (value is List) {
+      return value.map((e) => e.toString()).join(L10nLookup.listSeparator());
+    }
     return value?.toString() ?? '';
   }
 
@@ -291,7 +332,11 @@ class ModerationService {
     for (final item in value) {
       if (item is Map) {
         lines.add(
-          '• ${item['name']} — ${item['costPerSession'] ?? 0} ج.م — انتظار ${item['waitDays'] ?? 3} يوم',
+          L10nLookup.equipmentLine(
+            item['name']?.toString() ?? '',
+            (item['costPerSession'] as num?) ?? 0,
+            (item['waitDays'] as num?)?.toInt() ?? 3,
+          ),
         );
       }
     }

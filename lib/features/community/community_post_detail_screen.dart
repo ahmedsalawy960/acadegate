@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
+import '../../core/locale/locale_extensions.dart';
 import '../moderation/approval_status.dart';
 import '../moderation/delete_content_button.dart';
 import 'community_data.dart';
@@ -65,7 +67,12 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
     final postId = widget.post.id;
     if (postId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('الردود متاحة على المنشورات الحقيقية فقط')),
+        SnackBar(
+          content: Text(context.t(
+            'الردود متاحة على المنشورات الحقيقية فقط',
+            'Replies are only available on real posts',
+          )),
+        ),
       );
       return;
     }
@@ -93,7 +100,7 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
     final isDemo = postId == null || postId.isEmpty;
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: AcadeGateAppBar(
         title: Text(CommunityPostType.label(widget.post.type)),
         backgroundColor: widget.room.color,
         foregroundColor: Colors.white,
@@ -141,8 +148,11 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
                     color: Colors.orange.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Text(
-                    'منشورك بانتظار موافقة الإدارة',
+                  child: Text(
+                    context.t(
+                      'منشورك بانتظار موافقة الإدارة',
+                      'Your post is awaiting admin approval',
+                    ),
                     textAlign: TextAlign.center,
                   ),
                 ),
@@ -155,8 +165,11 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
                     color: Colors.blue.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Text(
-                    'منشور تجريبي — أنشئ منشوراً جديداً للتفاعل الحقيقي',
+                  child: Text(
+                    context.t(
+                      'منشور تجريبي — أنشئ منشوراً جديداً للتفاعل الحقيقي',
+                      'Demo post — create a new post for real interaction',
+                    ),
                     textAlign: TextAlign.center,
                   ),
                 ),
@@ -188,7 +201,10 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
                   children: [
                     const Icon(Icons.event, size: 16),
                     const SizedBox(width: 6),
-                    Text('موعد المناقشة: ${post.eventDate}'),
+                    Text(context.t(
+                      'موعد المناقشة: ${post.eventDate}',
+                      'Seminar date: ${post.eventDate}',
+                    )),
                   ],
                 ),
               ],
@@ -230,12 +246,15 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
                     label: Text('${post.upvotesCount}'),
                   ),
                   const SizedBox(width: 12),
-                  Text('${post.repliesCount} رد'),
+                  Text(context.t(
+                    '${post.repliesCount} رد',
+                    '${post.repliesCount} replies',
+                  )),
                 ],
               ),
               const Divider(height: 32),
               Text(
-                'الردود',
+                context.t('الردود', 'Replies'),
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 8),
@@ -243,7 +262,10 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   child: Text(
-                    'لا توجد ردود بعد — كن أول من يرد.',
+                    context.t(
+                      'لا توجد ردود بعد — كن أول من يرد.',
+                      'No replies yet — be the first to reply.',
+                    ),
                     style: TextStyle(color: Colors.grey[600]),
                   ),
                 )
@@ -266,9 +288,9 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
                 Expanded(
                   child: TextField(
                     controller: _replyController,
-                    decoration: const InputDecoration(
-                      hintText: 'اكتب رداً...',
-                      border: OutlineInputBorder(),
+                    decoration: InputDecoration(
+                      hintText: context.t('اكتب رداً...', 'Write a reply...'),
+                      border: const OutlineInputBorder(),
                       isDense: true,
                     ),
                     minLines: 1,

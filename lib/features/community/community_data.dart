@@ -1,78 +1,101 @@
 import 'package:flutter/material.dart';
 
+import '../../core/locale/l10n_lookup.dart';
+import '../academic/faculty_categories.dart';
+
 class CommunityRoom {
   final String id;
-  final String title;
-  final String description;
   final IconData icon;
   final Color color;
 
   const CommunityRoom({
     required this.id,
-    required this.title,
-    required this.description,
     required this.icon,
     required this.color,
   });
+
+  String get title => L10nLookup.communityRoomTitle(id);
+  String get description => L10nLookup.communityRoomDescription(id);
+
+  /// Faculty category id when this room maps to a faculty; null for general.
+  String? get facultyCategoryId => id == 'general' ? null : id;
 }
 
-const communityRooms = <CommunityRoom>[
-  CommunityRoom(
-    id: 'engineering',
-    title: 'هندسة',
-    description: 'نقاشات ومشاريع هندسية',
-    icon: Icons.engineering_outlined,
-    color: Color(0xFFE65100),
+/// Legacy lowercase room ids → canonical faculty category ids.
+const Map<String, String> communityRoomLegacyAliases = {
+  'engineering': 'Engineering',
+  'science': 'Science',
+  'medicine': 'Medicine',
+  'law': 'Law',
+  'cs': 'CS',
+  'agriculture': 'Agriculture',
+};
+
+const Map<String, String> communityRoomCanonicalToLegacy = {
+  'Engineering': 'engineering',
+  'Science': 'science',
+  'Medicine': 'medicine',
+  'Law': 'law',
+  'CS': 'cs',
+  'Agriculture': 'agriculture',
+};
+
+/// All faculty rooms + a general catch-all (canonical faculty ids).
+final List<CommunityRoom> communityRooms = [
+  ...facultyCategories.map(
+    (faculty) => CommunityRoom(
+      id: faculty.id,
+      icon: faculty.icon,
+      color: faculty.color,
+    ),
   ),
-  CommunityRoom(
-    id: 'science',
-    title: 'علوم',
-    description: 'كيمياء، فيزياء، وأبحاث علمية',
-    icon: Icons.science_outlined,
-    color: Color(0xFF2E7D32),
-  ),
-  CommunityRoom(
-    id: 'medicine',
-    title: 'طب',
-    description: 'حالات سريرية ودراسات طبية',
-    icon: Icons.medical_services_outlined,
-    color: Color(0xFFC62828),
-  ),
-  CommunityRoom(
-    id: 'law',
-    title: 'حقوق',
-    description: 'قانون وبحوث قانونية',
-    icon: Icons.gavel_outlined,
-    color: Color(0xFF5D4037),
-  ),
-  CommunityRoom(
-    id: 'cs',
-    title: 'حاسبات',
-    description: 'برمجة، ذكاء اصطناعي، وبيانات',
-    icon: Icons.computer_outlined,
-    color: Color(0xFF1565C0),
-  ),
-  CommunityRoom(
-    id: 'agriculture',
-    title: 'زراعة',
-    description: 'أبحاث زراعية وبيئية',
-    icon: Icons.agriculture_outlined,
-    color: Color(0xFF558B2F),
-  ),
-  CommunityRoom(
+  const CommunityRoom(
     id: 'general',
-    title: 'عام',
-    description: 'مواضيع أكاديمية متنوعة',
     icon: Icons.forum_outlined,
     color: Color(0xFF00695C),
   ),
 ];
 
+String normalizeCommunityRoomId(String id) {
+  final trimmed = id.trim();
+  if (trimmed.isEmpty) return trimmed;
+  return communityRoomLegacyAliases[trimmed] ?? trimmed;
+}
+
+/// Ids to query in Firestore so legacy + new posts both appear.
+List<String> communityRoomQueryIds(String roomId) {
+  final canonical = normalizeCommunityRoomId(roomId);
+  final legacy = communityRoomCanonicalToLegacy[canonical];
+  if (legacy != null && legacy != canonical) {
+    return [canonical, legacy];
+  }
+  return [canonical];
+}
+
 CommunityRoom? communityRoomById(String id) {
+  final canonical = normalizeCommunityRoomId(id);
   for (final room in communityRooms) {
-    if (room.id == id) return room;
+    if (room.id == canonical || room.id == id) return room;
   }
   return null;
+}
+
+/// Rooms ordered with [preferredFacultyId] first when it matches a room.
+List<CommunityRoom> communityRoomsPinnedFirst(String? preferredFacultyId) {
+  if (preferredFacultyId == null || preferredFacultyId.trim().isEmpty) {
+    return List<CommunityRoom>.from(communityRooms);
+  }
+  final preferred = normalizeCommunityRoomId(preferredFacultyId);
+  final pinned = <CommunityRoom>[];
+  final rest = <CommunityRoom>[];
+  for (final room in communityRooms) {
+    if (room.id == preferred) {
+      pinned.add(room);
+    } else {
+      rest.add(room);
+    }
+  }
+  return [...pinned, ...rest];
 }
 
 class CommunityPostType {
@@ -83,14 +106,9 @@ class CommunityPostType {
   static const announcement = 'announcement';
   static const studyGroup = 'study_group';
 
-  static const labels = <String, String>{
-    question: 'سؤال',
-    discussion: 'نقاش',
-    announcement: 'إعلان مناقشة',
-    studyGroup: 'مجموعة دراسة',
-  };
+  static const allTypes = [question, discussion, announcement, studyGroup];
 
-  static String label(String? type) => labels[type] ?? 'منشور';
+  static String label(String? type) => L10nLookup.communityPostTypeLabel(type);
 
   static IconData icon(String? type) {
     return switch (type) {

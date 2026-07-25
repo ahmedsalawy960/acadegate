@@ -1,5 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
+
+import '../../core/locale/locale_extensions.dart';
 import '../academic/academic_models.dart';
 import '../profile/academic_profile_service.dart';
 import 'research_marketplace_service.dart';
@@ -85,8 +88,8 @@ class _SubmitProposalScreenState extends State<SubmitProposalScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('تقديم مقترح بحثي'),
+      appBar: AcadeGateAppBar(
+        title: Text(context.t('تقديم مقترح بحثي', 'Submit research proposal')),
         backgroundColor: Colors.orange[800],
         foregroundColor: Colors.white,
       ),
@@ -98,28 +101,33 @@ class _SubmitProposalScreenState extends State<SubmitProposalScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'فكرة: ${widget.idea.title}',
+                context.t(
+                  'فكرة: ${widget.idea.title}',
+                  'Idea: ${widget.idea.title}',
+                ),
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _nameController,
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'مطلوب' : null,
-                decoration: const InputDecoration(
-                  labelText: 'اسمك',
-                  border: OutlineInputBorder(),
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? context.t('مطلوب', 'Required')
+                    : null,
+                decoration: InputDecoration(
+                  labelText: context.t('اسمك', 'Your name'),
+                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'مطلوب' : null,
-                decoration: const InputDecoration(
-                  labelText: 'البريد الإلكتروني',
-                  border: OutlineInputBorder(),
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? context.t('مطلوب', 'Required')
+                    : null,
+                decoration: InputDecoration(
+                  labelText: context.t('البريد الإلكتروني', 'Email'),
+                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 12),
@@ -128,21 +136,32 @@ class _SubmitProposalScreenState extends State<SubmitProposalScreen> {
                 maxLines: 10,
                 onChanged: (_) => setState(() {}),
                 validator: (v) {
-                  if (v == null || v.trim().isEmpty) return 'مطلوب';
+                  if (v == null || v.trim().isEmpty) {
+                    return context.t('مطلوب', 'Required');
+                  }
                   if (_wordCount > 500) {
-                    return 'تجاوزت 500 كلمة ($_wordCount)';
+                    return context.t(
+                      'تجاوزت 500 كلمة ($_wordCount)',
+                      'Exceeded 500 words ($_wordCount)',
+                    );
                   }
                   return null;
                 },
-                decoration: const InputDecoration(
-                  labelText: 'ملخص المقترح (حتى 500 كلمة)',
+                decoration: InputDecoration(
+                  labelText: context.t(
+                    'ملخص المقترح (حتى 500 كلمة)',
+                    'Proposal summary (up to 500 words)',
+                  ),
                   alignLabelWithHint: true,
-                  border: OutlineInputBorder(),
+                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 6),
               Text(
-                'عدد الكلمات: $_wordCount / 500',
+                context.t(
+                  'عدد الكلمات: $_wordCount / 500',
+                  'Word count: $_wordCount / 500',
+                ),
                 style: TextStyle(
                   color: _wordCount > 500 ? Colors.red : Colors.grey[600],
                 ),
@@ -158,7 +177,7 @@ class _SubmitProposalScreenState extends State<SubmitProposalScreen> {
                   ),
                   child: _isSaving
                       ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text('إرسال المقترح'),
+                      : Text(context.t('إرسال المقترح', 'Submit proposal')),
                 ),
               ),
             ],

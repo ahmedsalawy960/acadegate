@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../core/locale/l10n_lookup.dart';
+
 class ChatMessage {
   final String? id;
   final String senderId;
@@ -79,6 +81,6 @@ class Conversation {
     for (final entry in participantNames.entries) {
       if (entry.key != myUid) return entry.value;
     }
-    return 'محادثة';
+    return L10nLookup.conversation;
   }
 }

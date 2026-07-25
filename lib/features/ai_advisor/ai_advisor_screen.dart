@@ -1,8 +1,11 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/locale/locale_extensions.dart';
+import '../viva_simulator/viva_screen.dart';
 import 'advisor_attachment.dart';
 import 'advisor_attachment_service.dart';
 import 'advisor_branding.dart';
@@ -14,7 +17,9 @@ import 'advisor_router.dart';
 import 'ai_advisor_service.dart';
 
 class AiAdvisorScreen extends StatefulWidget {
-  const AiAdvisorScreen({super.key});
+  final String? initialMessage;
+
+  const AiAdvisorScreen({super.key, this.initialMessage});
 
   @override
   State<AiAdvisorScreen> createState() => _AiAdvisorScreenState();
@@ -35,6 +40,7 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
   bool _showAgents = true;
   bool _isLoadingHistory = true;
   int _sidebarRevision = 0;
+  bool _initialMessageQueued = false;
 
   static const _accent = Color(0xFF4527A0);
   static const _sidebarWidth = 280.0;
@@ -46,7 +52,17 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
   }
 
   Future<void> _bootstrap() async {
+    final seedMessage = widget.initialMessage?.trim();
+
     try {
+      if (seedMessage != null && seedMessage.isNotEmpty) {
+        _startDraftConversation();
+        if (!mounted) return;
+        setState(() => _isLoadingHistory = false);
+        _queueInitialMessage(seedMessage);
+        return;
+      }
+
       final conversations = await _store.loadConversations();
       if (!mounted) return;
 
@@ -61,7 +77,19 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
       if (!mounted) return;
       _startDraftConversation();
       setState(() => _isLoadingHistory = false);
+      if (seedMessage != null && seedMessage.isNotEmpty) {
+        _queueInitialMessage(seedMessage);
+      }
     }
+  }
+
+  void _queueInitialMessage(String message) {
+    if (_initialMessageQueued) return;
+    _initialMessageQueued = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _sendMessage(message);
+    });
   }
 
   void _bumpSidebar() {
@@ -124,17 +152,20 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('حذف المحادثة'),
-        content: Text('هل تريد حذف «${conversation.title}» نهائياً؟'),
+        title: Text(context.t('حذف المحادثة', 'Delete conversation')),
+        content: Text(context.t(
+          'هل تريد حذف «${conversation.title}» نهائياً؟',
+          'Permanently delete "${conversation.title}"?',
+        )),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('إلغاء'),
+            child: Text(context.t('إلغاء', 'Cancel')),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('حذف'),
+            child: Text(context.t('حذف', 'Delete')),
           ),
         ],
       ),
@@ -177,7 +208,10 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
   Future<void> _pickImage() async {
     if (_pendingAttachments.length >=
         AdvisorAttachmentService.maxAttachmentsPerMessage) {
-      _showSnack('يمكن إرفاق ${AdvisorAttachmentService.maxAttachmentsPerMessage} ملفات كحد أقصى');
+      _showSnack(context.t(
+        'يمكن إرفاق ${AdvisorAttachmentService.maxAttachmentsPerMessage} ملفات كحد أقصى',
+        'You can attach up to ${AdvisorAttachmentService.maxAttachmentsPerMessage} files',
+      ));
       return;
     }
     try {
@@ -192,7 +226,10 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
   Future<void> _pickFile() async {
     if (_pendingAttachments.length >=
         AdvisorAttachmentService.maxAttachmentsPerMessage) {
-      _showSnack('يمكن إرفاق ${AdvisorAttachmentService.maxAttachmentsPerMessage} ملفات كحد أقصى');
+      _showSnack(context.t(
+        'يمكن إرفاق ${AdvisorAttachmentService.maxAttachmentsPerMessage} ملفات كحد أقصى',
+        'You can attach up to ${AdvisorAttachmentService.maxAttachmentsPerMessage} files',
+      ));
       return;
     }
     try {
@@ -220,8 +257,11 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
           children: [
             ListTile(
               leading: const Icon(Icons.image_outlined, color: Color(0xFF4527A0)),
-              title: const Text('إرفاق صورة'),
-              subtitle: const Text('JPG, PNG, WebP'),
+              title: Text(sheetContext.t('إرفاق صورة', 'Attach image')),
+              subtitle: Text(sheetContext.t(
+                'JPG · PNG · WebP',
+                'JPG · PNG · WebP',
+              )),
               onTap: () => Navigator.pop(sheetContext, 'image'),
             ),
             ListTile(
@@ -229,8 +269,8 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
                 Icons.insert_drive_file_outlined,
                 color: Color(0xFF4527A0),
               ),
-              title: const Text('إرفاق ملف'),
-              subtitle: const Text('PDF, Word, نص'),
+              title: Text(sheetContext.t('إرفاق ملف', 'Attach file')),
+              subtitle: Text(sheetContext.t('PDF, Word, نص', 'PDF, Word, text')),
               onTap: () => Navigator.pop(sheetContext, 'file'),
             ),
             const SizedBox(height: 8),
@@ -276,7 +316,7 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
         ? trimmed
         : pending.isNotEmpty
             ? pending.first.name
-            : 'محادثة جديدة';
+            : context.t('محادثة جديدة', 'New conversation');
 
     setState(() {
       _pendingAttachments.clear();
@@ -304,9 +344,10 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
           )
           .toList();
       if (mounted && _store.canPersist) {
-        _showSnack(
+        _showSnack(context.t(
           'تعذر رفع المرفقات — فعّل Firebase Storage من لوحة Firebase',
-        );
+          'Could not upload attachments — enable Firebase Storage in the Firebase console',
+        ));
       }
     }
 
@@ -348,7 +389,10 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
       final errorMessage = AdvisorMessage(
         id: 'err_${DateTime.now().millisecondsSinceEpoch}',
         role: AdvisorMessageRole.assistant,
-        content: 'حدث خطأ أثناء المعالجة. حاول مرة أخرى.',
+        content: context.t(
+          'حدث خطأ أثناء المعالجة. حاول مرة أخرى.',
+          'An error occurred while processing. Please try again.',
+        ),
         createdAt: DateTime.now(),
       );
       setState(() {
@@ -378,8 +422,11 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('تعذر حفظ الرسالة — تحقق من الاتصال'),
+        SnackBar(
+          content: Text(context.t(
+            'تعذر حفظ الرسالة — تحقق من الاتصال',
+            'Could not save message — check your connection',
+          )),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -416,7 +463,22 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
 
     return Column(
       children: [
-        if (_showAgents) const _AgentsPanel(),
+        if (_showAgents) ...[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+            child: _VivaPromoCard(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const VivaSimulatorScreen(),
+                  ),
+                );
+              },
+            ),
+          ),
+          const _AgentsPanel(),
+        ],
         Expanded(
           child: ListView.builder(
             controller: _scrollController,
@@ -479,7 +541,10 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
                       shape: const CircleBorder(),
                       elevation: 1,
                       child: IconButton(
-                        tooltip: 'إرفاق صورة أو ملف',
+                        tooltip: context.t(
+                          'إرفاق صورة أو ملف',
+                          'Attach image or file',
+                        ),
                         onPressed: _isThinking ? null : _showAttachOptions,
                         icon: const Icon(Icons.attach_file),
                         color: _accent,
@@ -491,7 +556,10 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
                       child: TextField(
                         controller: _inputController,
                         decoration: InputDecoration(
-                          hintText: 'اكتب سؤالك أو أرفق ملفاً...',
+                          hintText: context.t(
+                            'اكتب سؤالك أو أرفق ملفاً...',
+                            'Type your question or attach a file...',
+                          ),
                           filled: true,
                           fillColor: Colors.white,
                           border: OutlineInputBorder(
@@ -535,36 +603,51 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
 
     return Scaffold(
       key: _scaffoldKey,
-      appBar: AppBar(
+      appBar: AcadeGateAppBar(
         title: Text(AdvisorBranding.assistantTitle),
         backgroundColor: _accent,
         foregroundColor: Colors.white,
         iconTheme: const IconThemeData(color: Colors.white),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          tooltip: 'رجوع إلى البوابة',
+          tooltip: context.t('رجوع إلى البوابة', 'Back to portal'),
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
           IconButton(
-            tooltip: 'إرفاق ملف',
+            tooltip: context.t(
+              'محاكي لجنة المناقشة',
+              'Viva committee simulator',
+            ),
+            icon: const Icon(Icons.gavel_outlined),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const VivaSimulatorScreen(),
+                ),
+              );
+            },
+          ),
+          IconButton(
+            tooltip: context.t('إرفاق ملف', 'Attach file'),
             icon: const Icon(Icons.attach_file),
             onPressed: _isThinking ? null : _showAttachOptions,
           ),
           IconButton(
-            tooltip: 'محادثة جديدة',
+            tooltip: context.t('محادثة جديدة', 'New conversation'),
             icon: const Icon(Icons.add_comment_outlined),
             onPressed: _isThinking ? null : _newConversation,
           ),
           if (!wide)
             IconButton(
-              tooltip: 'المحادثات السابقة',
+              tooltip: context.t('المحادثات السابقة', 'Previous conversations'),
               icon: const Icon(Icons.menu),
               onPressed: () => _scaffoldKey.currentState?.openDrawer(),
             ),
           IconButton(
-            tooltip: 'الوكلاء المتخصصون',
-            icon: Icon(_showAgents ? Icons.expand_less : Icons.hub_outlined),
+            tooltip: context.t('الوكلاء المتخصصون', 'Specialist agents'),
+            icon: Icon(_showAgents ? Icons.expand_less : Icons.smart_toy_outlined),
             onPressed: () => setState(() => _showAgents = !_showAgents),
           ),
           Padding(
@@ -572,8 +655,14 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
             child: Center(
               child: Tooltip(
                 message: _service.isCloudAiEnabled
-                    ? 'الذكاء السحابي مفعّل (Gemini)'
-                    : 'الوضع الأساسي — أضف مفتاح Gemini للتفعيل',
+                    ? context.t(
+                        'الذكاء السحابي مفعّل',
+                        'Cloud AI enabled',
+                      )
+                    : context.t(
+                        'الوضع الأساسي — سجّل الدخول لتفعيل الذكاء السحابي (بدون مفتاح محلي)',
+                        'Basic mode — sign in to enable cloud AI (no local key needed)',
+                      ),
                 child: Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -647,7 +736,7 @@ class _ConversationSidebar extends StatelessWidget {
               child: Align(
                 alignment: Alignment.bottomRight,
                 child: Text(
-                  'محادثاتك',
+                  context.t('محادثاتك', 'Your conversations'),
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
@@ -659,7 +748,7 @@ class _ConversationSidebar extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
               child: Text(
-                'المحادثات',
+                context.t('المحادثات', 'Conversations'),
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: const Color(0xFF4527A0),
@@ -671,7 +760,7 @@ class _ConversationSidebar extends StatelessWidget {
             child: FilledButton.icon(
               onPressed: onNewConversation,
               icon: const Icon(Icons.add, size: 18),
-              label: const Text('محادثة جديدة'),
+              label: Text(context.t('محادثة جديدة', 'New conversation')),
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF4527A0),
                 minimumSize: const Size(double.infinity, 44),
@@ -688,13 +777,13 @@ class _ConversationSidebar extends StatelessWidget {
                 child: ListTile(
                   dense: true,
                   leading: const Icon(Icons.edit_outlined, size: 20),
-                  title: const Text(
-                    'محادثة جديدة',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  title: Text(
+                    context.t('محادثة جديدة', 'New conversation'),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                   ),
-                  subtitle: const Text(
-                    'لم تُرسل رسائل بعد',
-                    style: TextStyle(fontSize: 11),
+                  subtitle: Text(
+                    context.t('لم تُرسل رسائل بعد', 'No messages sent yet'),
+                    style: const TextStyle(fontSize: 11),
                   ),
                 ),
               ),
@@ -723,13 +812,16 @@ class _ConversationSidebar extends StatelessWidget {
     List<AdvisorConversation> conversations,
   ) {
     if (conversations.isEmpty && !isDraftConversation) {
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.all(16),
+          padding: const EdgeInsets.all(16),
           child: Text(
-            'لا توجد محادثات محفوظة بعد',
+            context.t(
+              'لا توجد محادثات محفوظة بعد',
+              'No saved conversations yet',
+            ),
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey),
+            style: const TextStyle(color: Colors.grey),
           ),
         ),
       );
@@ -771,7 +863,7 @@ class _ConversationSidebar extends StatelessWidget {
               ),
             ),
             subtitle: Text(
-              _formatDate(conversation.updatedAt),
+              _formatDate(context, conversation.updatedAt),
               style: const TextStyle(fontSize: 11),
             ),
             onTap: () => onOpenConversation(
@@ -779,7 +871,7 @@ class _ConversationSidebar extends StatelessWidget {
               closeDrawer: true,
             ),
             trailing: IconButton(
-              tooltip: 'حذف',
+              tooltip: context.t('حذف', 'Delete'),
               icon: const Icon(Icons.delete_outline, size: 18),
               color: Colors.red.shade300,
               onPressed: () => onDeleteConversation(conversation),
@@ -790,14 +882,72 @@ class _ConversationSidebar extends StatelessWidget {
     );
   }
 
-  String _formatDate(DateTime date) {
+  String _formatDate(BuildContext context, DateTime date) {
     final now = DateTime.now();
     final diff = now.difference(date);
-    if (diff.inMinutes < 1) return 'الآن';
-    if (diff.inHours < 1) return 'منذ ${diff.inMinutes} د';
-    if (diff.inDays < 1) return 'منذ ${diff.inHours} س';
-    if (diff.inDays < 7) return 'منذ ${diff.inDays} يوم';
+    if (diff.inMinutes < 1) return context.t('الآن', 'Now');
+    if (diff.inHours < 1) {
+      return context.t('منذ ${diff.inMinutes} د', '${diff.inMinutes}m ago');
+    }
+    if (diff.inDays < 1) {
+      return context.t('منذ ${diff.inHours} س', '${diff.inHours}h ago');
+    }
+    if (diff.inDays < 7) {
+      return context.t('منذ ${diff.inDays} يوم', '${diff.inDays}d ago');
+    }
     return '${date.day}/${date.month}/${date.year}';
+  }
+}
+
+class _VivaPromoCard extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _VivaPromoCard({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xFF880E4F).withValues(alpha: 0.1),
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: [
+              const Icon(Icons.gavel, color: Color(0xFF880E4F)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      context.t(
+                        'محاكي لجنة المناقشة',
+                        'Viva committee simulator',
+                      ),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF880E4F),
+                      ),
+                    ),
+                    Text(
+                      context.t(
+                        '3 مناقشين افتراضيين + تقرير تحضيري',
+                        '3 virtual examiners + prep report',
+                      ),
+                      style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_left, color: Color(0xFF880E4F)),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -824,9 +974,12 @@ class _AgentsPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'محرك واحد — وكلاء متخصصون',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+          Text(
+            context.t(
+              'محرك واحد — وكلاء متخصصون',
+              'One engine — specialist agents',
+            ),
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
           ),
           const SizedBox(height: 8),
           Wrap(
@@ -834,14 +987,17 @@ class _AgentsPanel extends StatelessWidget {
             runSpacing: 6,
             children: agents
                 .map(
-                  (agent) => Chip(
-                    avatar: Icon(agent.icon, size: 16, color: agent.color),
-                    label: Text(
-                      agent.shortLabel,
-                      style: const TextStyle(fontSize: 11),
+                  (agent) => Tooltip(
+                    message: agent.displayDescription,
+                    child: Chip(
+                      avatar: Icon(agent.icon, size: 16, color: agent.color),
+                      label: Text(
+                        agent.displayShortLabel,
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                      visualDensity: VisualDensity.compact,
+                      backgroundColor: agent.color.withValues(alpha: 0.08),
                     ),
-                    visualDensity: VisualDensity.compact,
-                    backgroundColor: agent.color.withValues(alpha: 0.08),
                   ),
                 )
                 .toList(),
@@ -970,16 +1126,19 @@ class _TypingIndicator extends StatelessWidget {
           color: Colors.white,
           borderRadius: BorderRadius.circular(14),
         ),
-        child: const Row(
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            SizedBox(
+            const SizedBox(
               width: 16,
               height: 16,
               child: CircularProgressIndicator(strokeWidth: 2),
             ),
-            SizedBox(width: 10),
-            Text('يجمع الوكلاء المتخصصين...'),
+            const SizedBox(width: 10),
+            Text(context.t(
+              'يجمع الوكلاء المتخصصين...',
+              'Consulting specialist agents...',
+            )),
           ],
         ),
       ),

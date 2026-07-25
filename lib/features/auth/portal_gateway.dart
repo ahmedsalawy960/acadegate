@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'portal_selection_screen.dart';
 import 'portal_service.dart';
 import 'portal_type.dart';
-import '../home/home_screen.dart';
 import '../home/provider_home_screen.dart';
+import '../research_journey/user_portal_shell.dart';
 
 /// يوجّه المستخدم إلى شاشة اختيار البوابة أو البوابة المناسبة.
 class PortalGateway extends StatefulWidget {
@@ -62,6 +62,6 @@ class _PortalGatewayState extends State<PortalGateway> {
       return ProviderHomeScreen(onSwitchPortal: _openPortalSelection);
     }
 
-    return HomeScreen(onSwitchPortal: _openPortalSelection);
+    return UserPortalShell(onSwitchPortal: _openPortalSelection);
   }
 }

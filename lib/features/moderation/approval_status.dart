@@ -1,3 +1,5 @@
+import '../../core/locale/l10n_lookup.dart';
+
 class ApprovalStatus {
   ApprovalStatus._();
 
@@ -6,19 +8,10 @@ class ApprovalStatus {
   static const rejected = 'rejected';
   static const suspended = 'suspended';
 
-  static const labels = <String, String>{
-    pending: 'بانتظار المراجعة',
-    approved: 'معتمد',
-    rejected: 'مرفوض',
-    suspended: 'موقوف',
-  };
-
   static bool isPublic(String? value) {
     if (value == null || value.isEmpty) return true;
     return value == approved;
   }
 
-  static String label(String? value) {
-    return labels[value] ?? value ?? 'غير محدد';
-  }
+  static String label(String? value) => L10nLookup.approvalStatusLabel(value);
 }

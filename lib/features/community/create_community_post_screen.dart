@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
+import '../../core/locale/locale_extensions.dart';
 import 'community_data.dart';
 import 'community_service.dart';
 
@@ -84,8 +86,8 @@ class _CreateCommunityPostScreenState extends State<CreateCommunityPostScreen> {
     final showEventDate = _type == CommunityPostType.announcement;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('منشور جديد'),
+      appBar: AcadeGateAppBar(
+        title: Text(context.t('منشور جديد', 'New post')),
         backgroundColor: widget.room.color,
         foregroundColor: Colors.white,
       ),
@@ -96,15 +98,15 @@ class _CreateCommunityPostScreenState extends State<CreateCommunityPostScreen> {
           children: [
             DropdownButtonFormField<String>(
               initialValue: _type,
-              decoration: const InputDecoration(
-                labelText: 'نوع المنشور',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: context.t('نوع المنشور', 'Post type'),
+                border: const OutlineInputBorder(),
               ),
-              items: CommunityPostType.labels.entries
+              items: CommunityPostType.allTypes
                   .map(
-                    (entry) => DropdownMenuItem(
-                      value: entry.key,
-                      child: Text(entry.value),
+                    (type) => DropdownMenuItem(
+                      value: type,
+                      child: Text(CommunityPostType.label(type)),
                     ),
                   )
                   .toList(),
@@ -118,50 +120,58 @@ class _CreateCommunityPostScreenState extends State<CreateCommunityPostScreen> {
             const SizedBox(height: 14),
             TextFormField(
               controller: _titleController,
-              decoration: const InputDecoration(
-                labelText: 'العنوان',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: context.t('العنوان', 'Title'),
+                border: const OutlineInputBorder(),
               ),
-              validator: (value) =>
-                  value == null || value.trim().isEmpty ? 'مطلوب' : null,
+              validator: (value) => value == null || value.trim().isEmpty
+                  ? context.t('مطلوب', 'Required')
+                  : null,
             ),
             const SizedBox(height: 14),
             TextFormField(
               controller: _bodyController,
-              decoration: const InputDecoration(
-                labelText: 'المحتوى',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: context.t('المحتوى', 'Content'),
+                border: const OutlineInputBorder(),
                 alignLabelWithHint: true,
               ),
               minLines: 4,
               maxLines: 8,
-              validator: (value) =>
-                  value == null || value.trim().isEmpty ? 'مطلوب' : null,
+              validator: (value) => value == null || value.trim().isEmpty
+                  ? context.t('مطلوب', 'Required')
+                  : null,
             ),
             const SizedBox(height: 14),
             TextFormField(
               controller: _universityController,
-              decoration: const InputDecoration(
-                labelText: 'الجامعة (اختياري)',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: context.t('الجامعة (اختياري)', 'University (optional)'),
+                border: const OutlineInputBorder(),
               ),
             ),
             if (showEventDate) ...[
               const SizedBox(height: 14),
               TextFormField(
                 controller: _eventDateController,
-                decoration: const InputDecoration(
-                  labelText: 'تاريخ المناقشة (مثال: 2026-06-25)',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: context.t(
+                    'تاريخ المناقشة (مثال: 2026-06-25)',
+                    'Seminar date (e.g. 2026-06-25)',
+                  ),
+                  border: const OutlineInputBorder(),
                 ),
               ),
             ],
             const SizedBox(height: 14),
             TextFormField(
               controller: _tagsController,
-              decoration: const InputDecoration(
-                labelText: 'وسوم (مفصولة بفاصلة عربية ،)',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: context.t(
+                  'وسوم (مفصولة بفاصلة عربية ،)',
+                  'Tags (comma-separated)',
+                ),
+                border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 24),
@@ -182,7 +192,11 @@ class _CreateCommunityPostScreenState extends State<CreateCommunityPostScreen> {
                       ),
                     )
                   : const Icon(Icons.send),
-              label: Text(_submitting ? 'جاري الإرسال...' : 'إرسال للمراجعة'),
+              label: Text(
+                _submitting
+                    ? context.t('جاري الإرسال...', 'Sending...')
+                    : context.t('إرسال للمراجعة', 'Submit for review'),
+              ),
             ),
           ],
         ),

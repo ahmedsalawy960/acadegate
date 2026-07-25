@@ -1,4 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+
+import '../../core/locale/app_translate.dart';
 import '../moderation/approval_status.dart';
 
 List<String> parseStringList(dynamic value) {
@@ -25,6 +27,10 @@ class WritingExpert {
   final String contact;
   final String approvalStatus;
   final String? ownerId;
+  /// Anonymized work samples shown on the writer profile.
+  final List<String> portfolioSamples;
+  /// Average delivery days from completed orders (0 = unknown).
+  final double avgDeliveryDays;
 
   const WritingExpert({
     this.id,
@@ -43,22 +49,33 @@ class WritingExpert {
     this.contact = '',
     this.approvalStatus = ApprovalStatus.approved,
     this.ownerId,
+    this.portfolioSamples = const [],
+    this.avgDeliveryDays = 0,
   });
 
   bool get isFromFirebase => id != null && id!.isNotEmpty;
 
   bool get isPubliclyVisible => ApprovalStatus.isPublic(approvalStatus);
 
-  String get deliveryLabel => '$deliveryDaysMin–$deliveryDaysMax يوم';
+  String get deliveryLabel => appTr(
+        '$deliveryDaysMin–$deliveryDaysMax يوم',
+        '$deliveryDaysMin–$deliveryDaysMax days',
+      );
+
+  String get avgDeliveryLabel {
+    if (avgDeliveryDays <= 0) return deliveryLabel;
+    final days = avgDeliveryDays.round();
+    return appTr('متوسط التسليم: $days يوم', 'Avg delivery: $days days');
+  }
 
   factory WritingExpert.fromMap(Map<String, dynamic> map, {String? id}) {
     return WritingExpert(
       id: id,
-      name: map['name']?.toString() ?? 'كاتب أكاديمي',
+      name: map['name']?.toString() ?? appTr('كاتب أكاديمي', 'Academic writer'),
       category: map['category']?.toString() ?? '',
       speciality: map['speciality']?.toString() ?? '',
       bio: map['bio']?.toString() ?? '',
-      priceRange: map['priceRange']?.toString() ?? 'حسب الطلب',
+      priceRange: map['priceRange']?.toString() ?? appTr('حسب الطلب', 'On request'),
       deliveryDaysMin: (map['deliveryDaysMin'] as num?)?.toInt() ?? 3,
       deliveryDaysMax: (map['deliveryDaysMax'] as num?)?.toInt() ?? 14,
       rating: (map['rating'] as num?)?.toDouble() ?? 4.5,
@@ -70,6 +87,8 @@ class WritingExpert {
       approvalStatus:
           map['approvalStatus']?.toString() ?? ApprovalStatus.approved,
       ownerId: map['ownerId']?.toString(),
+      portfolioSamples: parseStringList(map['portfolioSamples']),
+      avgDeliveryDays: (map['avgDeliveryDays'] as num?)?.toDouble() ?? 0,
     );
   }
 
@@ -88,6 +107,8 @@ class WritingExpert {
         'tags': tags,
         'contact': contact,
         'approvalStatus': approvalStatus,
+        'portfolioSamples': portfolioSamples,
+        'avgDeliveryDays': avgDeliveryDays,
         if (ownerId != null) 'ownerId': ownerId,
       };
 }
@@ -108,10 +129,13 @@ class WritingOrder {
   final String wordCount;
   final String statisticsTool;
   final List<String> addons;
+  /// Selected thesis package stages (empty = single delivery).
+  final List<String> milestones;
   final DateTime? deadline;
   final String status;
   final String? serviceOwnerId;
   final String paymentStatus;
+  final String paymentMethod;
   final num amount;
   final String deliveryNote;
   final int? studentRating;
@@ -134,10 +158,12 @@ class WritingOrder {
     required this.wordCount,
     this.statisticsTool = 'لا ينطبق',
     this.addons = const [],
+    this.milestones = const [],
     this.deadline,
     this.status = 'pending',
     this.serviceOwnerId,
     this.paymentStatus = 'pending_payment',
+    this.paymentMethod = 'paymob',
     this.amount = 0,
     this.deliveryNote = '',
     this.studentRating,
@@ -153,23 +179,24 @@ class WritingOrder {
   bool get isCancelled => status == 'cancelled';
   bool get isRejected => status == 'rejected';
   bool get isPaidHeld => paymentStatus == 'paid_held';
+  bool get isManualPayment => paymentMethod == 'manual';
 
   String get statusLabel {
     switch (status) {
       case 'confirmed':
-        return 'مقبول';
+        return appTr('مقبول', 'Accepted');
       case 'in_progress':
-        return 'قيد التنفيذ';
+        return appTr('قيد التنفيذ', 'In progress');
       case 'delivered':
-        return 'تم التسليم';
+        return appTr('تم التسليم', 'Delivered');
       case 'completed':
-        return 'مكتمل';
+        return appTr('مكتمل', 'Completed');
       case 'cancelled':
-        return 'ملغى';
+        return appTr('ملغى', 'Cancelled');
       case 'rejected':
-        return 'مرفوض';
+        return appTr('مرفوض', 'Rejected');
       default:
-        return 'بانتظار قبول الخبير';
+        return appTr('بانتظار قبول الخبير', 'Awaiting expert acceptance');
     }
   }
 
@@ -198,10 +225,12 @@ class WritingOrder {
       wordCount: map['wordCount']?.toString() ?? '',
       statisticsTool: map['statisticsTool']?.toString() ?? 'لا ينطبق',
       addons: parseStringList(map['addons']),
+      milestones: parseStringList(map['milestones']),
       deadline: deadline,
       status: map['status']?.toString() ?? 'pending',
       serviceOwnerId: map['serviceOwnerId']?.toString(),
       paymentStatus: map['paymentStatus']?.toString() ?? 'pending_payment',
+      paymentMethod: map['paymentMethod']?.toString() ?? 'paymob',
       amount: (map['amount'] as num?) ?? 0,
       deliveryNote: map['deliveryNote']?.toString() ?? '',
       studentRating: (map['studentRating'] as num?)?.toInt(),
@@ -225,6 +254,7 @@ class WritingOrder {
         'wordCount': wordCount,
         'statisticsTool': statisticsTool,
         'addons': addons,
+        'milestones': milestones,
         if (deadline != null) 'deadline': Timestamp.fromDate(deadline!),
         'status': status,
         'createdAt': FieldValue.serverTimestamp(),

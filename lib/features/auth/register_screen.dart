@@ -1,10 +1,14 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
+import '../../core/locale/l10n_lookup.dart';
+import '../../core/locale/locale_extensions.dart';
 import 'portal_gateway.dart';
 import 'portal_service.dart';
 import 'portal_type.dart';
 import 'user_account_service.dart';
 import 'user_role.dart';
+import 'language_switcher_button.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -61,13 +65,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
-      String message = 'تعذر إنشاء الحساب';
+      final l10n = context.l10n;
+      String message = l10n.authErrorRegisterFailed;
       if (e.code == 'email-already-in-use') {
-        message = 'هذا البريد مستخدم بالفعل';
+        message = l10n.authErrorEmailInUse;
       } else if (e.code == 'weak-password') {
-        message = 'كلمة المرور ضعيفة';
+        message = l10n.authErrorWeakPassword;
       } else if (e.code == 'invalid-email') {
-        message = 'صيغة البريد غير صحيحة';
+        message = l10n.authErrorInvalidEmail;
       }
       _showError(message);
     } catch (e) {
@@ -90,12 +95,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('إنشاء حساب'),
+      appBar: AcadeGateAppBar(
+        title: Text(l10n.registerTitle),
         backgroundColor: Colors.white,
         foregroundColor: const Color(0xFF1A237E),
         elevation: 0,
+        actions: const [LanguageSwitcherButton()],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
@@ -104,14 +112,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'اختر دورك في المنصة',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              Text(
+                l10n.chooseYourRole,
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
-              const Text(
-                'يحدد الدور ما يمكنك إضافته: منتجات، مختبر، ملف مشرف، أو أفكار بحثية.',
-                style: TextStyle(color: Colors.grey),
+              Text(
+                l10n.registerRoleHint,
+                style: const TextStyle(color: Colors.grey),
               ),
               const SizedBox(height: 16),
               RadioGroup<String>(
@@ -123,7 +131,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   children: UserRole.all.map((role) {
                     return RadioListTile<String>(
                       value: role,
-                      title: Text(UserRole.label(role)),
+                      title: Text(L10nLookup.roleLabel(l10n, role)),
                       contentPadding: EdgeInsets.zero,
                     );
                   }).toList(),
@@ -132,43 +140,40 @@ class _RegisterScreenState extends State<RegisterScreen> {
               const SizedBox(height: 20),
               TextFormField(
                 controller: _nameController,
-                textAlign: TextAlign.right,
                 decoration: InputDecoration(
-                  labelText: 'الاسم الكامل',
+                  labelText: l10n.fullName,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
                 validator: (value) =>
-                    (value ?? '').trim().isEmpty ? 'الاسم مطلوب' : null,
+                    (value ?? '').trim().isEmpty ? l10n.nameRequired : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
-                textAlign: TextAlign.right,
                 decoration: InputDecoration(
-                  labelText: 'البريد الإلكتروني',
+                  labelText: l10n.email,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
                 validator: (value) =>
-                    (value ?? '').trim().isEmpty ? 'البريد مطلوب' : null,
+                    (value ?? '').trim().isEmpty ? l10n.emailRequiredShort : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _passwordController,
                 obscureText: true,
-                textAlign: TextAlign.right,
                 decoration: InputDecoration(
-                  labelText: 'كلمة المرور',
+                  labelText: l10n.password,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
                 validator: (value) => (value ?? '').length < 6
-                    ? 'كلمة المرور 6 أحرف على الأقل'
+                    ? l10n.passwordMinLength
                     : null,
               ),
               const SizedBox(height: 28),
@@ -182,7 +187,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   child: _isLoading
                       ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text('إنشاء الحساب'),
+                      : Text(l10n.createAccountButton),
                 ),
               ),
             ],

@@ -1,6 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
+import '../../core/locale/locale_extensions.dart';
 import 'messaging_models.dart';
 import 'messaging_service.dart';
 
@@ -49,7 +51,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final title = widget.conversation.otherParticipantName(myUid);
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: AcadeGateAppBar(
         title: Text(title),
         backgroundColor: const Color(0xFF1A237E),
         foregroundColor: Colors.white,
@@ -63,7 +65,14 @@ class _ChatScreenState extends State<ChatScreen> {
               builder: (context, snapshot) {
                 final messages = snapshot.data ?? [];
                 if (messages.isEmpty) {
-                  return const Center(child: Text('لا رسائل بعد — ابدأ المحادثة'));
+                  return Center(
+                    child: Text(
+                      context.t(
+                        'لا رسائل بعد — ابدأ المحادثة',
+                        'No messages yet — start the conversation',
+                      ),
+                    ),
+                  );
                 }
 
                 return ListView.builder(
@@ -111,9 +120,9 @@ class _ChatScreenState extends State<ChatScreen> {
                   Expanded(
                     child: TextField(
                       controller: _controller,
-                      decoration: const InputDecoration(
-                        hintText: 'اكتب رسالة...',
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        hintText: context.t('اكتب رسالة...', 'Type a message...'),
+                        border: const OutlineInputBorder(),
                         isDense: true,
                       ),
                       minLines: 1,

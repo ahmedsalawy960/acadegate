@@ -1,3 +1,5 @@
+import '../../core/locale/app_translate.dart';
+
 class AdvisorConversation {
   final String id;
   final String title;
@@ -31,7 +33,7 @@ class AdvisorConversation {
       id: id,
       title: map['title']?.toString().trim().isNotEmpty == true
           ? map['title'].toString()
-          : 'محادثة جديدة',
+          : appTr('محادثة جديدة', 'New conversation'),
       createdAt: parseTime(map['createdAt'], now),
       updatedAt: parseTime(map['updatedAt'], now),
     );

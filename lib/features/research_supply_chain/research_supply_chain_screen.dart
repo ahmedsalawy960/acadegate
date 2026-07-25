@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
+import '../../core/locale/l10n_lookup.dart';
+import '../../core/locale/locale_extensions.dart';
 import '../academic_writing/writing_categories.dart';
 import '../academic_writing/writing_expert_detail_screen.dart';
-import '../home/home_screen.dart';
+import '../academic/supervisor_profile_screen.dart';
 import '../profile/academic_profile.dart';
 import '../profile/academic_profile_screen.dart';
 import '../profile/academic_profile_service.dart';
@@ -10,7 +14,9 @@ import '../research_marketplace/research_idea_marketplace_detail_screen.dart';
 import '../smart_labs/smart_lab_detail_screen.dart';
 import '../store/product_detail_screen.dart';
 import '../store/product_list_screen.dart';
+import '../research_marketplace/research_topic_claim_service.dart';
 import 'research_path_ai_service.dart';
+import '../ai_advisor/advisor_branding.dart';
 import 'research_path_branding.dart';
 import 'research_supply_chain_engine.dart';
 import 'research_supply_chain_models.dart';
@@ -29,12 +35,16 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
   final _topicController = TextEditingController();
   bool _loading = false;
   bool _aiLoading = false;
+  bool _claimLoading = false;
   ResearchSupplyBundle? _bundle;
   AcademicProfile? _profile;
 
   @override
   void initState() {
     super.initState();
+    _topicController.addListener(() {
+      if (mounted) setState(() {});
+    });
     _loadProfile();
   }
 
@@ -61,7 +71,12 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
     final topic = _topicController.text.trim();
     if (topic.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('اكتب موضوع بحثك أو اهتمامك أولاً')),
+        SnackBar(
+          content: Text(context.t(
+            'اكتب موضوع بحثك أو اهتمامك أولاً',
+            'Enter your research topic or interest first',
+          )),
+        ),
       );
       return;
     }
@@ -109,6 +124,146 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
     }
   }
 
+  Future<void> _claimMyTopic() async {
+    final topic = _topicController.text.trim();
+    if (topic.isEmpty) return;
+
+    setState(() => _claimLoading = true);
+    try {
+      await ResearchTopicClaimService.instance.claimCustomTopic(
+        topicTitle: topic,
+        university: _profile?.university ?? '',
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.t(
+            'تم حجز الموضوع — لن يستطيع طالب آخر في جامعتك اختيار نفس العنوان',
+            'Topic claimed — another student at your university cannot claim the same title',
+          )),
+          backgroundColor: Colors.green,
+        ),
+      );
+      setState(() {});
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$e'.replaceFirst('Exception: ', '')),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _claimLoading = false);
+    }
+  }
+
+  Future<void> _releaseMyTopic() async {
+    final topic = _topicController.text.trim();
+    if (topic.isEmpty) return;
+
+    setState(() => _claimLoading = true);
+    try {
+      await ResearchTopicClaimService.instance.releaseCustomTopic(
+        topicTitle: topic,
+        university: _profile?.university ?? '',
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.t(
+            'تم إلغاء حجز الموضوع',
+            'Topic claim released',
+          )),
+        ),
+      );
+      setState(() {});
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$e'.replaceFirst('Exception: ', '')),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _claimLoading = false);
+    }
+  }
+
+  Widget _topicClaimPanel() {
+    final topic = _topicController.text.trim();
+    if (topic.length < 3) return const SizedBox.shrink();
+
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 12),
+        child: _hintBanner(
+          context.t(
+            'سجّل الدخول لحجز موضوع بحثك وحمايته من التكرار',
+            'Sign in to claim and protect your research topic from duplication',
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: StreamBuilder<ResearchTopicClaim?>(
+        stream: ResearchTopicClaimService.instance.watchCustomTopic(
+          topicTitle: topic,
+          university: _profile?.university ?? '',
+        ),
+        builder: (context, snapshot) {
+          final claim = snapshot.data;
+          final isMine = claim?.claimedBy == uid;
+          final isTaken = claim != null && !isMine;
+
+          if (isTaken) {
+            return _hintBanner(
+              context.t(
+                'هذا الموضوع محجوز لـ ${claim.claimedByName}',
+                'This topic is claimed by ${claim.claimedByName}',
+              ),
+            );
+          }
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (isMine)
+                _hintBanner(
+                  context.t(
+                    'أنت من اختار هذا الموضوع — يظهر للآخرين كـ «محجوز»',
+                    'You claimed this topic — others will see it as taken',
+                  ),
+                ),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: _claimLoading
+                    ? null
+                    : (isMine ? _releaseMyTopic : _claimMyTopic),
+                icon: _claimLoading
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Icon(isMine ? Icons.lock_open : Icons.bookmark_add),
+                label: Text(
+                  isMine
+                      ? context.t('إلغاء حجز الموضوع', 'Release topic claim')
+                      : context.t('حجز هذا الموضوع لي', 'Claim this topic for me'),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   Future<void> _openProfile() async {
     final saved = await Navigator.push<bool>(
       context,
@@ -120,13 +275,13 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(ResearchPathBranding.title),
+      appBar: AcadeGateAppBar(
+        title: Text(ResearchPathBranding.title),
         backgroundColor: _brand,
         foregroundColor: Colors.white,
         actions: [
           IconButton(
-            tooltip: 'الملف الأكاديمي',
+            tooltip: context.t('الملف الأكاديمي', 'Academic profile'),
             onPressed: _openProfile,
             icon: const Icon(Icons.person_outline),
           ),
@@ -141,8 +296,11 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
             controller: _topicController,
             maxLines: 2,
             decoration: InputDecoration(
-              labelText: 'موضوع / مجال بحثك',
-              hintText: 'مثال: طاقة متجددة، تحليل كمي، كيمياء حيوية...',
+              labelText: context.t('موضوع / مجال بحثك', 'Research topic / field'),
+              hintText: context.t(
+                'مثال: طاقة متجددة، تحليل كمي، كيمياء حيوية...',
+                'e.g. renewable energy, quantitative analysis, biochemistry...',
+              ),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               prefixIcon: const Icon(Icons.search, color: _brand),
             ),
@@ -165,9 +323,12 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
                   : const Icon(Icons.auto_awesome),
               label: Text(
                 _loading
-                    ? 'جارٍ المطابقة...'
+                    ? context.t('جارٍ المطابقة...', 'Matching...')
                     : _aiLoading
-                        ? 'جارٍ التحليل بالذكاء الاصطناعي...'
+                        ? context.t(
+                            'جارٍ التحليل بالذكاء الاصطناعي...',
+                            'Analyzing with AI...',
+                          )
                         : ResearchPathBranding.buildButton,
               ),
               style: FilledButton.styleFrom(
@@ -176,10 +337,14 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
               ),
             ),
           ),
+          _topicClaimPanel(),
           if (_profile != null && !_profile!.isComplete) ...[
             const SizedBox(height: 12),
             _hintBanner(
-              'أكمل ملفك الأكاديمي لمطابقة أدق — أو تابع بالموضوع فقط.',
+              context.t(
+                'أكمل ملفك الأكاديمي لمطابقة أدق — أو تابع بالموضوع فقط.',
+                'Complete your academic profile for better matching — or continue with topic only.',
+              ),
               onTap: _openProfile,
             ),
           ],
@@ -221,10 +386,10 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
                   child: const Icon(Icons.account_tree, color: Colors.white),
                 ),
                 const SizedBox(width: 12),
-                const Expanded(
+                Expanded(
                   child: Text(
                     ResearchPathBranding.tagline,
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -234,9 +399,9 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
               ],
             ),
             const SizedBox(height: 10),
-            const Text(
+            Text(
               ResearchPathBranding.description,
-              style: TextStyle(color: Colors.white70, height: 1.5),
+              style: const TextStyle(color: Colors.white70, height: 1.5),
             ),
           ],
         ),
@@ -274,7 +439,10 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'حزمة: ${bundle.topic}',
+              context.t(
+                'حزمة: ${bundle.topic}',
+                'Bundle: ${bundle.topic}',
+              ),
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
             const SizedBox(height: 8),
@@ -287,12 +455,18 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
             ),
             const SizedBox(height: 6),
             Text(
-              'توافق عام: ${bundle.overallScore}% • ${bundle.completedSteps}/5 خطوات',
+              context.t(
+                'توافق عام: ${bundle.overallScore}% • ${bundle.completedSteps}/5 خطوات',
+                'Overall match: ${bundle.overallScore}% • ${bundle.completedSteps}/5 steps',
+              ),
               style: TextStyle(color: Colors.grey[600], fontSize: 13),
             ),
             if (!bundle.hasAnyMatch) ...[
               const SizedBox(height: 12),
-              const Text('جرّب وصفاً أوسع أو أكمل ملفك الأكاديمي.'),
+              Text(context.t(
+                'جرّب وصفاً أوسع أو أكمل ملفك الأكاديمي.',
+                'Try a broader description or complete your academic profile.',
+              )),
             ],
           ],
         ),
@@ -325,7 +499,10 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Gemini يحلّل ملفك ويربط عناصر الحزمة بخطة بحثية...',
+                    context.t(
+                      'الذكاء السحابي يحلّل ملفك ويربط عناصر الحزمة بخطة بحثية...',
+                      'Cloud AI analyzes your profile and links bundle items to a research plan...',
+                    ),
                     style: TextStyle(fontSize: 13, color: Colors.grey[600]),
                   ),
                 ],
@@ -366,7 +543,9 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
                 ),
                 Chip(
                   label: Text(
-                    insight.fromGemini ? 'AcadeGate AI' : 'تحليل أساسي',
+                    insight.fromGemini
+                        ? AdvisorBranding.cloudBadge
+                        : context.t('تحليل أساسي', 'Basic analysis'),
                     style: const TextStyle(fontSize: 11),
                   ),
                   padding: EdgeInsets.zero,
@@ -380,13 +559,13 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
             if (insight.fromGemini && insight.modelUsed != null) ...[
               const SizedBox(height: 4),
               Text(
-                'النموذج: ${insight.modelUsed}',
+                context.t('النموذج: ${insight.modelUsed}', 'Model: ${insight.modelUsed}'),
                 style: TextStyle(fontSize: 11, color: Colors.grey[500]),
               ),
             ],
             const SizedBox(height: 14),
             Text(
-              'لماذا هذه الحزمة؟',
+              context.t('لماذا هذه الحزمة؟', 'Why this bundle?'),
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 color: _brand,
@@ -430,8 +609,8 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'الخطوة التالية',
+                          Text(
+                            context.t('الخطوة التالية', 'Next step'),
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               color: _brand,
@@ -468,16 +647,16 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           ResearchPathBranding.timelineTitle,
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
         const SizedBox(height: 12),
         if (bundle.idea != null)
           _chainStep(
             icon: Icons.lightbulb,
             color: Colors.orange,
-            title: '1. فكرة بحثية',
+            title: context.t('1. فكرة بحثية', '1. Research idea'),
             subtitle: bundle.idea!.item.title,
             score: bundle.idea!.score,
             reasons: bundle.idea!.reasons,
@@ -494,7 +673,7 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
           _chainStep(
             icon: Icons.person,
             color: Colors.blue,
-            title: '2. مشرف أكاديمي',
+            title: context.t('2. مشرف أكاديمي', '2. Academic supervisor'),
             subtitle: bundle.supervisor!.item.name,
             score: bundle.supervisor!.score,
             reasons: bundle.supervisor!.reasons,
@@ -514,7 +693,7 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
           _chainStep(
             icon: Icons.science,
             color: Colors.purple,
-            title: '3. مختبر ذكي',
+            title: context.t('3. مختبر ذكي', '3. Smart lab'),
             subtitle: bundle.lab!.item.name,
             score: bundle.lab!.score,
             reasons: bundle.lab!.reasons,
@@ -529,14 +708,14 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
         _chainStep(
           icon: Icons.storefront,
           color: Colors.green,
-          title: '4. متجر — مواد وأدوات',
+          title: context.t('4. متجر — مواد وأدوات', '4. Store — supplies & tools'),
           subtitle: bundle.storeCategory != null
-              ? bundle.storeCategory!.title
-              : 'منتجات مقترحة',
+              ? L10nLookup.storeCategoryTitle(bundle.storeCategory!.id)
+              : context.t('منتجات مقترحة', 'Suggested products'),
           score: bundle.products.isNotEmpty ? bundle.products.first.score : 0,
           reasons: bundle.products.isNotEmpty
               ? bundle.products.first.reasons
-              : const ['تصفح المتجر'],
+              : [context.t('تصفح المتجر', 'Browse store')],
           onTap: bundle.storeCategory != null
               ? () => Navigator.push(
                     context,
@@ -554,7 +733,7 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.inventory_2, size: 20),
                   title: Text(p.name, style: const TextStyle(fontSize: 14)),
-                  subtitle: Text('${p.price} ج.م'),
+                  subtitle: Text(context.t('${p.price} ج.م', '${p.price} EGP')),
                   trailing: const Icon(Icons.open_in_new, size: 16),
                   onTap: p.id == null
                       ? null
@@ -563,8 +742,11 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
                             MaterialPageRoute(
                               builder: (context) => ProductDetailScreen(
                                 name: p.name,
-                                price: '${p.price} ج.م',
-                                description: 'منتج مقترح ضمن مسار البحث الذكي.',
+                                price: context.t('${p.price} ج.م', '${p.price} EGP'),
+                                description: context.t(
+                                  'منتج مقترح ضمن مسار البحث الذكي.',
+                                  'Product suggested within the Smart Research Path.',
+                                ),
                                 storeName: p.category,
                                 contact: '',
                                 productId: p.id,
@@ -582,7 +764,7 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
           _chainStep(
             icon: Icons.edit_note,
             color: const Color(0xFF5D4037),
-            title: '5. خدمة كتابة / إحصاء',
+            title: context.t('5. خدمة كتابة / إحصاء', '5. Writing / statistics service'),
             subtitle: bundle.writingExpert!.item.name,
             score: bundle.writingExpert!.score,
             reasons: bundle.writingExpert!.reasons,
@@ -686,7 +868,7 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
                         Align(
                           alignment: Alignment.centerLeft,
                           child: Text(
-                            'اضغط للتفاصيل ←',
+                            context.t('اضغط للتفاصيل ←', 'Tap for details ←'),
                             style: TextStyle(fontSize: 12, color: color),
                           ),
                         ),

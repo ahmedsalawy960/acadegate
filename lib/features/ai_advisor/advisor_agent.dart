@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/locale/app_translate.dart';
+
 enum AdvisorAgentId {
   researchIdea,
   thesisWriter,
@@ -17,19 +19,29 @@ enum AdvisorAgentId {
 class AdvisorAgent {
   final AdvisorAgentId id;
   final String nameAr;
+  final String nameEn;
   final String shortLabel;
+  final String shortLabelEn;
   final String description;
+  final String descriptionEn;
   final IconData icon;
   final Color color;
   final List<String> keywords;
   final String systemPrompt;
   final String samplePrompt;
 
+  String get displayName => appTr(nameAr, nameEn);
+  String get displayShortLabel => appTr(shortLabel, shortLabelEn);
+  String get displayDescription => appTr(description, descriptionEn);
+
   const AdvisorAgent({
     required this.id,
     required this.nameAr,
+    required this.nameEn,
     required this.shortLabel,
+    required this.shortLabelEn,
     required this.description,
+    required this.descriptionEn,
     required this.icon,
     required this.color,
     required this.keywords,

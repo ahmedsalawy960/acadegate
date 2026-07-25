@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/locale/l10n_lookup.dart';
 import '../academic/academic_models.dart';
 import 'scholar_link_utils.dart';
 import 'supervisor_metrics_models.dart';
@@ -23,7 +24,7 @@ class SupervisorMetricsChipRow extends StatelessWidget {
 
     if (!supervisor.hasPublicationIds) {
       return Text(
-        'لا بيانات نشر',
+        L10nLookup.noPublicationData,
         style: TextStyle(fontSize: 11, color: Colors.grey[500]),
       );
     }
@@ -45,7 +46,7 @@ class SupervisorMetricsChipRow extends StatelessWidget {
         final metrics = snapshot.data;
         if (metrics == null || !metrics.hasData) {
           return Text(
-            'لا بيانات نشر',
+            L10nLookup.noPublicationData,
             style: TextStyle(fontSize: 11, color: Colors.grey[500]),
           );
         }
@@ -68,10 +69,10 @@ class SupervisorMetricsChipRow extends StatelessWidget {
       spacing: 6,
       runSpacing: 4,
       children: [
-        _miniChip(Icons.article_outlined, '$works منشور'),
-        _miniChip(Icons.format_quote, '$citations استشهاد'),
+        _miniChip(Icons.article_outlined, L10nLookup.publicationsCount(works)),
+        _miniChip(Icons.format_quote, L10nLookup.citationsCount(citations)),
         if (highImpact > 0)
-          _miniChip(Icons.star, '$highImpact مجلة Q1–Q2'),
+          _miniChip(Icons.star, L10nLookup.q1q2JournalsCount(highImpact)),
       ],
     );
   }
@@ -141,15 +142,15 @@ class _SupervisorPublicationPanelState
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'الإنتاج العلمي',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                  Text(
+                    L10nLookup.scientificOutput,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     metrics?.sourceNote.isNotEmpty == true
                         ? metrics!.sourceNote
-                        : 'لا تتوفر بيانات نشر لهذا المشرف.',
+                        : L10nLookup.noSupervisorPublicationData,
                     style: TextStyle(color: Colors.grey[600]),
                   ),
                 ],
@@ -159,16 +160,16 @@ class _SupervisorPublicationPanelState
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'الإنتاج العلمي والمجلات',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                Text(
+                  L10nLookup.scientificOutputAndJournals,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
                 ),
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    _statBox('منشورات', '${metrics.worksCount}'),
+                    _statBox(L10nLookup.publications, '${metrics.worksCount}'),
                     const SizedBox(width: 10),
-                    _statBox('استشهادات', '${metrics.citedByCount}'),
+                    _statBox(L10nLookup.citations, '${metrics.citedByCount}'),
                     const SizedBox(width: 10),
                     _statBox('H-index', '${metrics.hIndex}'),
                   ],
@@ -178,14 +179,14 @@ class _SupervisorPublicationPanelState
                   OutlinedButton.icon(
                     onPressed: () => _openScholar(widget.supervisor),
                     icon: const Icon(Icons.school_outlined, size: 18),
-                    label: const Text('عرض على Google Scholar'),
+                    label: Text(L10nLookup.viewOnGoogleScholar),
                   ),
                 ],
                 if (metrics.topVenues.isNotEmpty) ...[
                   const SizedBox(height: 16),
-                  const Text(
-                    'أبرز المجلات التي نُشر فيها',
-                    style: TextStyle(fontWeight: FontWeight.w600),
+                  Text(
+                    L10nLookup.topJournals,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 8),
                   ...metrics.topVenues.map(_venueTile),
@@ -235,7 +236,7 @@ class _SupervisorPublicationPanelState
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تعذر فتح رابط Google Scholar')),
+        SnackBar(content: Text(L10nLookup.scholarLinkFailed())),
       );
     }
   }
@@ -281,7 +282,7 @@ class _SupervisorPublicationPanelState
   }
 
   String _venueSubtitle(VenuePublicationStat venue) {
-    final parts = <String>['${venue.worksCount} بحث'];
+    final parts = <String>[L10nLookup.researchCount(venue.worksCount)];
     if (venue.fromScimago && venue.quartile != null) {
       parts.add('Scimago ${venue.quartile}');
       if (venue.sjr != null) {

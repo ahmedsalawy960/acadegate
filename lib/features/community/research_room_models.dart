@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../core/locale/app_translate.dart';
+
 class ResearchRoom {
   final String id;
   final String title;
@@ -34,10 +36,12 @@ class ResearchRoom {
 
     return ResearchRoom(
       id: id,
-      title: map['title']?.toString() ?? 'غرفة بحثية',
+      title: map['title']?.toString() ??
+          appTr('غرفة بحثية', 'Research room'),
       description: map['description']?.toString() ?? '',
       creatorId: map['creatorId']?.toString() ?? '',
-      creatorName: map['creatorName']?.toString() ?? 'باحث',
+      creatorName: map['creatorName']?.toString() ??
+          appTr('باحث', 'Researcher'),
       categoryId: map['categoryId']?.toString(),
       isPasswordProtected: map['isPasswordProtected'] == true,
       passwordHash: map['passwordHash']?.toString(),
@@ -91,7 +95,8 @@ class ResearchDiscussion {
       title: map['title']?.toString() ?? '',
       body: map['body']?.toString() ?? '',
       authorId: map['authorId']?.toString() ?? '',
-      authorName: map['authorName']?.toString() ?? 'باحث',
+      authorName: map['authorName']?.toString() ??
+          appTr('باحث', 'Researcher'),
       tags: tags,
       searchText: map['searchText']?.toString() ?? '',
       repliesCount: _parseInt(map['repliesCount']),
@@ -140,7 +145,8 @@ class ResearchDiscussionReply {
       id: id,
       discussionId: discussionId,
       authorId: map['authorId']?.toString() ?? '',
-      authorName: map['authorName']?.toString() ?? 'باحث',
+      authorName: map['authorName']?.toString() ??
+          appTr('باحث', 'Researcher'),
       body: map['body']?.toString() ?? '',
       createdAt: created,
     );

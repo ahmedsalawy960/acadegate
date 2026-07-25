@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
+import '../../core/locale/l10n_lookup.dart';
+import '../../core/locale/locale_extensions.dart';
 import '../auth/user_account.dart';
 import '../auth/user_account_service.dart';
 import '../auth/user_role.dart';
 import '../moderation/approval_status.dart';
 import '../moderation/moderation_service.dart';
 import '../supervisor_import/admin_supervisor_import_screen.dart';
+import 'admin_access_gate.dart';
 
 class AdminModerationScreen extends StatefulWidget {
   final String initialFilter;
@@ -50,8 +54,8 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
     await ModerationService.instance.approve(item.collection, item.id);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('تمت الموافقة'),
+      SnackBar(
+        content: Text(L10nLookup.approvedSnack),
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -63,22 +67,25 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
       builder: (context) {
         final controller = TextEditingController();
         return AlertDialog(
-          title: const Text('رفض المحتوى'),
+          title: Text(context.t('رفض المحتوى', 'Reject content')),
           content: TextField(
             controller: controller,
-            decoration: const InputDecoration(
-              labelText: 'سبب الرفض (اختياري)',
+            decoration: InputDecoration(
+              labelText: context.t(
+                'سبب الرفض (اختياري)',
+                'Rejection reason (optional)',
+              ),
             ),
             maxLines: 2,
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('إلغاء'),
+              child: Text(L10nLookup.cancel),
             ),
             TextButton(
               onPressed: () => Navigator.pop(context, controller.text),
-              child: const Text('رفض'),
+              child: Text(L10nLookup.reject),
             ),
           ],
         );
@@ -94,8 +101,8 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
     );
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('تم الرفض'),
+      SnackBar(
+        content: Text(L10nLookup.rejectedSnack),
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -187,7 +194,7 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
                         ),
                         if (item.ownerId.isNotEmpty)
                           Text(
-                            'معرّف المالك: ${item.ownerId}',
+                            L10nLookup.ownerIdLabel(item.ownerId),
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.grey[600],
@@ -204,7 +211,7 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
                             Navigator.pop(sheetContext);
                             _reject(item);
                           },
-                          child: const Text('رفض'),
+                          child: Text(L10nLookup.reject),
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -218,7 +225,7 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
                             backgroundColor: Colors.green,
                             foregroundColor: Colors.white,
                           ),
-                          child: const Text('موافقة'),
+                          child: Text(L10nLookup.approve),
                         ),
                       ),
                     ],
@@ -234,14 +241,15 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('لوحة الإدارة'),
+    return AdminAccessGate(
+      child: Scaffold(
+      appBar: AcadeGateAppBar(
+        title: Text(context.t('لوحة الإدارة', 'Admin dashboard')),
         backgroundColor: const Color(0xFF1A237E),
         foregroundColor: Colors.white,
         actions: [
           IconButton(
-            tooltip: 'استيراد مشرفين',
+            tooltip: context.t('استيراد مشرفين', 'Import supervisors'),
             icon: const Icon(Icons.cloud_download_outlined),
             onPressed: () {
               Navigator.push(
@@ -258,10 +266,19 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
           indicatorColor: Colors.amber,
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white70,
-          tabs: const [
-            Tab(text: 'المراجعة', icon: Icon(Icons.fact_check_outlined)),
-            Tab(text: 'إحصائيات', icon: Icon(Icons.insights_outlined)),
-            Tab(text: 'المستخدمون', icon: Icon(Icons.people_outline)),
+          tabs: [
+            Tab(
+              text: context.t('المراجعة', 'Review'),
+              icon: const Icon(Icons.fact_check_outlined),
+            ),
+            Tab(
+              text: context.t('إحصائيات', 'Statistics'),
+              icon: const Icon(Icons.insights_outlined),
+            ),
+            Tab(
+              text: context.t('المستخدمون', 'Users'),
+              icon: const Icon(Icons.people_outline),
+            ),
           ],
         ),
       ),
@@ -272,6 +289,7 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
           _buildStatsTab(),
           _buildUsersTab(),
         ],
+      ),
       ),
     );
   }
@@ -286,7 +304,9 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
         }
 
         if (snapshot.hasError) {
-          return Center(child: Text('خطأ: ${snapshot.error}'));
+          return Center(
+            child: Text('${L10nLookup.error}: ${snapshot.error}'),
+          );
         }
 
         final allItems = snapshot.data ?? [];
@@ -301,34 +321,63 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 children: [
-                  _filterChip('all', 'الكل (${allItems.length})'),
+                  _filterChip(
+                    'all',
+                    '${L10nLookup.all} (${allItems.length})',
+                  ),
                   _filterChip(
                     'supervisors',
-                    'مشرفون (${allItems.where((i) => i.collection == 'supervisors').length})',
+                    L10nLookup.filterChipLabel(
+                      'supervisors',
+                      allItems
+                          .where((i) => i.collection == 'supervisors')
+                          .length,
+                    ),
                   ),
                   _filterChip(
                     'labs',
-                    'مختبرات (${allItems.where((i) => i.collection == 'labs').length})',
+                    L10nLookup.filterChipLabel(
+                      'labs',
+                      allItems.where((i) => i.collection == 'labs').length,
+                    ),
                   ),
                   _filterChip(
                     'product',
-                    'منتجات (${allItems.where((i) => i.collection == 'product').length})',
+                    L10nLookup.filterChipLabel(
+                      'product',
+                      allItems.where((i) => i.collection == 'product').length,
+                    ),
                   ),
                   _filterChip(
                     'research_ideas',
-                    'أفكار (${allItems.where((i) => i.collection == 'research_ideas').length})',
+                    L10nLookup.filterChipLabel(
+                      'research_ideas',
+                      allItems
+                          .where((i) => i.collection == 'research_ideas')
+                          .length,
+                    ),
                   ),
                   _filterChip(
                     'community_posts',
-                    'مجتمع (${allItems.where((i) => i.collection == 'community_posts').length})',
+                    L10nLookup.filterChipLabel(
+                      'community_posts',
+                      allItems
+                          .where((i) => i.collection == 'community_posts')
+                          .length,
+                    ),
                   ),
                 ],
               ),
             ),
             Expanded(
               child: items.isEmpty
-                  ? const Center(
-                      child: Text('لا يوجد محتوى بانتظار المراجعة'),
+                  ? Center(
+                      child: Text(
+                        context.t(
+                          'لا يوجد محتوى بانتظار المراجعة',
+                          'No content pending review',
+                        ),
+                      ),
                     )
                   : ListView.separated(
                       padding: const EdgeInsets.all(16),
@@ -389,12 +438,12 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
                                           Icons.visibility_outlined,
                                           size: 18,
                                         ),
-                                        label: const Text('التفاصيل'),
+                                        label: Text(L10nLookup.details),
                                       ),
                                       const Spacer(),
                                       OutlinedButton(
                                         onPressed: () => _reject(item),
-                                        child: const Text('رفض'),
+                                        child: Text(L10nLookup.reject),
                                       ),
                                       const SizedBox(width: 8),
                                       ElevatedButton(
@@ -403,7 +452,7 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
                                           backgroundColor: Colors.green,
                                           foregroundColor: Colors.white,
                                         ),
-                                        child: const Text('موافقة'),
+                                        child: Text(L10nLookup.approve),
                                       ),
                                     ],
                                   ),
@@ -442,7 +491,7 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
           padding: const EdgeInsets.all(16),
           children: [
             _statCard(
-              'بانتظار المراجعة',
+              L10nLookup.approvalStatusLabel('pending'),
               '${stats.totalPending}',
               Icons.pending_actions,
               Colors.orange,
@@ -452,12 +501,16 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
               spacing: 10,
               runSpacing: 10,
               children: [
-                _miniStat('مشرفون', stats.pendingSupervisors, Colors.blue),
-                _miniStat('مختبرات', stats.pendingLabs, Colors.purple),
-                _miniStat('منتجات', stats.pendingProducts, Colors.green),
-                _miniStat('أفكار', stats.pendingIdeas, Colors.orange),
                 _miniStat(
-                  'مجتمع',
+                  L10nLookup.supervisorsPlural,
+                  stats.pendingSupervisors,
+                  Colors.blue,
+                ),
+                _miniStat(L10nLookup.labsPlural, stats.pendingLabs, Colors.purple),
+                _miniStat(L10nLookup.products, stats.pendingProducts, Colors.green),
+                _miniStat(L10nLookup.ideas, stats.pendingIdeas, Colors.orange),
+                _miniStat(
+                  L10nLookup.community,
                   stats.pendingCommunityPosts,
                   const Color(0xFF00695C),
                 ),
@@ -465,15 +518,15 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
             ),
             const SizedBox(height: 20),
             _statCard(
-              'إجمالي المستخدمين',
+              context.t('إجمالي المستخدمين', 'Total users'),
               '${stats.totalUsers}',
               Icons.people,
               const Color(0xFF1A237E),
             ),
             const SizedBox(height: 16),
-            const Text(
-              'المستخدمون حسب الدور',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            Text(
+              context.t('المستخدمون حسب الدور', 'Users by role'),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
             const SizedBox(height: 10),
             ...stats.usersByRole.entries.map(
@@ -486,7 +539,10 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
             ),
             if (stats.usersByRole.isEmpty)
               Text(
-                'لا توجد بيانات مستخدمين بعد',
+                context.t(
+                  'لا توجد بيانات مستخدمين بعد',
+                  'No user data yet',
+                ),
                 style: TextStyle(color: Colors.grey[600]),
               ),
           ],
@@ -524,9 +580,9 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
             const Spacer(),
             const Icon(Icons.sync, size: 16, color: Colors.green),
             const SizedBox(width: 4),
-            const Text(
-              'مباشر',
-              style: TextStyle(fontSize: 11, color: Colors.green),
+            Text(
+              L10nLookup.live,
+              style: const TextStyle(fontSize: 11, color: Colors.green),
             ),
           ],
         ),
@@ -555,7 +611,9 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
 
         final users = snapshot.data ?? [];
         if (users.isEmpty) {
-          return const Center(child: Text('لا يوجد مستخدمون'));
+          return Center(
+            child: Text(context.t('لا يوجد مستخدمون', 'No users')),
+          );
         }
 
         return ListView.separated(
@@ -576,11 +634,11 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 subtitle: Text(
-                  '${user.email}\nالدور الحالي: ${UserRole.label(user.role)}',
+                  '${user.email}\n${L10nLookup.currentRoleLabel(UserRole.label(user.role))}',
                 ),
                 isThreeLine: true,
                 trailing: PopupMenuButton<String>(
-                  tooltip: 'تغيير الدور',
+                  tooltip: context.t('تغيير الدور', 'Change role'),
                   onSelected: (role) async {
                     try {
                       await UserAccountService.instance.updateUserRole(
@@ -590,7 +648,9 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
                       if (!context.mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text('تم تحديث دور ${user.displayName}'),
+                          content: Text(
+                            L10nLookup.roleUpdated(user.displayName),
+                          ),
                           behavior: SnackBarBehavior.floating,
                         ),
                       );
@@ -612,9 +672,9 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
                         child: Text(UserRole.label(role)),
                       ),
                     ),
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: UserRole.admin,
-                      child: Text('مدير النظام'),
+                      child: Text(L10nLookup.roleLabelStatic(UserRole.admin)),
                     ),
                   ],
                   child: const Icon(Icons.manage_accounts_outlined),

@@ -50,6 +50,9 @@ app.*.map.json
 *.secrets
 dart_defines.json
 
+# Windows build tool (run scripts/setup-windows-build.ps1)
+tools/nuget.exe
+
 # Firebase Functions dependencies
 functions/node_modules/
 

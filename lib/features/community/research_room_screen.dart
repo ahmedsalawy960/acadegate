@@ -1,6 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
+import '../../core/locale/locale_extensions.dart';
 import 'community_data.dart';
 import 'create_research_discussion_screen.dart';
 import 'research_discussion_detail_screen.dart';
@@ -32,7 +34,7 @@ class _ResearchRoomScreenState extends State<ResearchRoomScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: AcadeGateAppBar(
         title: Text(widget.room.title),
         backgroundColor: const Color(0xFF00695C),
         foregroundColor: Colors.white,
@@ -46,6 +48,11 @@ class _ResearchRoomScreenState extends State<ResearchRoomScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
+          final messenger = ScaffoldMessenger.of(context);
+          final snackText = context.t(
+            'تم نشر المناقشة وحفظها في الغرفة',
+            'Discussion published and saved in the room',
+          );
           final created = await Navigator.push<bool>(
             context,
             MaterialPageRoute(
@@ -53,11 +60,11 @@ class _ResearchRoomScreenState extends State<ResearchRoomScreen> {
                   CreateResearchDiscussionScreen(room: widget.room),
             ),
           );
+          if (!mounted) return;
           if (created == true) {
-            if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('تم نشر المناقشة وحفظها في الغرفة'),
+            messenger.showSnackBar(
+              SnackBar(
+                content: Text(snackText),
                 behavior: SnackBarBehavior.floating,
               ),
             );
@@ -65,7 +72,7 @@ class _ResearchRoomScreenState extends State<ResearchRoomScreen> {
         },
         backgroundColor: const Color(0xFF00695C),
         icon: const Icon(Icons.add),
-        label: const Text('مناقشة جديدة'),
+        label: Text(context.t('مناقشة جديدة', 'New discussion')),
       ),
       body: Column(
         children: [
@@ -81,15 +88,25 @@ class _ResearchRoomScreenState extends State<ResearchRoomScreen> {
                   ),
                 const SizedBox(height: 8),
                 Text(
-                  'منشئ الغرفة: ${widget.room.creatorName}'
-                  '${_isCreator ? ' (أنت)' : ''}',
+                  _isCreator
+                      ? context.t(
+                          'منشئ الغرفة: ${widget.room.creatorName} (أنت)',
+                          'Room creator: ${widget.room.creatorName} (you)',
+                        )
+                      : context.t(
+                          'منشئ الغرفة: ${widget.room.creatorName}',
+                          'Room creator: ${widget.room.creatorName}',
+                        ),
                   style: const TextStyle(fontSize: 12, color: Colors.grey),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: _searchController,
                   decoration: InputDecoration(
-                    hintText: 'ابحث في المناقشات... (عنوان، محتوى، كلمات)',
+                    hintText: context.t(
+                      'ابحث في المناقشات... (عنوان، محتوى، كلمات)',
+                      'Search discussions... (title, content, keywords)',
+                    ),
                     prefixIcon: const Icon(Icons.search),
                     suffixIcon: _searchQuery.isEmpty
                         ? null
@@ -130,8 +147,14 @@ class _ResearchRoomScreenState extends State<ResearchRoomScreen> {
                       padding: const EdgeInsets.all(24),
                       child: Text(
                         _searchQuery.trim().isEmpty
-                            ? 'لا توجد مناقشات بعد.\nابدأ أول مناقشة بحثية.'
-                            : 'لا توجد نتائج لـ «$_searchQuery»',
+                            ? context.t(
+                                'لا توجد مناقشات بعد.\nابدأ أول مناقشة بحثية.',
+                                'No discussions yet.\nStart the first research discussion.',
+                              )
+                            : context.t(
+                                'لا توجد نتائج لـ «$_searchQuery»',
+                                'No results for "$_searchQuery"',
+                              ),
                         textAlign: TextAlign.center,
                         style: TextStyle(color: Colors.grey[700], height: 1.5),
                       ),
@@ -156,7 +179,10 @@ class _ResearchRoomScreenState extends State<ResearchRoomScreen> {
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                         subtitle: Text(
-                          '${discussion.authorName} • ${discussion.repliesCount} رد',
+                          context.t(
+                            '${discussion.authorName} • ${discussion.repliesCount} رد',
+                            '${discussion.authorName} • ${discussion.repliesCount} replies',
+                          ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),

@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
+import '../../core/locale/app_translate.dart';
+import '../../core/locale/l10n_lookup.dart';
+import '../../core/locale/locale_extensions.dart';
 import '../academic/academic_models.dart';
 import '../academic/faculty_categories.dart';
 import 'sample_analysis_request_service.dart';
@@ -13,6 +17,19 @@ const sampleTypes = [
   'غذاء/دواء',
   'أخرى',
 ];
+
+String sampleTypeLabel(String type) {
+  return switch (type) {
+    'مواد صلبة' => appTr('مواد صلبة', 'Solid materials'),
+    'سوائل' => appTr('سوائل', 'Liquids'),
+    'مسحوق' => appTr('مسحوق', 'Powder'),
+    'أنسجة حيوية' => appTr('أنسجة حيوية', 'Biological tissues'),
+    'ماء/تربة' => appTr('ماء/تربة', 'Water/soil'),
+    'غذاء/دواء' => appTr('غذاء/دواء', 'Food/drug'),
+    'أخرى' => appTr('أخرى', 'Other'),
+    _ => type,
+  };
+}
 
 Future<bool?> openSampleAnalysisRequestScreen(
   BuildContext context, {
@@ -51,33 +68,102 @@ class _RequestSampleAnalysisScreenState
   final _notesController = TextEditingController();
   final _countController = TextEditingController(text: '1');
 
-  SampleAnalysisService? _selectedService;
+  late final List<SampleAnalysisService> _services;
+  String? _selectedServiceId;
   String _specialty = facultyCategoryIds().first;
   String _sampleType = sampleTypes.first;
   bool _saving = false;
 
-  List<SampleAnalysisService> get _services {
-    if (widget.lab.sampleServices.isNotEmpty) return widget.lab.sampleServices;
-    return widget.lab.devices
-        .map(
-          (device) => SampleAnalysisService(
-            id: device.id,
-            name: 'تحليل — ${device.name}',
-            description: 'تحليل عينة باستخدام ${device.name}',
-            turnaroundDays: device.waitDays,
-            priceFrom: device.costPerSession,
-            sampleTypes: sampleTypes,
-            specialties: widget.lab.tags,
+  SampleAnalysisService? get _selectedService {
+    final id = _selectedServiceId;
+    if (id == null) return null;
+    for (final service in _services) {
+      if (service.id == id) return service;
+    }
+    return null;
+  }
+
+  List<SampleAnalysisService> _buildServices() {
+    List<SampleAnalysisService> raw;
+    if (widget.lab.sampleServices.isNotEmpty) {
+      raw = List<SampleAnalysisService>.of(widget.lab.sampleServices);
+    } else {
+      raw = widget.lab.devices
+          .map(
+            (device) => SampleAnalysisService(
+              id: device.id.isNotEmpty ? device.id : device.name,
+              name: appTr(
+                'تحليل — ${device.name}',
+                'Analysis — ${device.name}',
+              ),
+              description: appTr(
+                'تحليل عينة باستخدام ${device.name}',
+                'Sample analysis using ${device.name}',
+              ),
+              turnaroundDays: device.waitDays,
+              priceFrom: device.costPerSession,
+              sampleTypes: sampleTypes,
+              specialties: widget.lab.tags,
+            ),
+          )
+          .toList();
+    }
+    if (raw.isEmpty) {
+      raw = [
+        SampleAnalysisService(
+          id: 'general',
+          name: appTr('تحليل عينات عام', 'General sample analysis'),
+          description: appTr(
+            'تواصل مع المختبر لتحديد نوع التحليل',
+            'Contact the lab to confirm the analysis type',
           ),
-        )
-        .toList();
+          turnaroundDays: widget.lab.defaultWaitDays,
+          sampleTypes: sampleTypes,
+          specialties: widget.lab.tags,
+        ),
+      ];
+    }
+
+    // Dropdown requires unique values — keep first occurrence per id.
+    final seen = <String>{};
+    final unique = <SampleAnalysisService>[];
+    for (final service in raw) {
+      final id = service.id.isNotEmpty ? service.id : service.name;
+      if (!seen.add(id)) continue;
+      unique.add(
+        id == service.id
+            ? service
+            : SampleAnalysisService(
+                id: id,
+                name: service.name,
+                description: service.description,
+                specialties: service.specialties,
+                sampleTypes: service.sampleTypes,
+                turnaroundDays: service.turnaroundDays,
+                priceFrom: service.priceFrom,
+              ),
+      );
+    }
+    return unique;
+  }
+
+  String? _resolveServiceId(SampleAnalysisService? preferred) {
+    if (_services.isEmpty) return null;
+    if (preferred != null) {
+      for (final service in _services) {
+        if (service.id == preferred.id || service.name == preferred.name) {
+          return service.id;
+        }
+      }
+    }
+    return _services.first.id;
   }
 
   @override
   void initState() {
     super.initState();
-    _selectedService = widget.preselectedService ??
-        (_services.isNotEmpty ? _services.first : null);
+    _services = _buildServices();
+    _selectedServiceId = _resolveServiceId(widget.preselectedService);
   }
 
   @override
@@ -91,7 +177,7 @@ class _RequestSampleAnalysisScreenState
   Future<void> _submit() async {
     final service = _selectedService;
     if (service == null) {
-      _showError('اختر نوع التحليل');
+      _showError(context.t('اختر نوع التحليل', 'Choose an analysis type'));
       return;
     }
 
@@ -109,8 +195,13 @@ class _RequestSampleAnalysisScreenState
       if (!mounted) return;
       Navigator.pop(context, true);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('تم إرسال طلب تحليل العينة — تابعه من لوحة المساهمة'),
+        SnackBar(
+          content: Text(
+            context.t(
+              'تم إرسال طلب تحليل العينة — تابعه من لوحة المساهمة',
+              'Sample analysis request sent — track it from the contributor hub',
+            ),
+          ),
           backgroundColor: Colors.green,
         ),
       );
@@ -131,10 +222,14 @@ class _RequestSampleAnalysisScreenState
   @override
   Widget build(BuildContext context) {
     final lab = widget.lab;
+    final selectedId = _selectedServiceId != null &&
+            _services.any((s) => s.id == _selectedServiceId)
+        ? _selectedServiceId
+        : null;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('طلب تحليل عينة'),
+      appBar: AcadeGateAppBar(
+        title: Text(context.t('طلب تحليل عينة', 'Request sample analysis')),
         backgroundColor: Colors.purple[700],
         foregroundColor: Colors.white,
       ),
@@ -147,35 +242,51 @@ class _RequestSampleAnalysisScreenState
             const SizedBox(height: 8),
             Text(lab.description),
           ],
+          if (lab.isUnowned) ...[
+            const SizedBox(height: 8),
+            Text(
+              context.t(
+                'سيصل الطلب لمديري المنصة حتى يُربط المختبر بمالك.',
+                'The request will reach platform admins until the lab is claimed.',
+              ),
+              style: TextStyle(color: Colors.orange[900], height: 1.35),
+            ),
+          ],
           const SizedBox(height: 20),
-          DropdownButtonFormField<SampleAnalysisService>(
-            initialValue: _selectedService,
-            decoration: const InputDecoration(
-              labelText: 'نوع التحليل / الخدمة',
-              border: OutlineInputBorder(),
+          DropdownButtonFormField<String>(
+            initialValue: selectedId,
+            decoration: InputDecoration(
+              labelText: context.t(
+                'نوع التحليل / الخدمة',
+                'Analysis type / service',
+              ),
+              border: const OutlineInputBorder(),
             ),
             items: _services
                 .map(
-                  (service) => DropdownMenuItem(
-                    value: service,
-                    child: Text(service.name),
+                  (service) => DropdownMenuItem<String>(
+                    value: service.id,
+                    child: Text(
+                      service.name,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 )
                 .toList(),
-            onChanged: (value) => setState(() => _selectedService = value),
+            onChanged: (value) => setState(() => _selectedServiceId = value),
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
             initialValue: _specialty,
-            decoration: const InputDecoration(
-              labelText: 'التخصص',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: context.t('التخصص', 'Specialty'),
+              border: const OutlineInputBorder(),
             ),
             items: facultyCategoryIds()
                 .map(
                   (id) => DropdownMenuItem(
                     value: id,
-                    child: Text(facultyTitleForCategory(id)),
+                    child: Text(L10nLookup.facultyTitleStatic(id)),
                   ),
                 )
                 .toList(),
@@ -186,12 +297,17 @@ class _RequestSampleAnalysisScreenState
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
             initialValue: _sampleType,
-            decoration: const InputDecoration(
-              labelText: 'نوع العينة',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: context.t('نوع العينة', 'Sample type'),
+              border: const OutlineInputBorder(),
             ),
             items: sampleTypes
-                .map((type) => DropdownMenuItem(value: type, child: Text(type)))
+                .map(
+                  (type) => DropdownMenuItem(
+                    value: type,
+                    child: Text(sampleTypeLabel(type)),
+                  ),
+                )
                 .toList(),
             onChanged: (value) {
               if (value != null) setState(() => _sampleType = value);
@@ -201,26 +317,32 @@ class _RequestSampleAnalysisScreenState
           TextField(
             controller: _countController,
             keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: 'عدد العينات',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: context.t('عدد العينات', 'Number of samples'),
+              border: const OutlineInputBorder(),
             ),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _researchController,
-            decoration: const InputDecoration(
-              labelText: 'عنوان البحث / الغرض من التحليل',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: context.t(
+                'عنوان البحث / الغرض من التحليل',
+                'Research title / purpose of analysis',
+              ),
+              border: const OutlineInputBorder(),
             ),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _notesController,
             maxLines: 4,
-            decoration: const InputDecoration(
-              labelText: 'تفاصيل إضافية (طريقة الحفظ، مواصفات...)',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: context.t(
+                'تفاصيل إضافية (طريقة الحفظ، مواصفات...)',
+                'Additional details (storage method, specs...)',
+              ),
+              border: const OutlineInputBorder(),
             ),
           ),
           if (_selectedService != null) ...[
@@ -230,8 +352,12 @@ class _RequestSampleAnalysisScreenState
               child: ListTile(
                 leading: Icon(Icons.info_outline, color: Colors.purple[800]),
                 title: Text(
-                  'مدة متوقعة: ${_selectedService!.turnaroundDays} يوم'
-                  '${_selectedService!.priceFrom > 0 ? ' • من ${_selectedService!.priceFrom} ج.م' : ''}',
+                  context.t(
+                    'مدة متوقعة: ${_selectedService!.turnaroundDays} يوم'
+                    '${_selectedService!.priceFrom > 0 ? ' • من ${_selectedService!.priceFrom} ج.م' : ''}',
+                    'Expected turnaround: ${_selectedService!.turnaroundDays} days'
+                    '${_selectedService!.priceFrom > 0 ? ' • from ${_selectedService!.priceFrom} EGP' : ''}',
+                  ),
                 ),
                 subtitle: _selectedService!.description.isNotEmpty
                     ? Text(_selectedService!.description)
@@ -252,7 +378,7 @@ class _RequestSampleAnalysisScreenState
                     height: 22,
                     child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                   )
-                : const Text('إرسال طلب التحليل'),
+                : Text(context.t('إرسال طلب التحليل', 'Submit analysis request')),
           ),
         ],
       ),

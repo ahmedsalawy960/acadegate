@@ -7,7 +7,7 @@ class HomeServiceImages {
   static const supervisors =
       'https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=800&h=500&q=80';
   static const ideas =
-      'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=800&h=500&q=80';
+      'https://images.unsplash.com/photo-1507413245160-754ec704b2d6?auto=format&fit=crop&w=800&h=500&q=80';
   static const labs =
       'https://images.unsplash.com/photo-1532187863486-abf9dbad1b69?auto=format&fit=crop&w=800&h=500&q=80';
   static const shop =
@@ -17,11 +17,23 @@ class HomeServiceImages {
   static const aiAdvisor =
       'https://images.unsplash.com/photo-1677442136019-21780ecad995?auto=format&fit=crop&w=800&h=500&q=80';
   static const scienceNews =
-      'https://images.unsplash.com/photo-1507413245160-754ec704b2d6?auto=format&fit=crop&w=800&h=500&q=80';
+      'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=800&h=500&q=80';
+  /// صندوق تمويل البحث — استثمار وتمويل أكاديمي
+  static const researchFund =
+      'https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?auto=format&fit=crop&w=800&h=500&q=80';
+  /// خدمات الكتابة — كتابة ومسودة أكاديمية
   static const writingServices =
-      'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?auto=format&fit=crop&w=800&h=500&q=80';
-  static const supplyChain =
-      'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=800&h=500&q=80';
+      'https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=800&h=500&q=80';
+  /// AcadeGate Publish — نشر ومجلات علمية
+  static const publish =
+      'https://images.unsplash.com/photo-1507842217343-583bb7270b66?auto=format&fit=crop&w=800&h=500&q=80';
+  /// مسار البحث الذكي — شبكة مترابطة (تناسب أيقونة account_tree)
+  static const researchPath =
+      'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?auto=format&fit=crop&w=800&h=500&q=80';
+  static const integrity =
+      'https://images.unsplash.com/photo-1450101499163-c8848c66ca85?auto=format&fit=crop&w=800&h=500&q=80';
+  static const matchmaking =
+      'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=800&h=500&q=80';
 }
 
 class DashboardCard extends StatelessWidget {

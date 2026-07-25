@@ -44,6 +44,36 @@ service cloud.firestore {
           || isCounterBump('discussionsCount');
     }
 
+    function isEmptyClaimedBy(data) {
+      return !('claimedBy' in data)
+          || data.claimedBy == null
+          || data.claimedBy == '';
+    }
+
+    function isIdeaClaimByStudent() {
+      return isSignedIn()
+          && resource.data.status == 'open'
+          && isEmptyClaimedBy(resource.data)
+          && request.resource.data.status == 'claimed'
+          && request.resource.data.claimedBy == request.auth.uid
+          && request.resource.data.claimedByName is string
+          && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['status', 'claimedBy', 'claimedByName', 'claimedAt']);
+    }
+
+    function isIdeaClaimRelease() {
+      return isSignedIn()
+          && resource.data.status == 'claimed'
+          && !isEmptyClaimedBy(resource.data)
+          && request.resource.data.status == 'open'
+          && isEmptyClaimedBy(request.resource.data)
+          && (resource.data.claimedBy == request.auth.uid
+              || resource.data.publisherId == request.auth.uid
+              || isAdmin())
+          && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['status', 'claimedBy', 'claimedByName', 'claimedAt']);
+    }
+
     function isDiscussionMetaBump() {
       let changed = request.resource.data.diff(resource.data).affectedKeys();
       return changed.hasOnly(['repliesCount', 'searchText'])
@@ -62,7 +92,13 @@ service cloud.firestore {
         'writing_order',
         'supervision_request',
         'sample_analysis',
+        'sample_analysis_sla',
+        'lab_booking',
+        'lab_claim',
         'message',
+        'smart_match',
+        'fund_award',
+        'proposal',
       ];
     }
 
@@ -85,6 +121,12 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ─── بيانات مزامنة داخلية (مثل NBSLE) ───────────────
+    match /app_meta/{docId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
     // ─── أسرار الغرف البحثية (كلمة المرور — لا قراءة من العميل) ─
     match /research_room_secrets/{roomId} {
       allow read, write: if false;
@@ -92,7 +134,10 @@ service cloud.firestore {
 
     // ─── حسابات المستخدمين ────────────────────────────────
     match /users/{userId} {
-      allow read: if isOwner(userId) || isAdmin();
+      // Signed-in users may read admin profiles so ops alerts can fan out.
+      allow read: if isOwner(userId)
+                  || isAdmin()
+                  || (isSignedIn() && resource.data.role == 'admin');
       allow create: if isOwner(userId)
                     && request.resource.data.role != 'admin';
       allow update: if isAdmin()
@@ -104,6 +149,56 @@ service cloud.firestore {
     // ─── ملف الطالب الأكاديمي ─────────────────────────────
     match /student_profiles/{userId} {
       allow read, write: if isOwner(userId);
+    }
+
+    // ─── تقدم الرسالة (فصول، موافقات، مواعيد) ─────────────
+    match /thesis_progress/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // ─── AcadeGate Publish — مسودات ───────────────────────
+    match /publish_manuscripts/{manuscriptId} {
+      allow read: if isSignedIn()
+                  && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn()
+                    && request.resource.data.userId == request.auth.uid
+                    && request.resource.data.status == 'draft';
+      allow update, delete: if isSignedIn()
+                            && resource.data.userId == request.auth.uid;
+    }
+
+    // ─── كatalog المجلات (بدون بيانات افتراضية) ─────────
+    match /journals/{journalId} {
+      allow read: if isApprovedContent()
+                  || isAdmin()
+                  || (isSignedIn() && resource.data.createdBy == request.auth.uid);
+      allow create: if isAdmin()
+                    && request.resource.data.createdBy == request.auth.uid
+                    && isPendingCreate();
+      allow update: if isAdmin()
+                    || (isSignedIn()
+                        && resource.data.createdBy == request.auth.uid
+                        && approvalUnchanged()
+                        && resource.data.approvalStatus == 'pending');
+      allow delete: if isAdmin();
+    }
+
+    // ─── صندوق Fund — إعدادات ────────────────────────────
+    match /research_fund/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // ─── صندوق Fund — تمويلات ────────────────────────────
+    match /research_fund_awards/{awardId} {
+      // Proposed awards: recipient/admin only. Approved/disbursed: signed-in catalog.
+      allow read: if isSignedIn() && (
+        isAdmin()
+        || resource.data.publisherId == request.auth.uid
+        || resource.data.status in ['approved', 'disbursed']
+      );
+      allow create, update: if isAdmin();
+      allow delete: if isAdmin();
     }
 
     // ─── محادثات المساعد الأكاديمي AI ─────────────────────
@@ -123,6 +218,15 @@ service cloud.firestore {
       }
     }
 
+    // ─── جلسات محاكي المناقشة ─────────────────────────────
+    match /viva_sessions/{userId} {
+      allow read, write, delete: if isOwner(userId);
+
+      match /sessions/{sessionId} {
+        allow read, write, delete: if isOwner(userId);
+      }
+    }
+
     // ─── التصنيفات (قراءة فقط من التطبيق) ─────────────────
     match /categories/{docId} {
       allow read: if true;
@@ -134,9 +238,10 @@ service cloud.firestore {
       allow read: if isApprovedContent()
                   || (isSignedIn() && resource.data.createdBy == request.auth.uid)
                   || isAdmin();
-      allow create: if isSignedIn()
-                    && request.resource.data.createdBy == request.auth.uid
-                    && isPendingCreate();
+      allow create: if isAdmin()
+                    || (isSignedIn()
+                        && request.resource.data.createdBy == request.auth.uid
+                        && isPendingCreate());
       allow update: if isAdmin()
                     || (isSignedIn()
                         && resource.data.createdBy == request.auth.uid
@@ -144,6 +249,12 @@ service cloud.firestore {
                         && resource.data.approvalStatus in ['pending', 'rejected']);
       allow delete: if isAdmin()
                     || (isSignedIn() && resource.data.createdBy == request.auth.uid);
+    }
+
+    // ─── دليل موردي المتجر الأكاديمي ───────────────────────
+    match /store_suppliers/{docId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
     }
 
     // ─── المشرفون ───────────────────────────────────────────
@@ -164,6 +275,15 @@ service cloud.firestore {
                     || (isSignedIn() && resource.data.ownerId == request.auth.uid);
     }
 
+    function isLabClaimByManager() {
+      return isSignedIn()
+          && (userDoc().data.role == 'lab_manager' || isAdmin())
+          && (!('ownerId' in resource.data) || resource.data.ownerId == '')
+          && request.resource.data.ownerId == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['ownerId', 'claimedAt', 'claimedByName']);
+    }
+
     // ─── المختبرات ─────────────────────────────────────────
     match /labs/{labId} {
       allow read: if isApprovedContent()
@@ -176,6 +296,7 @@ service cloud.firestore {
                         && isPendingCreate());
 
       allow update: if isAdmin()
+                    || isLabClaimByManager()
                     || (isSignedIn()
                         && resource.data.ownerId == request.auth.uid
                         && approvalUnchanged()
@@ -187,14 +308,21 @@ service cloud.firestore {
       match /bookings/{bookingId} {
         allow read: if isSignedIn()
                     && (resource.data.userId == request.auth.uid
+                        || resource.data.labOwnerId == request.auth.uid
                         || get(/databases/$(database)/documents/labs/$(labId)).data.ownerId == request.auth.uid
                         || isAdmin());
         allow create: if isSignedIn()
                       && request.resource.data.userId == request.auth.uid
                       && request.resource.data.status == 'confirmed';
         allow update: if isSignedIn()
-                      && resource.data.userId == request.auth.uid
-                      && request.resource.data.status == 'cancelled';
+                      && request.resource.data.status == 'cancelled'
+                      && request.resource.data.diff(resource.data).affectedKeys()
+                          .hasOnly(['status'])
+                      && (resource.data.userId == request.auth.uid
+                          || resource.data.labOwnerId == request.auth.uid
+                          || get(/databases/$(database)/documents/labs/$(labId)).data.ownerId
+                              == request.auth.uid
+                          || isAdmin());
         allow delete: if false;
       }
 
@@ -216,11 +344,13 @@ service cloud.firestore {
 
       allow create: if isSignedIn()
                     && request.resource.data.publisherId == request.auth.uid
-                    && isPendingCreate();
+                    && (isAdmin() || isPendingCreate());
 
       allow update: if isAdmin()
                     || (isSignedIn() && (
                       isCounterBumpOnly()
+                      || isIdeaClaimByStudent()
+                      || isIdeaClaimRelease()
                       || (resource.data.publisherId == request.auth.uid
                           && approvalUnchanged()
                           && resource.data.approvalStatus in ['pending', 'rejected'])
@@ -231,7 +361,12 @@ service cloud.firestore {
                         && resource.data.publisherId == request.auth.uid);
 
       match /proposals/{proposalId} {
-        allow read: if isSignedIn();
+        allow read: if isSignedIn() && (
+          resource.data.userId == request.auth.uid
+          || get(/databases/$(database)/documents/research_ideas/$(ideaId)).data.publisherId
+              == request.auth.uid
+          || isAdmin()
+        );
         allow create: if isSignedIn()
                       && request.resource.data.userId == request.auth.uid
                       && request.resource.data.status == 'pending';
@@ -247,6 +382,20 @@ service cloud.firestore {
                               && request.auth.uid == voteId;
         allow update: if false;
       }
+    }
+
+    // ─── حجز مواضيع البحث (حصرية للطالب) ─────────────────
+    match /topic_claims/{claimId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+                    && request.resource.data.claimedBy == request.auth.uid
+                    && request.resource.data.topicTitle is string
+                    && request.resource.data.topicTitle.size() >= 3
+                    && request.resource.data.topicTitle.size() <= 300
+                    && request.resource.data.claimedByName is string;
+      allow delete: if isSignedIn()
+                    && (resource.data.claimedBy == request.auth.uid || isAdmin());
+      allow update: if false;
     }
 
     // ─── الغرف البحثية ─────────────────────────────────────
@@ -357,18 +506,38 @@ service cloud.firestore {
                   && (resource.data.userId == request.auth.uid
                       || resource.data.serviceOwnerId == request.auth.uid
                       || isAdmin());
-      allow update: if isSignedIn() && (
-        (resource.data.userId == request.auth.uid && (
-          request.resource.data.status == 'cancelled'
-          || (resource.data.status == 'delivered' && request.resource.data.status == 'completed')
-          || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['paymentStatus', 'paidAt'])
-              && request.resource.data.amount == resource.data.amount)
-          || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'completedAt', 'studentRating']))
+      allow update: if isAdmin()
+        || (isSignedIn() && resource.data.userId == request.auth.uid && (
+          (request.resource.data.status == 'cancelled'
+              && request.resource.data.diff(resource.data).affectedKeys()
+                  .hasOnly(['status']))
+          || (resource.data.status == 'delivered'
+              && request.resource.data.status == 'completed'
+              && request.resource.data.diff(resource.data).affectedKeys()
+                  .hasOnly(['status', 'completedAt', 'studentRating']))
+          || (request.resource.data.paymentStatus == resource.data.paymentStatus
+              && request.resource.data.diff(resource.data).affectedKeys()
+                  .hasOnly(['paymentMethod']))
+          || (request.resource.data.paymentStatus == 'pending_payment'
+              && request.resource.data.diff(resource.data).affectedKeys()
+                  .hasOnly(['paymentMethod', 'paymentStatus', 'manualPaymentRequestedAt']))
         ))
-        || (resource.data.serviceOwnerId == request.auth.uid
-            && request.resource.data.status in ['confirmed', 'rejected', 'in_progress', 'delivered'])
-        || isAdmin()
-      );
+        || (isSignedIn()
+            && resource.data.serviceOwnerId == request.auth.uid
+            && request.resource.data.status in ['confirmed', 'rejected', 'in_progress', 'delivered']
+            && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['status', 'updatedAt', 'deliveryNote'])
+            && request.resource.data.paymentStatus == resource.data.paymentStatus
+            && request.resource.data.amount == resource.data.amount
+            && request.resource.data.userId == resource.data.userId
+            && request.resource.data.serviceOwnerId == resource.data.serviceOwnerId)
+        || (isSignedIn()
+            && resource.data.serviceOwnerId == request.auth.uid
+            && resource.data.paymentMethod == 'manual'
+            && resource.data.paymentStatus == 'pending_payment'
+            && request.resource.data.paymentStatus == 'paid_held'
+            && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['paymentStatus', 'paidAt', 'status']));
     }
 
     match /writing_services/{serviceId} {
@@ -398,18 +567,38 @@ service cloud.firestore {
         allow create: if isSignedIn()
                       && request.resource.data.userId == request.auth.uid
                       && request.resource.data.status == 'pending';
-        allow update: if isSignedIn() && (
-          (resource.data.userId == request.auth.uid && (
-            request.resource.data.status == 'cancelled'
-            || (resource.data.status == 'delivered' && request.resource.data.status == 'completed')
-            || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['paymentStatus', 'paidAt'])
-                && request.resource.data.amount == resource.data.amount)
-            || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'completedAt', 'studentRating']))
+        allow update: if isAdmin()
+          || (isSignedIn() && resource.data.userId == request.auth.uid && (
+            (request.resource.data.status == 'cancelled'
+                && request.resource.data.diff(resource.data).affectedKeys()
+                    .hasOnly(['status']))
+            || (resource.data.status == 'delivered'
+                && request.resource.data.status == 'completed'
+                && request.resource.data.diff(resource.data).affectedKeys()
+                    .hasOnly(['status', 'completedAt', 'studentRating']))
+            || (request.resource.data.paymentStatus == resource.data.paymentStatus
+                && request.resource.data.diff(resource.data).affectedKeys()
+                    .hasOnly(['paymentMethod']))
+            || (request.resource.data.paymentStatus == 'pending_payment'
+                && request.resource.data.diff(resource.data).affectedKeys()
+                    .hasOnly(['paymentMethod', 'paymentStatus', 'manualPaymentRequestedAt']))
           ))
-          || (resource.data.serviceOwnerId == request.auth.uid
-              && request.resource.data.status in ['confirmed', 'rejected', 'in_progress', 'delivered'])
-          || isAdmin()
-        );
+          || (isSignedIn()
+              && resource.data.serviceOwnerId == request.auth.uid
+              && request.resource.data.status in ['confirmed', 'rejected', 'in_progress', 'delivered']
+              && request.resource.data.diff(resource.data).affectedKeys()
+                  .hasOnly(['status', 'updatedAt', 'deliveryNote'])
+              && request.resource.data.paymentStatus == resource.data.paymentStatus
+              && request.resource.data.amount == resource.data.amount
+              && request.resource.data.userId == resource.data.userId
+              && request.resource.data.serviceOwnerId == resource.data.serviceOwnerId)
+          || (isSignedIn()
+              && resource.data.serviceOwnerId == request.auth.uid
+              && resource.data.paymentMethod == 'manual'
+              && resource.data.paymentStatus == 'pending_payment'
+              && request.resource.data.paymentStatus == 'paid_held'
+              && request.resource.data.diff(resource.data).affectedKeys()
+                  .hasOnly(['paymentStatus', 'paidAt', 'status']));
         allow delete: if false;
       }
     }
@@ -430,11 +619,18 @@ service cloud.firestore {
 
     // ─── المحادثات ───────────────────────────────────────
     match /conversations/{conversationId} {
-      allow read: if isSignedIn()
+      // get on a missing doc has resource == null; must allow that so clients
+      // can check existence before create (openConversation).
+      allow get: if isSignedIn()
+                 && (resource == null
+                     || request.auth.uid in resource.data.participantIds);
+      allow list: if isSignedIn()
                   && request.auth.uid in resource.data.participantIds;
       allow create: if isSignedIn()
                     && request.auth.uid in request.resource.data.participantIds
-                    && request.resource.data.participantIds.size() == 2;
+                    && request.resource.data.participantIds.size() == 2
+                    && request.resource.data.participantIds[0]
+                        != request.resource.data.participantIds[1];
       allow update: if isSignedIn()
                     && request.auth.uid in resource.data.participantIds
                     && request.resource.data.diff(resource.data).affectedKeys()
@@ -450,11 +646,11 @@ service cloud.firestore {
       }
     }
 
-    // ─── الإشعارات ───────────────────────────────────────
+    // ─── الإشعارات (الإنشاء عبر Cloud Function فقط) ─────
     match /notifications/{notificationId} {
       allow read: if isSignedIn()
                   && resource.data.userId == request.auth.uid;
-      allow create: if isSignedIn() && isValidNotificationCreate();
+      allow create: if false;
       allow update: if isSignedIn()
                     && resource.data.userId == request.auth.uid
                     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
@@ -472,11 +668,24 @@ service cloud.firestore {
                       || resource.data.labOwnerId == request.auth.uid
                       || isAdmin());
       allow update: if isSignedIn()
-                    && (resource.data.labOwnerId == request.auth.uid
-                        || isAdmin())
                     && request.resource.data.diff(resource.data).affectedKeys()
-                        .hasOnly(['status', 'updatedAt']);
-      allow delete: if isAdmin();
+                        .hasOnly(['status', 'updatedAt', 'acceptedAt'])
+                    && (
+                      // Lab owner / admin: any status transition
+                      (resource.data.labOwnerId == request.auth.uid || isAdmin())
+                      ||
+                      // Student: cancel own open requests
+                      (resource.data.studentId == request.auth.uid
+                       && request.resource.data.status == 'cancelled'
+                       && resource.data.status in ['pending', 'quoted', 'accepted'])
+                    );
+      // Party can remove terminal / cancelled requests from their list
+      allow delete: if isAdmin()
+                    || (isSignedIn()
+                        && (resource.data.studentId == request.auth.uid
+                            || resource.data.labOwnerId == request.auth.uid)
+                        && resource.data.status in
+                            ['cancelled', 'rejected', 'completed']);
     }
 
     // ─── طلبات الإشراف والتواصل ─────────────────────────
@@ -489,11 +698,28 @@ service cloud.firestore {
                       || resource.data.supervisorOwnerId == request.auth.uid
                       || isAdmin());
       allow update: if isSignedIn()
-                    && (resource.data.supervisorOwnerId == request.auth.uid
-                        || isAdmin())
                     && request.resource.data.diff(resource.data).affectedKeys()
-                        .hasOnly(['status', 'updatedAt']);
-      allow delete: if isAdmin();
+                        .hasOnly(['status', 'updatedAt'])
+                    && (
+                      (resource.data.supervisorOwnerId == request.auth.uid
+                          || isAdmin())
+                      || (resource.data.studentId == request.auth.uid
+                          && request.resource.data.status == 'cancelled'
+                          && resource.data.status == 'pending')
+                    );
+      allow delete: if isAdmin()
+                    || (isSignedIn()
+                        && (resource.data.studentId == request.auth.uid
+                            || resource.data.supervisorOwnerId
+                                == request.auth.uid)
+                        && resource.data.status in
+                            ['cancelled', 'rejected', 'accepted']);
+    }
+
+    // ─── فحوص التشابه (Copyleaks webhook → Cloud Function) ─
+    match /originality_scans/{scanId} {
+      allow read: if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow create, update, delete: if false;
     }
 
     // ─── طلبات المتجر (ضمان) ─────────────────────────────
@@ -508,14 +734,24 @@ service cloud.firestore {
                     && exists(/databases/$(database)/documents/product/$(request.resource.data.productId))
                     && request.resource.data.price == get(/databases/$(database)/documents/product/$(request.resource.data.productId)).data.price
                     && request.resource.data.amount == request.resource.data.price;
+      // paymentStatus: Paymob webhook / Admin SDK, or seller confirming manual transfer.
       allow update: if isAdmin()
-                    || (isSignedIn() && resource.data.buyerId == request.auth.uid && (
-                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['paymentStatus', 'paidAt'])
-                      || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['paymentStatus', 'releasedAt'])
-                      || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
-                    ))
+                    || (isSignedIn() && resource.data.buyerId == request.auth.uid
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                            .hasOnly(['status'])
+                        && request.resource.data.status in ['cancelled', 'delivered']
+                        && request.resource.data.paymentStatus == resource.data.paymentStatus)
                     || (isSignedIn() && resource.data.sellerId == request.auth.uid
-                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']));
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                            .hasOnly(['status'])
+                        && request.resource.data.paymentStatus == resource.data.paymentStatus)
+                    || (isSignedIn()
+                        && resource.data.sellerId == request.auth.uid
+                        && resource.data.paymentMethod == 'manual'
+                        && resource.data.paymentStatus == 'pending_payment'
+                        && request.resource.data.paymentStatus == 'paid_held'
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                            .hasOnly(['paymentStatus', 'paidAt', 'status']));
       allow delete: if false;
     }
   }

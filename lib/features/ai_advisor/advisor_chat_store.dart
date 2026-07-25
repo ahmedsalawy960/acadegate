@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../../core/locale/app_translate.dart';
 import 'advisor_conversation.dart';
 import 'advisor_message.dart';
 
@@ -28,7 +29,7 @@ class AdvisorChatStore {
 
   String _titleFromMessage(String message) {
     final trimmed = message.trim().replaceAll(RegExp(r'\s+'), ' ');
-    if (trimmed.isEmpty) return 'محادثة جديدة';
+    if (trimmed.isEmpty) return appTr('محادثة جديدة', 'New conversation');
     return trimmed.length > 48 ? '${trimmed.substring(0, 48)}…' : trimmed;
   }
 
@@ -76,7 +77,9 @@ class AdvisorChatStore {
     final id = 'conv_${now.millisecondsSinceEpoch}';
     final conversation = AdvisorConversation(
       id: id,
-      title: title?.trim().isNotEmpty == true ? title!.trim() : 'محادثة جديدة',
+      title: title?.trim().isNotEmpty == true
+          ? title!.trim()
+          : appTr('محادثة جديدة', 'New conversation'),
       createdAt: now,
       updatedAt: now,
     );
@@ -228,7 +231,7 @@ class AdvisorChatStore {
     final allLegacy = await userRef.collection('messages').orderBy('createdAt').get();
     if (allLegacy.docs.isEmpty) return;
 
-    String title = 'محادثة سابقة';
+    String title = appTr('محادثة سابقة', 'Previous conversation');
     for (final doc in allLegacy.docs) {
       final data = doc.data();
       if (data['role'] == 'user') {

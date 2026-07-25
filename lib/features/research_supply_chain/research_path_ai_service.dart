@@ -1,3 +1,6 @@
+import '../../core/locale/app_translate.dart';
+import '../../core/locale/l10n_lookup.dart';
+import '../../core/locale/locale_service.dart';
 import '../ai_advisor/gemini_advisor_client.dart';
 import '../profile/academic_profile.dart';
 import 'research_supply_chain_models.dart';
@@ -15,11 +18,34 @@ class ResearchPathAiService {
       return _localInsight(
         bundle,
         profile,
-        note: 'فعّل AcadeGate AI (مفتاح Gemini) لتحليل أعمق.',
+        note: appTr(
+          'فعّل AcadeGate AI (مفتاح Gemini) لتحليل أعمق.',
+          'Enable AcadeGate AI (Gemini key) for deeper analysis.',
+        ),
       );
     }
 
-    final systemPrompt = '''
+    final headers = _sectionHeaders;
+    final systemPrompt = LocaleService.instance.isEnglish
+        ? '''
+You are an academic advisor on the AcadeGate platform. Analyze a suggested research bundle for a researcher and connect it to their academic profile and real platform data.
+
+Strict rules:
+- Reply in clear, simple English only.
+- Do not invent names or institutions not present in the supplied data.
+- If a bundle item is missing, suggest a practical alternative within the platform (browse, register, request).
+- Use these exact headings in your reply:
+
+${headers.analysis}
+(One or two paragraphs linking specialization and interest to each selected item)
+
+${headers.plan}
+(4–6 numbered stages: problem definition, literature review, methodology, data/lab collection, writing, review)
+
+${headers.next}
+(One or two practical sentences for the researcher today)
+'''
+        : '''
 أنت مستشار أكاديمي في منصة AcadeGate. مهمتك تحليل حزمة بحث مقترحة لباحث عربي وربطها بملفه الأكاديمي وبيانات المنصة الحقيقية.
 
 قواعد صارمة:
@@ -28,18 +54,19 @@ class ResearchPathAiService {
 - إن كان عنصراً ناقصاً في الحزمة، اقترح بديلاً عملياً من داخل المنصة (تصفح، تسجيل، طلب).
 - استخدم العناوين التالية بالضبط في ردك:
 
-## لماذا هذه الحزمة؟
+${headers.analysis}
 (فقرة أو فقرتان تربط التخصص والاهتمام بكل عنصر مختار)
 
-## خطة البحث المقترحة
+${headers.plan}
 (مراحل مرقّمة 4–6: تحديد المشكلة، مراجعة أدبيات، منهجية، جمع بيانات/مختبر، كتابة، مراجعة)
 
-## الخطوة التالية
+${headers.next}
 (جملة أو جملتان عمليتان للباحث اليوم)
 ''';
 
     final userMessage =
-        'بيانات الباحث والحزمة المقترحة:\n\n${_buildContext(bundle, profile)}';
+        '${appTr('بيانات الباحث والحزمة المقترحة:\n\n', 'Researcher profile and suggested bundle data:\n\n')}'
+        '${_buildContext(bundle, profile)}';
 
     final result = await GeminiAdvisorClient.instance.generateResult(
       systemPrompt: systemPrompt,
@@ -61,86 +88,156 @@ class ResearchPathAiService {
     return _localInsight(
       bundle,
       profile,
-      note: result.error ?? 'تعذر الاتصال بالذكاء الاصطناعي',
+      note: result.error ??
+          appTr('تعذر الاتصال بالذكاء الاصطناعي', 'Could not reach AI'),
+    );
+  }
+
+  ({String analysis, String plan, String next}) get _sectionHeaders {
+    if (LocaleService.instance.isEnglish) {
+      return (
+        analysis: '## Why this bundle?',
+        plan: '## Suggested research plan',
+        next: '## Next step',
+      );
+    }
+    return (
+      analysis: '## لماذا هذه الحزمة؟',
+      plan: '## خطة البحث المقترحة',
+      next: '## الخطوة التالية',
     );
   }
 
   String _buildContext(ResearchSupplyBundle bundle, AcademicProfile? profile) {
     final buffer = StringBuffer();
+    final listSep = L10nLookup.listSeparator();
 
-    buffer.writeln('موضوع البحث: ${bundle.topic}');
-    buffer.writeln('توافق عام: ${bundle.overallScore}%');
+    buffer.writeln(
+      appTr(
+        'موضوع البحث: ${bundle.topic}',
+        'Research topic: ${bundle.topic}',
+      ),
+    );
+    buffer.writeln(
+      appTr(
+        'توافق عام: ${bundle.overallScore}%',
+        'Overall match: ${bundle.overallScore}%',
+      ),
+    );
 
     if (profile != null) {
-      buffer.writeln('--- الملف الأكاديمي ---');
-      buffer.writeln('الاسم: ${profile.fullName}');
-      buffer.writeln('الجامعة: ${profile.university}');
-      buffer.writeln('الدرجة: ${profile.degree}');
-      buffer.writeln('التخصص: ${profile.specialization}');
-      buffer.writeln('الاهتمام: ${profile.researchInterest}');
-      buffer.writeln('المنهجية: ${profile.methodology}');
-      buffer.writeln('اللغة: ${profile.preferredLanguage}');
+      buffer.writeln(appTr('--- الملف الأكاديمي ---', '--- Academic profile ---'));
+      buffer.writeln(appTr('الاسم: ${profile.fullName}', 'Name: ${profile.fullName}'));
+      buffer.writeln(
+        appTr('الجامعة: ${profile.university}', 'University: ${profile.university}'),
+      );
+      buffer.writeln(appTr('الدرجة: ${profile.degree}', 'Degree: ${profile.degree}'));
+      buffer.writeln(
+        appTr('التخصص: ${profile.specialization}', 'Specialization: ${profile.specialization}'),
+      );
+      buffer.writeln(
+        appTr('الاهتمام: ${profile.researchInterest}', 'Interest: ${profile.researchInterest}'),
+      );
+      buffer.writeln(
+        appTr('المنهجية: ${profile.methodology}', 'Methodology: ${profile.methodology}'),
+      );
+      buffer.writeln(
+        appTr('اللغة: ${profile.preferredLanguage}', 'Language: ${profile.preferredLanguage}'),
+      );
       if (profile.skills.isNotEmpty) {
-        buffer.writeln('المهارات: ${profile.skills.join('، ')}');
+        buffer.writeln(
+          appTr(
+            'المهارات: ${profile.skills.join(listSep)}',
+            'Skills: ${profile.skills.join(listSep)}',
+          ),
+        );
       }
     }
 
-    buffer.writeln('--- عناصر الحزمة ---');
+    buffer.writeln(appTr('--- عناصر الحزمة ---', '--- Bundle items ---'));
 
     final idea = bundle.idea;
     if (idea != null) {
       buffer.writeln(
-        'فكرة (${idea.score}%): ${idea.item.title} — ${idea.item.details}',
+        appTr(
+          'فكرة (${idea.score}%): ${idea.item.title} — ${idea.item.details}',
+          'Idea (${idea.score}%): ${idea.item.title} — ${idea.item.details}',
+        ),
       );
     } else {
-      buffer.writeln('فكرة: غير متوفرة في المنصة حالياً');
+      buffer.writeln(
+        appTr(
+          'فكرة: غير متوفرة في المنصة حالياً',
+          'Idea: not available on the platform right now',
+        ),
+      );
     }
 
     final supervisor = bundle.supervisor;
     if (supervisor != null) {
       buffer.writeln(
-        'مشرف (${supervisor.score}%): ${supervisor.item.name} — '
-        '${supervisor.item.speciality} @ ${supervisor.item.university}',
+        appTr(
+          'مشرف (${supervisor.score}%): ${supervisor.item.name} — '
+          '${supervisor.item.speciality} @ ${supervisor.item.university}',
+          'Supervisor (${supervisor.score}%): ${supervisor.item.name} — '
+          '${supervisor.item.speciality} @ ${supervisor.item.university}',
+        ),
       );
     } else {
-      buffer.writeln('مشرف: غير متوفر');
+      buffer.writeln(appTr('مشرف: غير متوفر', 'Supervisor: not available'));
     }
 
     final lab = bundle.lab;
     if (lab != null) {
       buffer.writeln(
-        'مختبر (${lab.score}%): ${lab.item.name} — ${lab.item.equipment}',
+        appTr(
+          'مختبر (${lab.score}%): ${lab.item.name} — ${lab.item.equipment}',
+          'Lab (${lab.score}%): ${lab.item.name} — ${lab.item.equipment}',
+        ),
       );
     } else {
-      buffer.writeln('مختبر: غير متوفر');
+      buffer.writeln(appTr('مختبر: غير متوفر', 'Lab: not available'));
     }
 
     if (bundle.storeCategory != null) {
-      buffer.writeln('قسم المتجر: ${bundle.storeCategory!.title}');
+      buffer.writeln(
+        appTr(
+          'قسم المتجر: ${L10nLookup.storeCategoryTitle(bundle.storeCategory!.id)}',
+          'Store section: ${L10nLookup.storeCategoryTitle(bundle.storeCategory!.id)}',
+        ),
+      );
     }
     if (bundle.products.isNotEmpty) {
-      buffer.writeln('منتجات مقترحة:');
+      buffer.writeln(appTr('منتجات مقترحة:', 'Suggested products:'));
       for (final p in bundle.products) {
-        buffer.writeln('  • ${p.name} (${p.price} ج.م) — ${p.category}');
+        buffer.writeln(
+          appTr(
+            '  • ${p.name} (${p.price} ج.م) — ${p.category}',
+            '  • ${p.name} (${p.price} EGP) — ${p.category}',
+          ),
+        );
       }
     }
 
     final expert = bundle.writingExpert;
     if (expert != null) {
       buffer.writeln(
-        'كاتب (${expert.score}%): ${expert.item.name} — ${expert.item.speciality}',
+        appTr(
+          'كاتب (${expert.score}%): ${expert.item.name} — ${expert.item.speciality}',
+          'Writer (${expert.score}%): ${expert.item.name} — ${expert.item.speciality}',
+        ),
       );
     } else {
-      buffer.writeln('كاتب أكاديمي: غير متوفر');
+      buffer.writeln(
+        appTr('كاتب أكاديمي: غير متوفر', 'Academic writer: not available'),
+      );
     }
 
     return buffer.toString();
   }
 
   ({String analysis, String plan, String? nextStep}) _parseSections(String text) {
-    const analysisHeader = '## لماذا هذه الحزمة؟';
-    const planHeader = '## خطة البحث المقترحة';
-    const nextHeader = '## الخطوة التالية';
+    final headers = _sectionHeaders;
 
     String extractBetween(String start, String? end) {
       final startIdx = text.indexOf(start);
@@ -151,9 +248,26 @@ class ResearchPathAiService {
       return text.substring(contentStart, endIdx).trim();
     }
 
-    final analysis = extractBetween(analysisHeader, planHeader);
-    final plan = extractBetween(planHeader, nextHeader);
-    final nextStep = extractBetween(nextHeader, null);
+    var analysis = extractBetween(headers.analysis, headers.plan);
+    var plan = extractBetween(headers.plan, headers.next);
+    var nextStep = extractBetween(headers.next, null);
+
+    if (analysis.isEmpty && plan.isEmpty) {
+      const fallbackHeaders = (
+        analysis: '## لماذا هذه الحزمة؟',
+        plan: '## خطة البحث المقترحة',
+        next: '## الخطوة التالية',
+      );
+      const englishHeaders = (
+        analysis: '## Why this bundle?',
+        plan: '## Suggested research plan',
+        next: '## Next step',
+      );
+      final alt = LocaleService.instance.isEnglish ? fallbackHeaders : englishHeaders;
+      analysis = extractBetween(alt.analysis, alt.plan);
+      plan = extractBetween(alt.plan, alt.next);
+      nextStep = extractBetween(alt.next, null);
+    }
 
     if (analysis.isEmpty && plan.isEmpty) {
       return (analysis: text.trim(), plan: '', nextStep: null);
@@ -172,54 +286,101 @@ class ResearchPathAiService {
     String? note,
   }) {
     final analysis = StringBuffer();
+    final storeLabel = bundle.storeCategory != null
+        ? L10nLookup.storeCategoryTitle(bundle.storeCategory!.id)
+        : appTr('المتجر', 'the store');
+
     analysis.writeln(
-      'بُنيت هذه الحزمة من بيانات منصة AcadeGate وفق تخصصك '
-      '${profile?.specialization.isNotEmpty == true ? '«${profile!.specialization}»' : 'وموضوع بحثك'}.',
+      appTr(
+        'بُنيت هذه الحزمة من بيانات منصة AcadeGate وفق تخصصك '
+        '${profile?.specialization.isNotEmpty == true ? '«${profile!.specialization}»' : 'وموضوع بحثك'}.',
+        'This bundle was built from AcadeGate platform data based on your '
+        '${profile?.specialization.isNotEmpty == true ? '"${profile!.specialization}"' : 'research topic'}.',
+      ),
     );
 
     if (bundle.idea != null) {
       analysis.writeln(
-        '• الفكرة «${bundle.idea!.item.title}» تتوافق مع اهتمامك (${bundle.idea!.score}%).',
+        appTr(
+          '• الفكرة «${bundle.idea!.item.title}» تتوافق مع اهتمامك (${bundle.idea!.score}%).',
+          '• Idea "${bundle.idea!.item.title}" matches your interest (${bundle.idea!.score}%).',
+        ),
       );
     }
     if (bundle.supervisor != null) {
       analysis.writeln(
-        '• المشرف ${bundle.supervisor!.item.name} قريب من مجالك (${bundle.supervisor!.score}%).',
+        appTr(
+          '• المشرف ${bundle.supervisor!.item.name} قريب من مجالك (${bundle.supervisor!.score}%).',
+          '• Supervisor ${bundle.supervisor!.item.name} is close to your field (${bundle.supervisor!.score}%).',
+        ),
       );
     }
     if (bundle.lab != null) {
       analysis.writeln(
-        '• مختبر ${bundle.lab!.item.name} يخدم احتياجاتك التجريبية.',
+        appTr(
+          '• مختبر ${bundle.lab!.item.name} يخدم احتياجاتك التجريبية.',
+          '• Lab ${bundle.lab!.item.name} serves your experimental needs.',
+        ),
       );
     }
     if (bundle.products.isNotEmpty) {
       analysis.writeln(
-        '• ${bundle.products.length} منتج/ات من ${bundle.storeCategory?.title ?? 'المتجر'}.',
+        appTr(
+          '• ${bundle.products.length} منتج/ات من $storeLabel.',
+          '• ${bundle.products.length} product(s) from $storeLabel.',
+        ),
       );
     }
     if (bundle.writingExpert != null) {
       analysis.writeln(
-        '• ${bundle.writingExpert!.item.name} لدعم الكتابة أو الإحصاء.',
+        appTr(
+          '• ${bundle.writingExpert!.item.name} لدعم الكتابة أو الإحصاء.',
+          '• ${bundle.writingExpert!.item.name} for writing or statistics support.',
+        ),
       );
     }
     if (note != null && note.isNotEmpty) {
-      analysis.writeln('\nملاحظة: $note');
+      analysis.writeln('\n${appTr('ملاحظة:', 'Note:')} $note');
     }
 
     final plan = StringBuffer()
-      ..writeln('1. حدّد سؤال البحث وصياغة المشكلة بدقة.')
-      ..writeln('2. راجع الأدبيات عبر الفكرة المقترحة أو المساعد الأكاديمي.')
-      ..writeln('3. تواصل مع المشرف المقترح لاعتماد المنهجية.')
-      ..writeln('4. احجز المختبر واطلب المواد من المتجر إن لزم.')
-      ..writeln('5. اطلب دعم الكتابة/الإحصاء حسب مرحلة رسالتك.')
-      ..writeln('6. راجع المسودات قبل التسليم النهائي.');
+      ..writeln(appTr(
+        '1. حدّد سؤال البحث وصياغة المشكلة بدقة.',
+        '1. Define your research question and problem statement clearly.',
+      ))
+      ..writeln(appTr(
+        '2. راجع الأدبيات عبر الفكرة المقترحة أو المساعد الأكاديمي.',
+        '2. Review literature via the suggested idea or academic assistant.',
+      ))
+      ..writeln(appTr(
+        '3. تواصل مع المشرف المقترح لاعتماد المنهجية.',
+        '3. Contact the suggested supervisor to approve methodology.',
+      ))
+      ..writeln(appTr(
+        '4. احجز المختبر واطلب المواد من المتجر إن لزم.',
+        '4. Book the lab and order store supplies if needed.',
+      ))
+      ..writeln(appTr(
+        '5. اطلب دعم الكتابة/الإحصاء حسب مرحلة رسالتك.',
+        '5. Request writing/statistics support for your thesis stage.',
+      ))
+      ..writeln(appTr(
+        '6. راجع المسودات قبل التسليم النهائي.',
+        '6. Review drafts before final submission.',
+      ));
 
     return ResearchPathAiInsight(
       analysis: analysis.toString().trim(),
       researchPlan: plan.toString().trim(),
       nextStep: bundle.idea != null
-          ? 'افتح تفاصيل الفكرة المقترحة وناقشها مع مشرفك.'
-          : 'أكمل ملفك الأكاديمي أو وسّع وصف موضوع البحث لمطابقة أدق.',
+          ? appTr(
+              'افتح تفاصيل الفكرة المقترحة وناقشها مع مشرفك.',
+              'Open the suggested idea details and discuss it with your supervisor.',
+            )
+          : appTr(
+              'أكمل ملفك الأكاديمي أو وسّع وصف موضوع البحث لمطابقة أدق.',
+              'Complete your academic profile or expand your research topic for better matching.',
+            ),
       fromGemini: false,
       error: note,
     );

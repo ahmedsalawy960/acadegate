@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../../core/locale/app_translate.dart';
+import '../../core/locale/l10n_lookup.dart';
 import '../notifications/notification_service.dart';
 import 'messaging_models.dart';
 
@@ -27,8 +29,27 @@ class MessagingService {
     String contextTitle = '',
   }) async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) throw Exception('يجب تسجيل الدخول للمراسلة');
-    if (otherUserId.isEmpty) throw Exception('لا يمكن بدء محادثة بدون مستخدم');
+    if (user == null) {
+      throw Exception(
+        appTr('يجب تسجيل الدخول للمراسلة', 'You must sign in to message'),
+      );
+    }
+    if (otherUserId.isEmpty) {
+      throw Exception(
+        appTr(
+          'لا يمكن بدء محادثة بدون مستخدم',
+          'Cannot start a conversation without a user',
+        ),
+      );
+    }
+    if (otherUserId == user.uid) {
+      throw Exception(
+        appTr(
+          'لا يمكن مراسلة نفسك — جرّب من حساب مشتري آخر',
+          'You cannot message yourself — try from another buyer account',
+        ),
+      );
+    }
 
     final id = _conversationId(user.uid, otherUserId, contextType, contextId);
     final ref = _conversations.doc(id);
@@ -38,7 +59,9 @@ class MessagingService {
       await ref.set({
         'participantIds': [user.uid, otherUserId],
         'participantNames': {
-          user.uid: user.displayName ?? user.email?.split('@').first ?? 'مستخدم',
+          user.uid: user.displayName ??
+              user.email?.split('@').first ??
+              L10nLookup.user,
           otherUserId: otherUserName,
         },
         'contextType': contextType,
@@ -87,14 +110,18 @@ class MessagingService {
     required String text,
   }) async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) throw Exception('يجب تسجيل الدخول');
+    if (user == null) throw Exception(L10nLookup.loginRequiredMessage);
 
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
 
     final convRef = _conversations.doc(conversationId);
     final conv = await convRef.get();
-    if (!conv.exists) throw Exception('المحادثة غير موجودة');
+    if (!conv.exists) {
+      throw Exception(
+        appTr('المحادثة غير موجودة', 'Conversation not found'),
+      );
+    }
 
     final participants =
         (conv.data()?['participantIds'] as List<dynamic>? ?? [])
@@ -102,7 +129,7 @@ class MessagingService {
             .toList();
 
     final senderName =
-        user.displayName ?? user.email?.split('@').first ?? 'مستخدم';
+        user.displayName ?? user.email?.split('@').first ?? L10nLookup.user;
 
     await convRef.collection('messages').add({
       'senderId': user.uid,
@@ -120,7 +147,7 @@ class MessagingService {
       if (participantId == user.uid) continue;
       await NotificationService.instance.send(
         userId: participantId,
-        title: 'رسالة جديدة',
+        title: L10nLookup.newMessageTitle(),
         body: '$senderName: $trimmed',
         type: 'message',
       );

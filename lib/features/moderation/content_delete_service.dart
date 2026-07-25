@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/locale/l10n_lookup.dart';
 import '../auth/user_account_service.dart';
 
 class ContentDeleteService {
@@ -30,19 +31,17 @@ class ContentDeleteService {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('تأكيد الحذف'),
-        content: Text(
-          'هل تريد حذف «$itemLabel» نهائياً؟\nلا يمكن التراجع عن هذا الإجراء.',
-        ),
+        title: Text(L10nLookup.confirmDelete),
+        content: Text(L10nLookup.deleteConfirmMessage(itemLabel)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('إلغاء'),
+            child: Text(L10nLookup.cancel),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('حذف'),
+            child: Text(L10nLookup.delete),
           ),
         ],
       ),
@@ -57,7 +56,7 @@ class ContentDeleteService {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('تعذر الحذف: $error'),
+            content: Text(L10nLookup.deleteFailed(error)),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
           ),
@@ -70,10 +69,7 @@ class ContentDeleteService {
   Future<void> _deleteByCollection(String collection, String documentId) async {
     switch (collection) {
       case 'labs':
-        await _deleteWithSubcollections(
-          parentPath: 'labs/$documentId',
-          subcollections: const ['bookings', 'ratings'],
-        );
+        await deleteLabDocument(documentId);
         return;
       case 'research_ideas':
         await _deleteWithSubcollections(
@@ -96,6 +92,13 @@ class ContentDeleteService {
       default:
         await _db.collection(collection).doc(documentId).delete();
     }
+  }
+
+  Future<void> deleteLabDocument(String documentId) async {
+    await _deleteWithSubcollections(
+      parentPath: 'labs/$documentId',
+      subcollections: const ['bookings', 'ratings'],
+    );
   }
 
   Future<void> _deleteWithSubcollections({

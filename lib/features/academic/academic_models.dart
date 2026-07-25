@@ -1,4 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+
+import '../../core/locale/app_translate.dart';
 import '../moderation/approval_status.dart';
 import 'faculty_categories.dart';
 
@@ -43,6 +45,8 @@ class AcademicSupervisor {
   final String scholarUrl;
   final String researchGateUrl;
   final String importSource;
+  /// بيانات تجريبية للعرض عند غياب مشرفين حقيقيين في قاعدة البيانات.
+  final bool isDemo;
 
   const AcademicSupervisor({
     this.id,
@@ -68,6 +72,7 @@ class AcademicSupervisor {
     this.scholarUrl = '',
     this.researchGateUrl = '',
     this.importSource = '',
+    this.isDemo = false,
   });
 
   /// ملف مستورد من OpenAlex/CSV — ليس حساباً حقيقياً للمشرف بعد.
@@ -93,7 +98,7 @@ class AcademicSupervisor {
   }) {
     return AcademicSupervisor(
       id: id,
-      name: map['name']?.toString() ?? 'بدون اسم',
+      name: map['name']?.toString() ?? appTr('بدون اسم', 'Unnamed'),
       university: map['university']?.toString() ?? '',
       speciality: map['speciality']?.toString() ?? '',
       bio: map['bio']?.toString() ?? '',
@@ -119,6 +124,7 @@ class AcademicSupervisor {
       scholarUrl: map['scholarUrl']?.toString() ?? '',
       researchGateUrl: map['researchGateUrl']?.toString() ?? '',
       importSource: map['importSource']?.toString() ?? '',
+      isDemo: map['isDemo'] as bool? ?? false,
     );
   }
 }
@@ -130,11 +136,19 @@ class AcademicResearchIdea {
   final String details;
   final List<String> tags;
   final String budget;
+  final String category;
   final String status;
   final int votesCount;
   final int proposalsCount;
   final String approvalStatus;
   final String publisherId;
+  final String claimedBy;
+  final String claimedByName;
+  final DateTime? claimedAt;
+  final bool funded;
+  final String fundAwardId;
+  final double? fundedAmount;
+  final String fundedCurrency;
 
   const AcademicResearchIdea({
     this.id,
@@ -143,14 +157,25 @@ class AcademicResearchIdea {
     required this.details,
     this.tags = const [],
     this.budget = '',
+    this.category = '',
     this.status = 'open',
     this.votesCount = 0,
     this.proposalsCount = 0,
     this.approvalStatus = ApprovalStatus.approved,
     this.publisherId = '',
+    this.claimedBy = '',
+    this.claimedByName = '',
+    this.claimedAt,
+    this.funded = false,
+    this.fundAwardId = '',
+    this.fundedAmount,
+    this.fundedCurrency = '',
   });
 
   bool get isOpen => status.toLowerCase() == 'open';
+  bool get isClaimed =>
+      claimedBy.isNotEmpty || status.toLowerCase() == 'claimed';
+  bool get isAvailableForClaim => isOpen && !isClaimed;
   bool get isFromFirebase => id != null && id!.isNotEmpty;
   bool get isPubliclyVisible => ApprovalStatus.isPublic(approvalStatus);
 
@@ -160,19 +185,35 @@ class AcademicResearchIdea {
   }) {
     return AcademicResearchIdea(
       id: id,
-      title: map['title']?.toString() ?? 'بدون عنوان',
+      title: map['title']?.toString() ?? appTr('بدون عنوان', 'Untitled'),
       provider: map['provider']?.toString() ?? '',
       details: map['details']?.toString() ?? '',
       tags: parseStringList(map['tags']),
       budget: map['budget']?.toString() ?? '',
+      category: map['category']?.toString() ?? '',
       status: map['status']?.toString() ?? 'open',
       votesCount: _parseInt(map['votesCount']),
       proposalsCount: _parseInt(map['proposalsCount']),
       approvalStatus:
           map['approvalStatus']?.toString() ?? ApprovalStatus.approved,
       publisherId: map['publisherId']?.toString() ?? '',
+      claimedBy: map['claimedBy']?.toString() ?? '',
+      claimedByName: map['claimedByName']?.toString() ?? '',
+      claimedAt: _parseDateTime(map['claimedAt']),
+      funded: map['funded'] == true,
+      fundAwardId: map['fundAwardId']?.toString() ?? '',
+      fundedAmount: map['fundedAmount'] is num
+          ? (map['fundedAmount'] as num).toDouble()
+          : double.tryParse(map['fundedAmount']?.toString() ?? ''),
+      fundedCurrency: map['fundedCurrency']?.toString() ?? '',
     );
   }
+}
+
+DateTime? _parseDateTime(dynamic value) {
+  if (value is Timestamp) return value.toDate();
+  if (value is DateTime) return value;
+  return DateTime.tryParse(value?.toString() ?? '');
 }
 
 int _parseInt(dynamic value, {int fallback = 0}) {
@@ -217,7 +258,7 @@ class ResearchProposal {
       id: id,
       ideaId: ideaId,
       userId: map['userId']?.toString() ?? '',
-      authorName: map['authorName']?.toString() ?? 'طالب',
+      authorName: map['authorName']?.toString() ?? appTr('طالب', 'Student'),
       authorEmail: map['authorEmail']?.toString() ?? '',
       summary: map['summary']?.toString() ?? '',
       status: map['status']?.toString() ?? 'pending',
@@ -248,7 +289,7 @@ class LabEquipment {
   factory LabEquipment.fromMap(Map<String, dynamic> map, {String? id}) {
     return LabEquipment(
       id: id ?? map['id']?.toString() ?? map['code']?.toString() ?? 'device',
-      name: map['name']?.toString() ?? 'جهاز',
+      name: map['name']?.toString() ?? appTr('جهاز', 'Device'),
       code: map['code']?.toString() ?? '',
       costPerSession: _parseNum(map['costPerSession'] ?? map['cost']),
       durationMinutes: _parseInt(map['durationMinutes'], fallback: 120),
@@ -261,6 +302,45 @@ class LabEquipment {
 num _parseNum(dynamic value) {
   if (value is num) return value;
   return num.tryParse(value?.toString() ?? '') ?? 0;
+}
+
+/// Lab staff / coordinator contact (often from NBSLE device pages).
+class LabContactPerson {
+  final String role;
+  final String name;
+  final String email;
+  final String phone;
+
+  const LabContactPerson({
+    this.role = '',
+    this.name = '',
+    this.email = '',
+    this.phone = '',
+  });
+
+  bool get hasUsableContact {
+    final e = email.trim();
+    final p = phone.trim();
+    return e.contains('@') || p.length >= 8;
+  }
+
+  Map<String, dynamic> toMap() => {
+        'role': role,
+        'name': name,
+        'email': email,
+        'phone': phone,
+      };
+
+  factory LabContactPerson.fromMap(Map<String, dynamic> map) {
+    var phone = map['phone']?.toString().trim() ?? '';
+    if (phone.toLowerCase() == 'null') phone = '';
+    return LabContactPerson(
+      role: map['role']?.toString() ?? '',
+      name: map['name']?.toString() ?? '',
+      email: map['email']?.toString() ?? '',
+      phone: phone,
+    );
+  }
 }
 
 class LabBooking {
@@ -276,6 +356,9 @@ class LabBooking {
   final String status;
   final num costEstimate;
   final DateTime? createdAt;
+  final String labOwnerId;
+  final String labName;
+  final bool needsOwnerRouting;
 
   const LabBooking({
     this.id,
@@ -290,6 +373,9 @@ class LabBooking {
     this.status = 'confirmed',
     this.costEstimate = 0,
     this.createdAt,
+    this.labOwnerId = '',
+    this.labName = '',
+    this.needsOwnerRouting = false,
   });
 
   bool get isConfirmed => status == 'confirmed';
@@ -309,7 +395,7 @@ class LabBooking {
       id: id,
       labId: labId,
       userId: map['userId']?.toString() ?? '',
-      userName: map['userName']?.toString() ?? 'طالب',
+      userName: map['userName']?.toString() ?? appTr('طالب', 'Student'),
       equipmentId: map['equipmentId']?.toString() ?? '',
       equipmentName: map['equipmentName']?.toString() ?? '',
       date: map['date']?.toString() ?? '',
@@ -318,6 +404,9 @@ class LabBooking {
       status: map['status']?.toString() ?? 'confirmed',
       costEstimate: _parseNum(map['costEstimate']),
       createdAt: created,
+      labOwnerId: map['labOwnerId']?.toString() ?? '',
+      labName: map['labName']?.toString() ?? '',
+      needsOwnerRouting: map['needsOwnerRouting'] == true,
     );
   }
 }
@@ -352,7 +441,7 @@ class LabRating {
     return LabRating(
       id: id,
       userId: map['userId']?.toString() ?? id ?? '',
-      userName: map['userName']?.toString() ?? 'طالب',
+      userName: map['userName']?.toString() ?? appTr('طالب', 'Student'),
       rating: _parseInt(map['rating'], fallback: 5).clamp(1, 5),
       comment: map['comment']?.toString() ?? '',
       createdAt: created,
@@ -383,7 +472,7 @@ class SampleAnalysisService {
   factory SampleAnalysisService.fromMap(Map<String, dynamic> map, {String? id}) {
     return SampleAnalysisService(
       id: id ?? map['id']?.toString() ?? map['name']?.toString() ?? 'service',
-      name: map['name']?.toString() ?? 'تحليل',
+      name: map['name']?.toString() ?? appTr('تحليل', 'Analysis'),
       description: map['description']?.toString() ?? '',
       specialties: parseStringList(map['specialties']),
       sampleTypes: parseStringList(map['sampleTypes']),
@@ -424,7 +513,15 @@ class AcademicLab {
   final String description;
   final bool acceptsExternalSamples;
   final String contactEmail;
+  final String contactPhone;
+  final String contactName;
+  final List<LabContactPerson> contacts;
   final List<SampleAnalysisService> sampleServices;
+  final String importSource;
+  final String sourceUrl;
+  final String nbsleLabId;
+  /// Device count when [equipmentList] was not fully parsed (list views).
+  final int equipmentCountHint;
 
   const AcademicLab({
     this.id,
@@ -447,7 +544,14 @@ class AcademicLab {
     this.description = '',
     this.acceptsExternalSamples = true,
     this.contactEmail = '',
+    this.contactPhone = '',
+    this.contactName = '',
+    this.contacts = const [],
     this.sampleServices = const [],
+    this.importSource = '',
+    this.sourceUrl = '',
+    this.nbsleLabId = '',
+    this.equipmentCountHint = 0,
   });
 
   bool get isFromFirebase => id != null && id!.isNotEmpty;
@@ -455,11 +559,39 @@ class AcademicLab {
   bool get isResearchCenter =>
       labType == 'research_center' || labType == 'core_facility';
   bool get offersSampleAnalysis => sampleServices.isNotEmpty;
+  bool get isUnowned => ownerId.trim().isEmpty;
+  bool get isNbsleImport =>
+      importSource == 'nbsle' || nbsleLabId.trim().isNotEmpty;
+  int get deviceCount =>
+      equipmentList.isNotEmpty ? equipmentList.length : equipmentCountHint;
+
+  bool get hasLabContact {
+    if (contactEmail.contains('@') || contactPhone.trim().length >= 8) {
+      return true;
+    }
+    return contacts.any((c) => c.hasUsableContact);
+  }
+
+  String get displayContactEmail {
+    if (contactEmail.contains('@')) return contactEmail.trim();
+    for (final c in contacts) {
+      if (c.email.contains('@')) return c.email.trim();
+    }
+    return '';
+  }
+
+  String get displayContactPhone {
+    if (contactPhone.trim().length >= 8) return contactPhone.trim();
+    for (final c in contacts) {
+      if (c.phone.trim().length >= 8) return c.phone.trim();
+    }
+    return '';
+  }
 
   String get labTypeLabel => switch (labType) {
-        'research_center' => 'مركز بحوث',
-        'core_facility' => 'منشأة تحليل مركزية',
-        _ => 'مختبر جامعي',
+        'research_center' => appTr('مركز بحوث', 'Research center'),
+        'core_facility' => appTr('منشأة تحليل مركزية', 'Core analysis facility'),
+        _ => appTr('مختبر جامعي', 'University lab'),
       };
 
   String get linkedFacultyId =>
@@ -538,23 +670,29 @@ class AcademicLab {
   factory AcademicLab.fromMap(
     Map<String, dynamic> map, {
     String? id,
+    bool lightweight = false,
   }) {
-    final rawEquipmentList = map['equipmentList'];
     List<LabEquipment> parsedEquipment = const [];
+    List<SampleAnalysisService> parsedServices = const [];
+    var equipmentCountHint = 0;
+
+    final rawEquipmentList = map['equipmentList'];
     if (rawEquipmentList is List) {
-      parsedEquipment = rawEquipmentList
-          .whereType<Map>()
-          .map(
-            (item) => LabEquipment.fromMap(
-              Map<String, dynamic>.from(item),
-            ),
-          )
-          .toList();
+      equipmentCountHint = rawEquipmentList.length;
+      if (!lightweight) {
+        parsedEquipment = rawEquipmentList
+            .whereType<Map>()
+            .map(
+              (item) => LabEquipment.fromMap(
+                Map<String, dynamic>.from(item),
+              ),
+            )
+            .toList();
+      }
     }
 
     final rawServices = map['sampleServices'];
-    List<SampleAnalysisService> parsedServices = const [];
-    if (rawServices is List) {
+    if (rawServices is List && !lightweight) {
       parsedServices = rawServices
           .whereType<Map>()
           .map(
@@ -563,11 +701,17 @@ class AcademicLab {
             ),
           )
           .toList();
+    } else if (rawServices is List) {
+      // Lightweight: keep empty services but know if any exist via flag below.
+      equipmentCountHint = equipmentCountHint; // no-op keep analyzer happy
     }
+
+    // For lightweight list rows, detect "has sample services" without full parse.
+    final hasSampleServicesFlag = rawServices is List && rawServices.isNotEmpty;
 
     return AcademicLab(
       id: id,
-      name: map['name']?.toString() ?? 'بدون اسم',
+      name: map['name']?.toString() ?? appTr('بدون اسم', 'Unnamed'),
       location: map['location']?.toString() ?? '',
       equipment: map['equipment']?.toString() ?? '',
       tags: parseStringList(map['tags']),
@@ -585,10 +729,37 @@ class AcademicLab {
       facultyId: _readFacultyId(map),
       facultyNameAr: _readFacultyNameAr(map),
       category: _readFacultyId(map),
-      description: map['description']?.toString() ?? '',
+      description: lightweight
+          ? ''
+          : (map['description']?.toString() ?? ''),
       acceptsExternalSamples: map['acceptsExternalSamples'] as bool? ?? true,
       contactEmail: map['contactEmail']?.toString() ?? '',
-      sampleServices: parsedServices,
+      contactPhone: map['contactPhone']?.toString() ?? '',
+      contactName: map['contactName']?.toString() ?? '',
+      contacts: () {
+        final raw = map['contacts'];
+        if (raw is! List) return const <LabContactPerson>[];
+        return raw
+            .whereType<Map>()
+            .map((item) => LabContactPerson.fromMap(
+                  Map<String, dynamic>.from(item),
+                ))
+            .toList();
+      }(),
+      sampleServices: lightweight && hasSampleServicesFlag
+          ? [
+              // Placeholder so offersSampleAnalysis is true in list filters.
+              SampleAnalysisService(
+                id: '_listed',
+                name: appTr('خدمات تحليل', 'Analysis services'),
+              ),
+            ]
+          : parsedServices,
+      importSource: map['importSource']?.toString() ?? '',
+      sourceUrl: map['sourceUrl']?.toString() ?? '',
+      nbsleLabId:
+          (map['nbsleLabId'] ?? map['externalId'])?.toString() ?? '',
+      equipmentCountHint: equipmentCountHint,
     );
   }
 }

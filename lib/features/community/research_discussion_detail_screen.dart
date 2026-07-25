@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
+import '../../core/locale/locale_extensions.dart';
 import 'community_data.dart';
 import 'research_room_models.dart';
 import 'research_room_service.dart';
@@ -52,8 +54,11 @@ class _ResearchDiscussionDetailScreenState
 
     _replyController.clear();
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('تم إرسال الرد — سيُشعَر منشئ الغرفة'),
+      SnackBar(
+        content: Text(context.t(
+          'تم إرسال الرد — سيُشعَر منشئ الغرفة',
+          'Reply sent — the room creator will be notified',
+        )),
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -62,8 +67,8 @@ class _ResearchDiscussionDetailScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('المناقشة البحثية'),
+      appBar: AcadeGateAppBar(
+        title: Text(context.t('المناقشة البحثية', 'Research discussion')),
         backgroundColor: const Color(0xFF00695C),
         foregroundColor: Colors.white,
       ),
@@ -155,13 +160,19 @@ class _ResearchDiscussionDetailScreenState
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          'الردود (${replies.length})',
+                          context.t(
+                            'الردود (${replies.length})',
+                            'Replies (${replies.length})',
+                          ),
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 8),
                         if (replies.isEmpty)
                           Text(
-                            'لا توجد ردود بعد — كن أول من يرد.',
+                            context.t(
+                              'لا توجد ردود بعد — كن أول من يرد.',
+                              'No replies yet — be the first to reply.',
+                            ),
                             style: TextStyle(color: Colors.grey[600]),
                           )
                         else
@@ -180,7 +191,7 @@ class _ResearchDiscussionDetailScreenState
                         child: TextField(
                           controller: _replyController,
                           decoration: InputDecoration(
-                            hintText: 'اكتب ردك...',
+                            hintText: context.t('اكتب ردك...', 'Write your reply...'),
                             filled: true,
                             fillColor: Colors.white,
                             border: OutlineInputBorder(

@@ -1,14 +1,11 @@
-/// تقدير مستوى المجلة من مؤشرات OpenAlex (ليس تصنيف Scimago رسمياً).
+import '../../core/locale/l10n_lookup.dart';
+
+/// Journal tier estimate from OpenAlex metrics (not official Scimago).
 class JournalTier {
   JournalTier._();
 
-  static String labelFromCitedness(double citedness) {
-    if (citedness >= 5) return 'تأثير مرتفع جداً (≈ Q1)';
-    if (citedness >= 2) return 'تأثير مرتفع (≈ Q1–Q2)';
-    if (citedness >= 1) return 'تأثير جيد (≈ Q2–Q3)';
-    if (citedness >= 0.3) return 'تأثير معتدل (≈ Q3–Q4)';
-    return 'تأثير قياسي';
-  }
+  static String labelFromCitedness(double citedness) =>
+      L10nLookup.journalTierLabel(citedness);
 
   static String shortLabel(double citedness) {
     if (citedness >= 2) return 'Q1–Q2';

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/locale/l10n_lookup.dart';
+
 class FacultyCategory {
   final String id;
   final String titleAr;
@@ -133,15 +135,11 @@ FacultyCategory? facultyById(String id) {
 }
 
 String facultyTitleForCategory(String id) {
-  return facultyById(id)?.titleAr ?? id;
+  return L10nLookup.facultyTitleStatic(id);
 }
 
 String supervisorsTitleForCategory(String id) {
-  final title = facultyTitleForCategory(id);
-  if (title.startsWith('كلية ')) {
-    return 'مشرفو ${title.replaceFirst('كلية ', '')}';
-  }
-  return 'مشرفو $title';
+  return L10nLookup.supervisorsTitleForCategory(id);
 }
 
 List<String> facultyCategoryIds() =>
@@ -175,4 +173,79 @@ String? resolveFacultyId(String input) {
 
 String facultyNameForStorage(String facultyId) {
   return facultyTitleForCategory(facultyId);
+}
+
+/// يستنتج معرّف الكلية من نص التخصص أو الاهتمام (مثل: كيمياء → Science).
+String? inferFacultyCategoryFromText(String text) {
+  final trimmed = text.trim();
+  if (trimmed.isEmpty) return null;
+
+  final resolved = resolveFacultyId(trimmed);
+  if (resolved != null) return resolved;
+
+  final lower = trimmed.toLowerCase();
+  const hints = <String, List<String>>{
+    'Science': [
+      'كيمياء',
+      'chemistry',
+      'chem',
+      'فيزياء',
+      'physics',
+      'أحياء',
+      'biology',
+      'biol',
+      'رياضيات',
+      'math',
+      'علوم',
+      'biochem',
+      'كيمياء حيوية',
+      'جيولوج',
+      'geolog',
+    ],
+    'Engineering': [
+      'هندسة',
+      'engineering',
+      'مدني',
+      'civil',
+      'ميكانيك',
+      'mechan',
+      'كهرب',
+      'electr',
+      'معماري',
+      'architect',
+    ],
+    'Medicine': ['طب', 'medicine', 'medical', 'سريري', 'clinical'],
+    'Dentistry': ['أسنان', 'dentist', 'dental'],
+    'Pharmacy': ['صيدلة', 'pharmacy', 'pharm'],
+    'Nursing': ['تمريض', 'nursing'],
+    'Veterinary': ['بيطر', 'veterinar'],
+    'Law': ['قانون', 'law', 'legal'],
+    'CS': [
+      'حاسب',
+      'computer',
+      'برمج',
+      'program',
+      'ذكاء اصطناعي',
+      'artificial intelligence',
+      'ai',
+      'data science',
+    ],
+    'Agriculture': ['زراع', 'agricult', 'food science', 'nutrition', 'food'],
+    'Business': ['تجار', 'business', 'إدارة أعمال', 'accounting', 'محاسب'],
+    'Education': ['تربية', 'education', 'تعليم'],
+    'Arts': ['آداب', 'أدب', 'literature', 'تاريخ', 'history'],
+    'Architecture': ['عمارة', 'architecture'],
+    'MassCommunication': ['إعلام', 'media', 'journalism'],
+    'Tourism': ['سياح', 'tourism', 'فنادق', 'hospitality'],
+    'PhysicalEducation': ['رياضة', 'sport', 'physical educ'],
+    'FineArts': ['فنون', 'fine art', 'تصميم', 'design'],
+  };
+
+  for (final entry in hints.entries) {
+    for (final hint in entry.value) {
+      if (lower.contains(hint)) return entry.key;
+    }
+  }
+
+  return null;
 }

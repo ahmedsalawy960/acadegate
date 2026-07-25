@@ -1,3 +1,4 @@
+import '../../core/locale/app_translate.dart';
 import '../profile/academic_profile_service.dart';
 import 'advisor_agent.dart';
 import 'advisor_agent_registry.dart';
@@ -35,23 +36,37 @@ class AdvisorOrchestrator {
     final routeText = message.trim().isNotEmpty
         ? message
         : attachments.isNotEmpty
-            ? 'حلل الملف: ${attachments.first.fileName}'
+            ? appTr(
+                'حلل الملف: ${attachments.first.fileName}',
+                'Analyze file: ${attachments.first.fileName}',
+              )
             : message;
     final plan = AdvisorRouter.instance.route(routeText);
     final labels = plan.allAgents
-        .map((id) => AdvisorAgentRegistry.instance.byId(id).shortLabel)
+        .map((id) => AdvisorAgentRegistry.instance.byId(id).displayShortLabel)
         .toList();
 
-    if (attachments.isNotEmpty && !GeminiAdvisorClient.isConfigured) {
+    if (attachments.isNotEmpty && !GeminiAdvisorClient.canAnalyzeAttachments) {
+      final content = GeminiAdvisorClient.needsSignInForCloudAi
+          ? appTr(
+              '⚠️ **تحليل الصور والملفات يتطلب تسجيل الدخول**\n\n'
+                  'سجّل دخولك ثم أعد إرسال المرفقات.',
+              '⚠️ **Analyzing images and files requires signing in**\n\n'
+                  'Sign in and resend the attachments.',
+            )
+          : appTr(
+              '⚠️ **تحليل الصور والملفات يتطلب ${AdvisorBranding.cloudBadge}**\n\n'
+                  'سجّل الدخول ثم أعد إرسال المرفقات (لا حاجة لمفتاح محلي بعد تسجيل الدخول).',
+              '⚠️ **Analyzing images and files requires ${AdvisorBranding.cloudBadge}**\n\n'
+                  'Sign in and resend the attachments (no local API key needed after sign-in).',
+            );
       return AdvisorOrchestratorResult(
-        content: '⚠️ **تحليل الصور والملفات يتطلب ${AdvisorBranding.cloudBadge}**\n\n'
-            'فعّل مفتاح Gemini ثم أعد إرسال المرفقات.\n'
-            '`flutter run -d windows --dart-define-from-file=dart_defines.json`',
+        content: content,
         agentLabels: labels,
       );
     }
 
-    if (GeminiAdvisorClient.isConfigured) {
+    if (GeminiAdvisorClient.isAvailable) {
       final cloud = await _askCloud(
         message: message,
         plan: plan,
@@ -72,16 +87,26 @@ class AdvisorOrchestrator {
         plan: plan,
       );
       return AdvisorOrchestratorResult(
-        content: '⚠️ **تعذر الاتصال بـ ${AdvisorBranding.cloudBadge}**\n'
-            '${cloud.error}\n\n'
-            '---\n'
-            '**رد احتياطي (محرك محلي):**\n\n'
-            '$local\n\n'
-            '---\n'
-            'للحصول على ردود مثل Gemini:\n'
-            '1. مفتاح API حقيقي من Google AI Studio\n'
-            '2. `flutter run -d windows --dart-define-from-file=dart_defines.json`\n'
-            '   أو `--dart-define=GEMINI_API_KEY=مفتاحك`',
+        content: appTr(
+          '⚠️ **تعذر الاتصال بـ ${AdvisorBranding.cloudBadge}**\n'
+              '${cloud.error}\n\n'
+              '---\n'
+              '**رد احتياطي (محرك محلي):**\n\n'
+              '$local\n\n'
+              '---\n'
+              'لتفعيل الذكاء السحابي:\n'
+              '1. سجّل الدخول على Chrome/Web\n'
+              '2. أو شغّل على Windows مع `dart_defines.json`',
+          '⚠️ **Could not connect to ${AdvisorBranding.cloudBadge}**\n'
+              '${cloud.error}\n\n'
+              '---\n'
+              '**Fallback response (local engine):**\n\n'
+              '$local\n\n'
+              '---\n'
+              'To enable cloud AI:\n'
+              '1. Sign in on Chrome/Web\n'
+              '2. Or run on Windows with `dart_defines.json`',
+        ),
         agentLabels: labels,
         cloudError: cloud.error,
       );
@@ -93,13 +118,20 @@ class AdvisorOrchestrator {
     );
 
     return AdvisorOrchestratorResult(
-      content: '$local\n\n'
-          '---\n'
-          '⚠️ أنت على **الوضع الأساسي** (قوالب محلية). '
-          'للحصول على إجابات مثل Gemini مباشرة:\n'
-          '1. مفتاح API حقيقي من Google AI Studio\n'
-          '2. انسخ `dart_defines.example.json` إلى `dart_defines.json` وضع المفتاح\n'
-          '3. شغّل: `flutter run -d windows --dart-define-from-file=dart_defines.json`',
+      content: appTr(
+        '$local\n\n'
+            '---\n'
+            '⚠️ أنت على **الوضع الأساسي** (قوالب محلية). '
+            'لتفعيل الذكاء السحابي:\n'
+            '1. سجّل الدخول على Chrome/Web\n'
+            '2. أو انسخ `dart_defines.example.json` إلى `dart_defines.json` على Windows',
+        '$local\n\n'
+            '---\n'
+            '⚠️ You are on **${AdvisorBranding.localBadge} mode** (local templates). '
+            'To enable cloud AI:\n'
+            '1. Sign in on Chrome/Web\n'
+            '2. Or copy `dart_defines.example.json` to `dart_defines.json` on Windows',
+      ),
       agentLabels: labels,
     );
   }
@@ -113,9 +145,14 @@ class AdvisorOrchestrator {
     final profile = await AcademicProfileService.instance.loadProfile();
     final profileSummary = profile == null
         ? ''
-        : 'الاسم: ${profile.fullName}، الجامعة: ${profile.university}، '
-            'التخصص: ${profile.specialization}، الاهتمام: ${profile.researchInterest}، '
-            'المنهجية: ${profile.methodology}';
+        : appTr(
+            'الاسم: ${profile.fullName}، الجامعة: ${profile.university}، '
+                'التخصص: ${profile.specialization}، الاهتمام: ${profile.researchInterest}، '
+                'المنهجية: ${profile.methodology}',
+            'Name: ${profile.fullName}, University: ${profile.university}, '
+                'Specialization: ${profile.specialization}, Interest: ${profile.researchInterest}, '
+                'Methodology: ${profile.methodology}',
+          );
 
     final primaryAgent = AdvisorAgentRegistry.instance.byId(plan.primary);
     var extraContext = '';
@@ -125,13 +162,13 @@ class AdvisorOrchestrator {
     }
 
     final systemPrompt = AdvisorAgentRegistry.instance.cloudSystemPrompt(
-      agentName: primaryAgent.nameAr,
+      agentName: primaryAgent.displayName,
       agentFocus: primaryAgent.systemPrompt,
       profileSummary: profileSummary,
       extraContext: extraContext,
       isMultiAgent: plan.isMultiAgent,
       supportingAgents: plan.supporting
-          .map((id) => AdvisorAgentRegistry.instance.byId(id).nameAr)
+          .map((id) => AdvisorAgentRegistry.instance.byId(id).displayName)
           .toList(),
     );
 
@@ -149,8 +186,11 @@ class AdvisorOrchestrator {
         .map((m) {
           var text = m.content;
           if (m.attachments.isNotEmpty) {
-            final names = m.attachments.map((a) => a.name).join('، ');
-            text = text.isEmpty ? '[مرفقات: $names]' : '$text\n[مرفقات: $names]';
+            final sep = appTr('، ', ', ');
+            final names = m.attachments.map((a) => a.name).join(sep);
+            text = text.isEmpty
+                ? appTr('[مرفقات: $names]', '[Attachments: $names]')
+                : '$text\n${appTr('[مرفقات: $names]', '[Attachments: $names]')}';
           }
           return {
             'role': m.role == AdvisorMessageRole.user ? 'user' : 'assistant',

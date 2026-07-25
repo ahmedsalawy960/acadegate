@@ -1,3 +1,5 @@
+import '../../core/locale/l10n_lookup.dart';
+
 class UserRole {
   UserRole._();
 
@@ -16,18 +18,7 @@ class UserRole {
     ideaPublisher,
   ];
 
-  static const labels = <String, String>{
-    student: 'طالب / باحث',
-    supervisor: 'مشرف أكاديمي',
-    merchant: 'تاجر / مورد',
-    labManager: 'مسؤول مختبر',
-    ideaPublisher: 'ناشر أفكار بحثية',
-    admin: 'مدير النظام',
-  };
-
-  static String label(String? role) {
-    return labels[role] ?? role ?? 'مستخدم';
-  }
+  static String label(String? role) => L10nLookup.roleLabelStatic(role);
 
   static bool isAdmin(String? role) => role == admin;
 }

@@ -3,12 +3,24 @@ import 'package:flutter/foundation.dart';
 
 import '../../features/notifications/notification_service.dart';
 
-/// تهيئة FCM — على Windows قد لا تكون مدعومة بالكامل؛ نستخدم الإشعارات داخل التطبيق.
+/// Push (FCM) على Android/iOS فقط.
+/// Web و Windows وسطح المكتب: إشعارات داخل التطبيق عبر Firestore فقط.
 class PushNotificationBootstrap {
   PushNotificationBootstrap._();
 
+  static bool get supportsPush {
+    if (kIsWeb) return false;
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+      case TargetPlatform.iOS:
+        return true;
+      default:
+        return false;
+    }
+  }
+
   static Future<void> init() async {
-    if (kIsWeb) return;
+    if (!supportsPush) return;
 
     try {
       final messaging = FirebaseMessaging.instance;

@@ -1,5 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../../core/locale/l10n_lookup.dart';
+import '../../core/locale/locale_extensions.dart';
 import 'portal_type.dart';
 import 'user_account_service.dart';
 
@@ -47,6 +49,7 @@ class _PortalSelectionScreenState extends State<PortalSelectionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final isLoggedIn = FirebaseAuth.instance.currentUser != null;
 
     return Scaffold(
@@ -68,10 +71,10 @@ class _PortalSelectionScreenState extends State<PortalSelectionScreen> {
                       color: Color(0xFF1A237E),
                     ),
                     const SizedBox(height: 16),
-                    const Text(
-                      'اختر بوابتك',
+                    Text(
+                      l10n.portalChooseTitle,
                       textAlign: TextAlign.center,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.bold,
                         color: Color(0xFF1A237E),
@@ -80,8 +83,8 @@ class _PortalSelectionScreenState extends State<PortalSelectionScreen> {
                     const SizedBox(height: 8),
                     Text(
                       isLoggedIn
-                          ? 'حدّد كيف تريد استخدام AcadeGate اليوم — يمكنك التبديل لاحقاً'
-                          : 'تصفح كضيف — سجّل الدخول لاحقاً لحفظ اختيارك',
+                          ? l10n.portalChooseSubtitleLoggedIn
+                          : l10n.portalChooseSubtitleGuest,
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 15,
@@ -92,35 +95,39 @@ class _PortalSelectionScreenState extends State<PortalSelectionScreen> {
                     const SizedBox(height: 32),
                     _PortalCard(
                       portal: PortalType.user,
-                      title: PortalType.labels[PortalType.user]!,
-                      subtitle: 'للباحثين والطلاب ومستهلكي الخدمات',
+                      title: l10n.portalUser,
+                      subtitle: l10n.portalUserSubtitle,
                       icon: Icons.school_outlined,
                       accent: const Color(0xFF1565C0),
-                      items: const [
-                        'البحث عن مشرفين ومختبرات',
-                        'شراء من المتجر الأكاديمي',
-                        'أفكار بحثية ومجتمع علمي',
-                        'المساعد الذكي والمطابقة',
+                      items: [
+                        l10n.portalUserItem1,
+                        l10n.portalUserItem2,
+                        l10n.portalUserItem3,
+                        l10n.portalUserItem4,
                       ],
                       isSuggested: _suggested == PortalType.user,
                       isLoading: _submitting,
+                      enterLabel: l10n.portalEnter,
+                      suggestedLabel: l10n.portalSuggestedBadge,
                       onTap: () => _choose(PortalType.user),
                     ),
                     const SizedBox(height: 16),
                     _PortalCard(
                       portal: PortalType.provider,
-                      title: PortalType.labels[PortalType.provider]!,
-                      subtitle: 'لمن يقدّم خدماتاً عبر المنصة',
+                      title: l10n.portalProvider,
+                      subtitle: l10n.portalProviderSubtitleAlt,
                       icon: Icons.storefront_outlined,
                       accent: const Color(0xFF2E7D32),
-                      items: const [
-                        'تاجر / مورد أكاديمي',
-                        'مختبر وتحليل عينات',
-                        'كاتب أكاديمي وخبير',
-                        'ناشر أفكار ومشرف مقدّم خدمة',
+                      items: [
+                        l10n.portalProviderItem1,
+                        l10n.portalProviderItem2,
+                        l10n.portalProviderItem3,
+                        l10n.portalProviderItem4,
                       ],
                       isSuggested: _suggested == PortalType.provider,
                       isLoading: _submitting,
+                      enterLabel: l10n.portalEnter,
+                      suggestedLabel: l10n.portalSuggestedBadge,
                       onTap: () => _choose(PortalType.provider),
                     ),
                     const SizedBox(height: 24),
@@ -141,7 +148,7 @@ class _PortalSelectionScreenState extends State<PortalSelectionScreen> {
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
-                                'حسب دور حسابك، نقترح: ${PortalType.label(_suggested)}',
+                                '${l10n.portalSuggestedPrefix} ${L10nLookup.portalLabel(l10n, _suggested)}',
                                 style: const TextStyle(
                                   color: Color(0xFF1A237E),
                                   fontSize: 13,
@@ -168,6 +175,8 @@ class _PortalCard extends StatelessWidget {
   final List<String> items;
   final bool isSuggested;
   final bool isLoading;
+  final String enterLabel;
+  final String suggestedLabel;
   final VoidCallback onTap;
 
   const _PortalCard({
@@ -179,6 +188,8 @@ class _PortalCard extends StatelessWidget {
     required this.items,
     required this.isSuggested,
     required this.isLoading,
+    required this.enterLabel,
+    required this.suggestedLabel,
     required this.onTap,
   });
 
@@ -248,9 +259,9 @@ class _PortalCard extends StatelessWidget {
                         color: accent,
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: const Text(
-                        'مقترح',
-                        style: TextStyle(
+                      child: Text(
+                        suggestedLabel,
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
@@ -279,7 +290,7 @@ class _PortalCard extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Align(
-                alignment: Alignment.centerLeft,
+                alignment: AlignmentDirectional.centerEnd,
                 child: FilledButton.icon(
                   onPressed: isLoading ? null : onTap,
                   style: FilledButton.styleFrom(
@@ -295,8 +306,8 @@ class _PortalCard extends StatelessWidget {
                             color: Colors.white,
                           ),
                         )
-                      : const Icon(Icons.arrow_back, size: 18),
-                  label: const Text('الدخول'),
+                      : const Icon(Icons.arrow_forward, size: 18),
+                  label: Text(enterLabel),
                 ),
               ),
             ],

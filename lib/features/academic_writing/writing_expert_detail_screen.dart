@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
+import '../../core/locale/locale_extensions.dart';
 import '../auth/auth_guard.dart';
 import '../messaging/conversations_screen.dart';
 import '../moderation/delete_content_button.dart';
@@ -20,8 +22,8 @@ class WritingExpertDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('ملف الكاتب'),
+      appBar: AcadeGateAppBar(
+        title: Text(context.t('ملف الكاتب', 'Writer profile')),
         backgroundColor: category.color,
         foregroundColor: Colors.white,
         actions: deleteAppBarActions(
@@ -73,9 +75,21 @@ class WritingExpertDetailScreen extends StatelessWidget {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      _chip(Icons.star, '${expert.rating} تقييم'),
-                      _chip(Icons.task_alt, '${expert.completedOrders} طلب'),
-                      _chip(Icons.schedule, expert.deliveryLabel),
+                      _chip(
+                        Icons.star,
+                        context.t(
+                          '${expert.rating} تقييم',
+                          '${expert.rating} rating',
+                        ),
+                      ),
+                      _chip(
+                        Icons.task_alt,
+                        context.t(
+                          '${expert.completedOrders} طلب',
+                          '${expert.completedOrders} orders',
+                        ),
+                      ),
+                      _chip(Icons.schedule, expert.avgDeliveryLabel),
                       _chip(Icons.payments_outlined, expert.priceRange),
                     ],
                   ),
@@ -84,16 +98,40 @@ class WritingExpertDetailScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          _section('نبذة', expert.bio),
+          _section(context.t('نبذة', 'Bio'), expert.bio),
+          if (expert.portfolioSamples.isNotEmpty) ...[
+            Text(
+              context.t('معرض الأعمال (مجهّل)', 'Portfolio (anonymized)'),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const SizedBox(height: 8),
+            ...expert.portfolioSamples.map(
+              (sample) => Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                child: ListTile(
+                  dense: true,
+                  leading: Icon(Icons.article_outlined, color: category.color),
+                  title: Text(sample, style: const TextStyle(height: 1.35)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
           if (expert.languages.isNotEmpty)
-            _section('اللغات', expert.languages.join(' • ')),
+            _section(
+              context.t('اللغات', 'Languages'),
+              expert.languages.join(' • '),
+            ),
           if (expert.tools.isNotEmpty)
-            _section('الأدوات', expert.tools.join(' • ')),
+            _section(
+              context.t('الأدوات', 'Tools'),
+              expert.tools.join(' • '),
+            ),
           if (expert.tags.isNotEmpty) ...[
             const SizedBox(height: 8),
-            const Text(
-              'مجالات',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            Text(
+              context.t('مجالات', 'Fields'),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
             const SizedBox(height: 8),
             Wrap(
@@ -127,7 +165,7 @@ class WritingExpertDetailScreen extends StatelessWidget {
                   );
                 },
                 icon: const Icon(Icons.chat),
-                label: const Text('مراسلة الكاتب'),
+                label: Text(context.t('مراسلة الكاتب', 'Message writer')),
               ),
             ),
           const SizedBox(height: 12),
@@ -150,7 +188,7 @@ class WritingExpertDetailScreen extends StatelessWidget {
                 }
               },
               icon: const Icon(Icons.edit_calendar),
-              label: const Text('حجز خدمة كتابة'),
+              label: Text(context.t('حجز خدمة كتابة', 'Book writing service')),
               style: FilledButton.styleFrom(
                 backgroundColor: category.color,
                 foregroundColor: Colors.white,

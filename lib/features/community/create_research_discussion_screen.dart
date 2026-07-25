@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
+import '../../core/locale/locale_extensions.dart';
 import 'community_data.dart';
 import 'research_room_models.dart';
 import 'research_room_service.dart';
@@ -66,8 +68,11 @@ class _CreateResearchDiscussionScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('مناقشة بحثية جديدة'),
+      appBar: AcadeGateAppBar(
+        title: Text(context.t(
+          'مناقشة بحثية جديدة',
+          'New research discussion',
+        )),
         backgroundColor: const Color(0xFF00695C),
         foregroundColor: Colors.white,
       ),
@@ -80,15 +85,15 @@ class _CreateResearchDiscussionScreenState
             children: [
               DropdownButtonFormField<String>(
                 initialValue: _type,
-                decoration: const InputDecoration(
-                  labelText: 'نوع المناقشة',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: context.t('نوع المناقشة', 'Discussion type'),
+                  border: const OutlineInputBorder(),
                 ),
-                items: CommunityPostType.labels.entries
+                items: CommunityPostType.allTypes
                     .map(
-                      (entry) => DropdownMenuItem(
-                        value: entry.key,
-                        child: Text(entry.value),
+                      (type) => DropdownMenuItem(
+                        value: type,
+                        child: Text(CommunityPostType.label(type)),
                       ),
                     )
                     .toList(),
@@ -99,31 +104,39 @@ class _CreateResearchDiscussionScreenState
               const SizedBox(height: 12),
               TextFormField(
                 controller: _titleController,
-                decoration: const InputDecoration(
-                  labelText: 'عنوان المناقشة *',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: context.t('عنوان المناقشة *', 'Discussion title *'),
+                  border: const OutlineInputBorder(),
                 ),
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'مطلوب' : null,
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? context.t('مطلوب', 'Required')
+                    : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _bodyController,
                 maxLines: 6,
-                decoration: const InputDecoration(
-                  labelText: 'محتوى المناقشة *',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: context.t('محتوى المناقشة *', 'Discussion content *'),
+                  border: const OutlineInputBorder(),
                 ),
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'مطلوب' : null,
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? context.t('مطلوب', 'Required')
+                    : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _tagsController,
-                decoration: const InputDecoration(
-                  labelText: 'كلمات مفتاحية (للبحث)',
-                  hintText: 'مثال: ماجستير، SPSS، طاقة',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: context.t(
+                    'كلمات مفتاحية (للبحث)',
+                    'Keywords (for search)',
+                  ),
+                  hintText: context.t(
+                    'مثال: ماجستير، SPSS، طاقة',
+                    'e.g. master\'s, SPSS, energy',
+                  ),
+                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 24),
@@ -135,7 +148,7 @@ class _CreateResearchDiscussionScreenState
                 ),
                 child: _isSaving
                     ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text('نشر المناقشة'),
+                    : Text(context.t('نشر المناقشة', 'Publish discussion')),
               ),
             ],
           ),

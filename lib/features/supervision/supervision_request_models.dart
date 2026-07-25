@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../core/locale/app_translate.dart';
+
 class SupervisionRequest {
   final String? id;
   final String studentId;
@@ -31,7 +33,9 @@ class SupervisionRequest {
 
   bool get isSupervision => requestType == 'supervision';
 
-  String get typeLabel => isSupervision ? 'طلب إشراف' : 'رسالة تواصل';
+  String get typeLabel => isSupervision
+      ? appTr('طلب إشراف', 'Supervision request')
+      : appTr('رسالة تواصل', 'Contact message');
 
   factory SupervisionRequest.fromMap(Map<String, dynamic> map, {String? id}) {
     final created = map['createdAt'];

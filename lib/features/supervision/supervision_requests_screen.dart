@@ -1,6 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
+import '../../core/locale/locale_extensions.dart';
 import 'supervision_request_models.dart';
 import 'supervision_request_service.dart';
 
@@ -10,14 +12,20 @@ class MySupervisionRequestsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('طلباتي — إشراف وتواصل'),
+      appBar: AcadeGateAppBar(
+        title: Text(context.t(
+          'طلباتي — إشراف وتواصل',
+          'My requests — supervision & contact',
+        )),
         backgroundColor: const Color(0xFF1A237E),
         foregroundColor: Colors.white,
       ),
       body: _RequestsList(
         stream: SupervisionRequestService.instance.myRequestsStream(),
-        emptyText: 'لم ترسل أي طلب إشراف أو رسالة بعد',
+        emptyText: context.t(
+          'لم ترسل أي طلب إشراف أو رسالة بعد',
+          'You have not sent any supervision or contact requests yet',
+        ),
       ),
     );
   }
@@ -29,14 +37,20 @@ class IncomingSupervisionRequestsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('طلبات الإشراف الواردة'),
+      appBar: AcadeGateAppBar(
+        title: Text(context.t(
+          'طلبات الإشراف الواردة',
+          'Incoming supervision requests',
+        )),
         backgroundColor: const Color(0xFF1A237E),
         foregroundColor: Colors.white,
       ),
       body: _RequestsList(
         stream: SupervisionRequestService.instance.incomingForOwnerStream(),
-        emptyText: 'لا توجد طلبات واردة حالياً',
+        emptyText: context.t(
+          'لا توجد طلبات واردة حالياً',
+          'No incoming requests at the moment',
+        ),
         showStudent: true,
         allowStatusUpdate: true,
       ),
@@ -61,7 +75,12 @@ class _RequestsList extends StatelessWidget {
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      return const Center(child: Text('سجّل الدخول لعرض الطلبات'));
+      return Center(
+        child: Text(context.t(
+          'سجّل الدخول لعرض الطلبات',
+          'Sign in to view requests',
+        )),
+      );
     }
 
     return StreamBuilder<List<SupervisionRequest>>(
@@ -97,29 +116,102 @@ class _RequestsList extends StatelessWidget {
                 subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('${request.typeLabel} • ${_statusLabel(request.status)}'),
+                    Text(
+                      '${request.typeLabel} • ${_statusLabel(context, request.status)}',
+                    ),
                     if (showStudent && request.studentEmail.isNotEmpty)
-                      Text(request.studentEmail, style: const TextStyle(fontSize: 12)),
+                      Text(
+                        request.studentEmail,
+                        style: const TextStyle(fontSize: 12),
+                      ),
                     const SizedBox(height: 4),
                     Text(request.message),
                   ],
                 ),
                 isThreeLine: true,
-                trailing: allowStatusUpdate && request.status == 'pending'
-                    ? PopupMenuButton<String>(
-                        onSelected: (value) {
-                          if (request.id == null) return;
-                          SupervisionRequestService.instance.updateStatus(
-                            request.id!,
-                            value,
-                          );
-                        },
-                        itemBuilder: (context) => const [
-                          PopupMenuItem(value: 'accepted', child: Text('قبول')),
-                          PopupMenuItem(value: 'rejected', child: Text('رفض')),
-                        ],
-                      )
-                    : null,
+                trailing: PopupMenuButton<String>(
+                  tooltip: context.t('إجراءات', 'Actions'),
+                  onSelected: (value) async {
+                    if (request.id == null) return;
+                    if (value == 'remove') {
+                      final ok = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: Text(
+                            ctx.t('إزالة الطلب', 'Remove request'),
+                          ),
+                          content: Text(
+                            ctx.t(
+                              'حذف هذا الطلب من قائمتك؟',
+                              'Remove this request from your list?',
+                            ),
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, false),
+                              child: Text(ctx.t('الرجوع', 'Back')),
+                            ),
+                            FilledButton(
+                              style: FilledButton.styleFrom(
+                                backgroundColor: Colors.red,
+                              ),
+                              onPressed: () => Navigator.pop(ctx, true),
+                              child: Text(ctx.t('إزالة', 'Remove')),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (ok != true || !context.mounted) return;
+                      try {
+                        await SupervisionRequestService.instance
+                            .removeRequest(request);
+                      } catch (e) {
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('$e'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                      return;
+                    }
+                    try {
+                      await SupervisionRequestService.instance.updateStatus(
+                        request.id!,
+                        value,
+                      );
+                    } catch (e) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('$e'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  },
+                  itemBuilder: (ctx) => [
+                    if (allowStatusUpdate && request.status == 'pending') ...[
+                      PopupMenuItem(
+                        value: 'accepted',
+                        child: Text(ctx.t('قبول', 'Accept')),
+                      ),
+                      PopupMenuItem(
+                        value: 'rejected',
+                        child: Text(ctx.t('رفض', 'Reject')),
+                      ),
+                      const PopupMenuDivider(),
+                    ],
+                    PopupMenuItem(
+                      value: 'remove',
+                      child: Text(
+                        ctx.t('إزالة', 'Remove'),
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             );
           },
@@ -128,11 +220,12 @@ class _RequestsList extends StatelessWidget {
     );
   }
 
-  String _statusLabel(String status) {
+  String _statusLabel(BuildContext context, String status) {
     return switch (status) {
-      'accepted' => 'مقبول',
-      'rejected' => 'مرفوض',
-      _ => 'قيد الانتظار',
+      'accepted' => context.t('مقبول', 'Accepted'),
+      'rejected' => context.t('مرفوض', 'Rejected'),
+      'cancelled' => context.t('ملغى', 'Cancelled'),
+      _ => context.t('قيد الانتظار', 'Pending'),
     };
   }
 }

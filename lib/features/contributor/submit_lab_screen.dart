@@ -1,6 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
+import '../../core/locale/app_translate.dart';
+import '../../core/locale/l10n_lookup.dart';
+import '../../core/locale/locale_extensions.dart';
 import '../academic/faculty_categories.dart';
 import '../auth/auth_guard.dart';
 import '../academic/academic_models.dart';
@@ -128,7 +132,12 @@ class _SubmitLabScreenState extends State<SubmitLabScreen> {
       });
 
       if (!mounted) return;
-      _showMessage('تم إرسال المختبر للمراجعة — سيظهر بعد الموافقة');
+      _showMessage(
+        context.t(
+          'تم إرسال المختبر للمراجعة — سيظهر بعد الموافقة',
+          'Lab sent for review — it will appear after approval',
+        ),
+      );
       Navigator.pop(context, true);
     } on FirebaseException catch (e) {
       if (!mounted) return;
@@ -166,8 +175,8 @@ class _SubmitLabScreenState extends State<SubmitLabScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('تسجيل مختبر'),
+      appBar: AcadeGateAppBar(
+        title: Text(context.t('تسجيل مختبر', 'Register lab')),
         backgroundColor: Colors.purple[700],
         foregroundColor: Colors.white,
       ),
@@ -179,73 +188,85 @@ class _SubmitLabScreenState extends State<SubmitLabScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _infoBanner(
-                'اربط المختبر بالكلية — عند البحث عن الكلية ستظهر المختبرات المرتبطة بها تلقائياً.',
+                context.t(
+                  'اربط المختبر بالكلية — عند البحث عن الكلية ستظهر المختبرات المرتبطة بها تلقائياً.',
+                  'Link the lab to a faculty — linked labs appear automatically when searching by faculty.',
+                ),
               ),
               const SizedBox(height: 16),
-              const Text(
-                'بيانات المختبر',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              Text(
+                context.t('بيانات المختبر', 'Lab details'),
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
               const SizedBox(height: 10),
               TextFormField(
                 controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: 'اسم المختبر *',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: context.t('اسم المختبر *', 'Lab name *'),
+                  border: const OutlineInputBorder(),
                 ),
-                validator: (v) =>
-                    (v ?? '').trim().isEmpty ? 'اسم المختبر مطلوب' : null,
+                validator: (v) => (v ?? '').trim().isEmpty
+                    ? context.t('اسم المختبر مطلوب', 'Lab name is required')
+                    : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _locationController,
-                decoration: const InputDecoration(
-                  labelText: 'الموقع التفصيلي *',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: context.t('الموقع التفصيلي *', 'Detailed location *'),
+                  border: const OutlineInputBorder(),
                 ),
-                validator: (v) =>
-                    (v ?? '').trim().isEmpty ? 'الموقع مطلوب' : null,
+                validator: (v) => (v ?? '').trim().isEmpty
+                    ? context.t('الموقع مطلوب', 'Location is required')
+                    : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _cityController,
-                decoration: const InputDecoration(
-                  labelText: 'المدينة *',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: context.t('المدينة *', 'City *'),
+                  border: const OutlineInputBorder(),
                 ),
-                validator: (v) =>
-                    (v ?? '').trim().isEmpty ? 'المدينة مطلوبة' : null,
+                validator: (v) => (v ?? '').trim().isEmpty
+                    ? context.t('المدينة مطلوبة', 'City is required')
+                    : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _universityController,
-                decoration: const InputDecoration(
-                  labelText: 'الجامعة *',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: context.t('الجامعة *', 'University *'),
+                  border: const OutlineInputBorder(),
                 ),
-                validator: (v) =>
-                    (v ?? '').trim().isEmpty ? 'الجامعة مطلوبة' : null,
+                validator: (v) => (v ?? '').trim().isEmpty
+                    ? context.t('الجامعة مطلوبة', 'University is required')
+                    : null,
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 key: ValueKey(_labType),
                 initialValue: _labType,
-                decoration: const InputDecoration(
-                  labelText: 'نوع المنشأة',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: context.t('نوع المنشأة', 'Facility type'),
+                  border: const OutlineInputBorder(),
                 ),
-                items: const [
+                items: [
                   DropdownMenuItem(
                     value: 'university_lab',
-                    child: Text('مختبر جامعي'),
+                    child: Text(context.t('مختبر جامعي', 'University lab')),
                   ),
                   DropdownMenuItem(
                     value: 'research_center',
-                    child: Text('مركز بحوث'),
+                    child: Text(context.t('مركز بحوث', 'Research center')),
                   ),
                   DropdownMenuItem(
                     value: 'core_facility',
-                    child: Text('منشأة تحليل مركزية'),
+                    child: Text(
+                      context.t(
+                        'منشأة تحليل مركزية',
+                        'Core analysis facility',
+                      ),
+                    ),
                   ),
                 ],
                 onChanged: (value) {
@@ -256,16 +277,19 @@ class _SubmitLabScreenState extends State<SubmitLabScreen> {
               DropdownButtonFormField<String>(
                 key: ValueKey(_category),
                 initialValue: _category,
-                decoration: const InputDecoration(
-                  labelText: 'الكلية *',
-                  helperText: 'يُستخدم لربط المختبر بالكلية في البحث',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: context.t('الكلية *', 'Faculty *'),
+                  helperText: context.t(
+                    'يُستخدم لربط المختبر بالكلية في البحث',
+                    'Used to link the lab to a faculty in search',
+                  ),
+                  border: const OutlineInputBorder(),
                 ),
                 items: facultyCategoryIds()
                     .map(
                       (id) => DropdownMenuItem(
                         value: id,
-                        child: Text(facultyTitleForCategory(id)),
+                        child: Text(L10nLookup.facultyTitleStatic(id)),
                       ),
                     )
                     .toList(),
@@ -277,25 +301,39 @@ class _SubmitLabScreenState extends State<SubmitLabScreen> {
               TextFormField(
                 controller: _descriptionController,
                 maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: 'وصف المختبر / الخدمات',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: context.t(
+                    'وصف المختبر / الخدمات',
+                    'Lab / services description',
+                  ),
+                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _sampleServicesController,
                 maxLines: 2,
-                decoration: const InputDecoration(
-                  labelText: 'خدمات تحليل العينات (افصل بفاصلة)',
-                  hintText: 'SEM, XRD, HPLC, تحليل تربة',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: context.t(
+                    'خدمات تحليل العينات (افصل بفاصلة)',
+                    'Sample analysis services (comma-separated)',
+                  ),
+                  hintText: context.t(
+                    'SEM, XRD, HPLC, تحليل تربة',
+                    'SEM, XRD, HPLC, soil analysis',
+                  ),
+                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 8),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('يقبل عينات من خارج الجامعة'),
+                title: Text(
+                  context.t(
+                    'يقبل عينات من خارج الجامعة',
+                    'Accepts samples from outside the university',
+                  ),
+                ),
                 value: _acceptsExternalSamples,
                 onChanged: (value) =>
                     setState(() => _acceptsExternalSamples = value),
@@ -303,25 +341,30 @@ class _SubmitLabScreenState extends State<SubmitLabScreen> {
               const SizedBox(height: 12),
               TextFormField(
                 controller: _tagsController,
-                decoration: const InputDecoration(
-                  labelText: 'الوسوم (مفصولة بفاصلة)',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: context.t(
+                    'الوسوم (مفصولة بفاصلة)',
+                    'Tags (comma-separated)',
+                  ),
+                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 20),
               Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'الأجهزة والتحاليل',
-                      style:
-                          TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      context.t('الأجهزة والتحاليل', 'Equipment & analyses'),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
                     ),
                   ),
                   TextButton.icon(
                     onPressed: _addEquipment,
                     icon: const Icon(Icons.add),
-                    label: const Text('جهاز'),
+                    label: Text(context.t('جهاز', 'Device')),
                   ),
                 ],
               ),
@@ -349,7 +392,9 @@ class _SubmitLabScreenState extends State<SubmitLabScreen> {
                   ),
                   icon: const Icon(Icons.send_outlined),
                   label: Text(
-                    _isSaving ? 'جارٍ الإرسال...' : 'إرسال للمراجعة',
+                    _isSaving
+                        ? context.t('جارٍ الإرسال...', 'Submitting...')
+                        : context.t('إرسال للمراجعة', 'Submit for review'),
                   ),
                 ),
               ),
@@ -407,7 +452,7 @@ class _EquipmentCard extends StatelessWidget {
             Row(
               children: [
                 Text(
-                  'جهاز ${index + 1}',
+                  context.t('جهاز ${index + 1}', 'Device ${index + 1}'),
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 const Spacer(),
@@ -420,21 +465,28 @@ class _EquipmentCard extends StatelessWidget {
             ),
             TextFormField(
               controller: draft.name,
-              decoration: const InputDecoration(
-                labelText: 'اسم الجهاز / التحليل *',
-                hintText: 'مجهر إلكتروني SEM',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: context.t(
+                  'اسم الجهاز / التحليل *',
+                  'Device / analysis name *',
+                ),
+                hintText: context.t(
+                  'مجهر إلكتروني SEM',
+                  'SEM electron microscope',
+                ),
+                border: const OutlineInputBorder(),
               ),
-              validator: (v) =>
-                  (v ?? '').trim().isEmpty ? 'اسم الجهاز مطلوب' : null,
+              validator: (v) => (v ?? '').trim().isEmpty
+                  ? context.t('اسم الجهاز مطلوب', 'Device name is required')
+                  : null,
             ),
             const SizedBox(height: 10),
             TextFormField(
               controller: draft.code,
-              decoration: const InputDecoration(
-                labelText: 'الرمز (اختياري)',
+              decoration: InputDecoration(
+                labelText: context.t('الرمز (اختياري)', 'Code (optional)'),
                 hintText: 'SEM',
-                border: OutlineInputBorder(),
+                border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 10),
@@ -444,14 +496,16 @@ class _EquipmentCard extends StatelessWidget {
                   child: TextFormField(
                     controller: draft.cost,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'السعر (ج.م) *',
-                      border: OutlineInputBorder(),
+                    decoration: InputDecoration(
+                      labelText: context.t('السعر (ج.م) *', 'Price (EGP) *'),
+                      border: const OutlineInputBorder(),
                     ),
                     validator: (v) {
-                      if ((v ?? '').trim().isEmpty) return 'السعر مطلوب';
+                      if ((v ?? '').trim().isEmpty) {
+                        return context.t('السعر مطلوب', 'Price is required');
+                      }
                       if (num.tryParse(v!.trim()) == null) {
-                        return 'أدخل رقماً';
+                        return context.t('أدخل رقماً', 'Enter a number');
                       }
                       return null;
                     },
@@ -462,9 +516,9 @@ class _EquipmentCard extends StatelessWidget {
                   child: TextFormField(
                     controller: draft.waitDays,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'أيام الانتظار',
-                      border: OutlineInputBorder(),
+                    decoration: InputDecoration(
+                      labelText: context.t('أيام الانتظار', 'Wait days'),
+                      border: const OutlineInputBorder(),
                     ),
                   ),
                 ),
@@ -473,15 +527,18 @@ class _EquipmentCard extends StatelessWidget {
             const SizedBox(height: 10),
             DropdownButtonFormField<String>(
               initialValue: draft.storeCategoryTitle,
-              decoration: const InputDecoration(
-                labelText: 'متجر المواد المرتبط',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: context.t(
+                  'متجر المواد المرتبط',
+                  'Linked supplies store',
+                ),
+                border: const OutlineInputBorder(),
               ),
               items: storeCategories
                   .map(
                     (category) => DropdownMenuItem(
                       value: category.title,
-                      child: Text(category.title),
+                      child: Text(L10nLookup.storeCategoryTitle(category.id)),
                     ),
                   )
                   .toList(),

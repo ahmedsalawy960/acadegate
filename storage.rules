@@ -1,8 +1,10 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
+    // General uploads: owner-only. More specific paths below override by OR —
+    // keep reads owner-scoped on every match so advisor/viva never leak.
     match /uploads/{userId}/{allPaths=**} {
-      allow read: if request.auth != null;
+      allow read: if request.auth != null && request.auth.uid == userId;
       allow write: if request.auth != null
                    && request.auth.uid == userId
                    && request.resource.size < 5 * 1024 * 1024
@@ -17,6 +19,25 @@ service firebase.storage {
                    && (request.resource.contentType.matches('image/.*')
                        || request.resource.contentType.matches('application/pdf')
                        || request.resource.contentType.matches('text/.*'));
+    }
+
+    match /uploads/{userId}/viva/{allPaths=**} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null
+                   && request.auth.uid == userId
+                   && request.resource.size < 40 * 1024 * 1024
+                   && request.resource.contentType == 'application/pdf';
+    }
+
+    match /publish/{userId}/{manuscriptId}/{fileName} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null
+                   && request.auth.uid == userId
+                   && request.resource.size < 24 * 1024 * 1024
+                   && (request.resource.contentType.matches('image/.*')
+                       || request.resource.contentType.matches('application/pdf')
+                       || request.resource.contentType.matches('application/msword')
+                       || request.resource.contentType.matches('application/vnd.openxmlformats-officedocument.wordprocessingml.document'));
     }
   }
 }

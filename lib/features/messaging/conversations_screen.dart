@@ -1,6 +1,9 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
+import '../../core/locale/l10n_lookup.dart';
+import '../../core/locale/locale_extensions.dart';
 import 'chat_screen.dart';
 import 'messaging_models.dart';
 import 'messaging_service.dart';
@@ -13,13 +16,20 @@ class ConversationsScreen extends StatelessWidget {
     final user = FirebaseAuth.instance.currentUser;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('الرسائل'),
+      appBar: AcadeGateAppBar(
+        title: Text(L10nLookup.messages),
         backgroundColor: const Color(0xFF1A237E),
         foregroundColor: Colors.white,
       ),
       body: user == null
-          ? const Center(child: Text('سجّل الدخول لعرض رسائلك'))
+          ? Center(
+              child: Text(
+                context.t(
+                  'سجّل الدخول لعرض رسائلك',
+                  'Sign in to view your messages',
+                ),
+              ),
+            )
           : StreamBuilder<List<Conversation>>(
               stream: MessagingService.instance.myConversationsStream(),
               builder: (context, snapshot) {
@@ -38,7 +48,10 @@ class ConversationsScreen extends StatelessWidget {
                             size: 64, color: Colors.grey[400]),
                         const SizedBox(height: 12),
                         Text(
-                          'لا توجد محادثات بعد',
+                          context.t(
+                            'لا توجد محادثات بعد',
+                            'No conversations yet',
+                          ),
                           style: TextStyle(color: Colors.grey[600]),
                         ),
                       ],
@@ -60,7 +73,7 @@ class ConversationsScreen extends StatelessWidget {
                       ),
                       subtitle: Text(
                         conv.lastMessage.isEmpty
-                            ? 'ابدأ المحادثة'
+                            ? context.t('ابدأ المحادثة', 'Start the conversation')
                             : conv.lastMessage,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -83,7 +96,7 @@ class ConversationsScreen extends StatelessWidget {
   }
 }
 
-/// يفتح محادثة مع مستخدم (مشرف/كاتب/بائع).
+/// Opens a chat with a user (supervisor/writer/seller).
 Future<void> openChatWithUser(
   BuildContext context, {
   required String otherUserId,

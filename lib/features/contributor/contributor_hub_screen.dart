@@ -1,9 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
+import '../../core/locale/l10n_lookup.dart';
+import '../../core/locale/locale_extensions.dart';
 import '../auth/user_account.dart';
 import '../auth/user_account_service.dart';
 import '../auth/user_role.dart';
 import '../moderation/approval_status.dart';
+import '../moderation/content_delete_service.dart';
 import '../admin/admin_moderation_screen.dart';
 import '../academic_writing/expert_orders_screen.dart';
 import '../academic_writing/my_writing_orders_screen.dart';
@@ -12,8 +16,10 @@ import '../lab_import/admin_lab_import_screen.dart';
 import '../analysis_labs/sample_requests_screens.dart';
 import '../supervision/supervision_requests_screen.dart';
 import '../research_marketplace/publish_research_idea_screen.dart';
+import '../research_marketplace/admin_research_ideas_seed_screen.dart';
 import '../supervisor_import/admin_supervisor_import_screen.dart';
 import '../store/store_categories_screen.dart';
+import '../store/import/admin_store_import_screen.dart';
 import 'submit_lab_screen.dart';
 import 'submit_supervisor_screen.dart';
 
@@ -23,8 +29,8 @@ class ContributorHubScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('لوحة المساهمة'),
+      appBar: AcadeGateAppBar(
+        title: Text(context.t('لوحة المساهمة', 'Contributor hub')),
         backgroundColor: const Color(0xFF1A237E),
         foregroundColor: Colors.white,
       ),
@@ -33,8 +39,13 @@ class ContributorHubScreen extends StatelessWidget {
         builder: (context, snapshot) {
           final account = snapshot.data;
           if (account == null) {
-            return const Center(
-              child: Text('سجّل الدخول للوصول إلى لوحة المساهمة'),
+            return Center(
+              child: Text(
+                context.t(
+                  'سجّل الدخول للوصول إلى لوحة المساهمة',
+                  'Sign in to access the contributor hub',
+                ),
+              ),
             );
           }
 
@@ -65,16 +76,22 @@ class ContributorHubScreen extends StatelessWidget {
                   color: const Color(0xFF1A237E),
                   child: ListTile(
                     leading: const Icon(Icons.fact_check, color: Colors.white),
-                    title: const Text(
-                      'مراجعة المحتوى — موافقة / رفض',
-                      style: TextStyle(
+                    title: Text(
+                      context.t(
+                        'مراجعة المحتوى — موافقة / رفض',
+                        'Content review — approve / reject',
+                      ),
+                      style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    subtitle: const Text(
-                      'المشرفون والمختبرات والمنتجات المعلقة',
-                      style: TextStyle(color: Colors.white70),
+                    subtitle: Text(
+                      context.t(
+                        'المشرفون والمختبرات والمنتجات المعلقة',
+                        'Pending supervisors, labs, and products',
+                      ),
+                      style: const TextStyle(color: Colors.white70),
                     ),
                     trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 14),
                     onTap: () {
@@ -95,78 +112,157 @@ class ContributorHubScreen extends StatelessWidget {
               _actionTile(
                 context,
                 icon: Icons.receipt_long,
-                title: 'طلبات الكتابة الواردة',
-                subtitle: 'قبول / رفض / تسليم طلبات العملاء',
+                title: context.t(
+                  'طلبات الكتابة الواردة',
+                  'Incoming writing requests',
+                ),
+                subtitle: context.t(
+                  'قبول / رفض / تسليم طلبات العملاء',
+                  'Accept / reject / deliver client requests',
+                ),
                 screen: const ExpertOrdersScreen(),
               ),
               _actionTile(
                 context,
                 icon: Icons.shopping_bag_outlined,
-                title: 'طلباتي — كتابة',
-                subtitle: 'متابعة ودفع طلباتك',
+                title: context.t('طلباتي — كتابة', 'My requests — writing'),
+                subtitle: context.t(
+                  'متابعة ودفع طلباتك',
+                  'Track and pay for your requests',
+                ),
                 screen: const MyWritingOrdersScreen(),
               ),
               _actionTile(
                 context,
                 icon: Icons.chat_outlined,
-                title: 'الرسائل',
-                subtitle: 'محادثات مع المشرفين والبائعين',
+                title: context.t('الرسائل', 'Messages'),
+                subtitle: context.t(
+                  'محادثات مع المشرفين والبائعين',
+                  'Chats with supervisors and sellers',
+                ),
                 screen: const ConversationsScreen(),
               ),
               _actionTile(
                 context,
                 icon: Icons.biotech_outlined,
-                title: 'طلبات تحليل العينات',
-                subtitle: 'متابعة ما أرسلته للمختبرات',
+                title: context.t(
+                  'طلبات تحليل العينات',
+                  'Sample analysis requests',
+                ),
+                subtitle: context.t(
+                  'متابعة ما أرسلته للمختبرات',
+                  'Track what you sent to labs',
+                ),
                 screen: const MySampleAnalysisRequestsScreen(),
               ),
               _actionTile(
                 context,
                 icon: Icons.science_outlined,
-                title: 'طلبات التحليل الواردة',
-                subtitle: 'عينات يرسلها الباحثون لمختبرك',
+                title: context.t(
+                  'طلبات التحليل الواردة',
+                  'Incoming analysis requests',
+                ),
+                subtitle: context.t(
+                  'عينات يرسلها الباحثون لمختبرك',
+                  'Samples researchers send to your lab',
+                ),
                 screen: const IncomingSampleAnalysisRequestsScreen(),
               ),
               _actionTile(
                 context,
                 icon: Icons.school_outlined,
-                title: 'طلبات الإشراف الواردة',
-                subtitle: 'رسائل وطلبات من الطلاب',
+                title: context.t(
+                  'طلبات الإشراف الواردة',
+                  'Incoming supervision requests',
+                ),
+                subtitle: context.t(
+                  'رسائل وطلبات من الطلاب',
+                  'Messages and requests from students',
+                ),
                 screen: const IncomingSupervisionRequestsScreen(),
               ),
               _actionTile(
                 context,
                 icon: Icons.outgoing_mail,
-                title: 'طلباتي — إشراف وتواصل',
-                subtitle: 'متابعة ما أرسلته للمشرفين',
+                title: context.t(
+                  'طلباتي — إشراف وتواصل',
+                  'My requests — supervision & contact',
+                ),
+                subtitle: context.t(
+                  'متابعة ما أرسلته للمشرفين',
+                  'Track what you sent to supervisors',
+                ),
                 screen: const MySupervisionRequestsScreen(),
               ),
-              const Text(
-                'إضافة محتوى',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              Text(
+                context.t('إضافة محتوى', 'Add content'),
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
               const SizedBox(height: 8),
               _actionTile(
                 context,
                 icon: Icons.cloud_download_outlined,
-                title: 'استيراد مشرفين',
-                subtitle: 'CSV أو OpenAlex — للمدير أو المساهمين',
+                title: context.t('استيراد مشرفين', 'Import supervisors'),
+                subtitle: context.t(
+                  'CSV أو OpenAlex — للمدير أو المساهمين',
+                  'CSV or OpenAlex — for admins or contributors',
+                ),
                 screen: const AdminSupervisorImportScreen(),
               ),
+              if (_canPublishIdea(account.role) || account.isAdmin)
+                _actionTile(
+                  context,
+                  icon: Icons.auto_awesome_outlined,
+                  title: context.t(
+                    'حزمة أفكار بحثية (90)',
+                    'Research ideas pack (90)',
+                  ),
+                  subtitle: context.t(
+                    '5 أفكار كاملة لكل كلية — تُنشر باسمك',
+                    '5 full ideas per faculty — published as you',
+                  ),
+                  screen: const AdminResearchIdeasSeedScreen(),
+                ),
               _actionTile(
                 context,
                 icon: Icons.biotech,
-                title: 'استيراد مختبرات ومراكز بحوث',
-                subtitle: 'CSV — أضف مختبرات حقيقية دفعة واحدة',
+                title: context.t(
+                  'استيراد مختبرات ومراكز بحوث',
+                  'Import labs & research centers',
+                ),
+                subtitle: context.t(
+                  'CSV — أضف مختبرات حقيقية دفعة واحدة',
+                  'CSV — add real labs in bulk',
+                ),
                 screen: const AdminLabImportScreen(),
               ),
+              if (account.isAdmin)
+                _actionTile(
+                  context,
+                  icon: Icons.store_mall_directory_outlined,
+                  title: context.t(
+                    'استيراد موردين ومنتجات المتجر',
+                    'Import store suppliers & products',
+                  ),
+                  subtitle: context.t(
+                    'Piochem · Cornell · Labtronic · Omega + دليل تواصل',
+                    'Piochem · Cornell · Labtronic · Omega + contacts directory',
+                  ),
+                  screen: const AdminStoreImportScreen(),
+                ),
               if (_canSubmitSupervisor(account.role) ||
                   account.role == UserRole.student)
                 _actionTile(
                   context,
                   icon: Icons.person_add_alt_1,
-                  title: 'تسجيل ملف مشرف',
-                  subtitle: 'يُرسل للمراجعة قبل الظهور',
+                  title: context.t(
+                    'تسجيل ملف مشرف',
+                    'Register supervisor profile',
+                  ),
+                  subtitle: context.t(
+                    'يُرسل للمراجعة قبل الظهور',
+                    'Sent for review before publishing',
+                  ),
                   screen: const SubmitSupervisorScreen(),
                 ),
               if (_canSubmitLab(account.role) ||
@@ -174,30 +270,45 @@ class ContributorHubScreen extends StatelessWidget {
                 _actionTile(
                   context,
                   icon: Icons.science_outlined,
-                  title: 'تسجيل مختبر',
-                  subtitle: 'أضف مختبرك وأجهزته',
+                  title: context.t('تسجيل مختبر', 'Register lab'),
+                  subtitle: context.t(
+                    'أضف مختبرك وأجهزته',
+                    'Add your lab and equipment',
+                  ),
                   screen: const SubmitLabScreen(),
                 ),
               if (_canAddProduct(account.role))
                 _actionTile(
                   context,
                   icon: Icons.storefront_outlined,
-                  title: 'إضافة منتج للمتجر',
-                  subtitle: 'اختر قسم المتجر ثم أضف منتجك',
+                  title: context.t(
+                    'إضافة منتج للمتجر',
+                    'Add store product',
+                  ),
+                  subtitle: context.t(
+                    'اختر قسم المتجر ثم أضف منتجك',
+                    'Choose a store category then add your product',
+                  ),
                   screen: const StoreCategoriesScreen(),
                 ),
               if (_canPublishIdea(account.role))
                 _actionTile(
                   context,
                   icon: Icons.lightbulb_outline,
-                  title: 'نشر فكرة بحثية',
-                  subtitle: 'تُراجع قبل الظهور في السوق',
+                  title: context.t(
+                    'نشر فكرة بحثية',
+                    'Publish research idea',
+                  ),
+                  subtitle: context.t(
+                    'تُراجع قبل الظهور في السوق',
+                    'Reviewed before appearing in the marketplace',
+                  ),
                   screen: const PublishResearchIdeaScreen(),
                 ),
               const SizedBox(height: 20),
-              const Text(
-                'طلباتي قيد المراجعة',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              Text(
+                context.t('طلباتي قيد المراجعة', 'My pending submissions'),
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
               const SizedBox(height: 8),
               _MyPendingList(ownerId: account.uid),
@@ -268,6 +379,16 @@ class _MyPendingListState extends State<_MyPendingList> {
     await _future;
   }
 
+  String _typeLabel(String type) {
+    return switch (type) {
+      'supervisor' => L10nLookup.supervisor,
+      'lab' => L10nLookup.lab,
+      'product' => L10nLookup.product,
+      'research_idea' => L10nLookup.researchIdea,
+      _ => type,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<_OwnedItem>>(
@@ -283,7 +404,10 @@ class _MyPendingListState extends State<_MyPendingList> {
         final items = snapshot.data ?? [];
         if (items.isEmpty) {
           return Text(
-            'لا توجد طلبات معلقة حالياً',
+            context.t(
+              'لا توجد طلبات معلقة حالياً',
+              'No pending submissions right now',
+            ),
             style: TextStyle(color: Colors.grey[600]),
           );
         }
@@ -295,12 +419,29 @@ class _MyPendingListState extends State<_MyPendingList> {
                 child: ListTile(
                   title: Text(item.title),
                   subtitle: Text(
-                    '${item.type} • ${ApprovalStatus.label(item.status)}',
+                    '${_typeLabel(item.type)} • ${ApprovalStatus.label(item.status)}',
+                  ),
+                  trailing: IconButton(
+                    tooltip: context.t('إزالة', 'Remove'),
+                    icon: const Icon(Icons.delete_outline, color: Colors.red),
+                    onPressed: () async {
+                      final deleted =
+                          await ContentDeleteService.instance.confirmAndDelete(
+                        context,
+                        collection: item.collection,
+                        documentId: item.documentId,
+                        itemLabel: item.title,
+                      );
+                      if (deleted && mounted) await _refresh();
+                    },
                   ),
                 ),
               ),
             ),
-            TextButton(onPressed: _refresh, child: const Text('تحديث')),
+            TextButton(
+              onPressed: _refresh,
+              child: Text(L10nLookup.refresh),
+            ),
           ],
         );
       },
@@ -328,16 +469,44 @@ class _MyPendingListState extends State<_MyPendingList> {
     ]);
 
     for (final doc in queries[0].docs) {
-      _addIfPending(results, doc.data(), doc.data()['name'], 'مشرف');
+      _addIfPending(
+        results,
+        doc.data(),
+        doc.id,
+        'supervisors',
+        doc.data()['name'],
+        'supervisor',
+      );
     }
     for (final doc in queries[1].docs) {
-      _addIfPending(results, doc.data(), doc.data()['name'], 'مختبر');
+      _addIfPending(
+        results,
+        doc.data(),
+        doc.id,
+        'labs',
+        doc.data()['name'],
+        'lab',
+      );
     }
     for (final doc in queries[2].docs) {
-      _addIfPending(results, doc.data(), doc.data()['name'], 'منتج');
+      _addIfPending(
+        results,
+        doc.data(),
+        doc.id,
+        'product',
+        doc.data()['name'],
+        'product',
+      );
     }
     for (final doc in queries[3].docs) {
-      _addIfPending(results, doc.data(), doc.data()['title'], 'فكرة بحثية');
+      _addIfPending(
+        results,
+        doc.data(),
+        doc.id,
+        'research_ideas',
+        doc.data()['title'],
+        'research_idea',
+      );
     }
 
     return results;
@@ -346,6 +515,8 @@ class _MyPendingListState extends State<_MyPendingList> {
   void _addIfPending(
     List<_OwnedItem> results,
     Map<String, dynamic> data,
+    String documentId,
+    String collection,
     dynamic titleField,
     String type,
   ) {
@@ -356,6 +527,8 @@ class _MyPendingListState extends State<_MyPendingList> {
           title: titleField?.toString() ?? type,
           type: type,
           status: status,
+          documentId: documentId,
+          collection: collection,
         ),
       );
     }
@@ -366,10 +539,14 @@ class _OwnedItem {
   final String title;
   final String type;
   final String status;
+  final String documentId;
+  final String collection;
 
   const _OwnedItem({
     required this.title,
     required this.type,
     required this.status,
+    required this.documentId,
+    required this.collection,
   });
 }

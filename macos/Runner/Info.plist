@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CFBundleDisplayName</key>
+	<string>AcadeGate</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleExecutable</key>
@@ -28,5 +30,9 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>AcadeGate uses the microphone for oral answers in the viva simulator.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>AcadeGate converts your spoken answers to text during viva practice.</string>
 </dict>
 </plist>

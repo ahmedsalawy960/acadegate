@@ -1,7 +1,12 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
 import '../../core/escrow/payment_status.dart';
+import '../../core/locale/locale_extensions.dart';
+import '../../core/payments/payment_checkout_chooser.dart';
+import '../../core/payments/payment_method.dart';
+import 'writing_categories.dart';
 import 'writing_models.dart';
 import 'writing_service.dart';
 
@@ -15,13 +20,17 @@ class MyWritingOrdersScreen extends StatelessWidget {
     final user = FirebaseAuth.instance.currentUser;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('طلبات الكتابة'),
+      appBar: AcadeGateAppBar(
+        title: Text(context.t('طلبات الكتابة', 'Writing orders')),
         backgroundColor: _brandColor,
         foregroundColor: Colors.white,
       ),
       body: user == null
-          ? const Center(child: Text('سجّل الدخول لعرض طلباتك'))
+          ? Center(
+              child: Text(
+                context.t('سجّل الدخول لعرض طلباتك', 'Sign in to view your orders'),
+              ),
+            )
           : StreamBuilder<List<WritingOrder>>(
               stream: WritingService.instance.userOrdersStream(),
               builder: (context, snapshot) {
@@ -40,7 +49,7 @@ class MyWritingOrdersScreen extends StatelessWidget {
                           Icon(Icons.error_outline, size: 48, color: Colors.grey[400]),
                           const SizedBox(height: 12),
                           Text(
-                            'تعذر تحميل الطلبات',
+                            context.t('تعذر تحميل الطلبات', 'Could not load orders'),
                             style: TextStyle(
                               color: Colors.grey[700],
                               fontWeight: FontWeight.bold,
@@ -68,7 +77,7 @@ class MyWritingOrdersScreen extends StatelessWidget {
                         Icon(Icons.receipt_long, size: 64, color: Colors.grey[400]),
                         const SizedBox(height: 12),
                         Text(
-                          'لا توجد طلبات حجز بعد',
+                          context.t('لا توجد طلبات حجز بعد', 'No booking orders yet'),
                           style: TextStyle(color: Colors.grey[600]),
                         ),
                       ],
@@ -103,8 +112,15 @@ class _OrderCard extends StatelessWidget {
     return Colors.orange;
   }
 
+  String _localizedCategory() {
+    final cat = writingCategoryByTitle(order.category);
+    return cat?.localizedTitle ?? order.category;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final amount = order.amount > 0 ? order.amount : 500;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
@@ -141,22 +157,55 @@ class _OrderCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 6),
-            Text('${order.category} • ${order.expertName}'),
+            Text('${_localizedCategory()} • ${order.expertName}'),
             Text(
-              '${order.academicLevel} • ${order.language}',
+              '${localizedAcademicLevel(order.academicLevel)} • ${localizedWritingLanguage(order.language)}',
               style: TextStyle(color: Colors.grey[600], fontSize: 13),
             ),
             if (order.deadline != null)
               Text(
-                'التسليم: ${order.deadline!.year}/${order.deadline!.month}/${order.deadline!.day}',
+                context.t(
+                  'التسليم: ${order.deadline!.year}/${order.deadline!.month}/${order.deadline!.day}',
+                  'Delivery: ${order.deadline!.year}/${order.deadline!.month}/${order.deadline!.day}',
+                ),
                 style: TextStyle(color: Colors.grey[600], fontSize: 13),
               ),
+            if (order.milestones.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                context.t('باقة مرحلية', 'Milestone package'),
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+              ),
+              const SizedBox(height: 4),
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: order.milestones
+                    .map(
+                      (m) => Chip(
+                        label: Text(
+                          localizedThesisMilestone(m),
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    )
+                    .toList(),
+              ),
+            ],
             if (order.addons.isNotEmpty) ...[
               const SizedBox(height: 8),
               Wrap(
                 spacing: 6,
                 children: order.addons
-                    .map((a) => Chip(label: Text(a, style: const TextStyle(fontSize: 11))))
+                    .map(
+                      (a) => Chip(
+                        label: Text(
+                          localizedWritingAddon(a),
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                      ),
+                    )
                     .toList(),
               ),
             ],
@@ -175,8 +224,10 @@ class _OrderCard extends StatelessWidget {
                             );
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('تم إلغاء الطلب'),
+                                SnackBar(
+                                  content: Text(
+                                    context.t('تم إلغاء الطلب', 'Order cancelled'),
+                                  ),
                                   behavior: SnackBarBehavior.floating,
                                 ),
                               );
@@ -193,7 +244,7 @@ class _OrderCard extends StatelessWidget {
                             }
                           }
                         },
-                  child: const Text('إلغاء الطلب'),
+                  child: Text(context.t('إلغاء الطلب', 'Cancel order')),
                 ),
               ),
             ],
@@ -206,20 +257,53 @@ class _OrderCard extends StatelessWidget {
                   onPressed: order.serviceId == null || order.id == null
                       ? null
                       : () async {
+                          final choice = await showPaymentCheckoutChooser(
+                            context,
+                            amountLabel:
+                                '$amount ${context.t('ج.م', 'EGP')}',
+                          );
+                          if (choice == null ||
+                              choice == PaymentCheckoutChoice.cancel ||
+                              !context.mounted) {
+                            return;
+                          }
                           try {
-                            await WritingService.instance.payOrder(
-                              serviceId: order.serviceId!,
-                              orderId: order.id!,
-                              amount: order.amount > 0 ? order.amount : 500,
-                            );
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'تم تأكيد الدفع — المبلغ محجوز حتى التسليم',
-                                  ),
-                                ),
+                            if (choice == PaymentCheckoutChoice.paymob) {
+                              await WritingService.instance.payOrder(
+                                serviceId: order.serviceId!,
+                                orderId: order.id!,
+                                amount: amount,
                               );
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      context.t(
+                                        'تم فتح صفحة Paymob — بعد الدفع ستتحدث الحالة تلقائياً',
+                                        'Paymob opened — status updates automatically after payment',
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }
+                            } else {
+                              await WritingService.instance
+                                  .requestManualPayment(
+                                serviceId: order.serviceId!,
+                                orderId: order.id!,
+                              );
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      context.t(
+                                        'تم تسجيل طلب تحويل يدوي — تواصل مع الخبير لإتمام التحويل',
+                                        'Manual transfer requested — contact the expert to complete payment',
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }
                             }
                           } catch (e) {
                             if (context.mounted) {
@@ -232,9 +316,12 @@ class _OrderCard extends StatelessWidget {
                             }
                           }
                         },
-                  icon: const Icon(Icons.lock),
+                  icon: const Icon(Icons.payment),
                   label: Text(
-                    'ادفع ${order.amount > 0 ? order.amount : 500} ج.م (ضمان)',
+                    context.t(
+                      'ادفع $amount ج.م — إلكتروني أو يدوي',
+                      'Pay $amount EGP — online or manual',
+                    ),
                   ),
                 ),
               ),
@@ -243,7 +330,12 @@ class _OrderCard extends StatelessWidget {
               if (order.deliveryNote.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
-                  child: Text('ملاحظات التسليم: ${order.deliveryNote}'),
+                  child: Text(
+                    context.t(
+                      'ملاحظات التسليم: ${order.deliveryNote}',
+                      'Delivery notes: ${order.deliveryNote}',
+                    ),
+                  ),
                 ),
               const SizedBox(height: 8),
               SizedBox(
@@ -260,8 +352,13 @@ class _OrderCard extends StatelessWidget {
                             );
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('تم تأكيد الاستلام وإفراج الدفعة'),
+                                SnackBar(
+                                  content: Text(
+                                    context.t(
+                                      'تم تأكيد الاستلام وإفراج الدفعة',
+                                      'Delivery confirmed and payment released',
+                                    ),
+                                  ),
                                 ),
                               );
                             }
@@ -276,7 +373,7 @@ class _OrderCard extends StatelessWidget {
                             }
                           }
                         },
-                  child: const Text('تأكيد الاستلام'),
+                  child: Text(context.t('تأكيد الاستلام', 'Confirm delivery')),
                 ),
               ),
             ],

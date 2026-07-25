@@ -1,10 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-import '../../core/escrow/escrow_service.dart';
+import '../../core/locale/app_translate.dart';
+import '../../core/escrow/payment_status.dart';
+import '../../core/payments/payment_method.dart';
+import '../../core/payments/paymob_payment_service.dart';
 import '../moderation/approval_status.dart';
 import '../notifications/notification_service.dart';
-import 'writing_fallback_data.dart';
 import 'writing_models.dart';
 
 class WritingService {
@@ -31,8 +33,17 @@ class WritingService {
           .toList();
 
       if (experts.isNotEmpty) return experts;
-      return fallbackExpertsForCategory(categoryTitle);
+      return const [];
     });
+  }
+
+  /// All publicly visible writers (for matching).
+  Future<List<WritingExpert>> fetchAllExperts() async {
+    final snapshot = await _services.get();
+    return snapshot.docs
+        .map((doc) => WritingExpert.fromMap(doc.data(), id: doc.id))
+        .where((expert) => expert.isPubliclyVisible)
+        .toList();
   }
 
   Stream<List<WritingOrder>> userOrdersStream() {
@@ -62,7 +73,7 @@ class WritingService {
   }) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      throw Exception('يجب تسجيل الدخول لحجز الخدمة');
+      throw Exception(appTr('يجب تسجيل الدخول لحجز الخدمة', 'Sign in to book this service'));
     }
 
     final serviceId = expert.isFromFirebase ? expert.id! : 'direct_requests';
@@ -81,7 +92,7 @@ class WritingService {
     if (expert.ownerId != null && expert.ownerId!.isNotEmpty) {
       await NotificationService.instance.send(
         userId: expert.ownerId!,
-        title: 'طلب كتابة جديد',
+        title: appTr('طلب كتابة جديد', 'New writing order'),
         body: order.topic,
         type: 'writing_order',
       );
@@ -121,13 +132,13 @@ class WritingService {
     required num amount,
   }) async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) throw Exception('يجب تسجيل الدخول');
+    if (user == null) throw Exception(appTr('يجب تسجيل الدخول', 'Sign in required'));
 
     final ref = _orderRef(serviceId, orderId);
     final snap = await ref.get();
-    if (!snap.exists) throw Exception('الطلب غير موجود');
+    if (!snap.exists) throw Exception(appTr('الطلب غير موجود', 'Order not found'));
     if (snap.data()?['serviceOwnerId'] != user.uid) {
-      throw Exception('غير مصرح');
+      throw Exception(appTr('غير مصرح', 'Not authorized'));
     }
 
     await ref.update({
@@ -137,8 +148,11 @@ class WritingService {
 
     await NotificationService.instance.send(
       userId: snap.data()?['userId']?.toString() ?? '',
-      title: 'تم قبول طلبك',
-      body: 'الخبير قبل الطلب — ادفع $amount ج.م للبدء',
+      title: appTr('تم قبول طلبك', 'Your order was accepted'),
+      body: appTr(
+        'الخبير قبل الطلب — ادفع $amount ج.م للبدء',
+        'The expert accepted — pay $amount EGP to start',
+      ),
       type: 'writing_order',
     );
   }
@@ -149,12 +163,12 @@ class WritingService {
     String reason = '',
   }) async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) throw Exception('يجب تسجيل الدخول');
+    if (user == null) throw Exception(appTr('يجب تسجيل الدخول', 'Sign in required'));
 
     final ref = _orderRef(serviceId, orderId);
     final snap = await ref.get();
     if (snap.data()?['serviceOwnerId'] != user.uid) {
-      throw Exception('غير مصرح');
+      throw Exception(appTr('غير مصرح', 'Not authorized'));
     }
 
     await ref.update({
@@ -164,8 +178,10 @@ class WritingService {
 
     await NotificationService.instance.send(
       userId: snap.data()?['userId']?.toString() ?? '',
-      title: 'تم رفض الطلب',
-      body: reason.isEmpty ? 'رفض الخبير طلب الكتابة' : reason,
+      title: appTr('تم رفض الطلب', 'Order rejected'),
+      body: reason.isEmpty
+          ? appTr('رفض الخبير طلب الكتابة', 'The expert declined the writing order')
+          : reason,
       type: 'writing_order',
     );
   }
@@ -183,12 +199,12 @@ class WritingService {
     required String deliveryNote,
   }) async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) throw Exception('يجب تسجيل الدخول');
+    if (user == null) throw Exception(appTr('يجب تسجيل الدخول', 'Sign in required'));
 
     final ref = _orderRef(serviceId, orderId);
     final snap = await ref.get();
     if (snap.data()?['serviceOwnerId'] != user.uid) {
-      throw Exception('غير مصرح');
+      throw Exception(appTr('غير مصرح', 'Not authorized'));
     }
 
     await ref.update({
@@ -199,8 +215,8 @@ class WritingService {
 
     await NotificationService.instance.send(
       userId: snap.data()?['userId']?.toString() ?? '',
-      title: 'تم تسليم العمل',
-      body: 'راجع التسليم وأكّد الاستلام',
+      title: appTr('تم تسليم العمل', 'Work delivered'),
+      body: appTr('راجع التسليم وأكّد الاستلام', 'Review the delivery and confirm receipt'),
       type: 'writing_order',
     );
   }
@@ -211,12 +227,12 @@ class WritingService {
     String status,
   ) async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) throw Exception('يجب تسجيل الدخول');
+    if (user == null) throw Exception(appTr('يجب تسجيل الدخول', 'Sign in required'));
 
     final ref = _orderRef(serviceId, orderId);
     final snap = await ref.get();
     if (snap.data()?['serviceOwnerId'] != user.uid) {
-      throw Exception('غير مصرح');
+      throw Exception(appTr('غير مصرح', 'Not authorized'));
     }
     await ref.update({'status': status});
   }
@@ -227,22 +243,99 @@ class WritingService {
     required num amount,
   }) async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) throw Exception('يجب تسجيل الدخول');
+    if (user == null) throw Exception(appTr('يجب تسجيل الدخول', 'Sign in required'));
 
     final ref = _orderRef(serviceId, orderId);
     final snap = await ref.get();
-    if (snap.data()?['userId'] != user.uid) throw Exception('غير مصرح');
+    if (snap.data()?['userId'] != user.uid) {
+      throw Exception(appTr('غير مصرح', 'Not authorized'));
+    }
 
-    final storedAmount = snap.data()?['amount'] as num? ?? 0;
+    await ref.set({
+      'paymentMethod': PaymentMethod.paymob,
+    }, SetOptions(merge: true));
 
-    await EscrowService.instance.markPaidHeld(
-      orderRef: ref,
-      notifyUserId: snap.data()?['serviceOwnerId']?.toString() ?? '',
-      title: snap.data()?['topic']?.toString() ?? 'طلب كتابة',
-      amount: storedAmount,
+    await PaymobPaymentService.instance.payAndOpen(
+      kind: PaymobOrderKind.writing,
+      orderId: orderId,
+      serviceId: serviceId,
     );
+  }
 
-    await ref.update({'status': 'in_progress'});
+  /// Buyer requests manual bank/InstaPay settlement with the expert.
+  Future<void> requestManualPayment({
+    required String serviceId,
+    required String orderId,
+  }) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception(appTr('يجب تسجيل الدخول', 'Sign in required'));
+
+    final ref = _orderRef(serviceId, orderId);
+    final snap = await ref.get();
+    final data = snap.data();
+    if (data == null || data['userId'] != user.uid) {
+      throw Exception(appTr('غير مصرح', 'Not authorized'));
+    }
+
+    await ref.set({
+      'paymentMethod': PaymentMethod.manual,
+      'paymentStatus': PaymentStatus.pending,
+      'manualPaymentRequestedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    final ownerId = data['serviceOwnerId']?.toString() ?? '';
+    if (ownerId.isNotEmpty) {
+      await NotificationService.instance.send(
+        userId: ownerId,
+        title: appTr('طلب تحويل يدوي', 'Manual payment request'),
+        body: appTr(
+          'المشتري يطلب التحويل اليدوي لـ «${data['topic']}»',
+          'Buyer requested a manual transfer for «${data['topic']}»',
+        ),
+        type: 'writing_order',
+      );
+    }
+  }
+
+  /// Expert confirms a manual transfer was received.
+  Future<void> confirmManualPaymentReceived({
+    required String serviceId,
+    required String orderId,
+  }) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception(appTr('يجب تسجيل الدخول', 'Sign in required'));
+
+    final ref = _orderRef(serviceId, orderId);
+    final snap = await ref.get();
+    final data = snap.data();
+    if (data == null || data['serviceOwnerId'] != user.uid) {
+      throw Exception(appTr('غير مصرح', 'Not authorized'));
+    }
+    if (data['paymentMethod']?.toString() != PaymentMethod.manual) {
+      throw Exception(appTr(
+        'هذا الطلب ليس تحويلاً يدوياً',
+        'This order is not a manual transfer',
+      ));
+    }
+
+    await ref.update({
+      'paymentStatus': PaymentStatus.held,
+      'paidAt': FieldValue.serverTimestamp(),
+      'status': 'in_progress',
+    });
+
+    final buyerId = data['userId']?.toString() ?? '';
+    if (buyerId.isNotEmpty) {
+      await NotificationService.instance.send(
+        userId: buyerId,
+        title: appTr('تم تأكيد التحويل', 'Transfer confirmed'),
+        body: appTr(
+          'أكد الخبير استلام التحويل — بدأ تنفيذ الطلب',
+          'Expert confirmed your transfer — work has started',
+        ),
+        type: 'payment_held',
+      );
+    }
   }
 
   Future<void> confirmDelivery({
@@ -251,24 +344,49 @@ class WritingService {
     int? rating,
   }) async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) throw Exception('يجب تسجيل الدخول');
+    if (user == null) throw Exception(appTr('يجب تسجيل الدخول', 'Sign in required'));
 
     final ref = _orderRef(serviceId, orderId);
     final snap = await ref.get();
-    if (snap.data()?['userId'] != user.uid) throw Exception('غير مصرح');
+    if (snap.data()?['userId'] != user.uid) {
+      throw Exception(appTr('غير مصرح', 'Not authorized'));
+    }
 
-    final updates = <String, dynamic>{
-      'status': 'completed',
-      'completedAt': FieldValue.serverTimestamp(),
-    };
-    if (rating != null) updates['studentRating'] = rating;
-    await ref.update(updates);
-
-    await EscrowService.instance.releaseToSeller(
-      orderRef: ref,
-      sellerId: snap.data()?['serviceOwnerId']?.toString() ?? '',
-      title: snap.data()?['topic']?.toString() ?? 'طلب كتابة',
+    await PaymobPaymentService.instance.confirmDeliveryRelease(
+      kind: PaymobOrderKind.writing,
+      orderId: orderId,
+      serviceId: serviceId,
+      rating: rating,
     );
+
+    final ownerId = snap.data()?['serviceOwnerId']?.toString() ?? '';
+    if (ownerId.isNotEmpty && serviceId.isNotEmpty) {
+      try {
+        final serviceRef = _services.doc(serviceId);
+        final serviceSnap = await serviceRef.get();
+        if (serviceSnap.exists) {
+          final data = serviceSnap.data()!;
+          final prevCount = (data['completedOrders'] as num?)?.toInt() ?? 0;
+          final prevAvg = (data['avgDeliveryDays'] as num?)?.toDouble() ?? 0;
+          final created = snap.data()?['createdAt'];
+          var deliveryDays = (data['deliveryDaysMax'] as num?)?.toDouble() ?? 7;
+          if (created is Timestamp) {
+            deliveryDays =
+                DateTime.now().difference(created.toDate()).inDays.toDouble();
+            if (deliveryDays < 1) deliveryDays = 1;
+          }
+          final newCount = prevCount + 1;
+          final newAvg = prevCount <= 0
+              ? deliveryDays
+              : ((prevAvg * prevCount) + deliveryDays) / newCount;
+          await serviceRef.update({
+            'completedOrders': newCount,
+            'avgDeliveryDays': double.parse(newAvg.toStringAsFixed(1)),
+            if (rating != null) 'rating': rating.toDouble(),
+          });
+        }
+      } catch (_) {}
+    }
   }
 
   Future<void> cancelOrder({
@@ -276,12 +394,12 @@ class WritingService {
     required String orderId,
   }) async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) throw Exception('يجب تسجيل الدخول');
+    if (user == null) throw Exception(appTr('يجب تسجيل الدخول', 'Sign in required'));
 
     final doc = await _orders(serviceId).doc(orderId).get();
-    if (!doc.exists) throw Exception('الطلب غير موجود');
+    if (!doc.exists) throw Exception(appTr('الطلب غير موجود', 'Order not found'));
     if (doc.data()?['userId'] != user.uid) {
-      throw Exception('لا يمكنك إلغاء هذا الطلب');
+      throw Exception(appTr('لا يمكنك إلغاء هذا الطلب', 'You cannot cancel this order'));
     }
 
     await _orders(serviceId).doc(orderId).update({'status': 'cancelled'});
@@ -291,7 +409,7 @@ class WritingService {
     required WritingExpert expert,
   }) async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) throw Exception('يجب تسجيل الدخول');
+    if (user == null) throw Exception(appTr('يجب تسجيل الدخول', 'Sign in required'));
 
     final payload = expert.toMap()
       ..['ownerId'] = user.uid

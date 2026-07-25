@@ -1,7 +1,12 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
+import '../../core/locale/app_translate.dart';
+import '../../core/locale/locale_extensions.dart';
 import '../academic/academic_models.dart';
+import '../lab_import/nbsle_contact_enrichment_service.dart';
 import '../profile/academic_profile_service.dart';
+import 'lab_contacts_panel.dart';
 import 'smart_labs_service.dart';
 
 class BookEquipmentScreen extends StatefulWidget {
@@ -22,6 +27,21 @@ class _BookEquipmentScreenState extends State<BookEquipmentScreen> {
   DateTime _selectedDate = DateTime.now().add(const Duration(days: 1));
   String? _selectedSlotStart;
   bool _isBooking = false;
+  late AcademicLab _lab;
+
+  @override
+  void initState() {
+    super.initState();
+    _lab = widget.lab;
+    _enrichContacts();
+  }
+
+  Future<void> _enrichContacts() async {
+    final enriched =
+        await NbsleContactEnrichmentService.instance.enrichIfNeeded(_lab);
+    if (!mounted) return;
+    setState(() => _lab = enriched);
+  }
 
   String get _dateKey => SmartLabsService.instance.formatDate(_selectedDate);
 
@@ -31,7 +51,7 @@ class _BookEquipmentScreenState extends State<BookEquipmentScreen> {
       initialDate: _selectedDate,
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 60)),
-      helpText: 'اختر تاريخ الحجز',
+      helpText: context.t('اختر تاريخ الحجز', 'Choose booking date'),
     );
 
     if (picked != null) {
@@ -47,7 +67,13 @@ class _BookEquipmentScreenState extends State<BookEquipmentScreen> {
 
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      _showMessage('يجب تسجيل الدخول لحجز المختبر', isError: true);
+      _showMessage(
+        context.t(
+          'يجب تسجيل الدخول لحجز المختبر',
+          'You must sign in to book the lab',
+        ),
+        isError: true,
+      );
       return;
     }
 
@@ -56,16 +82,20 @@ class _BookEquipmentScreenState extends State<BookEquipmentScreen> {
     try {
       final profile = await AcademicProfileService.instance.loadProfile();
       await SmartLabsService.instance.createBooking(
-        lab: widget.lab,
+        lab: _lab,
         equipment: widget.equipment,
         date: _selectedDate,
         slotStart: _selectedSlotStart!,
         slotEnd: slotEnd,
-        userName: profile?.fullName ?? user.email ?? 'طالب',
+        userName: profile?.fullName ??
+            user.email ??
+            appTr('طالب', 'Student'),
       );
 
       if (!mounted) return;
-      _showMessage('تم تأكيد الحجز فوراً');
+      _showMessage(
+        context.t('تم تأكيد الحجز فوراً', 'Booking confirmed instantly'),
+      );
       Navigator.pop(context, true);
     } catch (error) {
       if (!mounted) return;
@@ -90,12 +120,12 @@ class _BookEquipmentScreenState extends State<BookEquipmentScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final lab = widget.lab;
+    final lab = _lab;
     final equipment = widget.equipment;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('حجز فوري'),
+      appBar: AcadeGateAppBar(
+        title: Text(context.t('حجز فوري', 'Instant booking')),
         backgroundColor: Colors.purple[700],
         foregroundColor: Colors.white,
       ),
@@ -113,26 +143,46 @@ class _BookEquipmentScreenState extends State<BookEquipmentScreen> {
                   ),
                 ),
                 Text(lab.name, style: TextStyle(color: Colors.grey[700])),
+                if (lab.hasLabContact || lab.contacts.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  LabContactsPanel(
+                    lab: lab,
+                    backgroundColor: Colors.teal.shade50,
+                  ),
+                ],
                 const SizedBox(height: 16),
                 Card(
                   child: ListTile(
                     leading: const Icon(Icons.calendar_today),
-                    title: const Text('تاريخ الحجز'),
+                    title: Text(context.t('تاريخ الحجز', 'Booking date')),
                     subtitle: Text(_dateKey),
                     trailing: const Icon(Icons.edit_calendar),
                     onTap: _pickDate,
                   ),
                 ),
                 const SizedBox(height: 8),
-                _summaryRow('التكلفة التقديرية',
-                    '${equipment.costPerSession} ج.م'),
-                _summaryRow('مدة الجلسة', '${equipment.durationMinutes} دقيقة'),
-                _summaryRow('مدة الانتظار المعتادة',
-                    '${equipment.waitDays} يوم'),
+                _summaryRow(
+                  context.t('التكلفة التقديرية', 'Estimated cost'),
+                  '${equipment.costPerSession} ${appTr('ج.م', 'EGP')}',
+                ),
+                _summaryRow(
+                  context.t('مدة الجلسة', 'Session duration'),
+                  context.t(
+                    '${equipment.durationMinutes} دقيقة',
+                    '${equipment.durationMinutes} min',
+                  ),
+                ),
+                _summaryRow(
+                  context.t('مدة الانتظار المعتادة', 'Typical wait time'),
+                  context.t(
+                    '${equipment.waitDays} يوم',
+                    '${equipment.waitDays} days',
+                  ),
+                ),
                 const SizedBox(height: 16),
-                const Text(
-                  'اختر الوقت',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                Text(
+                  context.t('اختر الوقت', 'Choose a time'),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
                 const SizedBox(height: 8),
                 if (!lab.isFromFirebase)
@@ -144,8 +194,11 @@ class _BookEquipmentScreenState extends State<BookEquipmentScreen> {
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: Colors.orange[200]!),
                     ),
-                    child: const Text(
-                      'هذا مختبر تجريبي. أضف المختبر في Firebase لتفعيل الحجز الحقيقي.',
+                    child: Text(
+                      context.t(
+                        'هذا مختبر تجريبي. أضف المختبر في Firebase لتفعيل الحجز الحقيقي.',
+                        'This is a demo lab. Add the lab in Firebase to enable real booking.',
+                      ),
                     ),
                   )
                 else
@@ -163,7 +216,12 @@ class _BookEquipmentScreenState extends State<BookEquipmentScreen> {
                       );
 
                       if (slots.isEmpty) {
-                        return const Text('لا توجد مواعيد متاحة في هذا اليوم');
+                        return Text(
+                          context.t(
+                            'لا توجد مواعيد متاحة في هذا اليوم',
+                            'No available slots on this day',
+                          ),
+                        );
                       }
 
                       return Wrap(
@@ -175,7 +233,12 @@ class _BookEquipmentScreenState extends State<BookEquipmentScreen> {
 
                           return ChoiceChip(
                             label: Text(
-                              slot.isBooked ? '$label (محجوز)' : label,
+                              slot.isBooked
+                                  ? context.t(
+                                      '$label (محجوز)',
+                                      '$label (booked)',
+                                    )
+                                  : label,
                             ),
                             selected: selected,
                             onSelected: slot.isBooked
@@ -219,7 +282,9 @@ class _BookEquipmentScreenState extends State<BookEquipmentScreen> {
                   ),
                   icon: const Icon(Icons.check_circle_outline),
                   label: Text(
-                    _isBooking ? 'جارٍ التأكيد...' : 'تأكيد الحجز الفوري',
+                    _isBooking
+                        ? context.t('جارٍ التأكيد...', 'Confirming...')
+                        : context.t('تأكيد الحجز الفوري', 'Confirm instant booking'),
                   ),
                 ),
               ),

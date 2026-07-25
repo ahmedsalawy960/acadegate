@@ -1,6 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
+import '../../core/locale/locale_extensions.dart';
 import '../auth/auth_guard.dart';
 import '../profile/academic_profile_service.dart';
 import 'writing_categories.dart';
@@ -33,9 +35,16 @@ class _BookWritingOrderScreenState extends State<BookWritingOrderScreen> {
   String _urgency = urgencyLevels.first;
   String _statisticsTool = statisticsTools.last;
   final Set<String> _selectedAddons = {};
+  final Set<String> _selectedMilestones = {};
   DateTime _deadline = DateTime.now().add(const Duration(days: 14));
   bool _agreedToTerms = false;
   bool _isSubmitting = false;
+  bool get _isThesisPackage =>
+      widget.category.id == 'thesis' ||
+      _academicLevel.contains('ماجستير') ||
+      _academicLevel.contains('دكتوراه') ||
+      _academicLevel.toLowerCase().contains('master') ||
+      _academicLevel.toLowerCase().contains('phd');
 
   @override
   void dispose() {
@@ -51,7 +60,7 @@ class _BookWritingOrderScreenState extends State<BookWritingOrderScreen> {
       initialDate: _deadline,
       firstDate: DateTime.now().add(const Duration(days: 1)),
       lastDate: DateTime.now().add(const Duration(days: 180)),
-      helpText: 'موعد التسليم المطلوب',
+      helpText: context.t('موعد التسليم المطلوب', 'Required delivery date'),
     );
     if (picked != null) setState(() => _deadline = picked);
   }
@@ -59,21 +68,26 @@ class _BookWritingOrderScreenState extends State<BookWritingOrderScreen> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (!_agreedToTerms) {
-      _showMessage('يجب الموافقة على شروط الخدمة', isError: true);
+      _showMessage(
+        context.t('يجب الموافقة على شروط الخدمة', 'You must agree to the service terms'),
+        isError: true,
+      );
       return;
     }
 
     if (!await ensureLoggedIn(context)) return;
+    if (!mounted) return;
 
     setState(() => _isSubmitting = true);
 
     try {
       final user = FirebaseAuth.instance.currentUser!;
+      final researcherFallback = context.t('باحث', 'Researcher');
       final profile = await AcademicProfileService.instance.loadProfile();
 
       final order = WritingOrder(
         userId: user.uid,
-        userName: profile?.fullName ?? user.email ?? 'باحث',
+        userName: profile?.fullName ?? user.email ?? researcherFallback,
         expertName: widget.expert.name,
         category: widget.category.title,
         topic: _topicController.text.trim(),
@@ -85,6 +99,7 @@ class _BookWritingOrderScreenState extends State<BookWritingOrderScreen> {
         wordCount: _wordCountController.text.trim(),
         statisticsTool: _statisticsTool,
         addons: _selectedAddons.toList(),
+        milestones: _selectedMilestones.toList(),
         deadline: _deadline,
       );
 
@@ -94,7 +109,12 @@ class _BookWritingOrderScreenState extends State<BookWritingOrderScreen> {
       );
 
       if (!mounted) return;
-      _showMessage('تم إرسال طلب الحجز — سيتواصل معك الكاتب قريباً');
+      _showMessage(
+        context.t(
+          'تم إرسال طلب الحجز — سيتواصل معك الكاتب قريباً',
+          'Booking request sent — the writer will contact you soon',
+        ),
+      );
       Navigator.pop(context, true);
     } catch (error) {
       if (!mounted) return;
@@ -123,8 +143,8 @@ class _BookWritingOrderScreenState extends State<BookWritingOrderScreen> {
     final color = widget.category.color;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('حجز خدمة كتابة'),
+      appBar: AcadeGateAppBar(
+        title: Text(context.t('حجز خدمة كتابة', 'Book writing service')),
         backgroundColor: color,
         foregroundColor: Colors.white,
       ),
@@ -141,59 +161,90 @@ class _BookWritingOrderScreenState extends State<BookWritingOrderScreen> {
             const SizedBox(height: 16),
             _infoBanner(color),
             const SizedBox(height: 16),
-            _sectionTitle('تفاصيل البحث'),
+            _sectionTitle(context.t('تفاصيل البحث', 'Research details')),
             TextFormField(
               controller: _topicController,
-              textAlign: TextAlign.right,
-              decoration: _input('عنوان البحث / الموضوع'),
-              validator: (v) =>
-                  (v ?? '').trim().isEmpty ? 'العنوان مطلوب' : null,
+              textAlign: TextAlign.start,
+              decoration: _input(context.t('عنوان البحث / الموضوع', 'Research title / topic')),
+              validator: (v) => (v ?? '').trim().isEmpty
+                  ? context.t('العنوان مطلوب', 'Title is required')
+                  : null,
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _requirementsController,
-              textAlign: TextAlign.right,
+              textAlign: TextAlign.start,
               maxLines: 4,
               decoration: _input(
-                'المتطلبات التفصيلية\n(الفصول، عدد المراجع، دليل الجامعة، ملفات...)',
+                context.t(
+                  'المتطلبات التفصيلية\n(الفصول، عدد المراجع، دليل الجامعة، ملفات...)',
+                  'Detailed requirements\n(chapters, references, university guide, files...)',
+                ),
               ),
-              validator: (v) =>
-                  (v ?? '').trim().length < 20 ? 'اكتب متطلبات أوضح (20 حرفاً+)' : null,
+              validator: (v) => (v ?? '').trim().length < 20
+                  ? context.t(
+                      'اكتب متطلبات أوضح (20 حرفاً+)',
+                      'Write clearer requirements (20+ characters)',
+                    )
+                  : null,
             ),
             const SizedBox(height: 16),
-            _sectionTitle('خيارات أكاديمية'),
-            _dropdown('المستوى الأكاديمي', _academicLevel, academicLevels, (v) {
-              setState(() => _academicLevel = v!);
-            }),
-            _dropdown('نمط التوثيق', _citationStyle, citationStyles, (v) {
-              setState(() => _citationStyle = v!);
-            }),
-            _dropdown('لغة الكتابة', _language, writingLanguages, (v) {
-              setState(() => _language = v!);
-            }),
-            _dropdown('الاستعجال', _urgency, urgencyLevels, (v) {
-              setState(() => _urgency = v!);
-            }),
+            _sectionTitle(context.t('خيارات أكاديمية', 'Academic options')),
+            _dropdown(
+              context.t('المستوى الأكاديمي', 'Academic level'),
+              _academicLevel,
+              academicLevels,
+              localizedAcademicLevel,
+              (v) => setState(() => _academicLevel = v!),
+            ),
+            _dropdown(
+              context.t('نمط التوثيق', 'Citation style'),
+              _citationStyle,
+              citationStyles,
+              localizedCitationStyle,
+              (v) => setState(() => _citationStyle = v!),
+            ),
+            _dropdown(
+              context.t('لغة الكتابة', 'Writing language'),
+              _language,
+              writingLanguages,
+              localizedWritingLanguage,
+              (v) => setState(() => _language = v!),
+            ),
+            _dropdown(
+              context.t('الاستعجال', 'Urgency'),
+              _urgency,
+              urgencyLevels,
+              localizedUrgencyLevel,
+              (v) => setState(() => _urgency = v!),
+            ),
             if (widget.category.id == 'statistics' ||
                 widget.category.id == 'thesis' ||
                 widget.category.id == 'research_paper')
-              _dropdown('برنامج الإحصاء', _statisticsTool, statisticsTools, (v) {
-                setState(() => _statisticsTool = v!);
-              }),
+              _dropdown(
+                context.t('برنامج الإحصاء', 'Statistics software'),
+                _statisticsTool,
+                statisticsTools,
+                localizedStatisticsTool,
+                (v) => setState(() => _statisticsTool = v!),
+              ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _wordCountController,
-              textAlign: TextAlign.right,
+              textAlign: TextAlign.start,
               keyboardType: TextInputType.number,
-              decoration: _input('عدد الكلمات / الصفحات التقريبي'),
-              validator: (v) =>
-                  (v ?? '').trim().isEmpty ? 'حدّد حجم العمل' : null,
+              decoration: _input(
+                context.t('عدد الكلمات / الصفحات التقريبي', 'Approx. word / page count'),
+              ),
+              validator: (v) => (v ?? '').trim().isEmpty
+                  ? context.t('حدّد حجم العمل', 'Specify work size')
+                  : null,
             ),
             const SizedBox(height: 12),
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.event, color: color),
-              title: const Text('موعد التسليم'),
+              title: Text(context.t('موعد التسليم', 'Delivery date')),
               subtitle: Text(
                 '${_deadline.year}/${_deadline.month}/${_deadline.day}',
               ),
@@ -201,14 +252,65 @@ class _BookWritingOrderScreenState extends State<BookWritingOrderScreen> {
               onTap: _pickDeadline,
             ),
             const SizedBox(height: 16),
-            _sectionTitle('خدمات إضافية'),
+            if (_isThesisPackage) ...[
+              _sectionTitle(
+                context.t('باقة مرحلية للرسالة', 'Thesis milestone package'),
+              ),
+              Text(
+                context.t(
+                  'اختر المراحل المطلوبة — يُسلَّم كل جزء على حدة ضمن الضمان الحالي',
+                  'Pick stages — each part is delivered separately under current escrow',
+                ),
+                style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: thesisMilestones.map((stage) {
+                  final selected = _selectedMilestones.contains(stage);
+                  return FilterChip(
+                    label: Text(
+                      localizedThesisMilestone(stage),
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    selected: selected,
+                    onSelected: (value) {
+                      setState(() {
+                        if (value) {
+                          _selectedMilestones.add(stage);
+                        } else {
+                          _selectedMilestones.remove(stage);
+                        }
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
+              if (_selectedMilestones.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    context.t(
+                      '${_selectedMilestones.length} مراحل محددة',
+                      '${_selectedMilestones.length} stages selected',
+                    ),
+                    style: TextStyle(fontSize: 12, color: color),
+                  ),
+                ),
+              const SizedBox(height: 16),
+            ],
+            _sectionTitle(context.t('خدمات إضافية', 'Additional services')),
             Wrap(
               spacing: 8,
               runSpacing: 4,
               children: writingAddons.map((addon) {
                 final selected = _selectedAddons.contains(addon);
                 return FilterChip(
-                  label: Text(addon, style: const TextStyle(fontSize: 12)),
+                  label: Text(
+                    localizedWritingAddon(addon),
+                    style: const TextStyle(fontSize: 12),
+                  ),
                   selected: selected,
                   onSelected: (value) {
                     setState(() {
@@ -227,10 +329,14 @@ class _BookWritingOrderScreenState extends State<BookWritingOrderScreen> {
               contentPadding: EdgeInsets.zero,
               value: _agreedToTerms,
               onChanged: (v) => setState(() => _agreedToTerms = v ?? false),
-              title: const Text(
-                'أوافق أن العمل يُنفّذ بشرياً وفق المتطلبات، '
-                'وأتحمل مسؤولية الالتزام بأخلاقيات البحث في جامعتي.',
-                style: TextStyle(fontSize: 13),
+              title: Text(
+                context.t(
+                  'أوافق أن العمل يُنفّذ بشرياً وفق المتطلبات، '
+                  'وأتحمل مسؤولية الالتزام بأخلاقيات البحث في جامعتي.',
+                  'I agree the work is done by a human per my requirements, '
+                  'and I accept responsibility for my university\'s research ethics.',
+                ),
+                style: const TextStyle(fontSize: 13),
               ),
               controlAffinity: ListTileControlAffinity.leading,
             ),
@@ -246,7 +352,7 @@ class _BookWritingOrderScreenState extends State<BookWritingOrderScreen> {
                 ),
                 child: _isSubmitting
                     ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text('إرسال طلب الحجز'),
+                    : Text(context.t('إرسال طلب الحجز', 'Submit booking request')),
               ),
             ),
           ],
@@ -263,10 +369,14 @@ class _BookWritingOrderScreenState extends State<BookWritingOrderScreen> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
-      child: const Text(
-        'سيتم مراجعة طلبك من الكاتب خلال 24 ساعة. '
-        'التواصل المباشر بعد تأكيد الطلب.',
-        style: TextStyle(fontSize: 13, height: 1.4),
+      child: Text(
+        context.t(
+          'سيتم مراجعة طلبك من الكاتب خلال 24 ساعة. '
+          'التواصل المباشر بعد تأكيد الطلب.',
+          'The writer will review your request within 24 hours. '
+          'Direct contact after order confirmation.',
+        ),
+        style: const TextStyle(fontSize: 13, height: 1.4),
       ),
     );
   }
@@ -292,6 +402,7 @@ class _BookWritingOrderScreenState extends State<BookWritingOrderScreen> {
     String label,
     String value,
     List<String> items,
+    String Function(String) displayLabel,
     ValueChanged<String?> onChanged,
   ) {
     return Padding(
@@ -301,7 +412,12 @@ class _BookWritingOrderScreenState extends State<BookWritingOrderScreen> {
         initialValue: value,
         decoration: _input(label),
         items: items
-            .map((item) => DropdownMenuItem(value: item, child: Text(item)))
+            .map(
+              (item) => DropdownMenuItem(
+                value: item,
+                child: Text(displayLabel(item)),
+              ),
+            )
             .toList(),
         onChanged: onChanged,
       ),

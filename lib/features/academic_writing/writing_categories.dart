@@ -1,5 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../core/locale/app_translate.dart';
+import '../../core/locale/l10n_lookup.dart';
+
+extension WritingCategoryL10n on WritingCategory {
+  String get localizedTitle => L10nLookup.writingTitle(id);
+  String get localizedSubtitle => L10nLookup.writingSubtitle(id);
+}
+
 class WritingCategory {
   final String id;
   final String title;
@@ -166,3 +174,109 @@ const List<String> writingAddons = [
   'مراجع إضافية',
   'تعديل بعد المناقشة',
 ];
+
+/// مراحل باقة الرسالة (دفع/تسليم مرحلي).
+const List<String> thesisMilestones = [
+  'المقدمة والإطار النظري',
+  'مراجعة الأدبيات',
+  'المنهجية',
+  'النتائج والتحليل',
+  'المناقشة والخاتمة',
+];
+
+String localizedThesisMilestone(String value) {
+  switch (value) {
+    case 'المقدمة والإطار النظري':
+      return appTr(value, 'Introduction & theoretical framework');
+    case 'مراجعة الأدبيات':
+      return appTr(value, 'Literature review');
+    case 'المنهجية':
+      return appTr(value, 'Methodology');
+    case 'النتائج والتحليل':
+      return appTr(value, 'Results & analysis');
+    case 'المناقشة والخاتمة':
+      return appTr(value, 'Discussion & conclusion');
+    default:
+      return value;
+  }
+}
+
+String localizedAcademicLevel(String value) {
+  switch (value) {
+    case 'مشروع تخرج (بكالوريوس)':
+      return appTr(value, 'Undergraduate project');
+    case 'ماجستير':
+      return appTr(value, "Master's");
+    case 'دكتوراه':
+      return appTr(value, 'PhD');
+    case 'ورقة مؤتمر':
+      return appTr(value, 'Conference paper');
+    case 'ورقة مجلة (Q1–Q4)':
+      return appTr(value, 'Journal paper (Q1–Q4)');
+    case 'تقرير أكاديمي':
+      return appTr(value, 'Academic report');
+    default:
+      return value;
+  }
+}
+
+String localizedCitationStyle(String value) {
+  if (value == 'حسب دليل الجامعة') {
+    return appTr(value, 'Per university guide');
+  }
+  return value;
+}
+
+String localizedWritingLanguage(String value) {
+  switch (value) {
+    case 'العربية':
+      return appTr(value, 'Arabic');
+    case 'الإنجليزية':
+      return appTr(value, 'English');
+    case 'ثنائي اللغة (عربي + إنجليزي)':
+      return appTr(value, 'Bilingual (Arabic + English)');
+    default:
+      return value;
+  }
+}
+
+String localizedUrgencyLevel(String value) {
+  switch (value) {
+    case 'عادي (7–14 يوم)':
+      return appTr(value, 'Standard (7–14 days)');
+    case 'مستعجل (3–6 أيام)':
+      return appTr(value, 'Urgent (3–6 days)');
+    case 'فائق (24–48 ساعة)':
+      return appTr(value, 'Express (24–48 hours)');
+    default:
+      return value;
+  }
+}
+
+String localizedStatisticsTool(String value) {
+  if (value == 'لا ينطبق') {
+    return appTr(value, 'Not applicable');
+  }
+  return value;
+}
+
+String localizedWritingAddon(String value) {
+  switch (value) {
+    case 'تقرير أصالة (Plagiarism)':
+      return appTr(value, 'Plagiarism report');
+    case 'ملخص تنفيذي':
+      return appTr(value, 'Executive summary');
+    case 'عروض PowerPoint':
+      return appTr(value, 'PowerPoint slides');
+    case 'ملحق جداول ورسوم':
+      return appTr(value, 'Tables & figures appendix');
+    case 'جلسة شرح النتائج':
+      return appTr(value, 'Results walkthrough session');
+    case 'مراجع إضافية':
+      return appTr(value, 'Extra references');
+    case 'تعديل بعد المناقشة':
+      return appTr(value, 'Post-defense revisions');
+    default:
+      return value;
+  }
+}

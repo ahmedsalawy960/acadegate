@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/locale/locale_extensions.dart';
 import '../academic/academic_models.dart';
 import 'supervision_request_service.dart';
 
@@ -60,8 +61,14 @@ class _SupervisionRequestDialogState extends State<_SupervisionRequestDialog> {
         SnackBar(
           content: Text(
             _isSupervision
-                ? 'تم إرسال طلب الإشراف — يمكنك متابعته من لوحة المساهمة'
-                : 'تم إرسال رسالتك — سنبلّغ المشرف عند تسجيله',
+                ? context.t(
+                    'تم إرسال طلب الإشراف — يمكنك متابعته من لوحة المساهمة',
+                    'Supervision request sent — track it from the contribution dashboard',
+                  )
+                : context.t(
+                    'تم إرسال رسالتك — سنبلّغ المشرف عند تسجيله',
+                    'Your message was sent — we will notify the supervisor when they sign up',
+                  ),
           ),
           backgroundColor: Colors.green[700],
         ),
@@ -79,7 +86,9 @@ class _SupervisionRequestDialogState extends State<_SupervisionRequestDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(_isSupervision ? 'طلب إشراف' : 'رسالة للمشرف'),
+      title: Text(_isSupervision
+          ? context.t('طلب إشراف', 'Supervision request')
+          : context.t('رسالة للمشرف', 'Message to supervisor')),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -100,18 +109,27 @@ class _SupervisionRequestDialogState extends State<_SupervisionRequestDialog> {
               maxLines: 4,
               decoration: InputDecoration(
                 labelText: _isSupervision
-                    ? 'عرّف نفسك وموضوع بحثك'
-                    : 'رسالتك',
+                    ? context.t('عرّف نفسك وموضوع بحثك', 'Introduce yourself and your research topic')
+                    : context.t('رسالتك', 'Your message'),
                 hintText: _isSupervision
-                    ? 'مثال: أنا طالب ماجستير في ... وأرغب بالإشراف على ...'
-                    : 'اكتب استفسارك للمشرف',
+                    ? context.t(
+                        'مثال: أنا طالب ماجستير في ... وأرغب بالإشراف على ...',
+                        'e.g. I am a master\'s student in ... and would like supervision on ...',
+                      )
+                    : context.t(
+                        'اكتب استفسارك للمشرف',
+                        'Write your question for the supervisor',
+                      ),
                 border: const OutlineInputBorder(),
               ),
             ),
             if (widget.supervisor.ownerId.isEmpty) ...[
               const SizedBox(height: 10),
               Text(
-                'هذا المشرف غير مسجّل بعد في التطبيق — يُحفظ طلبك ويصله عند ربط حسابه.',
+                context.t(
+                  'هذا المشرف غير مسجّل بعد في التطبيق — يُحفظ طلبك ويصله عند ربط حسابه.',
+                  'This supervisor is not registered in the app yet — your request is saved and delivered when they link their account.',
+                ),
                 style: TextStyle(fontSize: 12, color: Colors.orange[800]),
               ),
             ],
@@ -121,7 +139,7 @@ class _SupervisionRequestDialogState extends State<_SupervisionRequestDialog> {
       actions: [
         TextButton(
           onPressed: _sending ? null : () => Navigator.pop(context),
-          child: const Text('إلغاء'),
+          child: Text(context.t('إلغاء', 'Cancel')),
         ),
         FilledButton(
           onPressed: _sending ? null : _submit,
@@ -131,7 +149,7 @@ class _SupervisionRequestDialogState extends State<_SupervisionRequestDialog> {
                   height: 18,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Text('إرسال'),
+              : Text(context.t('إرسال', 'Send')),
         ),
       ],
     );

@@ -5,7 +5,10 @@
       "name": "AcadeGate (Windows)",
       "request": "launch",
       "type": "dart",
-      "deviceId": "windows"
+      "deviceId": "windows",
+      "env": {
+        "PATH": "${workspaceFolder}/tools;${env:PATH}"
+      }
     },
     {
       "name": "AcadeGate (Windows + AI)",
@@ -14,7 +17,10 @@
       "deviceId": "windows",
       "toolArgs": [
         "--dart-define-from-file=dart_defines.json"
-      ]
+      ],
+      "env": {
+        "PATH": "${workspaceFolder}/tools;${env:PATH}"
+      }
     },
     {
       "name": "Flutter App",

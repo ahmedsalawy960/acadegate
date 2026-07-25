@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
+
+import '../../core/locale/locale_extensions.dart';
+import '../../core/locale/l10n_lookup.dart';
+import '../academic/faculty_categories.dart';
 import 'research_marketplace_service.dart';
 
 class PublishResearchIdeaScreen extends StatefulWidget {
@@ -16,6 +21,7 @@ class _PublishResearchIdeaScreenState extends State<PublishResearchIdeaScreen> {
   final _detailsController = TextEditingController();
   final _budgetController = TextEditingController();
   final _tagsController = TextEditingController();
+  String? _categoryId;
   bool _isSaving = false;
 
   @override
@@ -46,6 +52,7 @@ class _PublishResearchIdeaScreenState extends State<PublishResearchIdeaScreen> {
         details: _detailsController.text.trim(),
         budget: _budgetController.text.trim(),
         tags: tags,
+        category: _categoryId ?? '',
       );
 
       if (!mounted) return;
@@ -54,7 +61,7 @@ class _PublishResearchIdeaScreenState extends State<PublishResearchIdeaScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('فشل النشر: $e'),
+          content: Text(context.t('فشل النشر: $e', 'Publish failed: $e')),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
         ),
@@ -67,8 +74,8 @@ class _PublishResearchIdeaScreenState extends State<PublishResearchIdeaScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('نشر فكرة بحثية'),
+      appBar: AcadeGateAppBar(
+        title: Text(context.t('نشر فكرة بحثية', 'Publish research idea')),
         backgroundColor: Colors.orange[800],
         foregroundColor: Colors.white,
       ),
@@ -80,50 +87,88 @@ class _PublishResearchIdeaScreenState extends State<PublishResearchIdeaScreen> {
             children: [
               TextFormField(
                 controller: _titleController,
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'مطلوب' : null,
-                decoration: const InputDecoration(
-                  labelText: 'عنوان المشكلة البحثية',
-                  border: OutlineInputBorder(),
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? context.t('مطلوب', 'Required')
+                    : null,
+                decoration: InputDecoration(
+                  labelText: context.t(
+                    'عنوان المشكلة البحثية',
+                    'Research problem title',
+                  ),
+                  border: const OutlineInputBorder(),
                 ),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                initialValue: _categoryId,
+                decoration: InputDecoration(
+                  labelText: context.t('الكلية / التخصص', 'Faculty / field'),
+                  border: const OutlineInputBorder(),
+                ),
+                items: facultyCategories
+                    .map(
+                      (f) => DropdownMenuItem(
+                        value: f.id,
+                        child: Text(L10nLookup.facultyTitleStatic(f.id)),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (v) => setState(() => _categoryId = v),
+                validator: (v) => (v == null || v.isEmpty)
+                    ? context.t('مطلوب', 'Required')
+                    : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _providerController,
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'مطلوب' : null,
-                decoration: const InputDecoration(
-                  labelText: 'الجهة الناشرة (جامعة / شركة / وزارة)',
-                  border: OutlineInputBorder(),
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? context.t('مطلوب', 'Required')
+                    : null,
+                decoration: InputDecoration(
+                  labelText: context.t(
+                    'الجهة الناشرة (جامعة / شركة / وزارة)',
+                    'Publisher (university / company / ministry)',
+                  ),
+                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _detailsController,
                 maxLines: 5,
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'مطلوب' : null,
-                decoration: const InputDecoration(
-                  labelText: 'تفاصيل المشكلة البحثية',
-                  border: OutlineInputBorder(),
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? context.t('مطلوب', 'Required')
+                    : null,
+                decoration: InputDecoration(
+                  labelText: context.t(
+                    'تفاصيل المشكلة البحثية',
+                    'Research problem details',
+                  ),
+                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _budgetController,
-                decoration: const InputDecoration(
-                  labelText: 'المنحة أو الميزانية (اختياري)',
-                  hintText: 'مثال: 10,000 ج.م',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: context.t(
+                    'المنحة أو الميزانية (اختياري)',
+                    'Grant or budget (optional)',
+                  ),
+                  hintText: context.t('مثال: 10,000 ج.م', 'e.g. 10,000 EGP'),
+                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _tagsController,
-                decoration: const InputDecoration(
-                  labelText: 'الوسوم (اختياري)',
-                  hintText: 'طاقة، هندسة، ذكاء اصطناعي',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: context.t('الوسوم (اختياري)', 'Tags (optional)'),
+                  hintText: context.t(
+                    'طاقة، هندسة، ذكاء اصطناعي',
+                    'energy, engineering, AI',
+                  ),
+                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 24),
@@ -138,7 +183,7 @@ class _PublishResearchIdeaScreenState extends State<PublishResearchIdeaScreen> {
                   ),
                   child: _isSaving
                       ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text('نشر في السوق'),
+                      : Text(context.t('نشر في السوق', 'Publish to marketplace')),
                 ),
               ),
             ],

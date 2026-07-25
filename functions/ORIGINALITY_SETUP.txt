@@ -1,0 +1,13 @@
+# Firebase Functions secrets for originality check (server-side only):
+#
+#   firebase functions:secrets:set COPYLEAKS_EMAIL
+#   firebase functions:secrets:set COPYLEAKS_API_KEY
+#   firebase functions:secrets:set PLAGIARISMCHECK_API_TOKEN
+#   firebase functions:secrets:set COPYLEAKS_WEBHOOK_SECRET
+#     (long random string; appended as ?token=… on webhook URLs)
+#
+# Deploy:
+#   firebase deploy --only functions:originalityCheck,functions:originalityCheckHttp,functions:copyleaksWebhook,firestore:rules
+#
+# Copyleaks requires copyleaksWebhook (public HTTP) + COPYLEAKS_WEBHOOK_SECRET.
+# Unsigned webhook POSTs are rejected (401).

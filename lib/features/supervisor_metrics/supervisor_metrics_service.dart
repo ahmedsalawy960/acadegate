@@ -1,4 +1,5 @@
 import '../academic/academic_models.dart';
+import '../../core/locale/l10n_lookup.dart';
 import '../supervisor_import/openalex_client.dart';
 import 'scimago_quartile_service.dart';
 import 'supervisor_metrics_models.dart';
@@ -28,9 +29,8 @@ class SupervisorMetricsService {
         _cache[cacheKey] = stored;
         return stored;
       }
-      return const SupervisorPublicationMetrics(
-        sourceNote:
-            'لا يوجد ORCID أو معرّف OpenAlex — أضفهما عند تسجيل المشرف لعرض الإنتاج العلمي.',
+      return SupervisorPublicationMetrics(
+        sourceNote: L10nLookup.orcidMissingNote(),
       );
     }
 
@@ -75,8 +75,8 @@ class SupervisorMetricsService {
         topVenues: topVenues,
         fromOpenAlex: true,
         sourceNote: scimagoMatches > 0
-            ? 'البيانات من OpenAlex مع تصنيف Scimago الرسمي (Q1–Q4) لـ $scimagoMatches مجلة مطابقة.'
-            : 'البيانات من OpenAlex — لم تُطابق المجلات قاعدة Scimago؛ يُعرض تقدير التأثير فقط.',
+            ? L10nLookup.openAlexScimagoNote(scimagoMatches)
+            : L10nLookup.openAlexEstimateNote(),
       );
 
       _cache[cacheKey] = metrics;
@@ -87,8 +87,8 @@ class SupervisorMetricsService {
         _cache[cacheKey] = fallback;
         return fallback;
       }
-      return const SupervisorPublicationMetrics(
-        sourceNote: 'تعذر تحميل بيانات النشر حالياً.',
+      return SupervisorPublicationMetrics(
+        sourceNote: L10nLookup.publicationLoadFailed(),
       );
     }
   }
@@ -100,7 +100,7 @@ class SupervisorMetricsService {
       hIndex: supervisor.hIndex,
       fromOpenAlex: supervisor.openAlexId.isNotEmpty,
       sourceNote: supervisor.hasStoredMetrics
-          ? 'أرقام محفوظة عند الاستيراد — افتح الملف لتحديث التفاصيل.'
+          ? L10nLookup.storedImportMetricsNote()
           : '',
     );
   }

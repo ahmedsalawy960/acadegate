@@ -13,6 +13,9 @@ class UserAccountService {
   CollectionReference<Map<String, dynamic>> get _users =>
       _db.collection('users');
 
+  /// Public accessor for admin directory queries.
+  CollectionReference<Map<String, dynamic>> get usersCollection => _users;
+
   DocumentReference<Map<String, dynamic>> _doc(String uid) => _users.doc(uid);
 
   Stream<UserAccount?> watchCurrentAccount() {

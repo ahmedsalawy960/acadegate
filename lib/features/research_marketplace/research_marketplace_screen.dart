@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
+
+import '../../core/locale/locale_extensions.dart';
+import '../../core/locale/l10n_lookup.dart';
 import '../academic/academic_content_service.dart';
 import '../academic/academic_models.dart';
 import 'publish_research_idea_screen.dart';
@@ -10,8 +14,11 @@ class ResearchMarketplaceScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('سوق الأفكار البحثية'),
+      appBar: AcadeGateAppBar(
+        title: Text(context.t(
+          'سوق الأفكار البحثية',
+          'Research ideas marketplace',
+        )),
         backgroundColor: Colors.orange[800],
         foregroundColor: Colors.white,
       ),
@@ -25,8 +32,11 @@ class ResearchMarketplaceScreen extends StatelessWidget {
           );
           if (created == true && context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('تم إرسال الفكرة للمراجعة — ستظهر بعد الموافقة'),
+              SnackBar(
+                content: Text(context.t(
+                  'تم إرسال الفكرة للمراجعة — ستظهر بعد الموافقة',
+                  'Idea sent for review — it will appear after approval',
+                )),
                 behavior: SnackBarBehavior.floating,
               ),
             );
@@ -35,7 +45,7 @@ class ResearchMarketplaceScreen extends StatelessWidget {
         backgroundColor: Colors.orange[800],
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
-        label: const Text('نشر فكرة'),
+        label: Text(context.t('نشر فكرة', 'Publish idea')),
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -49,9 +59,12 @@ class ResearchMarketplaceScreen extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.orange.withValues(alpha: 0.2)),
             ),
-            child: const Text(
-              'جهات أكاديمية وصناعية تنشر مشاكل بحثية، والطلاب يقدمون مقترحات ويصوّتون عليها.',
-              style: TextStyle(height: 1.4),
+            child: Text(
+              context.t(
+                'جهات أكاديمية وصناعية تنشر مشاكل بحثية، والطلاب يقدمون مقترحات ويصوّتون عليها.',
+                'Academic and industry partners publish research problems; students submit proposals and vote.',
+              ),
+              style: const TextStyle(height: 1.4),
             ),
           ),
           Expanded(
@@ -64,13 +77,21 @@ class ResearchMarketplaceScreen extends StatelessWidget {
                 }
 
                 if (snapshot.hasError) {
-                  return Center(child: Text('حدث خطأ: ${snapshot.error}'));
+                  return Center(
+                    child: Text(context.t(
+                      'حدث خطأ: ${snapshot.error}',
+                      'Error: ${snapshot.error}',
+                    )),
+                  );
                 }
 
                 final ideas = snapshot.data ?? [];
                 if (ideas.isEmpty) {
-                  return const Center(
-                    child: Text('لا توجد أفكار في السوق حالياً'),
+                  return Center(
+                    child: Text(context.t(
+                      'لا توجد أفكار في السوق حالياً',
+                      'No ideas in the marketplace yet',
+                    )),
                   );
                 }
 
@@ -136,7 +157,26 @@ class _MarketIdeaCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  _StatusChip(isOpen: idea.isOpen),
+                  if (idea.funded)
+                    Padding(
+                      padding: const EdgeInsetsDirectional.only(end: 6),
+                      child: Chip(
+                        avatar: const Icon(Icons.volunteer_activism, size: 14),
+                        label: Text(
+                          context.t('ممولة', 'Funded'),
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                        visualDensity: VisualDensity.compact,
+                        backgroundColor:
+                            const Color(0xFFBF360C).withValues(alpha: 0.12),
+                        padding: EdgeInsets.zero,
+                      ),
+                    ),
+                  _StatusChip(
+                    isOpen: idea.isOpen,
+                    isClaimed: idea.isClaimed,
+                    claimedByName: idea.claimedByName,
+                  ),
                 ],
               ),
               const SizedBox(height: 6),
@@ -151,16 +191,33 @@ class _MarketIdeaCard extends StatelessWidget {
                 children: [
                   _InfoChip(
                     icon: Icons.thumb_up_alt_outlined,
-                    label: '${idea.votesCount} تصويت',
+                    label: context.t(
+                      '${idea.votesCount} تصويت',
+                      '${idea.votesCount} votes',
+                    ),
                   ),
                   _InfoChip(
                     icon: Icons.description_outlined,
-                    label: '${idea.proposalsCount} مقترح',
+                    label: context.t(
+                      '${idea.proposalsCount} مقترح',
+                      '${idea.proposalsCount} proposals',
+                    ),
                   ),
                   if (idea.budget.isNotEmpty)
                     _InfoChip(
                       icon: Icons.payments_outlined,
                       label: idea.budget,
+                    ),
+                  if (idea.category.isNotEmpty)
+                    _InfoChip(
+                      icon: Icons.school_outlined,
+                      label: L10nLookup.facultyTitleStatic(idea.category),
+                    ),
+                  if (idea.funded && idea.fundedAmount != null)
+                    _InfoChip(
+                      icon: Icons.savings_outlined,
+                      label:
+                          '${idea.fundedAmount} ${idea.fundedCurrency}'.trim(),
                     ),
                 ],
               ),
@@ -174,21 +231,44 @@ class _MarketIdeaCard extends StatelessWidget {
 
 class _StatusChip extends StatelessWidget {
   final bool isOpen;
+  final bool isClaimed;
+  final String claimedByName;
 
-  const _StatusChip({required this.isOpen});
+  const _StatusChip({
+    required this.isOpen,
+    this.isClaimed = false,
+    this.claimedByName = '',
+  });
 
   @override
   Widget build(BuildContext context) {
+    final Color bgColor;
+    final Color textColor;
+    final String label;
+    if (isClaimed) {
+      bgColor = Colors.blue;
+      textColor = Colors.blue[800]!;
+      label = context.t('تم اختياره', 'Claimed');
+    } else if (isOpen) {
+      bgColor = Colors.green;
+      textColor = Colors.green[800]!;
+      label = context.t('مفتوحة', 'Open');
+    } else {
+      bgColor = Colors.grey;
+      textColor = Colors.grey[700]!;
+      label = context.t('مغلقة', 'Closed');
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: (isOpen ? Colors.green : Colors.grey).withValues(alpha: 0.12),
+        color: bgColor.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
-        isOpen ? 'مفتوحة' : 'مغلقة',
+        label,
         style: TextStyle(
-          color: isOpen ? Colors.green[800] : Colors.grey[700],
+          color: textColor,
           fontSize: 12,
           fontWeight: FontWeight.w600,
         ),

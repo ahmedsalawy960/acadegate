@@ -1,3 +1,5 @@
+import '../../core/locale/app_translate.dart';
+
 class AdvisorAttachment {
   final String name;
   final String mimeType;
@@ -23,7 +25,7 @@ class AdvisorAttachment {
   factory AdvisorAttachment.fromMap(Map<String, dynamic> map) {
     final mime = map['mimeType']?.toString() ?? 'application/octet-stream';
     return AdvisorAttachment(
-      name: map['name']?.toString() ?? 'مرفق',
+      name: map['name']?.toString() ?? appTr('مرفق', 'Attachment'),
       mimeType: mime,
       url: map['url']?.toString() ?? '',
       isImage: map['isImage'] == true || mime.startsWith('image/'),
@@ -51,10 +53,17 @@ class GeminiInlinePart {
   final String mimeType;
   final String base64Data;
   final String fileName;
+  /// عند الملفات الكبيرة: مسار Firebase Storage بدل base64 داخل الطلب.
+  final String? storagePath;
 
   const GeminiInlinePart({
     required this.mimeType,
     required this.base64Data,
     required this.fileName,
+    this.storagePath,
   });
+
+  bool get hasInlineData => base64Data.trim().isNotEmpty;
+  bool get hasStoragePath =>
+      storagePath != null && storagePath!.trim().isNotEmpty;
 }

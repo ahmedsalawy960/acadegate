@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../../core/locale/app_translate.dart';
+import '../home/home_search_utils.dart';
 import '../moderation/approval_status.dart';
 import 'community_models.dart';
 
@@ -36,27 +38,13 @@ class CommunityService {
         return post.type == type;
       }).where((post) {
         if (searchQuery.trim().isEmpty) return true;
-        final q = searchQuery.trim().toLowerCase();
-        return post.title.toLowerCase().contains(q) ||
-            post.body.toLowerCase().contains(q) ||
-            post.authorName.toLowerCase().contains(q) ||
-            post.tags.any((tag) => tag.toLowerCase().contains(q));
+        return homeSearchMatches(searchQuery, [
+          post.title,
+          post.body,
+          post.authorName,
+          ...post.tags,
+        ]);
       }).toList();
-
-      if (posts.isEmpty) {
-        final fallback = fallbackCommunityPosts
-            .where((post) => post.roomId == roomId)
-            .where((post) => type == null || type.isEmpty || post.type == type)
-            .where((post) {
-          if (searchQuery.trim().isEmpty) return true;
-          final q = searchQuery.trim().toLowerCase();
-          return post.title.toLowerCase().contains(q) ||
-              post.body.toLowerCase().contains(q) ||
-              post.authorName.toLowerCase().contains(q) ||
-              post.tags.any((tag) => tag.toLowerCase().contains(q));
-        }).toList();
-        return fallback;
-      }
 
       return posts;
     });
@@ -90,7 +78,7 @@ class CommunityService {
 
   Future<String> resolveAuthorName() async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return 'طالب';
+    if (user == null) return appTr('طالب', 'Student');
 
     final displayName = user.displayName?.trim();
     if (displayName != null && displayName.isNotEmpty) return displayName;
@@ -99,7 +87,7 @@ class CommunityService {
     final fromDoc = doc.data()?['displayName']?.toString().trim();
     if (fromDoc != null && fromDoc.isNotEmpty) return fromDoc;
 
-    return user.email?.split('@').first ?? 'طالب';
+    return user.email?.split('@').first ?? appTr('طالب', 'Student');
   }
 
   Future<String?> createPost({
@@ -112,12 +100,14 @@ class CommunityService {
     String? university,
   }) async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return 'يجب تسجيل الدخول أولاً';
+    if (user == null) {
+      return appTr('يجب تسجيل الدخول أولاً', 'You must sign in first');
+    }
 
     final trimmedTitle = title.trim();
     final trimmedBody = body.trim();
     if (trimmedTitle.isEmpty || trimmedBody.isEmpty) {
-      return 'العنوان والمحتوى مطلوبان';
+      return appTr('العنوان والمحتوى مطلوبان', 'Title and content are required');
     }
 
     final authorName = await resolveAuthorName();
@@ -146,10 +136,14 @@ class CommunityService {
     required String body,
   }) async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return 'يجب تسجيل الدخول أولاً';
+    if (user == null) {
+      return appTr('يجب تسجيل الدخول أولاً', 'You must sign in first');
+    }
 
     final trimmedBody = body.trim();
-    if (trimmedBody.isEmpty) return 'اكتب رداً أولاً';
+    if (trimmedBody.isEmpty) {
+      return appTr('اكتب رداً أولاً', 'Write a reply first');
+    }
 
     final authorName = await resolveAuthorName();
     final postRef = _posts.doc(postId);

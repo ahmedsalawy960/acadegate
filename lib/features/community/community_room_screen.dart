@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
+import '../../core/locale/l10n_lookup.dart';
+import '../../core/locale/locale_extensions.dart';
+import '../matchmaking/matchmaking_screen.dart';
 import '../moderation/approval_status.dart';
 import 'community_data.dart';
 import 'community_models.dart';
@@ -22,18 +26,23 @@ class _CommunityRoomScreenState extends State<CommunityRoomScreen>
   final _searchController = TextEditingController();
   String _searchQuery = '';
 
-  static const _tabs = <String?, String>{
-    null: 'الكل',
-    CommunityPostType.question: 'أسئلة',
-    CommunityPostType.discussion: 'نقاش',
-    CommunityPostType.announcement: 'إعلانات',
-    CommunityPostType.studyGroup: 'مجموعات',
-  };
+  static const _tabTypes = <String?>[
+    null,
+    CommunityPostType.question,
+    CommunityPostType.discussion,
+    CommunityPostType.announcement,
+    CommunityPostType.studyGroup,
+  ];
+
+  String _tabLabel(BuildContext context, String? type) {
+    if (type == null) return context.t('الكل', 'All');
+    return CommunityPostType.label(type);
+  }
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: _tabs.length, vsync: this);
+    _tabController = TabController(length: _tabTypes.length, vsync: this);
   }
 
   @override
@@ -43,13 +52,28 @@ class _CommunityRoomScreenState extends State<CommunityRoomScreen>
     super.dispose();
   }
 
-  String? get _selectedType => _tabs.keys.elementAt(_tabController.index);
+  String? get _selectedType => _tabTypes.elementAt(_tabController.index);
+
+  void _openSupervisors() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MatchmakingScreen(
+          supervisorJourney: true,
+          focusFacultyId: widget.room.facultyCategoryId,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('غرفة ${widget.room.title}'),
+      appBar: AcadeGateAppBar(
+        title: Text(context.t(
+          'غرفة ${L10nLookup.communityRoomTitle(widget.room.id)}',
+          '${L10nLookup.communityRoomTitle(widget.room.id)} room',
+        )),
         backgroundColor: widget.room.color,
         foregroundColor: Colors.white,
         bottom: TabBar(
@@ -59,7 +83,9 @@ class _CommunityRoomScreenState extends State<CommunityRoomScreen>
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white70,
           onTap: (_) => setState(() {}),
-          tabs: _tabs.values.map((label) => Tab(text: label)).toList(),
+          tabs: _tabTypes
+              .map((type) => Tab(text: _tabLabel(context, type)))
+              .toList(),
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -75,8 +101,11 @@ class _CommunityRoomScreenState extends State<CommunityRoomScreen>
           );
           if (created == true && context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('تم إرسال المنشور للمراجعة — سيظهر بعد الموافقة'),
+              SnackBar(
+                content: Text(context.t(
+                  'تم إرسال المنشور للمراجعة — سيظهر بعد الموافقة',
+                  'Post sent for review — it will appear after approval',
+                )),
                 behavior: SnackBarBehavior.floating,
               ),
             );
@@ -85,7 +114,7 @@ class _CommunityRoomScreenState extends State<CommunityRoomScreen>
         backgroundColor: widget.room.color,
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
-        label: const Text('منشور جديد'),
+        label: Text(context.t('منشور جديد', 'New post')),
       ),
       body: Column(
         children: [
@@ -94,7 +123,10 @@ class _CommunityRoomScreenState extends State<CommunityRoomScreen>
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: 'ابحث في مناقشات الغرفة...',
+                hintText: context.t(
+                  'ابحث في مناقشات الغرفة...',
+                  'Search room discussions...',
+                ),
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: _searchQuery.isEmpty
                     ? null
@@ -114,6 +146,25 @@ class _CommunityRoomScreenState extends State<CommunityRoomScreen>
               onChanged: (value) => setState(() => _searchQuery = value),
             ),
           ),
+          if (widget.room.facultyCategoryId != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+              child: OutlinedButton.icon(
+                onPressed: _openSupervisors,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: widget.room.color,
+                  side: BorderSide(color: widget.room.color),
+                  minimumSize: const Size.fromHeight(42),
+                ),
+                icon: const Icon(Icons.school_outlined, size: 20),
+                label: Text(
+                  context.t(
+                    'ابحث عن مشرفين في هذا التخصص',
+                    'Find supervisors in this faculty',
+                  ),
+                ),
+              ),
+            ),
           Expanded(
             child: StreamBuilder<List<CommunityPost>>(
         stream: CommunityService.instance.watchRoomPosts(
@@ -128,7 +179,12 @@ class _CommunityRoomScreenState extends State<CommunityRoomScreen>
           }
 
           if (snapshot.hasError) {
-            return Center(child: Text('حدث خطأ: ${snapshot.error}'));
+            return Center(
+              child: Text(context.t(
+                'حدث خطأ: ${snapshot.error}',
+                'Error: ${snapshot.error}',
+              )),
+            );
           }
 
           final posts = snapshot.data ?? [];
@@ -138,8 +194,14 @@ class _CommunityRoomScreenState extends State<CommunityRoomScreen>
                 padding: const EdgeInsets.all(24),
                 child: Text(
                   _searchQuery.trim().isEmpty
-                      ? 'لا توجد منشورات في هذا القسم بعد.\nاضغط «منشور جديد» لتبدأ النقاش.'
-                      : 'لا توجد نتائج لـ «$_searchQuery»',
+                      ? context.t(
+                          'لا توجد منشورات في هذا القسم بعد.\nاضغط «منشور جديد» لتبدأ النقاش.',
+                          'No posts in this section yet.\nTap "New post" to start the discussion.',
+                        )
+                      : context.t(
+                          'لا توجد نتائج لـ «$_searchQuery»',
+                          'No results for "$_searchQuery"',
+                        ),
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.grey[700], height: 1.5),
                 ),
@@ -231,9 +293,9 @@ class _PostCard extends StatelessWidget {
                         color: Colors.orange.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Text(
-                        'بانتظار المراجعة',
-                        style: TextStyle(fontSize: 11, color: Colors.orange),
+                      child: Text(
+                        context.t('بانتظار المراجعة', 'Pending review'),
+                        style: const TextStyle(fontSize: 11, color: Colors.orange),
                       ),
                     ),
                   ],

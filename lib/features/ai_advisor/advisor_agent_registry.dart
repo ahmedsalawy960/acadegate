@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/locale/app_translate.dart';
 import 'advisor_agent.dart';
 import 'advisor_branding.dart';
 
@@ -22,9 +23,12 @@ class AdvisorAgentRegistry {
     AdvisorAgent(
       id: AdvisorAgentId.researchIdea,
       nameAr: 'وكيل الأفكار البحثية',
+      nameEn: 'Research Ideas Agent',
       shortLabel: 'فكرة بحثية',
+      shortLabelEn: 'Research idea',
       description: 'تقييم وتطوير واقتراح أفكار بحثية',
-      icon: Icons.lightbulb,
+      descriptionEn: 'Evaluate, develop, and suggest research ideas',
+      icon: Icons.auto_awesome,
       color: Color(0xFFF57C00),
       keywords: [
         'فكرة بحث',
@@ -51,9 +55,12 @@ class AdvisorAgentRegistry {
     AdvisorAgent(
       id: AdvisorAgentId.thesisWriter,
       nameAr: 'وكيل كتابة الرسائل',
+      nameEn: 'Thesis Writing Agent',
       shortLabel: 'كتابة رسالة',
+      shortLabelEn: 'Thesis writing',
       description: 'صياغة فصول ومحتوى بأسلوب أكاديمي طبيعي',
-      icon: Icons.edit_note,
+      descriptionEn: 'Draft chapters and content in natural academic style',
+      icon: Icons.article_outlined,
       color: Color(0xFF1565C0),
       keywords: [
         'اكتب فصل',
@@ -78,9 +85,12 @@ class AdvisorAgentRegistry {
     AdvisorAgent(
       id: AdvisorAgentId.researchSimulation,
       nameAr: 'وكيل محاكاة النتائج',
+      nameEn: 'Results Simulation Agent',
       shortLabel: 'محاكاة نتائج',
+      shortLabelEn: 'Results simulation',
       description: 'سيناريوهات نتائج افتراضية للتدريب على التحليل',
-      icon: Icons.insights,
+      descriptionEn: 'Hypothetical result scenarios for analysis practice',
+      icon: Icons.timeline,
       color: Color(0xFF6A1B9A),
       keywords: [
         'محاكاة',
@@ -102,9 +112,12 @@ class AdvisorAgentRegistry {
     AdvisorAgent(
       id: AdvisorAgentId.literatureReview,
       nameAr: 'وكيل المراجعة الأدبية',
+      nameEn: 'Literature Review Agent',
       shortLabel: 'مراجعة أدبية',
+      shortLabelEn: 'Literature review',
       description: 'تحليل أوراق علمية وإطار نظري',
-      icon: Icons.menu_book,
+      descriptionEn: 'Analyze papers and build theoretical frameworks',
+      icon: Icons.menu_book_outlined,
       color: Color(0xFF2E7D32),
       keywords: [
         'مراجعة أدبية',
@@ -130,9 +143,12 @@ class AdvisorAgentRegistry {
     AdvisorAgent(
       id: AdvisorAgentId.citations,
       nameAr: 'وكيل المراجع والتوثيق',
+      nameEn: 'Citations Agent',
       shortLabel: 'مراجع وتوثيق',
+      shortLabelEn: 'Citations',
       description: 'APA، IEEE، Chicago وتنظيم المراجع',
-      icon: Icons.format_quote,
+      descriptionEn: 'APA, IEEE, Chicago, and reference formatting',
+      icon: Icons.library_books_outlined,
       color: Color(0xFF5D4037),
       keywords: [
         'مرجع',
@@ -158,9 +174,12 @@ class AdvisorAgentRegistry {
     AdvisorAgent(
       id: AdvisorAgentId.academicEditing,
       nameAr: 'وكيل التحرير والتدقيق',
+      nameEn: 'Academic Editing Agent',
       shortLabel: 'تحرير لغوي',
+      shortLabelEn: 'Language editing',
       description: 'صياغة، تدقيق لغوي، وتحسين أسلوب أكاديمي',
-      icon: Icons.spellcheck,
+      descriptionEn: 'Paraphrasing, proofreading, and academic style',
+      icon: Icons.rate_review_outlined,
       color: Color(0xFFC62828),
       keywords: [
         'تحرير',
@@ -184,9 +203,12 @@ class AdvisorAgentRegistry {
     AdvisorAgent(
       id: AdvisorAgentId.dataAnalysis,
       nameAr: 'وكيل تحليل البيانات',
+      nameEn: 'Data Analysis Agent',
       shortLabel: 'بيانات وبرمجة',
+      shortLabelEn: 'Data & code',
       description: 'SPSS، Python، R وتحليل إحصائي',
-      icon: Icons.analytics,
+      descriptionEn: 'SPSS, Python, R, and statistical analysis',
+      icon: Icons.bar_chart,
       color: Color(0xFF00838F),
       keywords: [
         'spss',
@@ -203,11 +225,17 @@ class AdvisorAgentRegistry {
         'برمجة',
         'pandas',
         'معادلة',
+        'تطبيع',
+        'افتراضات',
+        'قوة العينة',
+        'shapiro',
+        'mann-whitney',
       ],
       systemPrompt: '''
 أنت وكيل متخصص في تحليل البيانات والبرمجة للبحث التجريبي.
 اقترح: المنهج الإحصائي المناسب، خطوات التحليل، وأمثلة كود (Python/R/SPSS).
-وضّح الافتراضات الإحصائية والمتطلبات.
+وضّح الافتراضات الإحصائية (التطبيع، تجانس التباين، الخطية) وقوة العينة.
+وجّه الباحث لمعالج الافتراضات الإحصائية في التطبيق عند الحاجة.
 ''',
       samplePrompt:
           'اقترح تحليلاً إحصائياً لبيانات استبيان 120 مشاركاً مع كود Python مبسط',
@@ -215,9 +243,12 @@ class AdvisorAgentRegistry {
     AdvisorAgent(
       id: AdvisorAgentId.presentations,
       nameAr: 'وكيل العروض التقديمية',
+      nameEn: 'Presentations Agent',
       shortLabel: 'عروض ومناقشة',
+      shortLabelEn: 'Presentations',
       description: 'هيكل عرض المناقشة والندوات',
-      icon: Icons.slideshow,
+      descriptionEn: 'Thesis defense and seminar slide structure',
+      icon: Icons.present_to_all,
       color: Color(0xFFEF6C00),
       keywords: [
         'عرض تقديمي',
@@ -240,9 +271,12 @@ class AdvisorAgentRegistry {
     AdvisorAgent(
       id: AdvisorAgentId.thesisPlanning,
       nameAr: 'وكيل تخطيط البحث',
+      nameEn: 'Research Planning Agent',
       shortLabel: 'تخطيط بحث',
+      shortLabelEn: 'Research planning',
       description: 'عناوين، أسئلة بحثية، وتلخيص',
-      icon: Icons.lightbulb_outline,
+      descriptionEn: 'Titles, research questions, and summarization',
+      icon: Icons.flag_outlined,
       color: Color(0xFF4527A0),
       keywords: [
         'عناوين',
@@ -265,9 +299,12 @@ class AdvisorAgentRegistry {
     AdvisorAgent(
       id: AdvisorAgentId.supervisorMatch,
       nameAr: 'وكيل اختيار المشرف',
+      nameEn: 'Supervisor Match Agent',
       shortLabel: 'مشرف مناسب',
+      shortLabelEn: 'Supervisor match',
       description: 'مطابقة مع مشرفين التطبيق',
-      icon: Icons.person_search,
+      descriptionEn: 'Match with supervisors in the app',
+      icon: Icons.supervisor_account_outlined,
       color: Color(0xFF1A237E),
       keywords: [
         'مشرف',
@@ -282,9 +319,12 @@ class AdvisorAgentRegistry {
     AdvisorAgent(
       id: AdvisorAgentId.general,
       nameAr: 'المنسق الأكاديمي',
+      nameEn: 'Academic Coordinator',
       shortLabel: 'عام',
+      shortLabelEn: 'General',
       description: 'توجيه ذكي لأي طلب أكاديمي',
-      icon: Icons.hub,
+      descriptionEn: 'Smart routing for any academic request',
+      icon: Icons.smart_toy_outlined,
       color: Color(0xFF37474F),
       keywords: [],
       systemPrompt: '''
@@ -339,35 +379,62 @@ class AdvisorAgentRegistry {
   }) {
     final buffer = StringBuffer();
     buffer.writeln(
-      'أنت ${AdvisorBranding.cloudBadge} — مساعد أكاديمي خبير في تطبيق ${AdvisorBranding.name} '
-      'للدراسات العليا (ماجستير ودكتوراه).',
+      appTr(
+        'أنت ${AdvisorBranding.cloudBadge} — مساعد أكاديمي خبير في تطبيق ${AdvisorBranding.name} '
+            'للدراسات العليا (ماجستير ودكتوراه).',
+        'You are ${AdvisorBranding.cloudBadge} — an expert academic assistant in the '
+            '${AdvisorBranding.name} app for graduate studies (master\'s and PhD).',
+      ),
     );
-    buffer.writeln('''
+    buffer.writeln(appTr(
+      '''
 أجب على سؤال الطالب **مباشرة وبشكل وافٍ ومفصّل** كما يفعل Gemini — لا تختصر إلا إذا طلب ذلك.
 - افهم السؤال بأي صيغة عربية طبيعية (عامية أو فصحى).
 - ممنوع أن تطلب منه إعادة صياغة السؤال أو استخدام قالب معين.
 - استخدم عناوين فرعية ونقاط وأمثلة عملية عند الحاجة.
 - لا تخترع أسماء مشرفين أو مراجع بأرقام DOI وهمية.
-''');
+- أجب بالعربية الأكاديمية الواضحة.
+''',
+      '''
+Answer the student's question **directly and thoroughly** like Gemini — do not shorten unless asked.
+- Understand the question in any natural phrasing.
+- Never ask them to rephrase or use a specific template.
+- Use subheadings, bullets, and practical examples when helpful.
+- Do not invent supervisor names or references with fake DOIs.
+- Respond in clear academic English.
+''',
+    ));
 
-    buffer.writeln('\nالتخصص النشط: $agentName');
+    buffer.writeln(
+      appTr('\nالتخصص النشط: $agentName', '\nActive specialty: $agentName'),
+    );
     if (agentFocus.trim().isNotEmpty) {
       buffer.writeln(agentFocus.trim());
     }
 
     if (isMultiAgent && supportingAgents.isNotEmpty) {
+      final joined = supportingAgents.join(appTr('، ', ', '));
       buffer.writeln(
-        '\nالطلب يحتاج أيضاً خبرة: ${supportingAgents.join('، ')} — '
-        'ادمجها في رد واحد متماسك.',
+        appTr(
+          '\nالطلب يحتاج أيضاً خبرة: $joined — ادمجها في رد واحد متماسك.',
+          '\nThe request also needs expertise from: $joined — merge into one cohesive answer.',
+        ),
       );
     }
 
     if (profileSummary.trim().isNotEmpty) {
-      buffer.writeln('\nملف الطالب: $profileSummary');
+      buffer.writeln(
+        appTr('\nملف الطالب: $profileSummary', '\nStudent profile: $profileSummary'),
+      );
     }
 
     if (extraContext.trim().isNotEmpty) {
-      buffer.writeln('\nبيانات من التطبيق (استخدمها عند الحاجة):\n$extraContext');
+      buffer.writeln(
+        appTr(
+          '\nبيانات من التطبيق (استخدمها عند الحاجة):\n$extraContext',
+          '\nData from the app (use when relevant):\n$extraContext',
+        ),
+      );
     }
 
     return buffer.toString();

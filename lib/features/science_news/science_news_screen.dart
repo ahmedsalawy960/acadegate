@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
+import 'package:acadegate/core/widgets/arrow_scroll_view.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/locale/locale_extensions.dart';
+import '../../core/locale/locale_service.dart';
 import 'science_news_feeds.dart';
 import 'science_news_models.dart';
 import 'science_news_service.dart';
@@ -21,6 +25,17 @@ class _ScienceNewsScreenState extends State<ScienceNewsScreen> {
   void initState() {
     super.initState();
     _loadNews();
+    LocaleService.instance.addListener(_onLocaleChanged);
+  }
+
+  @override
+  void dispose() {
+    LocaleService.instance.removeListener(_onLocaleChanged);
+    super.dispose();
+  }
+
+  void _onLocaleChanged() {
+    _loadNews(refresh: true);
   }
 
   void _loadNews({bool refresh = false}) {
@@ -35,7 +50,9 @@ class _ScienceNewsScreenState extends State<ScienceNewsScreen> {
     final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!launched && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تعذر فتح الرابط')),
+        SnackBar(
+          content: Text(context.t('تعذر فتح الرابط', 'Could not open link')),
+        ),
       );
     }
   }
@@ -43,13 +60,13 @@ class _ScienceNewsScreenState extends State<ScienceNewsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('أخبار علمية'),
+      appBar: AcadeGateAppBar(
+        title: Text(context.t('أخبار علمية', 'Science news')),
         backgroundColor: const Color(0xFF0D47A1),
         foregroundColor: Colors.white,
         actions: [
           IconButton(
-            tooltip: 'تحديث',
+            tooltip: context.t('تحديث', 'Refresh'),
             onPressed: () => _loadNews(refresh: true),
             icon: const Icon(Icons.refresh),
           ),
@@ -69,25 +86,29 @@ class _ScienceNewsScreenState extends State<ScienceNewsScreen> {
                 color: const Color(0xFF0D47A1).withValues(alpha: 0.2),
               ),
             ),
-            child: const Text(
-              'آخر الإنجازات والأبحاث من مصادر عالمية (Nature، ScienceDaily، Phys.org...) '
-              '— تُحدَّث تلقائياً. اضغط على الخبر لقراءته على الموقع الأصلي.',
-              style: TextStyle(height: 1.4),
+            child: Text(
+              context.t(
+                'أخبار علمية من مجلات وبوابات متخصصة (Nature، ScienceDaily، Phys.org، NASA...) '
+                '— تُجلب عبر السحابة. بالعربية: دويتشه فيله + مصادر علمية عالمية. '
+                'اضغط على الخبر لقراءته في المصدر.',
+                'Scientific news from journals and portals (Nature, ScienceDaily, Phys.org, NASA...) '
+                '— fetched via cloud, sorted by field. Tap to read at the source.',
+              ),
+              style: const TextStyle(height: 1.4),
             ),
           ),
-          SizedBox(
-            height: 40,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              children: ScienceNewsCategory.labels.entries.map((entry) {
-                final selected = _category == entry.key;
+          ArrowScrollView(
+            height: 48,
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Row(
+              children: ScienceNewsCategory.orderedIds.map((id) {
+                final selected = _category == id;
                 return Padding(
-                  padding: const EdgeInsets.only(left: 8),
+                  padding: const EdgeInsetsDirectional.only(end: 8),
                   child: ChoiceChip(
-                    label: Text(entry.value),
+                    label: Text(ScienceNewsCategory.label(id)),
                     selected: selected,
-                    onSelected: (_) => setState(() => _category = entry.key),
+                    onSelected: (_) => setState(() => _category = id),
                   ),
                 );
               }).toList(),
@@ -102,14 +123,28 @@ class _ScienceNewsScreenState extends State<ScienceNewsScreen> {
                 }
 
                 if (snapshot.hasError) {
-                  return Center(child: Text('حدث خطأ: ${snapshot.error}'));
+                  return Center(
+                    child: Text(
+                      context.t(
+                        'حدث خطأ: ${snapshot.error}',
+                        'An error occurred: ${snapshot.error}',
+                      ),
+                    ),
+                  );
                 }
 
                 final all = snapshot.data ?? const [];
                 final items = _service.filterByCategory(all, _category);
 
                 if (items.isEmpty) {
-                  return const Center(child: Text('لا توجد أخبار في هذا التصنيف'));
+                  return Center(
+                    child: Text(
+                      context.t(
+                        'لا توجد أخبار في هذا التصنيف',
+                        'No news in this category',
+                      ),
+                    ),
+                  );
                 }
 
                 return RefreshIndicator(
@@ -170,8 +205,11 @@ class _NewsCard extends StatelessWidget {
                   ),
                   if (item.isCurated) ...[
                     const SizedBox(width: 6),
-                    const Chip(
-                      label: Text('مختار', style: TextStyle(fontSize: 11)),
+                    Chip(
+                      label: Text(
+                        context.t('مختار', 'Featured'),
+                        style: const TextStyle(fontSize: 11),
+                      ),
                       visualDensity: VisualDensity.compact,
                     ),
                   ],
@@ -205,7 +243,7 @@ class _NewsCard extends StatelessWidget {
                   const Icon(Icons.open_in_new, size: 16),
                   const SizedBox(width: 4),
                   Text(
-                    'قراءة المصدر',
+                    context.t('قراءة المصدر', 'Read source'),
                     style: TextStyle(fontSize: 12, color: Colors.blue[800]),
                   ),
                 ],

@@ -1,3 +1,5 @@
+import '../../core/locale/app_translate.dart';
+
 /// حالة توثيق الهوية الأكاديمية للمشرف.
 class VerificationStatus {
   VerificationStatus._();
@@ -10,13 +12,13 @@ class VerificationStatus {
   static String label(String status) {
     switch (status) {
       case verified:
-        return 'موثّق';
+        return appTr('موثّق', 'Verified');
       case pending:
-        return 'قيد التحقق';
+        return appTr('قيد التحقق', 'Pending verification');
       case rejected:
-        return 'مرفوض';
+        return appTr('مرفوض', 'Rejected');
       default:
-        return 'غير موثّق';
+        return appTr('غير موثّق', 'Unverified');
     }
   }
 

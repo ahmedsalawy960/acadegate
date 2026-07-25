@@ -5,6 +5,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../../core/locale/app_translate.dart';
 import '../notifications/notification_service.dart';
 import 'community_service.dart';
 import 'research_room_models.dart';
@@ -93,10 +94,14 @@ class ResearchRoomService {
     required String password,
   }) async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return 'يجب تسجيل الدخول أولاً';
+    if (user == null) {
+      return appTr('يجب تسجيل الدخول أولاً', 'You must sign in first');
+    }
 
     final room = await getRoom(roomId);
-    if (room == null) return 'الغرفة غير موجودة';
+    if (room == null) {
+      return appTr('الغرفة غير موجودة', 'Room not found');
+    }
     if (!room.isPasswordProtected) return null;
 
     try {
@@ -110,10 +115,17 @@ class ResearchRoomService {
       });
       return null;
     } on FirebaseFunctionsException catch (e) {
-      if (e.code == 'permission-denied') return 'كلمة المرور غير صحيحة';
-      if (e.code == 'not-found') return 'الغرفة غير موجودة';
-      if (e.code == 'unauthenticated') return 'يجب تسجيل الدخول أولاً';
-      return e.message ?? 'تعذر الدخول للغرفة';
+      if (e.code == 'permission-denied') {
+        return appTr('كلمة المرور غير صحيحة', 'Incorrect password');
+      }
+      if (e.code == 'not-found') {
+        return appTr('الغرفة غير موجودة', 'Room not found');
+      }
+      if (e.code == 'unauthenticated') {
+        return appTr('يجب تسجيل الدخول أولاً', 'You must sign in first');
+      }
+      return e.message ??
+          appTr('تعذر الدخول للغرفة', 'Could not enter the room');
     } catch (_) {
       // احتياطي محلي للغرف القديمة إن لم تُنشر الدالة بعد
       if (room.passwordHash != null &&
@@ -124,7 +136,10 @@ class ResearchRoomService {
         });
         return null;
       }
-      return 'تعذر التحقق — انشر Cloud Function joinResearchRoom';
+      return appTr(
+        'تعذر التحقق — انشر Cloud Function joinResearchRoom',
+        'Verification failed — deploy Cloud Function joinResearchRoom',
+      );
     }
   }
 
@@ -136,37 +151,68 @@ class ResearchRoomService {
     String? password,
   }) async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return 'يجب تسجيل الدخول لإنشاء غرفة';
+    if (user == null) {
+      return appTr('يجب تسجيل الدخول لإنشاء غرفة', 'Sign in to create a room');
+    }
 
     final trimmedTitle = title.trim();
-    if (trimmedTitle.isEmpty) return 'اسم الغرفة مطلوب';
+    if (trimmedTitle.isEmpty) {
+      return appTr('اسم الغرفة مطلوب', 'Room name is required');
+    }
 
     if (isPasswordProtected) {
       final pass = password?.trim() ?? '';
-      if (pass.length < 4) return 'كلمة المرور يجب أن تكون 4 أحرف على الأقل';
+      if (pass.length < 4) {
+        return appTr(
+          'كلمة المرور يجب أن تكون 4 أحرف على الأقل',
+          'Password must be at least 4 characters',
+        );
+      }
     }
 
     final authorName = await CommunityService.instance.resolveAuthorName();
 
-    final docRef = await _rooms.add({
+    if (isPasswordProtected) {
+      try {
+        final callable = FirebaseFunctions.instance.httpsCallable(
+          'createResearchRoom',
+          options: HttpsCallableOptions(timeout: const Duration(seconds: 30)),
+        );
+        await callable.call<Map<String, dynamic>>({
+          'title': trimmedTitle,
+          'description': description.trim(),
+          if (categoryId != null && categoryId.isNotEmpty)
+            'categoryId': categoryId,
+          'isPasswordProtected': true,
+          'password': password!.trim(),
+          'creatorName': authorName,
+        });
+        return null;
+      } on FirebaseFunctionsException catch (e) {
+        if (e.code == 'unauthenticated') {
+          return appTr('يجب تسجيل الدخول لإنشاء غرفة', 'Sign in to create a room');
+        }
+        return e.message ??
+            appTr('تعذر إنشاء الغرفة المحمية', 'Could not create protected room');
+      } catch (_) {
+        return appTr(
+          'تعذر إنشاء الغرفة — تأكد من نشر createResearchRoom',
+          'Could not create room — ensure createResearchRoom is deployed',
+        );
+      }
+    }
+
+    await _rooms.add({
       'title': trimmedTitle,
       'description': description.trim(),
       'creatorId': user.uid,
       'creatorName': authorName,
       if (categoryId != null && categoryId.isNotEmpty) 'categoryId': categoryId,
-      'isPasswordProtected': isPasswordProtected,
+      'isPasswordProtected': false,
       'discussionsCount': 0,
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
-
-    if (isPasswordProtected) {
-      await _db.collection('research_room_secrets').doc(docRef.id).set({
-        'passwordHash': hashPassword(password!.trim()),
-        'creatorId': user.uid,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-    }
 
     return null;
   }
@@ -236,15 +282,22 @@ class ResearchRoomService {
     List<String> tags = const [],
   }) async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return 'يجب تسجيل الدخول أولاً';
+    if (user == null) {
+      return appTr('يجب تسجيل الدخول أولاً', 'You must sign in first');
+    }
 
     final hasAccess = await hasRoomAccess(roomId);
-    if (!hasAccess) return 'لا تملك صلاحية الدخول لهذه الغرفة';
+    if (!hasAccess) {
+      return appTr(
+        'لا تملك صلاحية الدخول لهذه الغرفة',
+        'You do not have access to this room',
+      );
+    }
 
     final trimmedTitle = title.trim();
     final trimmedBody = body.trim();
     if (trimmedTitle.isEmpty || trimmedBody.isEmpty) {
-      return 'العنوان والمحتوى مطلوبان';
+      return appTr('العنوان والمحتوى مطلوبان', 'Title and content are required');
     }
 
     final authorName = await CommunityService.instance.resolveAuthorName();
@@ -285,24 +338,36 @@ class ResearchRoomService {
     required String body,
   }) async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return 'يجب تسجيل الدخول أولاً';
+    if (user == null) {
+      return appTr('يجب تسجيل الدخول أولاً', 'You must sign in first');
+    }
 
     final hasAccess = await hasRoomAccess(roomId);
-    if (!hasAccess) return 'لا تملك صلاحية الدخول لهذه الغرفة';
+    if (!hasAccess) {
+      return appTr(
+        'لا تملك صلاحية الدخول لهذه الغرفة',
+        'You do not have access to this room',
+      );
+    }
 
     final trimmedBody = body.trim();
-    if (trimmedBody.isEmpty) return 'اكتب رداً أولاً';
+    if (trimmedBody.isEmpty) {
+      return appTr('اكتب رداً أولاً', 'Write a reply first');
+    }
 
     final authorName = await CommunityService.instance.resolveAuthorName();
     final room = await getRoom(roomId);
     final discussionRef =
         _rooms.doc(roomId).collection('discussions').doc(discussionId);
     final discussionSnap = await discussionRef.get();
-    if (!discussionSnap.exists) return 'المناقشة غير موجودة';
+    if (!discussionSnap.exists) {
+      return appTr('المناقشة غير موجودة', 'Discussion not found');
+    }
 
     final discussionData = discussionSnap.data()!;
     final discussionAuthorId = discussionData['authorId']?.toString() ?? '';
-    final discussionTitle = discussionData['title']?.toString() ?? 'مناقشة';
+    final discussionTitle = discussionData['title']?.toString() ??
+        appTr('مناقشة', 'Discussion');
 
     final repliesSnap = await discussionRef.collection('replies').get();
     final replyBodies = repliesSnap.docs
@@ -343,8 +408,11 @@ class ResearchRoomService {
         room.creatorId != user.uid) {
       await NotificationService.instance.send(
         userId: room.creatorId,
-        title: 'رد جديد في غرفتك البحثية',
-        body: '$authorName رد في «$discussionTitle» — ${room.title}',
+        title: appTr('رد جديد في غرفتك البحثية', 'New reply in your research room'),
+        body: appTr(
+          '$authorName رد في «$discussionTitle» — ${room.title}',
+          '$authorName replied in "$discussionTitle" — ${room.title}',
+        ),
         type: 'research_room_reply',
       );
     }
@@ -354,8 +422,11 @@ class ResearchRoomService {
         discussionAuthorId != room?.creatorId) {
       await NotificationService.instance.send(
         userId: discussionAuthorId,
-        title: 'رد جديد على مناقشتك',
-        body: '$authorName رد في «$discussionTitle»',
+        title: appTr('رد جديد على مناقشتك', 'New reply on your discussion'),
+        body: appTr(
+          '$authorName رد في «$discussionTitle»',
+          '$authorName replied in "$discussionTitle"',
+        ),
         type: 'research_discussion_reply',
       );
     }

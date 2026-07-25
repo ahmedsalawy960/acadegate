@@ -1,3 +1,4 @@
+import '../../core/locale/l10n_lookup.dart';
 import 'import_models.dart';
 import '../academic/faculty_categories.dart';
 
@@ -40,9 +41,7 @@ class CsvSupervisorParser {
     final columnMap = _mapHeaders(headerCells);
 
     if (!columnMap.containsKey('name')) {
-      throw FormatException(
-        'الملف يجب أن يحتوي على عمود name أو الاسم',
-      );
+      throw FormatException(L10nLookup.csvMissingNameColumn());
     }
 
     final rows = <CsvSupervisorRow>[];
@@ -135,7 +134,7 @@ class CsvSupervisorParser {
       category: _normalizeCategory(cell('category')),
       tags: listCell('tags'),
       methodologies: listCell('methodologies').isEmpty
-          ? const ['كمي', 'نوعي', 'مختلط']
+          ? L10nLookup.defaultMethodologies
           : listCell('methodologies'),
       isAvailable: boolCell('isavailable'),
       orcid: cell('orcid').isEmpty ? null : cell('orcid'),

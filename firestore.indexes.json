@@ -9,6 +9,14 @@
       ]
     },
     {
+      "collectionGroup": "research_rooms",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "creatorId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "science_news",
       "queryScope": "COLLECTION",
       "fields": [
@@ -79,6 +87,54 @@
         { "fieldPath": "labOwnerId", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "publish_manuscripts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "journals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "approvalStatus", "order": "ASCENDING" },
+        { "fieldPath": "name", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "research_ideas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "approvalStatus", "order": "ASCENDING" },
+        { "fieldPath": "votesCount", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "research_fund_awards",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "publisherId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "research_ideas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "publisherId", "order": "ASCENDING" },
+        { "fieldPath": "seedSource", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "sample_analysis_requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "needsOwnerRouting", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [
@@ -95,6 +151,36 @@
     {
       "collectionGroup": "writing_orders",
       "fieldPath": "serviceOwnerId",
+      "indexes": [
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION_GROUP"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "bookings",
+      "fieldPath": "labOwnerId",
+      "indexes": [
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION_GROUP"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "bookings",
+      "fieldPath": "needsOwnerRouting",
+      "indexes": [
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION_GROUP"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "bookings",
+      "fieldPath": "userId",
       "indexes": [
         {
           "order": "ASCENDING",

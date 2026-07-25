@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
+import '../../core/locale/l10n_lookup.dart';
+import '../../core/locale/locale_extensions.dart';
 import 'community_data.dart';
 import 'research_room_service.dart';
 
@@ -57,8 +60,8 @@ class _CreateResearchRoomScreenState extends State<CreateResearchRoomScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('إنشاء غرفة بحثية'),
+      appBar: AcadeGateAppBar(
+        title: Text(context.t('إنشاء غرفة بحثية', 'Create research room')),
         backgroundColor: const Color(0xFF00695C),
         foregroundColor: Colors.white,
       ),
@@ -69,53 +72,72 @@ class _CreateResearchRoomScreenState extends State<CreateResearchRoomScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
-                'أنشئ غرفة لمناقشاتك البحثية. يمكنك حمايتها بكلمة مرور '
-                'ليستطع الدخول إليها من تعطيه كلمة المرور فقط.',
-                style: TextStyle(color: Colors.grey, height: 1.4),
+              Text(
+                context.t(
+                  'أنشئ غرفة لمناقشاتك البحثية. يمكنك حمايتها بكلمة مرور '
+                  'ليستطع الدخول إليها من تعطيه كلمة المرور فقط.',
+                  'Create a room for your research discussions. You can protect it with a password '
+                  'so only those you share it with can enter.',
+                ),
+                style: const TextStyle(color: Colors.grey, height: 1.4),
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _titleController,
-                decoration: const InputDecoration(
-                  labelText: 'اسم الغرفة *',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: context.t('اسم الغرفة *', 'Room name *'),
+                  border: const OutlineInputBorder(),
                 ),
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'مطلوب' : null,
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? context.t('مطلوب', 'Required')
+                    : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _descriptionController,
                 maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: 'وصف الغرفة',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: context.t('وصف الغرفة', 'Room description'),
+                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String?>(
                 initialValue: _categoryId,
-                decoration: const InputDecoration(
-                  labelText: 'التخصص (اختياري)',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: context.t(
+                    'التخصص (اختياري)',
+                    'Discipline (optional)',
+                  ),
+                  border: const OutlineInputBorder(),
                 ),
                 items: [
-                  const DropdownMenuItem(value: null, child: Text('عام')),
-                  ...communityRooms.map(
-                    (room) => DropdownMenuItem(
-                      value: room.id,
-                      child: Text(room.title),
-                    ),
+                  DropdownMenuItem(
+                    value: null,
+                    child: Text(context.t('عام / بدون تخصص', 'General / none')),
                   ),
+                  ...communityRooms
+                      .where((room) => room.id != 'general')
+                      .map(
+                        (room) => DropdownMenuItem(
+                          value: room.id,
+                          child: Text(L10nLookup.communityRoomTitle(room.id)),
+                        ),
+                      ),
                 ],
                 onChanged: (value) => setState(() => _categoryId = value),
               ),
               const SizedBox(height: 16),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('حماية الغرفة بكلمة مرور'),
-                subtitle: const Text('لن يدخلها إلا من يعرف كلمة المرور'),
+                title: Text(context.t(
+                  'حماية الغرفة بكلمة مرور',
+                  'Protect room with password',
+                )),
+                subtitle: Text(context.t(
+                  'لن يدخلها إلا من يعرف كلمة المرور',
+                  'Only those who know the password can enter',
+                )),
                 value: _usePassword,
                 onChanged: (value) => setState(() => _usePassword = value),
               ),
@@ -124,14 +146,17 @@ class _CreateResearchRoomScreenState extends State<CreateResearchRoomScreen> {
                 TextFormField(
                   controller: _passwordController,
                   obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: 'كلمة المرور *',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: context.t('كلمة المرور *', 'Password *'),
+                    border: const OutlineInputBorder(),
                   ),
                   validator: (v) {
                     if (!_usePassword) return null;
                     if (v == null || v.trim().length < 4) {
-                      return '4 أحرف على الأقل';
+                      return context.t(
+                        '4 أحرف على الأقل',
+                        'At least 4 characters',
+                      );
                     }
                     return null;
                   },
@@ -146,7 +171,7 @@ class _CreateResearchRoomScreenState extends State<CreateResearchRoomScreen> {
                 ),
                 child: _isSaving
                     ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text('إنشاء الغرفة'),
+                    : Text(context.t('إنشاء الغرفة', 'Create room')),
               ),
             ],
           ),

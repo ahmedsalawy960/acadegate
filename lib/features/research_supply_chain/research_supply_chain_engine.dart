@@ -1,8 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../core/locale/app_translate.dart';
 import '../academic/academic_content_service.dart';
 import '../academic/academic_models.dart';
-import '../academic_writing/writing_fallback_data.dart';
 import '../academic_writing/writing_models.dart';
 import '../matchmaking/smart_matchmaking_engine.dart';
 import '../profile/academic_profile.dart';
@@ -103,39 +103,68 @@ class ResearchSupplyChainEngine {
     return AcademicProfile(
       fullName: profile?.fullName ?? '',
       university: profile?.university ?? '',
-      degree: profile?.degree ?? 'ماجستير',
+      degree: profile?.degree ?? appTr('ماجستير', 'Master\'s'),
       specialization: topic,
       researchInterest: topic,
-      methodology: profile?.methodology ?? 'كمي',
-      preferredLanguage: profile?.preferredLanguage ?? 'العربية',
+      methodology: profile?.methodology ?? appTr('كمي', 'Quantitative'),
+      preferredLanguage:
+          profile?.preferredLanguage ?? appTr('العربية', 'Arabic'),
       city: profile?.city ?? '',
       skills: profile?.skills ?? const [],
     );
   }
 
+  StoreCategory? _storeCategoryById(String id) {
+    for (final category in storeCategories) {
+      if (category.id == id) return category;
+    }
+    return null;
+  }
+
   StoreCategory? _inferStoreCategory(List<String> keywords) {
     const rules = <String, String>{
-      'كيم': 'متجر كيميائي',
-      'chem': 'متجر كيميائي',
-      'تحليل': 'متجر كيميائي',
-      'مختبر': 'متجر كيميائي',
-      'طبي': 'متجر طبي',
-      'med': 'متجر طبي',
-      'صح': 'متجر طبي',
-      'هند': 'متجر هندسي',
-      'eng': 'متجر هندسي',
-      'ميكان': 'متجر هندسي',
-      'زراع': 'متجر زراعي',
-      'agri': 'متجر زراعي',
+      'كيم': 'chemicals',
+      'chem': 'chemicals',
+      'كاشف': 'chemicals',
+      'بيول': 'biology',
+      'حيو': 'biology',
+      'dna': 'biology',
+      'طبي': 'medical',
+      'med': 'medical',
+      'صيدل': 'medical',
+      'أسنان': 'medical',
+      'هند': 'engineering',
+      'eng': 'engineering',
+      'إلكتر': 'engineering',
+      'فيزي': 'physics_materials',
+      'مواد': 'physics_materials',
+      'جيول': 'physics_materials',
+      'زراع': 'agriculture',
+      'بيطر': 'agriculture',
+      'agri': 'agriculture',
+      'حاسب': 'computing',
+      'برمج': 'computing',
+      'بيانات': 'computing',
+      'مستهلك': 'consumables',
+      'جهاز': 'instruments',
+      'قياس': 'instruments',
+      'سلام': 'safety',
+      'ميدان': 'field',
+      'مسح': 'field',
+      'كتاب': 'books',
+      'مرجع': 'books',
+      'تربي': 'humanities',
+      'آداب': 'humanities',
+      'اجتماع': 'humanities',
     };
 
-    final haystack = keywords.join(' ');
+    final haystack = keywords.join(' ').toLowerCase();
     for (final entry in rules.entries) {
       if (haystack.contains(entry.key)) {
-        return storeCategoryByTitle(entry.value);
+        return _storeCategoryById(entry.value);
       }
     }
-    return storeCategoryByTitle('متجر عام');
+    return _storeCategoryById('general');
   }
 
   Future<List<Map<String, dynamic>>> _fetchProducts() async {
@@ -163,7 +192,7 @@ class ResearchSupplyChainEngine {
           .toList();
       if (experts.isNotEmpty) return experts;
     } catch (_) {}
-    return fallbackWritingExperts;
+    return const [];
   }
 
   List<SupplyChainProduct> _matchProducts(
@@ -187,19 +216,19 @@ class ResearchSupplyChainEngine {
       for (final kw in keywords) {
         if (kw.length >= 2 && text.contains(kw)) {
           score += 12;
-          reasons.add('يتوافق مع «$kw»');
+          reasons.add(appTr('يتوافق مع «$kw»', 'Matches "$kw"'));
         }
       }
 
       final category = data['category']?.toString() ?? '';
       if (preferredCategory != null && category == preferredCategory) {
         score += 15;
-        reasons.add('من القسم المناسب لبحثك');
+        reasons.add(appTr('من القسم المناسب لبحثك', 'From the right section for your research'));
       }
 
       return SupplyChainProduct(
         id: data['id']?.toString(),
-        name: data['name']?.toString() ?? 'منتج',
+        name: data['name']?.toString() ?? appTr('منتج', 'Product'),
         price: (data['price'] as num?) ?? 0,
         category: category,
         imageUrl: data['imageUrl']?.toString(),
@@ -238,32 +267,34 @@ class ResearchSupplyChainEngine {
         if (kw.length >= 2 && text.contains(kw)) score += 10;
       }
 
-      if (profile.degree.contains('دكتوراه') &&
-          expert.category.contains('رسائل')) {
+      if (_isPhdDegree(profile.degree) && expert.category.contains('رسائل')) {
         score += 20;
-        reasons.add('مناسب لمرحلة الدكتوراه');
-      } else if (profile.degree.contains('ماجستير') &&
+        reasons.add(appTr('مناسب لمرحلة الدكتوراه', 'Suitable for PhD stage'));
+      } else if (_isMastersDegree(profile.degree) &&
           (expert.category.contains('رسائل') ||
               expert.category.contains('إحصاء'))) {
         score += 18;
-        reasons.add('يدعم رسائل الماجستير');
+        reasons.add(appTr('يدعم رسائل الماجستير', 'Supports master\'s theses'));
       }
 
       if (preferredCategory != null &&
           expert.category.contains(preferredCategory)) {
         score += 15;
-        reasons.add('خدمة كتابة مناسبة لنوع بحثك');
+        reasons.add(appTr('خدمة كتابة مناسبة لنوع بحثك', 'Writing service suited to your research type'));
       }
 
-      if (profile.methodology == 'كمي' && expert.category.contains('إحصاء')) {
+      if (_isQuantitativeMethodology(profile.methodology) &&
+          expert.category.contains('إحصاء')) {
         score += 12;
-        reasons.add('تحليل كمي متاح');
+        reasons.add(appTr('تحليل كمي متاح', 'Quantitative analysis available'));
       }
 
       final result = MatchResult(
         item: expert,
         score: score.clamp(0, 100),
-        reasons: reasons.isEmpty ? ['كاتب أكاديمي مقترح'] : reasons,
+        reasons: reasons.isEmpty
+            ? [appTr('كاتب أكاديمي مقترح', 'Suggested academic writer')]
+            : reasons,
       );
 
       if (best == null || result.score > best.score) best = result;
@@ -274,16 +305,33 @@ class ResearchSupplyChainEngine {
 
   String? _inferWritingCategory(AcademicProfile profile) {
     final text = profile.keywords.join(' ');
-    if (text.contains('إحص') || text.contains('spss') || profile.methodology == 'كمي') {
+    if (text.contains('إحص') ||
+        text.contains('spss') ||
+        _isQuantitativeMethodology(profile.methodology)) {
       return 'إحصاء';
     }
     if (text.contains('أدب') || text.contains('literature')) {
       return 'مراجعة';
     }
-    if (profile.degree.contains('دكتوراه') || profile.degree.contains('ماجستير')) {
+    if (_isPhdDegree(profile.degree) || _isMastersDegree(profile.degree)) {
       return 'رسائل';
     }
     return 'أوراق';
+  }
+
+  bool _isPhdDegree(String degree) {
+    final d = degree.toLowerCase();
+    return d.contains('دكتوراه') || d.contains('phd') || d.contains('doctorate');
+  }
+
+  bool _isMastersDegree(String degree) {
+    final d = degree.toLowerCase();
+    return d.contains('ماجستير') || d.contains('master');
+  }
+
+  bool _isQuantitativeMethodology(String methodology) {
+    final m = methodology.toLowerCase();
+    return m.contains('كمي') || m.contains('quant');
   }
 
   List<String> _buildSummary({
@@ -296,22 +344,40 @@ class ResearchSupplyChainEngine {
   }) {
     final lines = <String>[];
     if (idea != null) {
-      lines.add('💡 فكرة: ${idea.item.title} (${idea.score}%)');
+      lines.add(appTr(
+        '💡 فكرة: ${idea.item.title} (${idea.score}%)',
+        '💡 Idea: ${idea.item.title} (${idea.score}%)',
+      ));
     }
     if (supervisor != null) {
-      lines.add('👤 مشرف: ${supervisor.item.name} (${supervisor.score}%)');
+      lines.add(appTr(
+        '👤 مشرف: ${supervisor.item.name} (${supervisor.score}%)',
+        '👤 Supervisor: ${supervisor.item.name} (${supervisor.score}%)',
+      ));
     }
     if (lab != null) {
-      lines.add('🔬 مختبر: ${lab.item.name} (${lab.score}%)');
+      lines.add(appTr(
+        '🔬 مختبر: ${lab.item.name} (${lab.score}%)',
+        '🔬 Lab: ${lab.item.name} (${lab.score}%)',
+      ));
     }
     if (storeCategory != null) {
-      lines.add('🛒 قسم متجر: ${storeCategory.title}');
+      lines.add(appTr(
+        '🛒 قسم متجر: ${storeCategory.title}',
+        '🛒 Store section: ${storeCategory.title}',
+      ));
     }
     if (products.isNotEmpty) {
-      lines.add('📦 ${products.length} منتج/ات مقترحة');
+      lines.add(appTr(
+        '📦 ${products.length} منتج/ات مقترحة',
+        '📦 ${products.length} suggested product(s)',
+      ));
     }
     if (expert != null) {
-      lines.add('✍️ كاتب: ${expert.item.name} (${expert.score}%)');
+      lines.add(appTr(
+        '✍️ كاتب: ${expert.item.name} (${expert.score}%)',
+        '✍️ Writer: ${expert.item.name} (${expert.score}%)',
+      ));
     }
     return lines;
   }

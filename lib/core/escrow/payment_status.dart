@@ -1,4 +1,7 @@
-/// حالات الدفع بالضمان (Escrow) — MVP بدون بوابة دفع خارجية.
+import '../../core/locale/l10n_lookup.dart';
+
+/// Escrow payment statuses.
+/// Real transitions must run via Cloud Functions / payment gateway — not the client.
 class PaymentStatus {
   PaymentStatus._();
 
@@ -7,16 +10,5 @@ class PaymentStatus {
   static const released = 'released';
   static const refunded = 'refunded';
 
-  static String label(String status) {
-    switch (status) {
-      case held:
-        return 'مدفوع — محجوز';
-      case released:
-        return 'تم التسليم للبائع';
-      case refunded:
-        return 'مسترد';
-      default:
-        return 'بانتظار الدفع';
-    }
-  }
+  static String label(String status) => L10nLookup.paymentStatusLabel(status);
 }

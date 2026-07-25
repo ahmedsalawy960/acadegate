@@ -1,25 +1,28 @@
+import '../../core/locale/app_translate.dart';
+import '../../core/locale/l10n_lookup.dart';
 import 'user_role.dart';
 
-/// البوابتان الرئيسيتان بعد الدخول للتطبيق.
+/// Main portals after sign-in.
 class PortalType {
   PortalType._();
 
   static const provider = 'provider';
   static const user = 'user';
 
-  static const labels = <String, String>{
-    provider: 'مقدم خدمة',
-    user: 'مستخدم البوابة',
-  };
+  static String label(String? portal) => L10nLookup.portalLabelStatic(portal);
 
-  static const descriptions = <String, String>{
-    provider:
+  static String description(String? portal) {
+    if (portal == provider) {
+      return appTr(
         'تاجر، مختبر، كاتب أكاديمي، ناشر أفكار، مشرف يقدّم خدماته',
-    user: 'طالب، باحث، مشرف يبحث عن خدمات، أو مستهلك للمحتوى',
-  };
-
-  static String label(String? portal) =>
-      labels[portal] ?? portal ?? 'البوابة';
+        'Merchant, lab, academic writer, idea publisher, or supervisor offering services',
+      );
+    }
+    return appTr(
+      'طالب، باحث، مشرف يبحث عن خدمات، أو مستهلك للمحتوى',
+      'Student, researcher, supervisor seeking services, or content consumer',
+    );
+  }
 
   /// أدوار تُقترح لها بوابة مقدم الخدمة عند التسجيل.
   static const providerRoles = {

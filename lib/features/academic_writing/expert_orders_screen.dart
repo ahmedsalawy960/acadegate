@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
+import '../../core/locale/locale_extensions.dart';
 import '../../core/escrow/payment_status.dart';
 import 'writing_models.dart';
 import 'writing_service.dart';
@@ -12,8 +14,8 @@ class ExpertOrdersScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('طلبات العملاء'),
+      appBar: AcadeGateAppBar(
+        title: Text(context.t('طلبات العملاء', 'Client orders')),
         backgroundColor: _brandColor,
         foregroundColor: Colors.white,
       ),
@@ -27,7 +29,9 @@ class ExpertOrdersScreen extends StatelessWidget {
 
           final orders = snapshot.data ?? [];
           if (orders.isEmpty) {
-            return const Center(child: Text('لا توجد طلبات واردة'));
+            return Center(
+              child: Text(context.t('لا توجد طلبات واردة', 'No incoming orders')),
+            );
           }
 
           return ListView.builder(
@@ -55,18 +59,24 @@ class _ExpertOrderCard extends StatelessWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('قبول الطلب'),
+        title: Text(ctx.t('قبول الطلب', 'Accept order')),
         content: TextField(
           controller: amountController,
           keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
-            labelText: 'المبلغ (ج.م)',
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            labelText: ctx.t('المبلغ (ج.م)', 'Amount (EGP)'),
+            border: const OutlineInputBorder(),
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('قبول')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(ctx.t('إلغاء', 'Cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(ctx.t('قبول', 'Accept')),
+          ),
         ],
       ),
     );
@@ -81,7 +91,7 @@ class _ExpertOrderCard extends StatelessWidget {
       );
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('تم قبول الطلب')),
+          SnackBar(content: Text(context.t('تم قبول الطلب', 'Order accepted'))),
         );
       }
     } catch (e) {
@@ -102,7 +112,7 @@ class _ExpertOrderCard extends StatelessWidget {
       );
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('تم رفض الطلب')),
+          SnackBar(content: Text(context.t('تم رفض الطلب', 'Order rejected'))),
         );
       }
     } catch (e) {
@@ -119,18 +129,24 @@ class _ExpertOrderCard extends StatelessWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('تسليم العمل'),
+        title: Text(ctx.t('تسليم العمل', 'Deliver work')),
         content: TextField(
           controller: noteController,
           maxLines: 3,
-          decoration: const InputDecoration(
-            labelText: 'ملاحظات التسليم',
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            labelText: ctx.t('ملاحظات التسليم', 'Delivery notes'),
+            border: const OutlineInputBorder(),
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('تسليم')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(ctx.t('إلغاء', 'Cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(ctx.t('تسليم', 'Deliver')),
+          ),
         ],
       ),
     );
@@ -144,7 +160,7 @@ class _ExpertOrderCard extends StatelessWidget {
       );
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('تم التسليم')),
+          SnackBar(content: Text(context.t('تم التسليم', 'Delivered'))),
         );
       }
     } catch (e) {
@@ -167,10 +183,14 @@ class _ExpertOrderCard extends StatelessWidget {
           children: [
             Text(order.topic, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             Text('${order.userName} • ${order.category}'),
-            Text('الحالة: ${order.statusLabel}'),
-            if (order.amount > 0) Text('المبلغ: ${order.amount} ج.م'),
+            Text('${context.t('الحالة', 'Status')}: ${order.statusLabel}'),
+            if (order.amount > 0)
+              Text('${context.t('المبلغ', 'Amount')}: ${order.amount} ${context.t('ج.م', 'EGP')}'),
             if (order.paymentStatus == PaymentStatus.held)
-              const Text('✓ الدفع محجوز', style: TextStyle(color: Colors.green)),
+              Text(
+                context.t('✓ الدفع محجوز', '✓ Payment held in escrow'),
+                style: const TextStyle(color: Colors.green),
+              ),
             if (order.isPending) ...[
               const SizedBox(height: 8),
               Row(
@@ -178,28 +198,83 @@ class _ExpertOrderCard extends StatelessWidget {
                   Expanded(
                     child: FilledButton(
                       onPressed: () => _accept(context),
-                      child: const Text('قبول'),
+                      child: Text(context.t('قبول', 'Accept')),
                     ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () => _reject(context),
-                      child: const Text('رفض'),
+                      child: Text(context.t('رفض', 'Reject')),
                     ),
                   ),
                 ],
               ),
             ],
+            if (order.isConfirmed &&
+                order.isManualPayment &&
+                order.paymentStatus == PaymentStatus.pending) ...[
+              const SizedBox(height: 8),
+              Text(
+                context.t(
+                  'المشتري طلب تحويلاً يدوياً — بعد استلام التحويل أكّد هنا',
+                  'Buyer requested a manual transfer — confirm here after you receive it',
+                ),
+              ),
+              const SizedBox(height: 8),
+              FilledButton.icon(
+                onPressed: order.serviceId == null || order.id == null
+                    ? null
+                    : () async {
+                        try {
+                          await WritingService.instance
+                              .confirmManualPaymentReceived(
+                            serviceId: order.serviceId!,
+                            orderId: order.id!,
+                          );
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  context.t(
+                                    'تم تأكيد التحويل وبدء التنفيذ',
+                                    'Transfer confirmed — work started',
+                                  ),
+                                ),
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('$e'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                icon: const Icon(Icons.account_balance_wallet),
+                label: Text(
+                  context.t('تأكيد استلام التحويل', 'Confirm transfer received'),
+                ),
+              ),
+            ],
             if (order.isConfirmed && order.isPaidHeld) ...[
               const SizedBox(height: 8),
-              const Text('الطالب دفع — نفّذ العمل ثم سلّم'),
+              Text(
+                context.t(
+                  'الطالب دفع — نفّذ العمل ثم سلّم',
+                  'Student paid — complete the work then deliver',
+                ),
+              ),
             ],
             if (order.isInProgress && order.isPaidHeld) ...[
               const SizedBox(height: 8),
               FilledButton(
                 onPressed: () => _deliver(context),
-                child: const Text('تسليم للطالب'),
+                child: Text(context.t('تسليم للطالب', 'Deliver to student')),
               ),
             ],
           ],

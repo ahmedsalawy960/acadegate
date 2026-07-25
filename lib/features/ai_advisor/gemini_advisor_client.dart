@@ -1,9 +1,12 @@
 import 'dart:convert';
 
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import '../../core/firebase/callable_http_client.dart';
+import '../../core/locale/app_translate.dart';
 import 'advisor_attachment.dart';
 
 class GeminiGenerateResult {
@@ -36,10 +39,25 @@ class GeminiAdvisorClient {
     'gemini-flash-latest',
   ];
 
-  static bool get isConfigured =>
+  static bool get hasLocalKey =>
       _apiKey.isNotEmpty && !_looksLikePlaceholder(_apiKey);
 
+  /// يعتمد على مفتاح dart-define (Windows/Android/iOS).
+  static bool get isConfigured => hasLocalKey;
+
   static bool get runsOnWeb => kIsWeb;
+
+  /// Cloud Function متاحة على كل المنصات بعد تسجيل الدخول (لا حاجة لمفتاح محلي).
+  static bool get canUseCloudBackend =>
+      FirebaseAuth.instance.currentUser != null;
+
+  /// نص أو مرفقات — مفتاح محلي أو Cloud Function بعد تسجيل الدخول.
+  static bool get isAvailable => hasLocalKey || canUseCloudBackend;
+
+  static bool get canAnalyzeAttachments => isAvailable;
+
+  static bool get needsSignInForCloudAi =>
+      !hasLocalKey && FirebaseAuth.instance.currentUser == null;
 
   static bool _looksLikePlaceholder(String key) {
     final trimmed = key.trim();
@@ -66,21 +84,48 @@ class GeminiAdvisorClient {
     List<GeminiInlinePart> attachments = const [],
     int maxOutputTokens = 8192,
   }) async {
-    if (!isConfigured) {
-      return const GeminiGenerateResult(
-        error:
-            'مفتاح API غير صالح. استخدم مفتاحاً حقيقياً من Google AI Studio (ليس AIzaSyXXXXXXXX).',
-      );
-    }
+    final needsStorageBackend =
+        attachments.any((a) => a.hasStoragePath) && canUseCloudBackend;
 
-    if (kIsWeb) {
+    if (canUseCloudBackend) {
       final viaFunction = await _generateViaCloudFunction(
         systemPrompt: systemPrompt,
         userMessage: userMessage,
         history: history,
+        attachments: attachments,
         maxOutputTokens: maxOutputTokens,
       );
       if (viaFunction.isSuccess) return viaFunction;
+      if (!hasLocalKey || needsStorageBackend) return viaFunction;
+    }
+
+    if (!hasLocalKey) {
+      if (needsSignInForCloudAi) {
+        return GeminiGenerateResult(
+          error: appTr(
+            'سجّل الدخول لاستخدام AcadeGate AI.',
+            'Sign in to use AcadeGate AI.',
+          ),
+        );
+      }
+      return GeminiGenerateResult(
+        error: appTr(
+          'سجّل الدخول لاستخدام AcadeGate AI، أو أضف مفتاح Gemini في dart_defines.json '
+              'وشغّل إعداد: AcadeGate (Windows + AI).',
+          'Sign in to use AcadeGate AI, or add a Gemini key in dart_defines.json '
+              'and launch: AcadeGate (Windows + AI).',
+        ),
+      );
+    }
+
+    final inlineOnly = attachments.where((a) => a.hasInlineData).toList();
+    if (attachments.isNotEmpty && inlineOnly.isEmpty) {
+      return GeminiGenerateResult(
+        error: appTr(
+          'الملف الكبير يتطلب تسجيل الدخول لتحليله عبر السحابة.',
+          'Large files require sign-in for cloud analysis.',
+        ),
+      );
     }
 
     GeminiGenerateResult? lastError;
@@ -90,7 +135,7 @@ class GeminiAdvisorClient {
         systemPrompt: systemPrompt,
         userMessage: userMessage,
         history: history,
-        attachments: attachments,
+        attachments: inlineOnly,
         maxOutputTokens: maxOutputTokens,
       );
       if (result.isSuccess) return result;
@@ -101,7 +146,7 @@ class GeminiAdvisorClient {
           systemPrompt: systemPrompt,
           userMessage: userMessage,
           history: const [],
-          attachments: attachments,
+          attachments: inlineOnly,
           maxOutputTokens: maxOutputTokens,
         );
         if (result.isSuccess) return result;
@@ -113,33 +158,60 @@ class GeminiAdvisorClient {
     if (kIsWeb && lastError != null) {
       return GeminiGenerateResult(
         error: '${lastError.error}\n\n'
-            'على المتصفح (Chrome): شغّل التطبيق على Windows بدلاً من Chrome، '
-            'أو انشر Cloud Function من مجلد functions في المشروع.',
+            '${appTr(
+              'على المتصفح (Chrome): شغّل التطبيق على Windows بدلاً من Chrome، '
+                  'أو انشر Cloud Function من مجلد functions في المشروع.',
+              'In the browser (Chrome): run the app on Windows instead of Chrome, '
+                  'or deploy the Cloud Function from the functions folder in the project.',
+            )}',
       );
     }
 
     return lastError ??
-        const GeminiGenerateResult(error: 'تعذر الحصول على رد من Gemini');
+        GeminiGenerateResult(
+          error: appTr(
+            'تعذر الحصول على رد من Gemini',
+            'Could not get a response from Gemini',
+          ),
+        );
   }
 
   Future<GeminiGenerateResult> _generateViaCloudFunction({
     required String systemPrompt,
     required String userMessage,
     required List<Map<String, String>> history,
+    required List<GeminiInlinePart> attachments,
     required int maxOutputTokens,
   }) async {
+    final payload = <String, dynamic>{
+      'systemPrompt': systemPrompt,
+      'userMessage': userMessage,
+      'history': history,
+      'attachments': attachments
+          .map(
+            (a) => {
+              'mimeType': a.mimeType,
+              if (a.hasInlineData) 'base64Data': a.base64Data,
+              if (a.hasStoragePath) 'storagePath': a.storagePath,
+              'fileName': a.fileName,
+            },
+          )
+          .toList(),
+      'maxOutputTokens': maxOutputTokens,
+    };
+
+    // Windows cloud_functions pigeon channel often fails; use HTTP like other callables.
+    if (_preferHttpCallable) {
+      return _generateViaCallableHttp(payload);
+    }
+
     try {
       final callable = FirebaseFunctions.instance.httpsCallable(
         'geminiAdvisor',
-        options: HttpsCallableOptions(timeout: const Duration(seconds: 90)),
+        options: HttpsCallableOptions(timeout: const Duration(seconds: 180)),
       );
 
-      final response = await callable.call<Map<String, dynamic>>({
-        'systemPrompt': systemPrompt,
-        'userMessage': userMessage,
-        'history': history,
-        'maxOutputTokens': maxOutputTokens,
-      });
+      final response = await callable.call<Map<String, dynamic>>(payload);
 
       final data = response.data;
       final text = data['text']?.toString().trim();
@@ -151,12 +223,77 @@ class GeminiAdvisorClient {
       }
 
       return GeminiGenerateResult(
-        error: data['error']?.toString() ?? 'رد فارغ من Cloud Function',
+        error: data['error']?.toString() ??
+            appTr('رد فارغ من Cloud Function', 'Empty response from Cloud Function'),
       );
     } on FirebaseFunctionsException catch (e) {
+      if (_isPluginChannelError(e.message)) {
+        return _generateViaCallableHttp(payload);
+      }
       if (e.code == 'not-found' || e.code == 'unavailable') {
-        return const GeminiGenerateResult(
-          error: 'Cloud Function غير منشورة بعد (geminiAdvisor)',
+        return GeminiGenerateResult(
+          error: appTr(
+            'Cloud Function غير منشورة بعد (geminiAdvisor)',
+            'Cloud Function not deployed yet (geminiAdvisor)',
+          ),
+        );
+      }
+      return GeminiGenerateResult(error: 'Cloud Function: ${e.message}');
+    } catch (e) {
+      if (_isPluginChannelError(e.toString())) {
+        return _generateViaCallableHttp(payload);
+      }
+      return GeminiGenerateResult(error: 'Cloud Function: $e');
+    }
+  }
+
+  static bool get _preferHttpCallable =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
+
+  static bool _isPluginChannelError(String? message) {
+    if (message == null) return false;
+    final lower = message.toLowerCase();
+    return lower.contains('unable to establish connection on channel') ||
+        lower.contains('cloudfunctionshostapi') ||
+        lower.contains('pigeon');
+  }
+
+  Future<GeminiGenerateResult> _generateViaCallableHttp(
+    Map<String, dynamic> payload,
+  ) async {
+    try {
+      final data = await CallableHttpClient.call(
+        name: 'geminiAdvisor',
+        data: payload,
+        timeout: const Duration(seconds: 180),
+        callableProtocol: true,
+      );
+      final text = data['text']?.toString().trim();
+      if (text != null && text.isNotEmpty) {
+        return GeminiGenerateResult(
+          text: text,
+          modelUsed: data['model']?.toString(),
+        );
+      }
+      return GeminiGenerateResult(
+        error: data['error']?.toString() ??
+            appTr('رد فارغ من Cloud Function', 'Empty response from Cloud Function'),
+      );
+    } on CallableHttpException catch (e) {
+      if (e.code == 'not-found' || e.code == 'unavailable') {
+        return GeminiGenerateResult(
+          error: appTr(
+            'Cloud Function غير منشورة بعد (geminiAdvisor)',
+            'Cloud Function not deployed yet (geminiAdvisor)',
+          ),
+        );
+      }
+      if (e.code == 'unauthenticated') {
+        return GeminiGenerateResult(
+          error: appTr(
+            'سجّل الدخول مجدداً لاستخدام AcadeGate AI.',
+            'Sign in again to use AcadeGate AI.',
+          ),
         );
       }
       return GeminiGenerateResult(error: 'Cloud Function: ${e.message}');
@@ -232,16 +369,26 @@ class GeminiAdvisorClient {
       final blockReason = data['promptFeedback']?['blockReason']?.toString();
       if (blockReason != null && blockReason.isNotEmpty) {
         return GeminiGenerateResult(
-          error: 'Gemini ($model): المحتوى محظور ($blockReason)',
+          error: appTr(
+            'Gemini ($model): المحتوى محظور ($blockReason)',
+            'Gemini ($model): content blocked ($blockReason)',
+          ),
         );
       }
 
       return GeminiGenerateResult(
-        error: 'Gemini ($model): رد فارغ — جرّب صياغة أخرى أو نموذجاً مختلفاً',
+        error: appTr(
+          'Gemini ($model): رد فارغ — جرّب صياغة أخرى أو نموذجاً مختلفاً',
+          'Gemini ($model): empty response — try different wording or another model',
+        ),
       );
     } catch (e) {
-      final hint = kIsWeb ? ' (غالباً CORS على المتصفح)' : '';
-      return GeminiGenerateResult(error: 'اتصال Gemini$hint: $e');
+      final hint = kIsWeb
+          ? appTr(' (غالباً CORS على المتصفح)', ' (likely CORS in the browser)')
+          : '';
+      return GeminiGenerateResult(
+        error: appTr('اتصال Gemini$hint: $e', 'Gemini connection$hint: $e'),
+      );
     }
   }
 
@@ -256,6 +403,7 @@ class GeminiAdvisorClient {
     }
 
     for (final attachment in attachments) {
+      if (!attachment.hasInlineData) continue;
       parts.add({
         'inline_data': {
           'mime_type': attachment.mimeType,
@@ -310,7 +458,10 @@ class GeminiAdvisorClient {
       final message = error?['message']?.toString();
       if (message != null && message.isNotEmpty) return message;
     } catch (_) {}
-    return 'خطأ API (${body.length > 120 ? '${body.substring(0, 120)}...' : body})';
+    return appTr(
+      'خطأ API (${body.length > 120 ? '${body.substring(0, 120)}...' : body})',
+      'API error (${body.length > 120 ? '${body.substring(0, 120)}...' : body})',
+    );
   }
 
   Future<String?> generate({

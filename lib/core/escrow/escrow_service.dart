@@ -1,33 +1,24 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
+import '../../core/locale/l10n_lookup.dart';
 import '../../features/notifications/notification_service.dart';
-import 'payment_status.dart';
 
-/// ضمان مبسّط: الطالب يؤكد الدفع → المبلغ «محجوز» → بعد التسليم يُفرج عنه.
+/// Escrow notifications only. Payment status is owned by Paymob Cloud Functions.
 class EscrowService {
   EscrowService._();
 
   static final EscrowService instance = EscrowService._();
 
-  Future<void> markPaidHeld({
-    required DocumentReference<Map<String, dynamic>> orderRef,
+  Future<void> notifyPaymentHeld({
     required String notifyUserId,
     required String title,
     required num amount,
   }) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) throw Exception('يجب تسجيل الدخول');
-
-    await orderRef.update({
-      'paymentStatus': PaymentStatus.held,
-      'paidAt': FieldValue.serverTimestamp(),
-    });
-
+    if (notifyUserId.isEmpty) return;
     await NotificationService.instance.send(
       userId: notifyUserId,
-      title: 'تأكيد دفع',
-      body: 'تم استلام دفعة بقيمة $amount ج.م — $title',
+      title: L10nLookup.paymentConfirmTitle(),
+      body: L10nLookup.paymentConfirmBody(amount, title),
       type: 'payment_held',
     );
   }
@@ -37,15 +28,10 @@ class EscrowService {
     required String sellerId,
     required String title,
   }) async {
-    await orderRef.update({
-      'paymentStatus': PaymentStatus.released,
-      'releasedAt': FieldValue.serverTimestamp(),
-    });
-
     await NotificationService.instance.send(
       userId: sellerId,
-      title: 'تم تحرير الدفعة',
-      body: 'تم إفراج المبلغ لطلب: $title',
+      title: L10nLookup.paymentReleasedTitle(),
+      body: L10nLookup.paymentReleasedBody(title),
       type: 'payment_released',
     );
   }
@@ -55,15 +41,10 @@ class EscrowService {
     required String buyerId,
     required String title,
   }) async {
-    await orderRef.update({
-      'paymentStatus': PaymentStatus.refunded,
-      'refundedAt': FieldValue.serverTimestamp(),
-    });
-
     await NotificationService.instance.send(
       userId: buyerId,
-      title: 'استرداد',
-      body: 'تم استرداد المبلغ لطلب: $title',
+      title: L10nLookup.refundTitle(),
+      body: L10nLookup.refundBody(title),
       type: 'payment_refunded',
     );
   }

@@ -1,4 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+
+import '../../core/locale/app_translate.dart';
 import '../moderation/approval_status.dart';
 import 'community_data.dart';
 
@@ -25,7 +27,7 @@ class CommunityPost {
     required this.title,
     required this.body,
     this.authorId = '',
-    this.authorName = 'طالب',
+    this.authorName = '',
     this.tags = const [],
     this.upvotesCount = 0,
     this.repliesCount = 0,
@@ -55,10 +57,12 @@ class CommunityPost {
       id: id,
       roomId: map['roomId']?.toString() ?? 'general',
       type: map['type']?.toString() ?? CommunityPostType.discussion,
-      title: map['title']?.toString() ?? 'بدون عنوان',
+      title: map['title']?.toString() ??
+          appTr('بدون عنوان', 'Untitled'),
       body: map['body']?.toString() ?? '',
       authorId: map['authorId']?.toString() ?? '',
-      authorName: map['authorName']?.toString() ?? 'طالب',
+      authorName: map['authorName']?.toString() ??
+          appTr('طالب', 'Student'),
       tags: tags,
       upvotesCount: _parseInt(map['upvotesCount']),
       repliesCount: _parseInt(map['repliesCount']),
@@ -103,7 +107,8 @@ class CommunityReply {
       id: id,
       postId: postId,
       authorId: map['authorId']?.toString() ?? '',
-      authorName: map['authorName']?.toString() ?? 'طالب',
+      authorName: map['authorName']?.toString() ??
+          appTr('طالب', 'Student'),
       body: map['body']?.toString() ?? '',
       createdAt: created,
     );
@@ -115,49 +120,3 @@ int _parseInt(dynamic value) {
   if (value is num) return value.toInt();
   return int.tryParse(value?.toString() ?? '') ?? 0;
 }
-
-const fallbackCommunityPosts = <CommunityPost>[
-  CommunityPost(
-    roomId: 'engineering',
-    type: CommunityPostType.question,
-    title: 'كيف أختار موضوع رسالة ماجستير في الطاقة الشمسية؟',
-    body: 'أبحث عن أفكار عملية قريبة من السوق المصري مع إمكانية التطبيق الميداني.',
-    authorName: 'طالب ماجستير',
-    university: 'جامعة القاهرة',
-    tags: ['طاقة', 'ماجستير'],
-    upvotesCount: 8,
-    repliesCount: 3,
-  ),
-  CommunityPost(
-    roomId: 'cs',
-    type: CommunityPostType.discussion,
-    title: 'أفضل أدوات لتحليل البيانات البحثية',
-    body: 'هل SPSS كافٍ أم الأفضل الانتقال لـ Python/R في رسائل الدكتوراه؟',
-    authorName: 'باحث دكتوراه',
-    university: 'جامعة عين شمس',
-    tags: ['بيانات', 'تحليل'],
-    upvotesCount: 12,
-    repliesCount: 5,
-  ),
-  CommunityPost(
-    roomId: 'medicine',
-    type: CommunityPostType.announcement,
-    title: 'إعلان مناقشة: تأثير السكري على القلب',
-    body: 'مناقشة علمية بكلية الطب — القاعة الكبرى يوم الخميس 10 صباحاً.',
-    authorName: 'إدارة الكلية',
-    university: 'جامعة القاهرة',
-    eventDate: '2026-06-25',
-    upvotesCount: 20,
-    repliesCount: 2,
-  ),
-  CommunityPost(
-    roomId: 'science',
-    type: CommunityPostType.studyGroup,
-    title: 'مجموعة دراسة: إحصاء بحثي للماجستير',
-    body: 'نلتقي أسبوعياً أونلاين لمراجعة SPSS وتصميم التجارب.',
-    authorName: 'منسق المجموعة',
-    tags: ['إحصاء', 'مجموعة'],
-    upvotesCount: 6,
-    repliesCount: 4,
-  ),
-];

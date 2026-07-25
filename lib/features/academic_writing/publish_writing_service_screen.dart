@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
+import '../../core/locale/l10n_lookup.dart';
+import '../../core/locale/locale_extensions.dart';
 import '../auth/auth_guard.dart';
 import 'writing_categories.dart';
 import 'writing_models.dart';
@@ -21,6 +24,7 @@ class _PublishWritingServiceScreenState
   final _bioController = TextEditingController();
   final _priceController = TextEditingController();
   final _contactController = TextEditingController();
+  final _portfolioController = TextEditingController();
 
   String _category = writingCategories.first.title;
   int _deliveryMin = 3;
@@ -34,6 +38,7 @@ class _PublishWritingServiceScreenState
     _bioController.dispose();
     _priceController.dispose();
     _contactController.dispose();
+    _portfolioController.dispose();
     super.dispose();
   }
 
@@ -44,6 +49,13 @@ class _PublishWritingServiceScreenState
     setState(() => _isSubmitting = true);
 
     try {
+      final samples = _portfolioController.text
+          .split('\n')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .take(8)
+          .toList();
+
       await WritingService.instance.publishExpertProfile(
         expert: WritingExpert(
           name: _nameController.text.trim(),
@@ -54,6 +66,7 @@ class _PublishWritingServiceScreenState
           deliveryDaysMin: _deliveryMin,
           deliveryDaysMax: _deliveryMax,
           contact: _contactController.text.trim(),
+          portfolioSamples: samples,
         ),
       );
 
@@ -76,8 +89,8 @@ class _PublishWritingServiceScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('التسجيل ككاتب أكاديمي'),
+      appBar: AcadeGateAppBar(
+        title: Text(context.t('التسجيل ككاتب أكاديمي', 'Register as academic writer')),
         backgroundColor: const Color(0xFF5D4037),
         foregroundColor: Colors.white,
       ),
@@ -92,28 +105,36 @@ class _PublishWritingServiceScreenState
                 color: Colors.amber.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Text(
-                'يُراجع ملفك قبل الظهور للباحثين. '
-                'قدّم خبراتك الحقيقية ونماذج أعمالك عند التواصل.',
-                style: TextStyle(fontSize: 13, height: 1.4),
+              child: Text(
+                context.t(
+                  'يُراجع ملفك قبل الظهور للباحثين. '
+                  'قدّم خبراتك الحقيقية ونماذج أعمالك عند التواصل.',
+                  'Your profile is reviewed before researchers can see it. '
+                  'Share your real experience and work samples when contacted.',
+                ),
+                style: const TextStyle(fontSize: 13, height: 1.4),
               ),
             ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _nameController,
-              textAlign: TextAlign.right,
-              decoration: _input('الاسم / الفريق'),
-              validator: (v) =>
-                  (v ?? '').trim().isEmpty ? 'الاسم مطلوب' : null,
+              textAlign: TextAlign.start,
+              decoration: _input(context.t('الاسم / الفريق', 'Name / team')),
+              validator: (v) => (v ?? '').trim().isEmpty
+                  ? context.t('الاسم مطلوب', 'Name is required')
+                  : null,
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
               key: ValueKey(_category),
               initialValue: _category,
-              decoration: _input('نوع الخدمة'),
+              decoration: _input(context.t('نوع الخدمة', 'Service type')),
               items: writingCategories
                   .map(
-                    (c) => DropdownMenuItem(value: c.title, child: Text(c.title)),
+                    (c) => DropdownMenuItem(
+                      value: c.title,
+                      child: Text(L10nLookup.writingTitle(c.id)),
+                    ),
                   )
                   .toList(),
               onChanged: (v) => setState(() => _category = v!),
@@ -121,35 +142,65 @@ class _PublishWritingServiceScreenState
             const SizedBox(height: 12),
             TextFormField(
               controller: _specialityController,
-              textAlign: TextAlign.right,
-              decoration: _input('التخصص (مثال: SPSS — رسائل علوم تطبيقية)'),
-              validator: (v) =>
-                  (v ?? '').trim().isEmpty ? 'التخصص مطلوب' : null,
+              textAlign: TextAlign.start,
+              decoration: _input(
+                context.t(
+                  'التخصص (مثال: SPSS — رسائل علوم تطبيقية)',
+                  'Speciality (e.g. SPSS — applied science theses)',
+                ),
+              ),
+              validator: (v) => (v ?? '').trim().isEmpty
+                  ? context.t('التخصص مطلوب', 'Speciality is required')
+                  : null,
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _bioController,
-              textAlign: TextAlign.right,
+              textAlign: TextAlign.start,
               maxLines: 4,
-              decoration: _input('نبذة عن خبرتك'),
-              validator: (v) =>
-                  (v ?? '').trim().length < 30 ? 'اكتب نبذة أوضح' : null,
+              decoration: _input(context.t('نبذة عن خبرتك', 'About your experience')),
+              validator: (v) => (v ?? '').trim().length < 30
+                  ? context.t('اكتب نبذة أوضح', 'Write a clearer bio')
+                  : null,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _portfolioController,
+              textAlign: TextAlign.start,
+              maxLines: 4,
+              decoration: _input(
+                context.t(
+                  'معرض أعمال (سطر لكل عينة — بدون أسماء طلاب)\n'
+                  'مثال: مراجعة أدبيات في الطاقة المتجددة — ماجستير',
+                  'Portfolio (one sample per line — no student names)\n'
+                  'e.g. Literature review in renewable energy — Master\'s',
+                ),
+              ),
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _priceController,
-              textAlign: TextAlign.right,
-              decoration: _input('نطاق الأسعار (مثال: 800 – 3000 ج.م)'),
-              validator: (v) =>
-                  (v ?? '').trim().isEmpty ? 'حدّد نطاق السعر' : null,
+              textAlign: TextAlign.start,
+              decoration: _input(
+                context.t(
+                  'نطاق الأسعار (مثال: 800 – 3000 ج.م)',
+                  'Price range (e.g. 800 – 3000 EGP)',
+                ),
+              ),
+              validator: (v) => (v ?? '').trim().isEmpty
+                  ? context.t('حدّد نطاق السعر', 'Set a price range')
+                  : null,
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _contactController,
-              textAlign: TextAlign.right,
-              decoration: _input('البريد أو واتساب للتواصل'),
-              validator: (v) =>
-                  (v ?? '').trim().isEmpty ? 'وسيلة التواصل مطلوبة' : null,
+              textAlign: TextAlign.start,
+              decoration: _input(
+                context.t('البريد أو واتساب للتواصل', 'Email or WhatsApp for contact'),
+              ),
+              validator: (v) => (v ?? '').trim().isEmpty
+                  ? context.t('وسيلة التواصل مطلوبة', 'Contact method is required')
+                  : null,
             ),
             const SizedBox(height: 12),
             Row(
@@ -158,7 +209,7 @@ class _PublishWritingServiceScreenState
                   child: DropdownButtonFormField<int>(
                     key: ValueKey(_deliveryMin),
                     initialValue: _deliveryMin,
-                    decoration: _input('أقل مدة (يوم)'),
+                    decoration: _input(context.t('أقل مدة (يوم)', 'Min duration (days)')),
                     items: List.generate(
                       30,
                       (i) => DropdownMenuItem(value: i + 1, child: Text('${i + 1}')),
@@ -171,7 +222,7 @@ class _PublishWritingServiceScreenState
                   child: DropdownButtonFormField<int>(
                     key: ValueKey(_deliveryMax),
                     initialValue: _deliveryMax,
-                    decoration: _input('أقصى مدة (يوم)'),
+                    decoration: _input(context.t('أقصى مدة (يوم)', 'Max duration (days)')),
                     items: List.generate(
                       60,
                       (i) => DropdownMenuItem(value: i + 1, child: Text('${i + 1}')),
@@ -193,7 +244,7 @@ class _PublishWritingServiceScreenState
                 ),
                 child: _isSubmitting
                     ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text('إرسال للمراجعة'),
+                    : Text(context.t('إرسال للمراجعة', 'Submit for review')),
               ),
             ),
           ],

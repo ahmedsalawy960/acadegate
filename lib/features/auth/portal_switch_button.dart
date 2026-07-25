@@ -1,38 +1,38 @@
 import 'package:flutter/material.dart';
+import '../../core/locale/locale_extensions.dart';
 
 /// زر تبديل البوابة من شريط التطبيق.
 class PortalSwitchButton extends StatelessWidget {
   final VoidCallback onSwitchPortal;
-  final String tooltip;
+  final String? tooltip;
 
   const PortalSwitchButton({
     super.key,
     required this.onSwitchPortal,
-    this.tooltip = 'تبديل البوابة',
+    this.tooltip,
   });
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+
     return IconButton(
-      tooltip: tooltip,
+      tooltip: tooltip ?? l10n.switchPortalTitle,
       icon: const Icon(Icons.swap_horiz),
       onPressed: () async {
         final confirm = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('تبديل البوابة'),
-            content: const Text(
-              'هل تريد العودة لشاشة اختيار البوابة؟\n'
-              'يمكنك التبديل بين مقدم الخدمة والمستخدم في أي وقت.',
-            ),
+            title: Text(l10n.switchPortalTitle),
+            content: Text(l10n.switchPortalMessage),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('إلغاء'),
+                child: Text(l10n.cancel),
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text('تبديل'),
+                child: Text(l10n.switchPortalConfirm),
               ),
             ],
           ),

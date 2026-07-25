@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
+import '../../core/locale/locale_extensions.dart';
 import 'research_room_models.dart';
 import 'research_room_screen.dart';
 import 'research_room_service.dart';
@@ -51,7 +53,7 @@ class _ResearchRoomGateScreenState extends State<ResearchRoomGateScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: AcadeGateAppBar(
         title: Text(widget.room.title),
         backgroundColor: const Color(0xFF00695C),
         foregroundColor: Colors.white,
@@ -63,15 +65,19 @@ class _ResearchRoomGateScreenState extends State<ResearchRoomGateScreen> {
           children: [
             const Icon(Icons.lock_outline, size: 64, color: Color(0xFF00695C)),
             const SizedBox(height: 16),
-            const Text(
-              'غرفة محمية بكلمة مرور',
+            Text(
+              context.t('غرفة محمية بكلمة مرور', 'Password-protected room'),
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Text(
-              'هذه الغرفة أنشأها ${widget.room.creatorName}. '
-              'أدخل كلمة المرور التي استلمتها للدخول.',
+              context.t(
+                'هذه الغرفة أنشأها ${widget.room.creatorName}. '
+                'أدخل كلمة المرور التي استلمتها للدخول.',
+                'This room was created by ${widget.room.creatorName}. '
+                'Enter the password you received to enter.',
+              ),
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.grey[700], height: 1.4),
             ),
@@ -80,7 +86,7 @@ class _ResearchRoomGateScreenState extends State<ResearchRoomGateScreen> {
               controller: _passwordController,
               obscureText: _obscure,
               decoration: InputDecoration(
-                labelText: 'كلمة المرور',
+                labelText: context.t('كلمة المرور', 'Password'),
                 border: const OutlineInputBorder(),
                 suffixIcon: IconButton(
                   icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
@@ -98,7 +104,7 @@ class _ResearchRoomGateScreenState extends State<ResearchRoomGateScreen> {
               ),
               child: _isChecking
                   ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text('دخول الغرفة'),
+                  : Text(context.t('دخول الغرفة', 'Enter room')),
             ),
           ],
         ),

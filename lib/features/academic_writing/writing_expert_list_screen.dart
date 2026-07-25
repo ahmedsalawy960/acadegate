@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
+import '../../core/locale/locale_extensions.dart';
 import 'writing_expert_detail_screen.dart';
-import 'writing_fallback_data.dart';
 import 'writing_models.dart';
 import 'writing_service.dart';
 import 'writing_categories.dart';
@@ -14,8 +15,8 @@ class WritingExpertListScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(category.title),
+      appBar: AcadeGateAppBar(
+        title: Text(category.localizedTitle),
         backgroundColor: category.color,
         foregroundColor: Colors.white,
       ),
@@ -29,15 +30,19 @@ class WritingExpertListScreen extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final experts = snapshot.data ?? fallbackExpertsForCategory(category.title);
+          final experts = snapshot.data ?? const [];
 
           if (experts.isEmpty) {
             return Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Text(
-                  'لا يوجد كتاب متاح في «${category.title}» حالياً.\n'
-                  'يمكنك التسجيل ككاتب من الزر في الأسفل.',
+                  context.t(
+                    'لا يوجد كتاب متاح في «${category.localizedTitle}» حالياً.\n'
+                    'يمكنك التسجيل ككاتب من الزر في الأسفل.',
+                    'No writers available in «${category.localizedTitle}» yet.\n'
+                    'You can register as a writer using the button below.',
+                  ),
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.grey[600]),
                 ),

@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Acadegate</string>
+	<string>AcadeGate</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -66,5 +66,13 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>AcadeGate uses the microphone for oral answers in the viva simulator.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>AcadeGate converts your spoken answers to text during viva practice.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>AcadeGate uses the camera to attach photos to advisor messages and uploads.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>AcadeGate uses your photo library to attach images to messages and uploads.</string>
 </dict>
 </plist>

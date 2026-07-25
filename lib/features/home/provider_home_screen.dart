@@ -1,21 +1,29 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
+import '../../core/locale/l10n_lookup.dart';
+import '../../core/locale/locale_extensions.dart';
+import '../auth/language_switcher_button.dart';
 import '../auth/portal_switch_button.dart';
 import '../auth/user_account.dart';
 import '../auth/user_account_service.dart';
 import '../auth/user_role.dart';
 import '../auth/welcome_screen.dart';
 import '../admin/admin_moderation_screen.dart';
+import '../admin/admin_unowned_lab_ops_screen.dart';
 import '../academic_writing/expert_orders_screen.dart';
 import '../contributor/contributor_hub_screen.dart';
 import '../contributor/submit_lab_screen.dart';
 import '../contributor/submit_supervisor_screen.dart';
 import '../messaging/conversations_screen.dart';
 import '../notifications/notifications_screen.dart';
+import '../research_fund/my_funded_ideas_screen.dart';
 import '../research_marketplace/publish_research_idea_screen.dart';
 import '../store/store_categories_screen.dart';
 import '../analysis_labs/sample_requests_screens.dart';
+import '../smart_labs/incoming_lab_bookings_screen.dart';
 import '../supervision/supervision_requests_screen.dart';
+import '../supervisor_dashboard/supervisor_workload_screen.dart';
 
 /// بوابة مقدمي الخدمات: تاجر، مختبر، كاتب، ناشر أفكار، مشرف.
 class ProviderHomeScreen extends StatelessWidget {
@@ -24,19 +32,20 @@ class ProviderHomeScreen extends StatelessWidget {
   const ProviderHomeScreen({super.key, this.onSwitchPortal});
 
   Future<void> _confirmLogout(BuildContext context) async {
+    final l10n = context.l10n;
     final shouldLogout = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('تسجيل الخروج'),
-        content: const Text('هل تريد تسجيل الخروج من حسابك؟'),
+        title: Text(l10n.logoutConfirmTitle),
+        content: Text(l10n.logoutConfirmMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('إلغاء'),
+            child: Text(l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('خروج'),
+            child: Text(l10n.logout),
           ),
         ],
       ),
@@ -55,24 +64,26 @@ class ProviderHomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final isLoggedIn = FirebaseAuth.instance.currentUser != null;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('بوابة مقدم الخدمة'),
+      appBar: AcadeGateAppBar(
+        title: Text(l10n.providerPortalTitle),
         centerTitle: true,
         backgroundColor: const Color(0xFF2E7D32),
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
+          const LanguageSwitcherButton(),
           if (onSwitchPortal != null)
             PortalSwitchButton(
               onSwitchPortal: onSwitchPortal!,
-              tooltip: 'التبديل إلى بوابة المستخدم',
+              tooltip: l10n.switchToUserPortal,
             ),
           const NotificationIconButton(),
           IconButton(
-            tooltip: 'الرسائل',
+            tooltip: l10n.messages,
             icon: const Icon(Icons.chat_outlined),
             onPressed: () {
               Navigator.push(
@@ -85,7 +96,7 @@ class ProviderHomeScreen extends StatelessWidget {
           ),
           if (isLoggedIn)
             IconButton(
-              tooltip: 'تسجيل الخروج',
+              tooltip: l10n.logout,
               icon: const Icon(Icons.logout),
               onPressed: () => _confirmLogout(context),
             ),
@@ -115,7 +126,7 @@ class ProviderHomeScreen extends StatelessWidget {
               },
               backgroundColor: const Color(0xFF2E7D32),
               icon: const Icon(Icons.dashboard_customize_outlined),
-              label: const Text('لوحة المساهمة الكاملة'),
+              label: Text(l10n.contributorHub),
             )
           : null,
     );
@@ -129,6 +140,7 @@ class _ProviderBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final role = account.role;
 
     return ListView(
@@ -137,53 +149,94 @@ class _ProviderBody extends StatelessWidget {
         _HeaderCard(account: account),
         const SizedBox(height: 20),
         if (account.isAdmin) ...[
-          _sectionTitle('إدارة النظام'),
+          _sectionTitle(l10n.sectionSystemAdmin),
           _tile(
             context,
             icon: Icons.admin_panel_settings_outlined,
-            title: 'مراجعة المحتوى',
-            subtitle: 'موافقة / رفض المشرفين والمختبرات والمنتجات',
+            title: l10n.contentModeration,
+            subtitle: l10n.contentModerationSub,
             color: const Color(0xFF1A237E),
             screen: const AdminModerationScreen(initialFilter: 'supervisors'),
           ),
+          _tile(
+            context,
+            icon: Icons.hub_outlined,
+            title: context.t(
+              'عمليات المختبرات غير المربوطة',
+              'Unowned lab operations',
+            ),
+            subtitle: context.t(
+              'حجوزات وطلبات تحليل من مختبرات NBSLE بدون مالك',
+              'Bookings & sample requests from unowned NBSLE labs',
+            ),
+            color: const Color(0xFF00695C),
+            screen: const AdminUnownedLabOpsScreen(),
+          ),
           const SizedBox(height: 20),
         ],
-        _sectionTitle('إدارة الطلبات الواردة'),
+        _sectionTitle(l10n.sectionIncomingOrders),
         if (_showWriting(role))
           _tile(
             context,
             icon: Icons.receipt_long,
-            title: 'طلبات الكتابة الواردة',
-            subtitle: 'قبول ورفض وتسليم طلبات العملاء',
+            title: l10n.writingOrdersIncoming,
+            subtitle: l10n.writingOrdersIncomingSub,
             color: const Color(0xFF6A1B9A),
             screen: const ExpertOrdersScreen(),
           ),
-        if (_showLabIncoming(role))
+        if (_showLabIncoming(role)) ...[
           _tile(
             context,
             icon: Icons.science_outlined,
-            title: 'طلبات تحليل العينات',
-            subtitle: 'عينات يرسلها الباحثون لمختبرك',
+            title: l10n.sampleAnalysisIncoming,
+            subtitle: l10n.sampleAnalysisIncomingSub,
             color: const Color(0xFF00695C),
             screen: const IncomingSampleAnalysisRequestsScreen(),
           ),
-        if (_showSupervisionIncoming(role))
+          _tile(
+            context,
+            icon: Icons.event_available_outlined,
+            title: context.t(
+              'حجوزات الأجهزة الواردة',
+              'Incoming equipment bookings',
+            ),
+            subtitle: context.t(
+              'حجوزات الباحثين على مختبراتك',
+              'Researcher bookings on your labs',
+            ),
+            color: const Color(0xFF00897B),
+            screen: const IncomingLabBookingsScreen(),
+          ),
+        ],
+        if (_showSupervisionIncoming(role)) ...[
+          _tile(
+            context,
+            icon: Icons.dashboard_outlined,
+            title: context.t('لوحة المشرف', 'Supervisor dashboard'),
+            subtitle: context.t(
+              'الطلاب، الطلبات، ومؤشر الحمل',
+              'Students, requests & workload',
+            ),
+            color: const Color(0xFF1565C0),
+            screen: const SupervisorWorkloadScreen(),
+          ),
           _tile(
             context,
             icon: Icons.school_outlined,
-            title: 'طلبات الإشراف الواردة',
-            subtitle: 'رسائل وطلبات من الطلاب',
+            title: l10n.supervisionIncoming,
+            subtitle: l10n.supervisionIncomingSub,
             color: const Color(0xFF1565C0),
             screen: const IncomingSupervisionRequestsScreen(),
           ),
+        ],
         const SizedBox(height: 20),
-        _sectionTitle('إضافة ونشر محتواك'),
+        _sectionTitle(l10n.sectionPublishContent),
         if (_showProduct(role))
           _tile(
             context,
             icon: Icons.storefront_outlined,
-            title: 'إضافة منتج للمتجر',
-            subtitle: 'اختر القسم ثم أضف منتجك',
+            title: l10n.addProduct,
+            subtitle: l10n.addProductSub,
             color: const Color(0xFFE65100),
             screen: const StoreCategoriesScreen(),
           ),
@@ -191,8 +244,8 @@ class _ProviderBody extends StatelessWidget {
           _tile(
             context,
             icon: Icons.biotech,
-            title: 'تسجيل مختبر',
-            subtitle: 'أضف مختبرك وأجهزته للمراجعة',
+            title: l10n.registerLab,
+            subtitle: l10n.registerLabSub,
             color: const Color(0xFF00695C),
             screen: const SubmitLabScreen(),
           ),
@@ -200,35 +253,47 @@ class _ProviderBody extends StatelessWidget {
           _tile(
             context,
             icon: Icons.person_add_alt_1,
-            title: 'تسجيل ملف مشرف',
-            subtitle: 'يُرسل للمراجعة قبل الظهور',
+            title: l10n.registerSupervisor,
+            subtitle: l10n.registerSupervisorSub,
             color: const Color(0xFF1565C0),
             screen: const SubmitSupervisorScreen(),
           ),
-        if (_showIdea(role))
+        if (_showIdea(role)) ...[
           _tile(
             context,
             icon: Icons.lightbulb_outline,
-            title: 'نشر فكرة بحثية',
-            subtitle: 'تُراجع قبل الظهور في السوق',
+            title: l10n.publishIdea,
+            subtitle: l10n.publishIdeaSub,
             color: const Color(0xFFF57F17),
             screen: const PublishResearchIdeaScreen(),
           ),
+          _tile(
+            context,
+            icon: Icons.savings_outlined,
+            title: context.t('أفكاري الممولة', 'My funded ideas'),
+            subtitle: context.t(
+              'تمويلات أفكارك من صندوق البحث',
+              'Awards for your ideas from the research fund',
+            ),
+            color: const Color(0xFFBF360C),
+            screen: const MyFundedIdeasScreen(),
+          ),
+        ],
         const SizedBox(height: 20),
-        _sectionTitle('متابعة طلباتك'),
+        _sectionTitle(l10n.sectionTrackOrders),
         _tile(
           context,
           icon: Icons.outgoing_mail,
-          title: 'طلباتي — إشراف وتواصل',
-          subtitle: 'متابعة ما أرسلته',
+          title: l10n.mySupervisionRequests,
+          subtitle: l10n.mySupervisionRequestsSub,
           color: const Color(0xFF455A64),
           screen: const MySupervisionRequestsScreen(),
         ),
         _tile(
           context,
           icon: Icons.biotech_outlined,
-          title: 'طلبات تحليلي للمختبرات',
-          subtitle: 'متابعة عينات أرسلتها',
+          title: l10n.mySampleRequests,
+          subtitle: l10n.mySampleRequestsSub,
           color: const Color(0xFF455A64),
           screen: const MySampleAnalysisRequestsScreen(),
         ),
@@ -272,66 +337,68 @@ class _GuestProviderBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         Card(
           color: const Color(0xFF2E7D32),
-          child: const Padding(
-            padding: EdgeInsets.all(20),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.info_outline, color: Colors.white),
-                SizedBox(height: 12),
+                const Icon(Icons.info_outline, color: Colors.white),
+                const SizedBox(height: 12),
                 Text(
-                  'أنت تتصفح كضيف',
-                  style: TextStyle(
+                  l10n.guestBrowsing,
+                  style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
                     fontSize: 18,
                   ),
                 ),
-                SizedBox(height: 8),
+                const SizedBox(height: 8),
                 Text(
-                  'سجّل الدخول أو أنشئ حساباً كمقدم خدمة للوصول إلى لوحة المساهمة وإدارة طلباتك.',
-                  style: TextStyle(color: Colors.white70, height: 1.5),
+                  l10n.guestProviderHint,
+                  style: const TextStyle(color: Colors.white70, height: 1.5),
                 ),
               ],
             ),
           ),
         ),
         const SizedBox(height: 20),
-        _sectionTitle('ما يمكنك فعله بعد التسجيل'),
+        _sectionTitle(l10n.afterRegisterTitle),
         _tile(
           context,
           icon: Icons.storefront_outlined,
-          title: 'بيع منتجات أكاديمية',
-          subtitle: 'تاجر / مورد',
+          title: l10n.sellProducts,
+          subtitle: l10n.sellProductsSub,
           color: const Color(0xFFE65100),
           onTap: () => _promptLogin(context),
         ),
         _tile(
           context,
           icon: Icons.biotech,
-          title: 'إدارة مختبر وتحليل عينات',
-          subtitle: 'مسؤول مختبر',
+          title: l10n.manageLab,
+          subtitle: l10n.manageLabSub,
           color: const Color(0xFF00695C),
           onTap: () => _promptLogin(context),
         ),
         _tile(
           context,
           icon: Icons.edit_note,
-          title: 'تقديم خدمات الكتابة الأكاديمية',
-          subtitle: 'كاتب / خبير',
+          title: l10n.offerWriting,
+          subtitle: l10n.offerWritingSub,
           color: const Color(0xFF6A1B9A),
           onTap: () => _promptLogin(context),
         ),
         _tile(
           context,
           icon: Icons.lightbulb_outline,
-          title: 'نشر أفكار بحثية',
-          subtitle: 'ناشر أفكار',
+          title: l10n.publishIdeasGuest,
+          subtitle: l10n.publishIdeasGuestSub,
           color: const Color(0xFFF57F17),
           onTap: () => _promptLogin(context),
         ),
@@ -341,8 +408,8 @@ class _GuestProviderBody extends StatelessWidget {
 
   void _promptLogin(BuildContext context) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('سجّل الدخول من الشاشة الرئيسية للمتابعة'),
+      SnackBar(
+        content: Text(context.l10n.signInToContinue),
       ),
     );
     Navigator.of(context).pushAndRemoveUntil(
@@ -359,6 +426,8 @@ class _HeaderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+
     return Card(
       color: const Color(0xFF2E7D32),
       child: Padding(
@@ -385,7 +454,7 @@ class _HeaderCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    UserRole.label(account.role),
+                    L10nLookup.roleLabel(l10n, account.role),
                     style: const TextStyle(color: Colors.white70),
                   ),
                 ],

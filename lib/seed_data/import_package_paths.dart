@@ -2,7 +2,6 @@
 class ImportPackagePaths {
   ImportPackagePaths._();
 
-  static const labsEgyptStarter = 'seed_data/csv/labs_egypt_starter.csv';
   static const labsTemplate = 'seed_data/csv/labs_template.csv';
   static const supervisorsTemplate = 'seed_data/csv/supervisors_template.csv';
   static const universitiesGuide = 'seed_data/universities/openalex_egypt.md';
