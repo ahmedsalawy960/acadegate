@@ -46,51 +46,67 @@ class SupplyChainProduct {
 }
 
 /// حزمة بحثية متكاملة — فكرة + مشرف + مختبر + متجر + كتابة.
+/// كل قسم يعرض عدة خيارات مفيدة للطالب عند توفرها.
 class ResearchSupplyBundle {
   final String topic;
-  final MatchResult<AcademicResearchIdea>? idea;
-  final MatchResult<AcademicSupervisor>? supervisor;
-  final MatchResult<AcademicLab>? lab;
+  final List<MatchResult<AcademicResearchIdea>> ideas;
+  final List<MatchResult<AcademicSupervisor>> supervisors;
+  final List<MatchResult<AcademicLab>> labs;
   final List<SupplyChainProduct> products;
   final StoreCategory? storeCategory;
-  final MatchResult<WritingExpert>? writingExpert;
+  final List<StoreCategory> storeCategories;
+  final List<MatchResult<WritingExpert>> writingExperts;
   final int overallScore;
   final List<String> chainSummary;
   final ResearchPathAiInsight? aiInsight;
 
   const ResearchSupplyBundle({
     required this.topic,
-    this.idea,
-    this.supervisor,
-    this.lab,
+    this.ideas = const [],
+    this.supervisors = const [],
+    this.labs = const [],
     this.products = const [],
     this.storeCategory,
-    this.writingExpert,
+    this.storeCategories = const [],
+    this.writingExperts = const [],
     this.overallScore = 0,
     this.chainSummary = const [],
     this.aiInsight,
   });
 
+  MatchResult<AcademicResearchIdea>? get idea =>
+      ideas.isEmpty ? null : ideas.first;
+
+  MatchResult<AcademicSupervisor>? get supervisor =>
+      supervisors.isEmpty ? null : supervisors.first;
+
+  MatchResult<AcademicLab>? get lab => labs.isEmpty ? null : labs.first;
+
+  MatchResult<WritingExpert>? get writingExpert =>
+      writingExperts.isEmpty ? null : writingExperts.first;
+
   ResearchSupplyBundle copyWith({
     String? topic,
-    MatchResult<AcademicResearchIdea>? idea,
-    MatchResult<AcademicSupervisor>? supervisor,
-    MatchResult<AcademicLab>? lab,
+    List<MatchResult<AcademicResearchIdea>>? ideas,
+    List<MatchResult<AcademicSupervisor>>? supervisors,
+    List<MatchResult<AcademicLab>>? labs,
     List<SupplyChainProduct>? products,
     StoreCategory? storeCategory,
-    MatchResult<WritingExpert>? writingExpert,
+    List<StoreCategory>? storeCategories,
+    List<MatchResult<WritingExpert>>? writingExperts,
     int? overallScore,
     List<String>? chainSummary,
     ResearchPathAiInsight? aiInsight,
   }) {
     return ResearchSupplyBundle(
       topic: topic ?? this.topic,
-      idea: idea ?? this.idea,
-      supervisor: supervisor ?? this.supervisor,
-      lab: lab ?? this.lab,
+      ideas: ideas ?? this.ideas,
+      supervisors: supervisors ?? this.supervisors,
+      labs: labs ?? this.labs,
       products: products ?? this.products,
       storeCategory: storeCategory ?? this.storeCategory,
-      writingExpert: writingExpert ?? this.writingExpert,
+      storeCategories: storeCategories ?? this.storeCategories,
+      writingExperts: writingExperts ?? this.writingExperts,
       overallScore: overallScore ?? this.overallScore,
       chainSummary: chainSummary ?? this.chainSummary,
       aiInsight: aiInsight ?? this.aiInsight,
@@ -98,19 +114,19 @@ class ResearchSupplyBundle {
   }
 
   bool get hasAnyMatch =>
-      idea != null ||
-      supervisor != null ||
-      lab != null ||
+      ideas.isNotEmpty ||
+      supervisors.isNotEmpty ||
+      labs.isNotEmpty ||
       products.isNotEmpty ||
-      writingExpert != null;
+      writingExperts.isNotEmpty;
 
   int get completedSteps {
     var n = 0;
-    if (idea != null) n++;
-    if (supervisor != null) n++;
-    if (lab != null) n++;
+    if (ideas.isNotEmpty) n++;
+    if (supervisors.isNotEmpty) n++;
+    if (labs.isNotEmpty) n++;
     if (products.isNotEmpty) n++;
-    if (writingExpert != null) n++;
+    if (writingExperts.isNotEmpty) n++;
     return n;
   }
 }

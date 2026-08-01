@@ -74,7 +74,7 @@ class AcademicProfileService {
 
   void clearCache() {
     _cachedProfile = null;
-    _local.clearProfile();
+    _local.clearAllSessionData();
   }
 
   Future<void> deleteProfile() async {

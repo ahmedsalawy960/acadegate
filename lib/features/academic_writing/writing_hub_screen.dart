@@ -3,8 +3,6 @@ import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
 import '../../core/locale/locale_extensions.dart';
 import '../../core/widgets/category_visual.dart';
-import '../acadegate_publish/publish_hub_screen.dart';
-import '../academic_integrity/academic_integrity_hub_screen.dart';
 import '../ai_advisor/ai_advisor_screen.dart';
 import '../data_analysis/statistical_assumptions_screen.dart';
 import '../home/home_search_utils.dart';
@@ -33,18 +31,11 @@ class _WritingHubScreenState extends State<WritingHubScreen> {
     return homeSearchMatches(query, [
       'مساعد',
       'ذكاء',
-      'نشر',
-      'مجلة',
-      'أصالة',
-      'تشابه',
       'مناقشة',
       'viva',
       'إحصاء',
       'SPSS',
       'ai',
-      'publish',
-      'integrity',
-      'plagiarism',
       'advisor',
     ]);
   }
@@ -198,35 +189,6 @@ class _WritingHubScreenState extends State<WritingHubScreen> {
                       context,
                       MaterialPageRoute(
                           builder: (_) => const AiAdvisorScreen()),
-                    ),
-                  ),
-                  _CompanionToolCard(
-                    icon: Icons.publish_outlined,
-                    color: const Color(0xFF4A148C),
-                    title: context.t('جهّز للمجلة', 'Prepare for journal'),
-                    subtitle: context.t(
-                      'AcadeGate Publish — تنسيق ومراجع',
-                      'AcadeGate Publish — format & references',
-                    ),
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (_) => const PublishHubScreen()),
-                    ),
-                  ),
-                  _CompanionToolCard(
-                    icon: Icons.verified_user_outlined,
-                    color: const Color(0xFF1B5E20),
-                    title: context.t('افحص الأصالة', 'Check originality'),
-                    subtitle: context.t(
-                      'سلامة أكاديمية — تشابه ومراجع',
-                      'Integrity — similarity & references',
-                    ),
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const AcademicIntegrityHubScreen(),
-                      ),
                     ),
                   ),
                   _CompanionToolCard(

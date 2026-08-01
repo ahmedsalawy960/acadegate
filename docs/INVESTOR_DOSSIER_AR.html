@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AcadeGate — ملف عرض للمستثمرين</title>
+  <style>
+    @page { size: A4; margin: 16mm 14mm; }
+    :root {
+      --navy: #0f2744;
+      --teal: #0d7377;
+      --ink: #1c2430;
+      --muted: #5b6777;
+      --line: #d7dee8;
+      --soft: #f4f7fb;
+      --accent: #c45c26;
+      --ok: #1b7f4a;
+      --warn: #9a6b00;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, "Noto Naskh Arabic", Arial, sans-serif;
+      color: var(--ink);
+      background: #fff;
+      font-size: 11pt;
+      line-height: 1.7;
+    }
+    .cover {
+      min-height: 92vh;
+      padding: 48px 36px;
+      background: var(--navy);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      page-break-after: always;
+    }
+    .cover .brand { font-size: 42pt; font-weight: 700; margin: 0 0 8px; letter-spacing: 0.5px; }
+    .cover .tag { font-size: 16pt; opacity: 0.92; margin-bottom: 28px; }
+    .cover .lead { max-width: 720px; font-size: 13pt; opacity: 0.9; }
+    .cover .meta { margin-top: 48px; font-size: 10.5pt; opacity: 0.75; }
+    .wrap { padding: 8px 8px 40px; max-width: 920px; margin: 0 auto; }
+    h1 { color: var(--navy); font-size: 20pt; border-bottom: 3px solid var(--teal); padding-bottom: 8px; margin-top: 34px; page-break-after: avoid; }
+    h2 { color: var(--navy); font-size: 14.5pt; margin-top: 26px; page-break-after: avoid; }
+    h3 { color: var(--teal); font-size: 12.5pt; margin-top: 18px; page-break-after: avoid; }
+    p { margin: 8px 0; text-align: justify; }
+    ul, ol { margin: 8px 0; padding-right: 22px; }
+    li { margin: 4px 0; }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 10pt; page-break-inside: avoid; }
+    th { background: var(--navy); color: #fff; padding: 9px 8px; text-align: right; font-weight: 600; }
+    td { border: 1px solid var(--line); padding: 8px; vertical-align: top; }
+    tr:nth-child(even) td { background: var(--soft); }
+    .note {
+      background: var(--soft);
+      border-right: 4px solid var(--teal);
+      padding: 12px 14px;
+      margin: 14px 0;
+    }
+    .warn {
+      background: #fff8e8;
+      border-right: 4px solid var(--warn);
+      padding: 12px 14px;
+      margin: 14px 0;
+    }
+    .money {
+      background: #eef8f2;
+      border-right: 4px solid var(--ok);
+      padding: 12px 14px;
+      margin: 10px 0 16px;
+    }
+    .badge {
+      display: inline-block;
+      font-size: 9pt;
+      padding: 2px 9px;
+      border-radius: 999px;
+      background: #e7eef7;
+      color: var(--navy);
+      margin-left: 6px;
+    }
+    .badge-ok { background: #dff3e7; color: var(--ok); }
+    .badge-warn { background: #fff0cc; color: var(--warn); }
+    .flow {
+      background: var(--soft);
+      border: 1px solid var(--line);
+      padding: 12px 14px;
+      text-align: center;
+      margin: 14px 0;
+      font-size: 10.5pt;
+    }
+    .toc { page-break-after: always; }
+    .toc ol { line-height: 2; font-size: 11.5pt; }
+    .feature { page-break-inside: avoid; margin-bottom: 8px; }
+    footer {
+      margin-top: 36px;
+      padding-top: 12px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 9pt;
+      text-align: center;
+    }
+    @media print {
+      .cover { min-height: 100vh; }
+      a { color: inherit; text-decoration: none; }
+    }
+  </style>
+</head>
+<body>
+
+<section class="cover">
+  <div class="brand">AcadeGate</div>
+  <div class="tag">بوابتك للتميز في الدراسات العليا</div>
+  <div class="lead">
+    ملف عرض للمستثمرين والشركاء الاستراتيجيين — يشرح بدقة كل قسم في المنصة،
+    حالته التشغيلية الفعلية، وتصوّر التربح من كل ميزة.
+  </div>
+  <div class="meta">
+    الإصدار 1.0.0 · يوليو 2026 · مصر أولاً · Flutter + Firebase<br/>
+    وثيقة مبنية على الكود الفعلي للمشروع — ليست وعوداً غير منفّذة
+  </div>
+</section>
+
+<div class="wrap">
+
+<div class="toc">
+  <h1>الفهرس</h1>
+  <ol>
+    <li>الملخص التنفيذي</li>
+    <li>الميزة التنافسية</li>
+    <li>نموذج البوابات والأدوار</li>
+    <li>خريطة الخدمات: شرح + تربّح لكل ميزة</li>
+    <li>نموذج الإيرادات المجمّع ووحدة اقتصادية</li>
+    <li>التقنية والأمان</li>
+    <li>الجاهزية وخارطة استخدام رأس المال</li>
+    <li>الشراكات والمخاطر</li>
+    <li>الخلاصة وطلب الاستثمار</li>
+  </ol>
+  <div class="note">
+    النسخة النصية القابلة للتعديل:
+    <code>docs/INVESTOR_DOSSIER_AR.md</code>
+  </div>
+</div>
+
+<h1>1 — الملخص التنفيذي</h1>
+<p>
+يواجه طلاب الدراسات العليا تشتتاً بين مشرفين، مختبرات، معدات، كتابة، أصالة، ومجتمع —
+غالباً بلا ضمان مالي ولا مسار يربط الفكرة بالتنفيذ.
+</p>
+<p>
+<strong>AcadeGate</strong> منصة ثنائية البوابة تجمع الرحلة الأكاديمية في تطبيق واحد:
+<strong>بوابة باحث</strong> للاستهلاك و<strong>بوابة مقدم خدمة</strong> للعمليات والعرض.
+</p>
+<div class="flow">
+  فكرة → مشرف → مختبر/عينات → متجر → كتابة → مجتمع → AI / أصالة / نشر → تمويل (عند التفعيل)
+</div>
+<div class="note">
+  <strong>حالة المنتج الآن:</strong>
+  جاهز لبيتا مغلقة بالتحويل اليدوي. مسار Paymob مبرمج وجاهز للتفعيل بعد التسجيل القانوني.
+  لا توجد اشتراكات مستخدم مفعّلة في الكود بعد — لكنها جزء من نموذج التربح المقترح.
+</div>
+
+<h2>ماذا يطلب الاستثمار؟</h2>
+<ul>
+  <li>تسجيل قانوني + تفعيل الدفع الإلكتروني</li>
+  <li>تعبئة محتوى حقيقي (مشرفون / مختبرات / موردون)</li>
+  <li>بيتا جامعية مغلقة ثم توسع</li>
+  <li>بناء طبقة الاشتراكات وربط دفع المختبرات</li>
+  <li>تسويق أكاديمي وفريق عمليات</li>
+</ul>
+
+<h1>2 — الميزة التنافسية</h1>
+<table>
+  <tr><th>البعد</th><th>AcadeGate</th><th>البدائل</th></tr>
+  <tr><td>تكامل الرحلة</td><td>اكتشاف + طلبات + تجارة + أدوات ذكية</td><td>مواقع منفصلة</td></tr>
+  <tr><td>اللغة</td><td>عربي/إنجليزي RTL</td><td>غالباً إنجليزي</td></tr>
+  <tr><td>الثقة المالية</td><td>Escrow + يدوي الآن + Paymob جاهز</td><td>تحويلات مباشرة</td></tr>
+  <tr><td>جانب العرض</td><td>بوابة مقدم خدمة + مساهمة</td><td>نادراً موحّد</td></tr>
+  <tr><td>البيانات</td><td>OpenAlex / استيراد / كتالوجات</td><td>قوائم يدوية</td></tr>
+  <tr><td>الذكاء</td><td>وكلاء + Viva + منهجية + أصالة مربوطة بالمنصة</td><td>ChatGPT عام</td></tr>
+</table>
+
+<h1>3 — البوابات والأدوار</h1>
+<h3>بوابة المستخدم</h3>
+<p>بطاقات الخدمات، بحث، ملف أكاديمي، مطابقة، رسائل، إشعارات داخل التطبيق، تتبع الرسالة، أدوات AI والنزاهة والنشر.</p>
+<h3>بوابة مقدم الخدمة</h3>
+<p>طلبات واردة (كتابة، عينات، حجوزات، إشراف)، نشر محتوى، متابعة، ولوحة المساهمة الكاملة.</p>
+<table>
+  <tr><th>الدور</th><th>العربي</th><th>البوابة</th><th>القيمة للمنصة</th></tr>
+  <tr><td>student</td><td>طالب/باحث</td><td>المستخدم</td><td>طلب وعمولات</td></tr>
+  <tr><td>supervisor</td><td>مشرف</td><td>اختيار</td><td>عرض + طلبات إشراف</td></tr>
+  <tr><td>merchant</td><td>تاجر</td><td>مقدم خدمة</td><td>متجر وعمولات</td></tr>
+  <tr><td>lab_manager</td><td>مسؤول مختبر</td><td>مقدم خدمة</td><td>عينات وحجوزات</td></tr>
+  <tr><td>idea_publisher</td><td>ناشر أفكار</td><td>مقدم خدمة</td><td>سوق أفكار</td></tr>
+  <tr><td>admin</td><td>مدير</td><td>كلاهما</td><td>ثقة وجودة العرض</td></tr>
+</table>
+
+<h1>4 — خريطة الخدمات: شرح دقيق + تصوّر التربح</h1>
+
+<div class="feature">
+  <h2>4.1 المشرفون الأكاديميون <span class="badge badge-ok">تشغيلي</span></h2>
+  <p><strong>الوظيفة:</strong> دليل حسب الكليات، ملف، مقاييس نشر، مراسلة، طلب إشراف/تواصل، استيراد OpenAlex/CSV.</p>
+  <div class="money">
+    <strong>التربح:</strong> عمولة 10–15% على استشارات مدفوعة لاحقاً · اشتراك ملف مميز · ترخيص B2B لعرض مشرفي الجامعة · إعلانات تخصصية.
+  </div>
+</div>
+
+<div class="feature">
+  <h2>4.2 المطابقة الذكية <span class="badge badge-ok">تشغيلي</span></h2>
+  <p><strong>الوظيفة:</strong> مطابقة الملف الأكاديمي مع مشرفين/أفكار/مختبرات + تنبيهات.</p>
+  <div class="money">
+    <strong>التربح:</strong> Freemium (حد مجاني) · اشتراك Premium للمطابقة غير المحدودة · ضمن باقة «باحث Pro».
+  </div>
+</div>
+
+<div class="feature">
+  <h2>4.3 سوق الأفكار البحثية <span class="badge badge-ok">تشغيلي</span></h2>
+  <p><strong>الوظيفة:</strong> نشر أفكار، تصويت، مقترحات، مراجعة قبل الظهور.</p>
+  <div class="money">
+    <strong>التربح:</strong> رسوم نشر مميز · عمولة عند تحويل المقترح لتعاقد (كتابة/مختبر) · تحديات بحثية برعاية مؤسسات.
+  </div>
+</div>
+
+<div class="feature">
+  <h2>4.4 مسار البحث الذكي <span class="badge badge-ok">تشغيلي / تمييزي</span></h2>
+  <p><strong>الوظيفة:</strong> من موضوع البحث إلى حزمة: فكرة + مشرف + مختبر + متجر + كتابة (+ AI).</p>
+  <div class="money">
+    <strong>التربح:</strong> قمع تحويل — مجاني جزئياً للجذب · رسوم تقرير Premium · عمولة إحالة عند تحوّل عناصر الحزمة لطلبات مدفوعة.
+  </div>
+</div>
+
+<div class="feature">
+  <h2>4.5 المختبرات · تحليل العينات · حجز الأجهزة <span class="badge badge-warn">طلبات جاهزة / دفع لاحق</span></h2>
+  <p><strong>الوظيفة:</strong> دليل مختبرات، طلب تحليل بدورة حالات، حجز أجهزة، صندوق وارد للمسؤول، استيراد/مطالبة مختبر.</p>
+  <div class="warn"><strong>دقة الحالة:</strong> دورة الطلبات والحجوزات تعمل. لا يوجد checkout بطاقة على العينات/الحجز بعد.</div>
+  <div class="money">
+    <strong>التربح:</strong> عمولة 8–12% على التحليل المدفوع · عمولة حجز جلسة · اشتراك مختبر مميز · عقد ربط مختبر جامعي B2B.
+  </div>
+</div>
+
+<div class="feature">
+  <h2>4.6 المتجر الأكاديمي <span class="badge badge-ok">قناة إيراد أساسية</span></h2>
+  <p><strong>الوظيفة:</strong> 5 أقسام منتجات، طلب شراء، اختيار Paymob أو تحويل يدوي، Escrow (محجوز→مُفرَج)، مراسلة.</p>
+  <div class="note"><strong>الآن:</strong> التحويل اليدوي يعمل. <strong>Paymob:</strong> كود جاهز ويُفعَّل بعد السجل القانوني والأسرار.</div>
+  <div class="money">
+    <strong>التربح:</strong> عمولة 5–12% لكل طلب · اشتراك مورد · ترويج منتج · رسوم إعداد كتالوج للموردين الكبار.<br/>
+    <em>مثال:</em> سلة 800 ج.م × 8% = 64 ج.م/طلب → 500 طلب/شهر ≈ 32 ألف ج.م عمولة قبل التكاليف.
+  </div>
+</div>
+
+<div class="feature">
+  <h2>4.7 خدمات الكتابة الأكاديمية <span class="badge badge-ok">قناة إيراد أساسية</span></h2>
+  <p><strong>الوظيفة:</strong> 8 تخصصات كتابة بشرية، حجز، قبول/رفض، دفع يدوي/Paymob، تسليم، تأكيد، مطابقة كاتب.</p>
+  <div class="money">
+    <strong>التربح:</strong> عمولة 10–20% · اشتراك خبير مميز · رسوم استعجال تُقسم · رسوم مطابقة كاتب ضمن Pro.
+  </div>
+</div>
+
+<div class="feature">
+  <h2>4.8 المجتمع وغرف البحث <span class="badge badge-ok">تشغيلي</span></h2>
+  <p><strong>الوظيفة:</strong> غرف تخصص + غرف بحث محمية بكلمة مرور (Cloud Functions) + مناقشات وإشعارات.</p>
+  <div class="money">
+    <strong>التربح:</strong> غرف مؤسسية مدفوعة · رعاية خفيفة · قيمة أساسية = احتفاظ وإحالة للخدمات المدفوعة.
+  </div>
+</div>
+
+<div class="feature">
+  <h2>4.9 المساعد الأكاديمي (AI) <span class="badge badge-ok">تشغيلي / تكلفة API</span></h2>
+  <p><strong>الوظيفة:</strong> وكلاء متخصصون عبر Gemini، مرفقات، حفظ محادثات.</p>
+  <div class="money">
+    <strong>التربح:</strong> Freemium · اشتراك باحث Pro (99–299 ج.م/شهر مقترح) · ترخيص جامعي · رصيد Pay-per-use.<br/>
+    التسعير يجب أن يغطي تكلفة Gemini + هامش مستهدف ≥ 50% بعد الاستقرار.
+  </div>
+</div>
+
+<div class="feature">
+  <h2>4.10 محاكي المناقشة (Viva) <span class="badge badge-ok">تشغيلي</span></h2>
+  <p><strong>الوظيفة:</strong> محاكاة لجنة، أسئلة مرتبطة بالمحتوى، صوت، جلسات، تصدير.</p>
+  <div class="money">
+    <strong>التربح:</strong> ضمن Pro · دفع لكل جلسة · حزمة ما قبل المناقشة (محاكاة + منهجية).
+  </div>
+</div>
+
+<div class="feature">
+  <h2>4.11 النزاهة والمنهجية والإحصاء <span class="badge badge-ok">تشغيلي</span></h2>
+  <p><strong>الوظيفة:</strong> فحص مراجع، أصالة (Copyleaks)، تقرير منهجية، معالج افتراضات إحصائية.</p>
+  <div class="money">
+    <strong>التربح:</strong> دفع لكل فحص أصالة (تكلفة مزوّد + هامش) · تقارير مدفوعة · ضمن باقة Pro بحدود استخدام.
+  </div>
+</div>
+
+<div class="feature">
+  <h2>4.12 النشر العلمي <span class="badge badge-ok">تشغيلي</span></h2>
+  <p><strong>الوظيفة:</strong> مسودات، مجلات، قواعد تنسيق، استخراج بالـ AI، تصدير DOCX.</p>
+  <div class="money">
+    <strong>التربح:</strong> رسوم تنسيق حسب مجلة · اشتراك ناشر · عمولات إحالة تحرير/مجلات لاحقاً.
+  </div>
+</div>
+
+<div class="feature">
+  <h2>4.13 صندوق تمويل البحث <span class="badge badge-warn">واجهة جاهزة / غير مفعّل حتى إعداد الشريك</span></h2>
+  <p><strong>الوظيفة:</strong> تمويل أفكار عند عتبة تصويت؛ إعداد إداري للشركاء والجوائز.</p>
+  <div class="money">
+    <strong>التربح:</strong> رسوم إدارة منحة · رعاية ظهور الشريك المموّل — نموذج شراكة مضبوط وليس crowdfunding عام مفتوح.
+  </div>
+</div>
+
+<div class="feature">
+  <h2>4.14 أخبار علمية · رسائل · إشعارات · رحلة الرسالة</h2>
+  <p><strong>الوظيفة:</strong> RSS حي، محادثات، إشعارات داخل التطبيق (مؤمّنة بعلاقة طرفين)، تتبع مراحل الرسالة.</p>
+  <div class="warn"><strong>دقة:</strong> FCM Push من السيرفر غير مكتمل بعد (التوكن يُحفظ).</div>
+  <div class="money">
+    <strong>التربح:</strong> بنية احتفاظ وتحويل — ترفع إتمام الطلبات المدفوعة؛ إعلانات أخبار ثانوية.
+  </div>
+</div>
+
+<div class="feature">
+  <h2>4.15 الإدارة والاستيراد ولوحة المساهمة</h2>
+  <p><strong>الوظيفة:</strong> مراجعة محتوى، استيراد مشرفين/مختبرات/متجر، عمليات مختبرات غير مربوطة.</p>
+  <div class="money">
+    <strong>التربح:</strong> تمكين العرض بسرعة → معاملات أكثر. يمكن بيع «خدمة إعداد محتوى» كمشروع للجامعات/الموردين.
+  </div>
+</div>
+
+<h1>5 — نموذج الإيرادات المجمّع</h1>
+<div class="flow">
+  عمولات متجر + كتابة
+  (+ لاحقاً مختبرات)
+  + اشتراكات Pro/مميز
+  + B2B جامعي
+  + رسوم أدوات (أصالة/Viva/نشر)
+  + رعايات محدودة
+</div>
+<table>
+  <tr><th>الأولوية (12 شهراً)</th><th>المصدر</th><th>لماذا</th></tr>
+  <tr><td>1</td><td>عمولة المتجر والكتابة</td><td>مسارات دفع موجودة</td></tr>
+  <tr><td>2</td><td>اشتراك AI/Pro</td><td>هامش مرتفع</td></tr>
+  <tr><td>3</td><td>عمولة مختبرات بعد checkout</td><td>الطلبات موجودة</td></tr>
+  <tr><td>4</td><td>B2B جامعي</td><td>عقد أكبر / دورة أطول</td></tr>
+  <tr><td>5</td><td>إعلانات/رعايات</td><td>بعد قاعدة مستخدمين</td></tr>
+</table>
+
+<h1>6 — التقنية والأمان (باختصار)</h1>
+<table>
+  <tr><th>الطبقة</th><th>التقنية</th></tr>
+  <tr><td>التطبيق</td><td>Flutter — Windows / Web / Android / iOS</td></tr>
+  <tr><td>Backend</td><td>Firebase Auth + Firestore + Storage + Cloud Functions</td></tr>
+  <tr><td>دفع</td><td>يدوي الآن · Paymob Intention/Webhook جاهز للتفعيل</td></tr>
+  <tr><td>AI/أصالة</td><td>Gemini · Copyleaks · OpenAlex / Crossref</td></tr>
+</table>
+<p>
+نقاط ثقة للمستثمر: حالة الدفع لا تُزوَّر من العميل؛ الإشعارات للطرف الآخر تتطلب علاقة موثّقة؛
+قراءة الملفات لصاحبها؛ مراجعة محتوى قبل الظهور العام حيث ينطبق.
+</p>
+
+<h1>7 — الجاهزية واستخدام رأس المال</h1>
+<table>
+  <tr><th>المحور</th><th>الآن</th><th>بعد تمويل المرحلة</th></tr>
+  <tr><td>بيتا</td><td>جاهزة يدوياً</td><td>Pilot مغلق + دعم</td></tr>
+  <tr><td>الدفع الإلكتروني</td><td>كود جاهز / معطّل قانونياً</td><td>سجل + Paymob Live</td></tr>
+  <tr><td>المحتوى</td><td>يحتاج تعبئة</td><td>مشرفون ومختبرات وموردون حقيقيون</td></tr>
+  <tr><td>الاشتراكات</td><td>غير مبنية</td><td>باحث Pro + فوترة</td></tr>
+  <tr><td>Push</td><td>غير مكتمل</td><td>FCM من السيرفر</td></tr>
+</table>
+<ol>
+  <li>قانوني + Paymob</li>
+  <li>محتوى وعمليات</li>
+  <li>بيتا مع 2–3 كليات</li>
+  <li>تسويق أكاديمي</li>
+  <li>اشتراكات وربط دفع المختبرات</li>
+  <li>احتياطي تشغيل 6–9 أشهر</li>
+</ol>
+
+<h1>8 — الشراكات والمخاطر</h1>
+<table>
+  <tr><th>الشريك</th><th>يحصل على</th><th>يقدم</th></tr>
+  <tr><td>مستثمر</td><td>Marketplace + SaaS متعدد القنوات</td><td>رأس مال ونمو</td></tr>
+  <tr><td>جامعة</td><td>قناة لمشرفيها ومختبراتها</td><td>بيانات وترخيص</td></tr>
+  <tr><td>مختبر / تاجر / كاتب</td><td>طلبات ووصول</td><td>تنفيذ وعرض</td></tr>
+</table>
+<table>
+  <tr><th>الخطر</th><th>التخفيف</th></tr>
+  <tr><td>فجوة المحتوى</td><td>أدوات استيراد جاهزة + خطة إعداد</td></tr>
+  <tr><td>تنظيم الدفع</td><td>يدوي الآن ثم Paymob بعد السجل</td></tr>
+  <tr><td>تكلفة AI</td><td>حدود Freemium + تسعير يغطي التكلفة</td></tr>
+  <tr><td>الثقة الأكاديمية</td><td>مراجعة + أصالة + قواعد أمان</td></tr>
+</table>
+
+<h1>9 — الخلاصة وطلب الاستثمار</h1>
+<p>
+AcadeGate اليوم منصة تشغيلية حقيقية — وليست مجرد نموذج واجهة.
+تجمع اكتشاف الموارد الأكاديمية مع مسارات تجارة قابلة للعمولة (متجر/كتابة)،
+وأدوات ذكاء قابلة للتحويل لاشتراكات عالية الهامش،
+ومسار واضح من بيتا يدوية إلى دفع إلكتروني مؤسسي وتوسع جامعي.
+</p>
+<div class="note">
+  <strong>الطلب:</strong> شريك رأسمالي يموّل الانتقال من «منتج يعمل» إلى «سوق يعمل بأرقام»
+  عبر الامتثال، المحتوى، والتفعيل التجاري.
+</div>
+
+<footer>
+  AcadeGate — ملف مستثمر · يوليو 2026 · مبني على المستودع الفعلي للمشروع<br/>
+  للطباعة إلى PDF: افتح هذا الملف في المتصفح → طباعة → حفظ كـ PDF
+</footer>
+
+</div>
+</body>
+</html>

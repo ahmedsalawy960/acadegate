@@ -5,6 +5,7 @@ import '../../core/locale/locale_extensions.dart';
 import '../research_journey/thesis_progress.dart';
 import '../research_journey/thesis_progress_activity.dart';
 import '../academic/faculty_categories.dart';
+import 'account_profile_screen.dart';
 import 'academic_profile.dart';
 import 'academic_profile_service.dart';
 
@@ -239,6 +240,24 @@ class _AcademicProfileScreenState extends State<AcademicProfileScreen> {
                         'Complete your profile to get smart recommendations for supervisors, ideas, and labs.',
                       ),
                       style: const TextStyle(color: Colors.grey),
+                    ),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const AccountProfileScreen(),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.manage_accounts_outlined),
+                      label: Text(
+                        context.t(
+                          'إدارة حسابي والصورة والبريد',
+                          'Manage account, photo & email',
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 20),
                     TextFormField(

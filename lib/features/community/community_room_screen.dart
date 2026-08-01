@@ -5,6 +5,8 @@ import '../../core/locale/l10n_lookup.dart';
 import '../../core/locale/locale_extensions.dart';
 import '../matchmaking/matchmaking_screen.dart';
 import '../moderation/approval_status.dart';
+import '../profile/academic_profile.dart';
+import '../profile/academic_profile_service.dart';
 import 'community_data.dart';
 import 'community_models.dart';
 import 'community_post_detail_screen.dart';
@@ -25,6 +27,7 @@ class _CommunityRoomScreenState extends State<CommunityRoomScreen>
   late final TabController _tabController;
   final _searchController = TextEditingController();
   String _searchQuery = '';
+  AcademicProfile? _profile;
 
   static const _tabTypes = <String?>[
     null,
@@ -43,6 +46,12 @@ class _CommunityRoomScreenState extends State<CommunityRoomScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: _tabTypes.length, vsync: this);
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    final profile = await AcademicProfileService.instance.loadProfile();
+    if (mounted) setState(() => _profile = profile);
   }
 
   @override
@@ -167,72 +176,75 @@ class _CommunityRoomScreenState extends State<CommunityRoomScreen>
             ),
           Expanded(
             child: StreamBuilder<List<CommunityPost>>(
-        stream: CommunityService.instance.watchRoomPosts(
-          roomId: widget.room.id,
-          type: _selectedType,
-          searchQuery: _searchQuery,
-        ),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting &&
-              !snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (snapshot.hasError) {
-            return Center(
-              child: Text(context.t(
-                'حدث خطأ: ${snapshot.error}',
-                'Error: ${snapshot.error}',
-              )),
-            );
-          }
-
-          final posts = snapshot.data ?? [];
-          if (posts.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(
-                  _searchQuery.trim().isEmpty
-                      ? context.t(
-                          'لا توجد منشورات في هذا القسم بعد.\nاضغط «منشور جديد» لتبدأ النقاش.',
-                          'No posts in this section yet.\nTap "New post" to start the discussion.',
-                        )
-                      : context.t(
-                          'لا توجد نتائج لـ «$_searchQuery»',
-                          'No results for "$_searchQuery"',
-                        ),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey[700], height: 1.5),
-                ),
+              stream: CommunityService.instance.watchRoomPosts(
+                roomId: widget.room.id,
+                type: _selectedType,
+                searchQuery: _searchQuery,
+                viewerFaculty: _profile?.resolvedFacultyCategory,
+                viewerSpecialization: _profile?.specialization,
               ),
-            );
-          }
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting &&
+                    !snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
 
-          return ListView.builder(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 88),
-            itemCount: posts.length,
-            itemBuilder: (context, index) {
-              final post = posts[index];
-              return _PostCard(
-                post: post,
-                roomColor: widget.room.color,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => CommunityPostDetailScreen(
-                        post: post,
-                        room: widget.room,
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Text(context.t(
+                      'حدث خطأ: ${snapshot.error}',
+                      'Error: ${snapshot.error}',
+                    )),
+                  );
+                }
+
+                final posts = snapshot.data ?? [];
+                if (posts.isEmpty) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        _searchQuery.trim().isEmpty
+                            ? context.t(
+                                'لا توجد منشورات في هذا القسم بعد.\nاضغط «منشور جديد» لتبدأ النقاش.',
+                                'No posts in this section yet.\nTap "New post" to start the discussion.',
+                              )
+                            : context.t(
+                                'لا توجد نتائج لـ «$_searchQuery»',
+                                'No results for "$_searchQuery"',
+                              ),
+                        textAlign: TextAlign.center,
+                        style:
+                            TextStyle(color: Colors.grey[700], height: 1.5),
                       ),
                     ),
                   );
-                },
-              );
-            },
-          );
-        },
-      ),
+                }
+
+                return ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 88),
+                  itemCount: posts.length,
+                  itemBuilder: (context, index) {
+                    final post = posts[index];
+                    return _PostCard(
+                      post: post,
+                      roomColor: widget.room.color,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => CommunityPostDetailScreen(
+                              post: post,
+                              room: widget.room,
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                );
+              },
+            ),
           ),
         ],
       ),
@@ -255,6 +267,11 @@ class _PostCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final typeLabel = CommunityPostType.label(post.type);
     final pending = post.approvalStatus == ApprovalStatus.pending;
+    final english = Localizations.localeOf(context).languageCode == 'en';
+    final audienceLabel = PostAudienceScope.label(
+      post.audienceScope,
+      english: english,
+    );
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
@@ -282,6 +299,24 @@ class _PostCard extends StatelessWidget {
                       fontSize: 12,
                     ),
                   ),
+                  const SizedBox(width: 8),
+                  Icon(
+                    PostAudienceScope.icon(post.audienceScope),
+                    size: 14,
+                    color: Colors.grey[600],
+                  ),
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Text(
+                      post.audienceScope == PostAudienceScope.specialization &&
+                              (post.targetSpecialization ?? '').isNotEmpty
+                          ? post.targetSpecialization!
+                          : audienceLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                    ),
+                  ),
                   if (pending) ...[
                     const SizedBox(width: 8),
                     Container(
@@ -295,7 +330,10 @@ class _PostCard extends StatelessWidget {
                       ),
                       child: Text(
                         context.t('بانتظار المراجعة', 'Pending review'),
-                        style: const TextStyle(fontSize: 11, color: Colors.orange),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.orange,
+                        ),
                       ),
                     ),
                   ],

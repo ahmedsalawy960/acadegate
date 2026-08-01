@@ -1,4 +1,5 @@
 import '../../core/locale/app_translate.dart';
+import 'statistical_report_enrichment.dart';
 
 enum DataInputMode { fromFile, manual }
 
@@ -56,7 +57,7 @@ extension NormalityStatusX on NormalityStatus {
       };
 }
 
-enum CodeLanguage { spss, r }
+enum CodeLanguage { spss, r, python }
 
 class StatisticalAssumptionsInput {
   final StatisticalTestType testType;
@@ -237,6 +238,8 @@ class StatisticalAssumptionsReport {
   final List<String> tipsEn;
   final List<CodeSnippet> codeSnippets;
   final String advisorPrompt;
+  final MethodologyParagraph methodology;
+  final List<DecisionTreeStep> decisionTree;
   final RealDataAnalysis? realData;
 
   const StatisticalAssumptionsReport({
@@ -251,6 +254,8 @@ class StatisticalAssumptionsReport {
     required this.tipsEn,
     required this.codeSnippets,
     required this.advisorPrompt,
+    required this.methodology,
+    required this.decisionTree,
     this.realData,
   });
 
@@ -263,6 +268,13 @@ class StatisticalAssumptionsReport {
       isEnglish ? alternativeTestEn : alternativeTest;
 
   List<String> displayTips(bool isEnglish) => isEnglish ? tipsEn : tips;
+
+  String writingBrief(bool isEnglish) =>
+      StatisticalReportEnrichment.buildWritingBrief(
+        methodology: methodology,
+        recommendedAr: recommendedTest,
+        isEnglish: isEnglish,
+      );
 }
 
 class NumericColumnSummary {

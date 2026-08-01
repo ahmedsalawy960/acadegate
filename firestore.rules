@@ -18,6 +18,10 @@ service cloud.firestore {
       return isSignedIn() && userDoc().data.role == 'admin';
     }
 
+    function isMerchant() {
+      return isSignedIn() && userDoc().data.role == 'merchant';
+    }
+
     function isApprovedContent() {
       return !('approvalStatus' in resource.data)
           || resource.data.approvalStatus == 'approved';
@@ -239,7 +243,7 @@ service cloud.firestore {
                   || (isSignedIn() && resource.data.createdBy == request.auth.uid)
                   || isAdmin();
       allow create: if isAdmin()
-                    || (isSignedIn()
+                    || (isMerchant()
                         && request.resource.data.createdBy == request.auth.uid
                         && isPendingCreate());
       allow update: if isAdmin()
@@ -409,24 +413,44 @@ service cloud.firestore {
                         && isCounterBump('discussionsCount')
                         && hasResearchRoomAccess(roomId))
                     || (isSignedIn()
+                        && hasResearchRoomAccess(roomId)
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                            .hasOnly(['membersCount', 'lastChannelActivity', 'lastActivityAt', 'updatedAt', 'discussionsCount']))
+                    || (isSignedIn()
                         && resource.data.creatorId == request.auth.uid
                         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['passwordHash'])
                         && request.resource.data.diff(resource.data).affectedKeys()
-                            .hasOnly(['title', 'description', 'categoryId', 'updatedAt']));
+                            .hasOnly(['title', 'description', 'categoryId', 'updatedAt', 'membersCount', 'lastChannelActivity', 'lastActivityAt']));
       allow delete: if isSignedIn()
                     && (resource.data.creatorId == request.auth.uid || isAdmin());
 
       match /members/{memberId} {
+        // Avoid hasResearchRoomAccess here — it calls exists(members/...) and
+        // can recurse when evaluating member list reads on protected rooms.
         allow read: if isSignedIn()
-                    && (request.auth.uid == memberId
+                    && (
+                      get(/databases/$(database)/documents/research_rooms/$(roomId)).data.isPasswordProtected != true
+                      || get(/databases/$(database)/documents/research_rooms/$(roomId)).data.creatorId == request.auth.uid
+                      || request.auth.uid == memberId
+                      || isAdmin()
+                    );
+        allow create: if isSignedIn()
+                      && request.auth.uid == memberId
+                      && (
+                        get(/databases/$(database)/documents/research_rooms/$(roomId)).data.isPasswordProtected != true
                         || get(/databases/$(database)/documents/research_rooms/$(roomId)).data.creatorId == request.auth.uid
-                        || isAdmin());
-        allow create, update: if isSignedIn()
-                              && request.auth.uid == memberId
-                              && (
-                                get(/databases/$(database)/documents/research_rooms/$(roomId)).data.isPasswordProtected != true
-                                || get(/databases/$(database)/documents/research_rooms/$(roomId)).data.creatorId == request.auth.uid
-                              );
+                      );
+        allow update: if isSignedIn()
+                      && (
+                        (request.auth.uid == memberId
+                          && (
+                            get(/databases/$(database)/documents/research_rooms/$(roomId)).data.isPasswordProtected != true
+                            || get(/databases/$(database)/documents/research_rooms/$(roomId)).data.creatorId == request.auth.uid
+                          ))
+                        || get(/databases/$(database)/documents/research_rooms/$(roomId)).data.creatorId == request.auth.uid
+                      )
+                      && (!('role' in request.resource.data)
+                          || request.resource.data.role in ['owner', 'moderator', 'member']);
         allow delete: if isSignedIn()
                       && (request.auth.uid == memberId || isAdmin());
       }
@@ -451,6 +475,23 @@ service cloud.firestore {
           allow create: if isSignedIn()
                         && hasResearchRoomAccess(roomId)
                         && request.resource.data.authorId == request.auth.uid;
+          allow update, delete: if false;
+        }
+      }
+
+      match /channels/{channelId} {
+        allow read: if isSignedIn() && hasResearchRoomAccess(roomId);
+        allow create, update: if isSignedIn() && hasResearchRoomAccess(roomId);
+        allow delete: if isAdmin()
+                      || (isSignedIn()
+                          && get(/databases/$(database)/documents/research_rooms/$(roomId)).data.creatorId == request.auth.uid);
+
+        match /messages/{messageId} {
+          allow read: if isSignedIn() && hasResearchRoomAccess(roomId);
+          allow create: if isSignedIn()
+                        && hasResearchRoomAccess(roomId)
+                        && request.resource.data.authorId == request.auth.uid
+                        && request.resource.data.keys().hasAll(['authorId', 'authorName', 'text', 'createdAt']);
           allow update, delete: if false;
         }
       }
@@ -643,6 +684,27 @@ service cloud.firestore {
                       && request.resource.data.senderId == request.auth.uid
                       && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
         allow update, delete: if false;
+      }
+    }
+
+    // ─── دوائر الدراسة ───────────────────────────────────
+    match /study_circles/{circleId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+                    && request.resource.data.creatorId == request.auth.uid;
+      allow update: if isSignedIn()
+                    && (resource.data.creatorId == request.auth.uid
+                        || isAdmin()
+                        || request.resource.data.diff(resource.data).affectedKeys()
+                            .hasOnly(['membersCount', 'updatedAt']));
+      allow delete: if isSignedIn()
+                    && (resource.data.creatorId == request.auth.uid || isAdmin());
+
+      match /members/{memberId} {
+        allow read: if isSignedIn();
+        allow create, update: if isSignedIn() && request.auth.uid == memberId;
+        allow delete: if isSignedIn()
+                      && (request.auth.uid == memberId || isAdmin());
       }
     }
 

@@ -4,6 +4,8 @@ import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
 import '../../core/locale/locale_extensions.dart';
 import '../../core/locale/locale_service.dart';
+import '../academic_writing/writing_categories.dart';
+import '../academic_writing/writing_expert_list_screen.dart';
 import '../ai_advisor/advisor_agent.dart';
 import '../ai_advisor/advisor_agent_registry.dart';
 import '../ai_advisor/ai_advisor_screen.dart';
@@ -12,6 +14,7 @@ import 'statistical_assumptions_models.dart';
 import 'statistical_data_analyzer.dart';
 import 'statistical_dataset.dart';
 import 'statistical_dataset_loader.dart';
+import 'statistical_report_enrichment.dart';
 
 class StatisticalAssumptionsScreen extends StatefulWidget {
   const StatisticalAssumptionsScreen({super.key});
@@ -75,12 +78,18 @@ class _StatisticalAssumptionsScreenState
       final dataset = await _loader.pickAndLoad();
       if (!mounted) return;
       _applyLoadedDataset(dataset);
+      final suggestion = dataset.suggestAnalysis();
+      final hint = suggestion == null
+          ? ''
+          : (LocaleService.instance.isEnglish
+              ? ' · ${suggestion.reasonEn}'
+              : ' · ${suggestion.reasonAr}');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             context.t(
-              'تم تحميل ${dataset.fileName} — ${dataset.rowCount} صف',
-              'Loaded ${dataset.fileName} — ${dataset.rowCount} rows',
+              'تم تحميل ${dataset.fileName} — ${dataset.rowCount}×${dataset.columnCount}$hint',
+              'Loaded ${dataset.fileName} — ${dataset.rowCount}×${dataset.columnCount}$hint',
             ),
           ),
           behavior: SnackBarBehavior.floating,
@@ -103,8 +112,8 @@ class _StatisticalAssumptionsScreenState
       SnackBar(
         content: Text(
           context.t(
-            'تم تحميل مثال CSV — group × score',
-            'Sample CSV loaded — group × score',
+            'تم تحميل مثال متعدد الأعمدة (id, group, score, pretest, gender)',
+            'Loaded multi-column sample (id, group, score, pretest, gender)',
           ),
         ),
         behavior: SnackBarBehavior.floating,
@@ -113,20 +122,36 @@ class _StatisticalAssumptionsScreenState
   }
 
   void _applyLoadedDataset(StatisticalDataset dataset) {
+    final suggestion = dataset.suggestAnalysis();
+    StatisticalTestType? suggestedType;
+    if (suggestion != null) {
+      try {
+        suggestedType =
+            StatisticalTestType.values.byName(suggestion.testTypeName);
+      } catch (_) {}
+    }
+
     setState(() {
       _dataset = dataset;
       _mode = DataInputMode.fromFile;
       _step = 0;
       _report = null;
-      _depColumn = dataset.numericColumnNames.isNotEmpty
-          ? dataset.numericColumnNames.first
-          : null;
-      _groupColumn = dataset.categoricalColumnNames.isNotEmpty
-          ? dataset.categoricalColumnNames.first
-          : null;
-      _secondColumn = dataset.numericColumnNames.length > 1
-          ? dataset.numericColumnNames[1]
-          : null;
+      if (suggestedType != null) _testType = suggestedType;
+
+      _depColumn = suggestion?.dependent ??
+          (dataset.numericColumnNames.isNotEmpty
+              ? dataset.numericColumnNames.first
+              : (dataset.mappableColumnNames.isNotEmpty
+                  ? dataset.mappableColumnNames.first
+                  : null));
+      _groupColumn = suggestion?.group ??
+          (dataset.categoricalColumnNames.isNotEmpty
+              ? dataset.categoricalColumnNames.first
+              : null);
+      _secondColumn = suggestion?.secondNumeric ??
+          (dataset.numericColumnNames.length > 1
+              ? dataset.numericColumnNames[1]
+              : null);
     });
   }
 
@@ -191,8 +216,8 @@ class _StatisticalAssumptionsScreenState
         SnackBar(
           content: Text(
             context.t(
-              'ارفع ملف CSV أولاً أو اضغط «مثال CSV»',
-              'Upload a CSV file first or tap «Sample CSV»',
+              'ارفع ملف CSV/Excel/Word أولاً أو اضغط «مثال CSV»',
+              'Upload a CSV/Excel/Word file first or tap «Sample CSV»',
             ),
           ),
           behavior: SnackBarBehavior.floating,
@@ -276,6 +301,33 @@ class _StatisticalAssumptionsScreenState
     );
   }
 
+  void _askWritingAgent() {
+    final report = _report;
+    if (report == null) return;
+    final isEn = LocaleService.instance.isEnglish;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AiAdvisorScreen(
+          initialMessage: report.writingBrief(isEn),
+        ),
+      ),
+    );
+  }
+
+  void _openStatsWritingExperts() {
+    final category = writingCategories.firstWhere(
+      (c) => c.id == 'statistics',
+      orElse: () => writingCategories.first,
+    );
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => WritingExpertListScreen(category: category),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final agent =
@@ -293,7 +345,7 @@ class _StatisticalAssumptionsScreenState
         foregroundColor: Colors.white,
         actions: [
           IconButton(
-            tooltip: context.t('رفع CSV', 'Upload CSV'),
+            tooltip: context.t('رفع ملف بيانات', 'Upload data file'),
             icon: _loadingFile
                 ? const SizedBox(
                     width: 22,
@@ -318,7 +370,7 @@ class _StatisticalAssumptionsScreenState
               onPressed: _loadingFile ? null : _pickFile,
               backgroundColor: _brand,
               icon: const Icon(Icons.upload_file),
-              label: Text(context.t('رفع CSV', 'Upload CSV')),
+              label: Text(context.t('رفع ملف', 'Upload file')),
             )
           : null,
       body: Column(
@@ -360,8 +412,8 @@ class _StatisticalAssumptionsScreenState
           Expanded(
             child: Text(
               context.t(
-                'ارفع CSV/TSV أو أدخل يدوياً — Shapiro-Wilk، Levene، t/ANOVA حقيقية',
-                'Upload CSV/TSV or enter manually — real Shapiro-Wilk, Levene, t/ANOVA',
+                'جداول بأي عدد أعمدة — ربط مرن + اقتراح اختبار + Shapiro/Levene/t/ANOVA + بدائل لا بارامترية',
+                'Any-width tables — flexible mapping + test suggestion + Shapiro/Levene/t/ANOVA + nonparametric alternatives',
               ),
               style: TextStyle(fontSize: 13, color: Colors.grey[800], height: 1.4),
             ),
@@ -373,6 +425,7 @@ class _StatisticalAssumptionsScreenState
 
   Widget _buildLoadedFileBanner() {
     final dataset = _dataset!;
+    final missPct = (dataset.missingRate * 100).toStringAsFixed(1);
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -389,8 +442,8 @@ class _StatisticalAssumptionsScreenState
           Expanded(
             child: Text(
               context.t(
-                'CSV: ${dataset.fileName} (${dataset.rowCount} صف)',
-                'CSV: ${dataset.fileName} (${dataset.rowCount} rows)',
+                'ملف: ${dataset.fileName} — ${dataset.rowCount} صف × ${dataset.columnCount} عمود · ناقص $missPct%',
+                'File: ${dataset.fileName} — ${dataset.rowCount} rows × ${dataset.columnCount} cols · missing $missPct%',
               ),
               style: TextStyle(
                 fontSize: 13,
@@ -426,8 +479,8 @@ class _StatisticalAssumptionsScreenState
                 const SizedBox(height: 8),
                 Text(
                   context.t(
-                    'اضغط لرفع ملف CSV',
-                    'Tap to upload a CSV file',
+                    'اضغط لرفع ملف بيانات',
+                    'Tap to upload a data file',
                   ),
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
@@ -520,8 +573,8 @@ class _StatisticalAssumptionsScreenState
                       Expanded(
                         child: Text(
                           context.t(
-                            '① ارفع ملف CSV أولاً',
-                            '① Upload a CSV file first',
+                            '① ارفع ملف بيانات أولاً (CSV / Excel / Word بجدول)',
+                            '① Upload a data file first (CSV / Excel / Word table)',
                           ),
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
@@ -553,8 +606,8 @@ class _StatisticalAssumptionsScreenState
                           : const Icon(Icons.upload_file, size: 28),
                       label: Text(
                         context.t(
-                          'اختر ملف CSV / TSV',
-                          'Choose CSV / TSV file',
+                          'اختر CSV / Excel / Word (جدول)',
+                          'Choose CSV / Excel / Word (table)',
                         ),
                         style: const TextStyle(fontSize: 16),
                       ),
@@ -573,8 +626,8 @@ class _StatisticalAssumptionsScreenState
                   ),
                   Text(
                     context.t(
-                      'Excel: احفظ الورقة كـ CSV UTF-8 ثم ارفعها',
-                      'Excel: save sheet as CSV UTF-8 then upload',
+                      'أي عدد أعمدة مدعوم · Word يحتاج جدولاً · Excel: .xlsx · ليس نص رسالة فقط',
+                      'Any column count supported · Word needs a table · Excel: .xlsx · not prose-only',
                     ),
                     style: TextStyle(fontSize: 11, color: Colors.grey[600]),
                   ),
@@ -598,7 +651,7 @@ class _StatisticalAssumptionsScreenState
                   segments: [
                     ButtonSegment(
                       value: DataInputMode.fromFile,
-                      label: Text(context.t('من ملف CSV', 'From CSV file')),
+                      label: Text(context.t('من ملف بيانات', 'From data file')),
                       icon: const Icon(Icons.upload_file, size: 18),
                     ),
                     ButtonSegment(
@@ -618,6 +671,8 @@ class _StatisticalAssumptionsScreenState
         ),
         if (dataset != null && _mode == DataInputMode.fromFile) ...[
           const SizedBox(height: 12),
+          _buildDatasetHealthCard(dataset),
+          const SizedBox(height: 12),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -625,12 +680,23 @@ class _StatisticalAssumptionsScreenState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '${dataset.fileName} — ${dataset.rowCount} ${context.t('صف', 'rows')}',
+                    context.t(
+                      '${dataset.fileName} — ${dataset.rowCount} صف × ${dataset.columnCount} عمود',
+                      '${dataset.fileName} — ${dataset.rowCount} rows × ${dataset.columnCount} columns',
+                    ),
                     style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    context.t(
+                      'اربط الأعمدة حسب التحليل — الجدول ليس مقيداً بعمودين',
+                      'Map columns for your analysis — tables are not limited to 2 columns',
+                    ),
+                    style: TextStyle(fontSize: 12, color: Colors.grey[700]),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    context.t('معاينة', 'Preview'),
+                    context.t('معاينة (أول 5 صفوف)', 'Preview (first 5 rows)'),
                     style: TextStyle(fontSize: 12, color: Colors.grey[700]),
                   ),
                   const SizedBox(height: 4),
@@ -638,50 +704,32 @@ class _StatisticalAssumptionsScreenState
                     scrollDirection: Axis.horizontal,
                     child: DataTable(
                       columns: dataset.headers
-                          .map((h) => DataColumn(label: Text(h)))
+                          .map(
+                            (h) => DataColumn(
+                              label: Text(
+                                '$h\n(${dataset.columnTypeLabel(h, isEnglish: LocaleService.instance.isEnglish)})',
+                                style: const TextStyle(fontSize: 11),
+                              ),
+                            ),
+                          )
                           .toList(),
                       rows: dataset.rows
                           .take(5)
                           .map(
                             (row) => DataRow(
-                              cells: row
-                                  .map((c) => DataCell(Text(c)))
-                                  .toList(),
+                              cells: List.generate(
+                                dataset.headers.length,
+                                (i) => DataCell(
+                                  Text(i < row.length ? row[i] : ''),
+                                ),
+                              ),
                             ),
                           )
                           .toList(),
                     ),
                   ),
                   const SizedBox(height: 12),
-                  _columnDropdown(
-                    label: context.t('المتغير الرقمي (Y)', 'Numeric variable (Y)'),
-                    value: _depColumn,
-                    options: dataset.numericColumnNames,
-                    onChanged: (v) => setState(() => _depColumn = v),
-                  ),
-                  if (_testTypeNeedsGroup())
-                    _columnDropdown(
-                      label: context.t(
-                        'متغير المجموعة / فئة',
-                        'Group / category variable',
-                      ),
-                      value: _groupColumn,
-                      options: [
-                        ...dataset.categoricalColumnNames,
-                        ...dataset.numericColumnNames,
-                      ],
-                      onChanged: (v) => setState(() => _groupColumn = v),
-                    ),
-                  if (_testTypeNeedsSecondNumeric())
-                    _columnDropdown(
-                      label: context.t(
-                        'متغير رقمي ثانٍ (X)',
-                        'Second numeric (X)',
-                      ),
-                      value: _secondColumn,
-                      options: dataset.numericColumnNames,
-                      onChanged: (v) => setState(() => _secondColumn = v),
-                    ),
+                  ..._buildColumnMappingFields(dataset),
                 ],
               ),
             ),
@@ -691,22 +739,183 @@ class _StatisticalAssumptionsScreenState
     );
   }
 
+  Widget _buildDatasetHealthCard(StatisticalDataset dataset) {
+    final isEn = LocaleService.instance.isEnglish;
+    final numeric = dataset.numericColumnNames.length;
+    final cats = dataset.categoricalColumnNames.length;
+    final missPct = (dataset.missingRate * 100).toStringAsFixed(1);
+    final suggestion = dataset.suggestAnalysis();
+
+    return Card(
+      color: Colors.blueGrey.shade50,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              context.t('صحة مجموعة البيانات', 'Dataset health'),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                Chip(
+                  label: Text(
+                    context.t('$numeric رقمي', '$numeric numeric'),
+                  ),
+                ),
+                Chip(
+                  label: Text(
+                    context.t('$cats فئوي', '$cats categorical'),
+                  ),
+                ),
+                Chip(
+                  label: Text(
+                    context.t('ناقص $missPct%', 'missing $missPct%'),
+                  ),
+                ),
+              ],
+            ),
+            if (suggestion != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                isEn
+                    ? 'Auto-suggest: ${suggestion.reasonEn}'
+                    : 'اقتراح تلقائي: ${suggestion.reasonAr}',
+                style: TextStyle(fontSize: 13, color: Colors.blueGrey.shade800),
+              ),
+              TextButton.icon(
+                onPressed: () {
+                  try {
+                    final t = StatisticalTestType.values
+                        .byName(suggestion.testTypeName);
+                    setState(() {
+                      _testType = t;
+                      _depColumn = suggestion.dependent ?? _depColumn;
+                      _groupColumn = suggestion.group ?? _groupColumn;
+                      _secondColumn =
+                          suggestion.secondNumeric ?? _secondColumn;
+                    });
+                  } catch (_) {}
+                },
+                icon: const Icon(Icons.auto_fix_high, size: 18),
+                label: Text(
+                  context.t('تطبيق الاقتراح', 'Apply suggestion'),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _buildColumnMappingFields(StatisticalDataset dataset) {
+    final isEn = LocaleService.instance.isEnglish;
+    final allCols = dataset.mappableColumnNames;
+    final numericPreferred = [
+      ...dataset.numericColumnNames,
+      ...allCols.where((c) => !dataset.numericColumnNames.contains(c)),
+    ];
+    final catPreferred = [
+      ...dataset.categoricalColumnNames,
+      ...allCols.where((c) => !dataset.categoricalColumnNames.contains(c)),
+    ];
+
+    String typedLabel(String col) =>
+        '$col (${dataset.columnTypeLabel(col, isEnglish: isEn)})';
+
+    if (_testType == StatisticalTestType.chiSquare) {
+      return [
+        _columnDropdown(
+          label: context.t('متغير فئوي 1 (صفوف)', 'Categorical 1 (rows)'),
+          value: _groupColumn,
+          options: catPreferred,
+          optionLabel: typedLabel,
+          onChanged: (v) => setState(() => _groupColumn = v),
+        ),
+        _columnDropdown(
+          label: context.t('متغير فئوي 2 (أعمدة)', 'Categorical 2 (columns)'),
+          value: _depColumn,
+          options: catPreferred,
+          optionLabel: typedLabel,
+          onChanged: (v) => setState(() => _depColumn = v),
+        ),
+      ];
+    }
+
+    final fields = <Widget>[
+      _columnDropdown(
+        label: _testTypeNeedsSecondNumeric()
+            ? context.t('المتغير Y / الأول', 'Variable Y / first')
+            : context.t('المتغير الرقمي (Y)', 'Numeric variable (Y)'),
+        value: _depColumn,
+        options: numericPreferred,
+        optionLabel: typedLabel,
+        onChanged: (v) => setState(() => _depColumn = v),
+      ),
+    ];
+
+    if (_testTypeNeedsGroup()) {
+      fields.add(
+        _columnDropdown(
+          label: context.t(
+            'متغير المجموعة / فئة',
+            'Group / category variable',
+          ),
+          value: _groupColumn,
+          options: catPreferred,
+          optionLabel: typedLabel,
+          onChanged: (v) => setState(() => _groupColumn = v),
+        ),
+      );
+    }
+
+    if (_testTypeNeedsSecondNumeric()) {
+      fields.add(
+        _columnDropdown(
+          label: context.t('متغير رقمي ثانٍ (X)', 'Second numeric (X)'),
+          value: _secondColumn,
+          options: numericPreferred,
+          optionLabel: typedLabel,
+          onChanged: (v) => setState(() => _secondColumn = v),
+        ),
+      );
+    }
+
+    return fields;
+  }
+
   Widget _columnDropdown({
     required String label,
     required String? value,
     required List<String> options,
     required ValueChanged<String?> onChanged,
+    String Function(String)? optionLabel,
   }) {
+    final unique = options.toSet().toList();
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: DropdownButtonFormField<String>(
-        initialValue: options.contains(value) ? value : null,
+        initialValue: unique.contains(value) ? value : null,
+        isExpanded: true,
         decoration: InputDecoration(
           labelText: label,
           border: const OutlineInputBorder(),
         ),
-        items: options
-            .map((o) => DropdownMenuItem(value: o, child: Text(o)))
+        items: unique
+            .map(
+              (o) => DropdownMenuItem(
+                value: o,
+                child: Text(
+                  optionLabel?.call(o) ?? o,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            )
             .toList(),
         onChanged: onChanged,
       ),
@@ -724,10 +933,18 @@ class _StatisticalAssumptionsScreenState
           children: [
             Text(
               context.t(
-                '② اختر نوع التحليل',
-                '② Choose analysis type',
+                '② اختر نوع التحليل (يُقترح تلقائياً من أعمدة الملف)',
+                '② Choose analysis type (auto-suggested from file columns)',
               ),
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              context.t(
+                'عند انتهاك الطبيعية يظهر البديل اللا بارامتري تلقائياً في النتائج',
+                'When normality fails, nonparametric alternatives appear in results',
+              ),
+              style: TextStyle(fontSize: 12, color: Colors.grey[700]),
             ),
             const SizedBox(height: 12),
             RadioGroup<StatisticalTestType>(
@@ -947,7 +1164,13 @@ class _StatisticalAssumptionsScreenState
             ),
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
+        _buildMethodologyCard(report, isEnglish),
+        const SizedBox(height: 16),
+        _buildDecisionTreeCard(report.decisionTree, isEnglish),
+        const SizedBox(height: 16),
+        _buildEcosystemLinksCard(),
+        const SizedBox(height: 16),
         Text(
           context.t('فحص الافتراضات', 'Assumption checks'),
           style: const TextStyle(fontWeight: FontWeight.bold),
@@ -971,27 +1194,268 @@ class _StatisticalAssumptionsScreenState
         ),
         const SizedBox(height: 16),
         Text(
-          context.t('أكواد SPSS / R', 'SPSS / R code'),
+          context.t(
+            'أكواد SPSS / R / Python',
+            'SPSS / R / Python code',
+          ),
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
         ...report.codeSnippets.map((s) => _codeCard(s, isEnglish)),
-        const SizedBox(height: 12),
-        FilledButton.icon(
-          onPressed: _askDataAgent,
-          style: FilledButton.styleFrom(
-            backgroundColor: _brand,
-            minimumSize: const Size(double.infinity, 48),
-          ),
-          icon: const Icon(Icons.smart_toy_outlined),
-          label: Text(
-            context.t(
-              'اسأل وكيل تحليل البيانات',
-              'Ask the Data Analysis agent',
-            ),
-          ),
-        ),
       ],
+    );
+  }
+
+  Widget _buildMethodologyCard(
+    StatisticalAssumptionsReport report,
+    bool isEnglish,
+  ) {
+    final text = report.methodology.text(isEnglish);
+    return Card(
+      elevation: 1,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.menu_book_outlined, color: _brand),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    context.t(
+                      '① فقرة المنهجية (جاهزة للرسالة)',
+                      '① Methodology paragraph (thesis-ready)',
+                    ),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: context.t('نسخ', 'Copy'),
+                  onPressed: () => _copyCode(text),
+                  icon: const Icon(Icons.copy, size: 20),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              text,
+              style: const TextStyle(height: 1.55, fontSize: 13.5),
+              textAlign: TextAlign.justify,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              context.t(
+                'انسخها إلى فصل المنهج أو النتائج وعدّل أسماء المتغيرات إن لزم.',
+                'Copy into Methods/Results and adjust variable names if needed.',
+              ),
+              style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDecisionTreeCard(
+    List<DecisionTreeStep> steps,
+    bool isEnglish,
+  ) {
+    return Card(
+      elevation: 1,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.account_tree_outlined, color: _brand),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    context.t(
+                      '② شجرة القرار الإحصائي',
+                      '② Statistical decision tree',
+                    ),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              context.t(
+                'لماذا هذا الاختبار؟ مسار واضح لغير المتخصص',
+                'Why this test? A clear path for non-specialists',
+              ),
+              style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+            ),
+            const SizedBox(height: 12),
+            ...List.generate(steps.length, (i) {
+              final step = steps[i];
+              final isLast = i == steps.length - 1;
+              return Column(
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Column(
+                        children: [
+                          CircleAvatar(
+                            radius: 14,
+                            backgroundColor: step.favorable
+                                ? Colors.green.shade600
+                                : Colors.orange.shade700,
+                            child: Text(
+                              '${i + 1}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          if (!isLast)
+                            Container(
+                              width: 2,
+                              height: 28,
+                              color: Colors.grey.shade300,
+                            ),
+                        ],
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Padding(
+                          padding: EdgeInsets.only(bottom: isLast ? 0 : 8),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                step.question(isEnglish),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                  color: Colors.grey[800],
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                step.answer(isEnglish),
+                                style: TextStyle(
+                                  fontSize: 13.5,
+                                  color: step.favorable
+                                      ? Colors.green.shade900
+                                      : Colors.orange.shade900,
+                                  height: 1.35,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEcosystemLinksCard() {
+    return Card(
+      elevation: 1,
+      color: Colors.indigo.shade50,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.hub_outlined, color: Colors.indigo.shade800),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    context.t(
+                      '③ أكمل الرحلة داخل AcadeGate',
+                      '③ Continue inside AcadeGate',
+                    ),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: Colors.indigo.shade900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              context.t(
+                'ربط فوري بالوكيل والكتابة البشرية — ليست مجرد حاسبة',
+                'Instant link to AI agents and human writing — not just a calculator',
+              ),
+              style: TextStyle(fontSize: 12, color: Colors.indigo.shade700),
+            ),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: _askDataAgent,
+              style: FilledButton.styleFrom(
+                backgroundColor: _brand,
+                minimumSize: const Size(double.infinity, 46),
+              ),
+              icon: const Icon(Icons.smart_toy_outlined),
+              label: Text(
+                context.t(
+                  'وكيل تحليل البيانات — فسّر النتائج',
+                  'Data Analysis agent — interpret results',
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: _askWritingAgent,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.indigo.shade800,
+                minimumSize: const Size(double.infinity, 46),
+              ),
+              icon: const Icon(Icons.edit_note),
+              label: Text(
+                context.t(
+                  'وكيل الكتابة — حسّن فقرة المنهجية',
+                  'Writing agent — polish methodology paragraph',
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: _openStatsWritingExperts,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.brown.shade800,
+                minimumSize: const Size(double.infinity, 46),
+              ),
+              icon: const Icon(Icons.people_outline),
+              label: Text(
+                context.t(
+                  'خبراء إحصاء بشريون — مراجعة للرسالة',
+                  'Human stats experts — thesis review',
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1010,7 +1474,11 @@ class _StatisticalAssumptionsScreenState
   }
 
   Widget _codeCard(CodeSnippet snippet, bool isEnglish) {
-    final lang = snippet.language == CodeLanguage.spss ? 'SPSS' : 'R';
+    final lang = switch (snippet.language) {
+      CodeLanguage.spss => 'SPSS',
+      CodeLanguage.r => 'R',
+      CodeLanguage.python => 'Python',
+    };
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       child: Padding(

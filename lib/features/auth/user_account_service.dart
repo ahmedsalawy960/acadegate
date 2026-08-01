@@ -127,4 +127,38 @@ class UserAccountService {
     if (user == null) return;
     await _doc(user.uid).update({'activePortal': FieldValue.delete()});
   }
+
+  Future<void> updateDisplayName(String displayName) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('يجب تسجيل الدخول');
+    final name = displayName.trim();
+    if (name.isEmpty) throw Exception('الاسم مطلوب');
+
+    await _doc(user.uid).set(
+      {'displayName': name},
+      SetOptions(merge: true),
+    );
+    await user.updateDisplayName(name);
+  }
+
+  Future<void> updatePhotoUrl(String? photoUrl) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('يجب تسجيل الدخول');
+
+    final url = photoUrl?.trim();
+    if (url == null || url.isEmpty) {
+      await _doc(user.uid).set(
+        {'photoUrl': FieldValue.delete()},
+        SetOptions(merge: true),
+      );
+      await user.updatePhotoURL(null);
+      return;
+    }
+
+    await _doc(user.uid).set(
+      {'photoUrl': url},
+      SetOptions(merge: true),
+    );
+    await user.updatePhotoURL(url);
+  }
 }

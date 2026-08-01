@@ -9,6 +9,14 @@
       ]
     },
     {
+      "collectionGroup": "community_posts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "audienceScope", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "research_rooms",
       "queryScope": "COLLECTION",
       "fields": [

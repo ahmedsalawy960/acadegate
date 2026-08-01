@@ -76,6 +76,305 @@ const NOTIFICATION_TYPES = new Set([
   "proposal",
 ]);
 
+/** Types that may only target the authenticated caller (no cross-user spoofing). */
+const SELF_ONLY_NOTIFICATION_TYPES = new Set([
+  "general",
+  "sample_analysis_sla",
+  "smart_match",
+]);
+
+/** Ops types that any signed-in user may send to accounts with role=admin. */
+const ADMIN_FANOUT_TYPES = new Set([
+  "sample_analysis",
+  "lab_booking",
+  "lab_claim",
+]);
+
+async function userHasAdminRole(db, uid) {
+  const snap = await db.collection("users").doc(uid).get();
+  return snap.exists && String(snap.data()?.role || "") === "admin";
+}
+
+function partiesInclude(parties, uid) {
+  return parties.map(String).includes(String(uid));
+}
+
+/** contextId format: "serviceId:orderId" */
+async function loadWritingOrder(db, contextId) {
+  if (!contextId || !contextId.includes(":")) return null;
+  const sep = contextId.indexOf(":");
+  const serviceId = contextId.slice(0, sep);
+  const orderId = contextId.slice(sep + 1);
+  if (!serviceId || !orderId) return null;
+  const order = await db
+    .collection("writing_services")
+    .doc(serviceId)
+    .collection("writing_orders")
+    .doc(orderId)
+    .get();
+  return order.exists ? order : null;
+}
+
+function assertWritingOrderParties(orderSnap, senderUid, targetUid) {
+  const d = orderSnap.data() || {};
+  const parties = [d.userId, d.serviceOwnerId];
+  if (
+    !partiesInclude(parties, senderUid) ||
+    !partiesInclude(parties, targetUid)
+  ) {
+    throw new HttpsError(
+      "permission-denied",
+      "Not a party on this writing order",
+    );
+  }
+}
+
+/**
+ * Cross-user notifications require a verified relationship.
+ * Self-notify is always allowed. Arbitrary targeting is denied.
+ */
+async function assertCanNotify(
+  db,
+  senderUid,
+  targetUid,
+  type,
+  contextId,
+  contextType,
+) {
+  if (senderUid === targetUid) return;
+
+  if (SELF_ONLY_NOTIFICATION_TYPES.has(type)) {
+    throw new HttpsError(
+      "permission-denied",
+      "This notification type can only target the authenticated user",
+    );
+  }
+
+  if (
+    ADMIN_FANOUT_TYPES.has(type) &&
+    (await userHasAdminRole(db, targetUid))
+  ) {
+    return;
+  }
+
+  switch (type) {
+    case "message": {
+      if (!contextId) {
+        throw new HttpsError(
+          "invalid-argument",
+          "contextId (conversation) required for message notifications",
+        );
+      }
+      const conv = await db.collection("conversations").doc(contextId).get();
+      if (!conv.exists) {
+        throw new HttpsError("permission-denied", "Conversation not found");
+      }
+      const ids = conv.data()?.participantIds || [];
+      if (!partiesInclude(ids, senderUid) || !partiesInclude(ids, targetUid)) {
+        throw new HttpsError(
+          "permission-denied",
+          "Not a participant in this conversation",
+        );
+      }
+      return;
+    }
+
+    case "store_order":
+    case "payment_held":
+    case "payment_released":
+    case "payment_refunded": {
+      if (contextType === "store_order" && contextId) {
+        const order = await db.collection("store_orders").doc(contextId).get();
+        if (!order.exists) {
+          throw new HttpsError("permission-denied", "Store order not found");
+        }
+        const d = order.data() || {};
+        const parties = [d.buyerId, d.sellerId];
+        if (
+          !partiesInclude(parties, senderUid) ||
+          !partiesInclude(parties, targetUid)
+        ) {
+          throw new HttpsError(
+            "permission-denied",
+            "Not a party on this store order",
+          );
+        }
+        return;
+      }
+      if (contextType === "writing_order") {
+        const order = await loadWritingOrder(db, contextId);
+        if (!order) {
+          throw new HttpsError("permission-denied", "Writing order not found");
+        }
+        assertWritingOrderParties(order, senderUid, targetUid);
+        return;
+      }
+      throw new HttpsError(
+        "invalid-argument",
+        "contextType/contextId required for payment notifications",
+      );
+    }
+
+    case "writing_order": {
+      if (contextType !== "writing_order") {
+        throw new HttpsError(
+          "invalid-argument",
+          "contextType must be writing_order",
+        );
+      }
+      const order = await loadWritingOrder(db, contextId);
+      if (!order) {
+        throw new HttpsError("permission-denied", "Writing order not found");
+      }
+      assertWritingOrderParties(order, senderUid, targetUid);
+      return;
+    }
+
+    case "supervision_request": {
+      if (!contextId) {
+        throw new HttpsError(
+          "invalid-argument",
+          "contextId required for supervision_request",
+        );
+      }
+      const req = await db
+        .collection("supervision_requests")
+        .doc(contextId)
+        .get();
+      if (!req.exists) {
+        throw new HttpsError("permission-denied", "Supervision request not found");
+      }
+      const d = req.data() || {};
+      if (
+        String(d.studentId) !== senderUid ||
+        String(d.supervisorOwnerId) !== targetUid
+      ) {
+        throw new HttpsError(
+          "permission-denied",
+          "Not authorized for this supervision notification",
+        );
+      }
+      return;
+    }
+
+    case "sample_analysis":
+    case "lab_booking":
+    case "lab_claim": {
+      if (contextType !== "lab" || !contextId) {
+        throw new HttpsError(
+          "invalid-argument",
+          "contextType=lab and contextId required",
+        );
+      }
+      const lab = await db.collection("labs").doc(contextId).get();
+      if (!lab.exists) {
+        throw new HttpsError("permission-denied", "Lab not found");
+      }
+      const ownerId = String(lab.data()?.ownerId || "");
+      if (ownerId && ownerId !== targetUid) {
+        throw new HttpsError(
+          "permission-denied",
+          "Target is not the lab owner",
+        );
+      }
+      if (!ownerId && !(await userHasAdminRole(db, targetUid))) {
+        throw new HttpsError(
+          "permission-denied",
+          "Unowned lab notifications must target an admin",
+        );
+      }
+      return;
+    }
+
+    case "research_room_reply":
+    case "research_discussion_reply": {
+      if (contextType !== "research_room" || !contextId) {
+        throw new HttpsError(
+          "invalid-argument",
+          "contextType=research_room and contextId required",
+        );
+      }
+      const member = await db
+        .collection("research_rooms")
+        .doc(contextId)
+        .collection("members")
+        .doc(senderUid)
+        .get();
+      const room = await db.collection("research_rooms").doc(contextId).get();
+      if (!room.exists) {
+        throw new HttpsError("permission-denied", "Research room not found");
+      }
+      const creatorId = String(room.data()?.creatorId || "");
+      const isMember = member.exists || creatorId === senderUid;
+      if (!isMember) {
+        throw new HttpsError(
+          "permission-denied",
+          "Not a member of this research room",
+        );
+      }
+      if (targetUid !== creatorId) {
+        // Allow notifying discussion author only if they are also a member/creator
+        const targetMember = await db
+          .collection("research_rooms")
+          .doc(contextId)
+          .collection("members")
+          .doc(targetUid)
+          .get();
+        if (!targetMember.exists && targetUid !== creatorId) {
+          throw new HttpsError(
+            "permission-denied",
+            "Target is not in this research room",
+          );
+        }
+      }
+      return;
+    }
+
+    case "fund_award": {
+      if (!(await userHasAdminRole(db, senderUid))) {
+        throw new HttpsError(
+          "permission-denied",
+          "Only admins can send fund_award notifications",
+        );
+      }
+      return;
+    }
+
+    case "proposal": {
+      if (contextType !== "research_idea" || !contextId) {
+        throw new HttpsError(
+          "invalid-argument",
+          "contextType=research_idea and contextId required",
+        );
+      }
+      const idea = await db.collection("research_ideas").doc(contextId).get();
+      if (!idea.exists) {
+        throw new HttpsError("permission-denied", "Research idea not found");
+      }
+      const publisherId = String(idea.data()?.publisherId || "");
+      if (publisherId !== targetUid && publisherId !== senderUid) {
+        // Sender proposes to publisher, or publisher notifies proposer
+        const ok =
+          (senderUid !== targetUid && publisherId === targetUid) ||
+          (publisherId === senderUid);
+        if (!ok) {
+          throw new HttpsError(
+            "permission-denied",
+            "Not authorized for this proposal notification",
+          );
+        }
+      }
+      return;
+    }
+
+    default:
+      throw new HttpsError(
+        "permission-denied",
+        "Cross-user notification not allowed for this type",
+      );
+  }
+}
+
 /** Create in-app notifications (client cannot write notifications collection). */
 exports.sendAppNotification = onCall(
   {
@@ -95,6 +394,7 @@ exports.sendAppNotification = onCall(
   const type = String(data.type || "general").trim();
   const contextId = String(data.contextId || "").trim();
   const contextType = String(data.contextType || "").trim();
+  const senderUid = request.auth.uid;
 
   if (!userId || title.length < 1 || body.length < 1) {
     throw new HttpsError("invalid-argument", "userId, title, and body required");
@@ -107,12 +407,14 @@ exports.sendAppNotification = onCall(
   }
 
   const db = getFirestore();
+  await assertCanNotify(db, senderUid, userId, type, contextId, contextType);
+
   await db.collection("notifications").add({
     userId,
     title,
     body,
     type,
-    senderId: request.auth.uid,
+    senderId: senderUid,
     read: false,
     ...(contextId ? { contextId } : {}),
     ...(contextType ? { contextType } : {}),

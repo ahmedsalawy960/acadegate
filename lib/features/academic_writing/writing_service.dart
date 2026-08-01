@@ -87,7 +87,7 @@ class WritingService {
       ..['paymentStatus'] = 'pending_payment'
       ..['amount'] = 0;
 
-    await _orders(serviceId).add(payload);
+    final orderDoc = await _orders(serviceId).add(payload);
 
     if (expert.ownerId != null && expert.ownerId!.isNotEmpty) {
       await NotificationService.instance.send(
@@ -95,6 +95,8 @@ class WritingService {
         title: appTr('طلب كتابة جديد', 'New writing order'),
         body: order.topic,
         type: 'writing_order',
+        contextId: '$serviceId:${orderDoc.id}',
+        contextType: 'writing_order',
       );
     }
   }
@@ -154,6 +156,8 @@ class WritingService {
         'The expert accepted — pay $amount EGP to start',
       ),
       type: 'writing_order',
+      contextId: '$serviceId:$orderId',
+      contextType: 'writing_order',
     );
   }
 
@@ -183,6 +187,8 @@ class WritingService {
           ? appTr('رفض الخبير طلب الكتابة', 'The expert declined the writing order')
           : reason,
       type: 'writing_order',
+      contextId: '$serviceId:$orderId',
+      contextType: 'writing_order',
     );
   }
 
@@ -218,6 +224,8 @@ class WritingService {
       title: appTr('تم تسليم العمل', 'Work delivered'),
       body: appTr('راجع التسليم وأكّد الاستلام', 'Review the delivery and confirm receipt'),
       type: 'writing_order',
+      contextId: '$serviceId:$orderId',
+      contextType: 'writing_order',
     );
   }
 
@@ -293,6 +301,8 @@ class WritingService {
           'Buyer requested a manual transfer for «${data['topic']}»',
         ),
         type: 'writing_order',
+        contextId: '$serviceId:$orderId',
+        contextType: 'writing_order',
       );
     }
   }
@@ -334,6 +344,8 @@ class WritingService {
           'Expert confirmed your transfer — work has started',
         ),
         type: 'payment_held',
+        contextId: '$serviceId:$orderId',
+        contextType: 'writing_order',
       );
     }
   }

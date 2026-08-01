@@ -27,10 +27,13 @@ class ImportedDocumentImage {
 class ManuscriptDocumentParser {
   ManuscriptDocumentParser._();
 
-  static const maxImportedBlocks = 80;
-  static const maxImportedReferences = 35;
+  /// Soft cap only — media (figures/tables/equations) is never dropped.
+  static const maxImportedBlocks = 500;
+  static const maxImportedReferences = 200;
   static const maxBlockTextLength = 120000;
-  static const maxRawTextLength = 450;
+  static const maxRawTextLength = 800;
+  /// Skip tiny media (bullets / icon chrome) when recovering unused word/media files.
+  static const minRecoveredMediaBytes = 2500;
 
   /// Firebase Storage upload listeners crash on Windows desktop (plugin threading).
   static bool get skipImportImageUpload =>
@@ -264,10 +267,11 @@ class ManuscriptDocumentParser {
     final archive = ZipDecoder().decodeBytes(bytes);
     final buffer = StringBuffer();
 
-    final xmlPaths = archive.files
-        .where((f) => f.name == 'word/document.xml')
-        .map((f) => f.name)
-        .toList();
+    const xmlPaths = [
+      'word/document.xml',
+      'word/footnotes.xml',
+      'word/endnotes.xml',
+    ];
 
     for (final path in xmlPaths) {
       final entry = archive.findFile(path);
@@ -594,6 +598,15 @@ class ManuscriptDocumentParser {
                 tag == 'object' &&
                     DocxScientificExtractor.isOleScientificObject(child),
           );
+          // Shape / text-box prose nested inside DrawingML / VML.
+          for (final shapeText in _extractShapeTextBoxes(child)) {
+            if (shapeText.isEmpty) continue;
+            blocks.add(ManuscriptBlock(
+              id: nextId(),
+              type: ManuscriptBlockType.paragraph,
+              text: shapeText,
+            ));
+          }
           continue;
         }
         if (tag == 'AlternateContent') {
@@ -1444,11 +1457,20 @@ class ManuscriptDocumentParser {
 
     final bibIdx = _findBibliographyIndex(blocks);
     final content = blocks.sublist(0, bibIdx);
-    if (content.isEmpty) return blocks;
+    // Keep figures/tables/equations/appendices that appear after References.
+    final afterBibliography = bibIdx < blocks.length
+        ? _keepPostBibliographyContent(blocks.sublist(bibIdx + 1))
+        : const <ManuscriptBlock>[];
+    if (content.isEmpty) {
+      return [...blocks, ...afterBibliography];
+    }
 
     final abstractIdx = _findAbstractIndex(content);
     if (abstractIdx == null) {
-      return _structureBodyWithMedia(content, nextId);
+      return [
+        ..._structureBodyWithMedia(content, nextId),
+        ...afterBibliography,
+      ];
     }
 
     final introIdx = _findIntroductionIndex(content, abstractIdx + 1);
@@ -1470,8 +1492,42 @@ class ManuscriptDocumentParser {
     result.addAll(titlePageBlocks);
     result.addAll(abstractKeywords);
     result.addAll(bodyBlocks);
+    result.addAll(afterBibliography);
 
     return result.isEmpty ? content : result;
+  }
+
+  /// After the References heading: keep media + appendix prose; drop bib lines.
+  static List<ManuscriptBlock> _keepPostBibliographyContent(
+    List<ManuscriptBlock> blocks,
+  ) {
+    final out = <ManuscriptBlock>[];
+    for (final block in blocks) {
+      if (_isMediaBlock(block)) {
+        out.add(block);
+        continue;
+      }
+      if (_isBibliographyBlock(block)) continue;
+      final t = block.text.trim();
+      if (t.isEmpty) continue;
+      if (_looksLikeReference(t)) continue;
+      if (_isAppendixHeading(t) ||
+          block.type == ManuscriptBlockType.heading ||
+          t.length >= 25) {
+        out.add(block);
+      }
+    }
+    return out;
+  }
+
+  static bool _isAppendixHeading(String text) {
+    final t = text.trim();
+    if (t.length > 90) return false;
+    return RegExp(
+      r'^(?:\d+\.?\s*)?(Appendix|Supplementary|Supporting Information|'
+      r'ملحق|الملاحق|مواد تكميلية)\b',
+      caseSensitive: false,
+    ).hasMatch(t);
   }
 
   static List<ManuscriptBlock> _structureSectionZone(
@@ -1512,8 +1568,9 @@ class ManuscriptDocumentParser {
   static bool _isFigureCaption(String text) {
     final t = text.trim();
     return RegExp(r'^Figure\s+[\d٠-٩]+', caseSensitive: false).hasMatch(t) ||
-        RegExp(r'^Fig\.\s*[\d٠-٩]+', caseSensitive: false).hasMatch(t) ||
-        RegExp(r'^شكل\s*[\d٠-٩]+').hasMatch(t);
+        RegExp(r'^Fig(?:ure)?\.?\s*[\d٠-٩]+', caseSensitive: false).hasMatch(t) ||
+        RegExp(r'^شكل(?:\s*رقم)?\s*[\d٠-٩]+').hasMatch(t) ||
+        RegExp(r'^الصورة\s*[\d٠-٩]+').hasMatch(t);
   }
 
   static int _dataUriByteLength(String uri) {
@@ -1719,8 +1776,62 @@ class ManuscriptDocumentParser {
         },
       );
 
+      var inBibliography = false;
       for (final child in body.children.whereType<XmlElement>()) {
-        if (_appendDocxElement(
+        final tag = child.localName;
+
+        if (tag == 'p' && _isBibliographyParagraph(child)) {
+          inBibliography = true;
+          continue;
+        }
+
+        if (inBibliography && tag == 'p') {
+          final plain = _paragraphPlainText(child).trim();
+          if (_isAppendixHeading(plain)) {
+            inBibliography = false;
+          } else {
+            final paraBlocks = _blocksFromDocxParagraph(
+              child,
+              archive: archive,
+              rels: rels,
+              nextId: nextId,
+              onVisualUsed: onVisualUsed,
+              imageCount: () => imageCount,
+              maxLocalImages: maxLocalImages,
+            );
+            blocks.addAll(paraBlocks.where(_isMediaBlock));
+            if (_isFigureCaption(plain) ||
+                _isTableCaption(plain) ||
+                (plain.isNotEmpty &&
+                    !_looksLikeReference(plain) &&
+                    plain.length >= 25)) {
+              blocks.add(ManuscriptBlock(
+                id: nextId(),
+                type: (_isHeadingParagraph(child) || _isAppendixHeading(plain))
+                    ? ManuscriptBlockType.heading
+                    : ManuscriptBlockType.paragraph,
+                text: plain,
+              ));
+            }
+            continue;
+          }
+        }
+
+        // After References: still keep tables/drawings/equations.
+        if (inBibliography &&
+            tag != 'tbl' &&
+            tag != 'drawing' &&
+            tag != 'pict' &&
+            tag != 'object' &&
+            tag != 'oMath' &&
+            tag != 'oMathPara' &&
+            tag != 'sdt' &&
+            tag != 'AlternateContent' &&
+            tag != 'p') {
+          continue;
+        }
+
+        _appendDocxElement(
           child,
           archive: archive,
           rels: rels,
@@ -1731,12 +1842,48 @@ class ManuscriptDocumentParser {
           maxLocalImages: maxLocalImages,
           usedVisualUris: usedVisualUris,
           mediaPool: mediaPool,
-        )) {
-          break;
-        }
+        );
       }
+
+      _appendNotesFromPart(
+        archive,
+        partPath: 'word/footnotes.xml',
+        noteLocalName: 'footnote',
+        labelAr: 'حاشية',
+        labelEn: 'Footnote',
+        blocks: blocks,
+        nextId: nextId,
+        rels: rels,
+        imageCount: () => imageCount,
+        onVisualUsed: onVisualUsed,
+        maxLocalImages: maxLocalImages,
+        usedVisualUris: usedVisualUris,
+        mediaPool: mediaPool,
+      );
+      _appendNotesFromPart(
+        archive,
+        partPath: 'word/endnotes.xml',
+        noteLocalName: 'endnote',
+        labelAr: 'تعليق ختامي',
+        labelEn: 'Endnote',
+        blocks: blocks,
+        nextId: nextId,
+        rels: rels,
+        imageCount: () => imageCount,
+        onVisualUsed: onVisualUsed,
+        maxLocalImages: maxLocalImages,
+        usedVisualUris: usedVisualUris,
+        mediaPool: mediaPool,
+      );
+
       var result = _reclassifyImageEquations(blocks);
       result = _recoverOrphanFigureImages(
+        blocks: result,
+        mediaPool: mediaPool,
+        usedVisualUris: usedVisualUris,
+        nextId: nextId,
+      );
+      result = _appendUnusedMediaAsFigures(
         blocks: result,
         mediaPool: mediaPool,
         usedVisualUris: usedVisualUris,
@@ -1779,6 +1926,128 @@ class ManuscriptDocumentParser {
     return rels;
   }
 
+  /// Plain text inside Word shapes / text boxes (w:txbxContent).
+  static List<String> _extractShapeTextBoxes(XmlElement node) {
+    final out = <String>[];
+    for (final txbx in node.findAllElements('txbxContent')) {
+      final buffer = StringBuffer();
+      for (final child in txbx.children.whereType<XmlElement>()) {
+        if (child.localName != 'p') continue;
+        final part = _paragraphPlainText(child).trim();
+        if (part.isEmpty) continue;
+        if (buffer.isNotEmpty) buffer.write('\n');
+        buffer.write(part);
+      }
+      final text = buffer.toString().trim();
+      if (text.isNotEmpty) out.add(text);
+    }
+    return out;
+  }
+
+  static void _appendNotesFromPart(
+    Archive archive, {
+    required String partPath,
+    required String noteLocalName,
+    required String labelAr,
+    required String labelEn,
+    required List<ManuscriptBlock> blocks,
+    required String Function() nextId,
+    required Map<String, String> rels,
+    required int Function() imageCount,
+    required void Function(String uri) onVisualUsed,
+    required int maxLocalImages,
+    required Set<String> usedVisualUris,
+    required List<String> mediaPool,
+  }) {
+    final entry = archive.findFile(partPath);
+    if (entry == null) return;
+    try {
+      final doc = XmlDocument.parse(utf8.decode(entry.content as List<int>));
+      var noteIndex = 0;
+      for (final note in doc.findAllElements(noteLocalName)) {
+        final type = note.getAttribute('type') ??
+            note.getAttribute('w:type') ??
+            '';
+        if (type == 'separator' || type == 'continuationSeparator') continue;
+        noteIndex++;
+        for (final child in note.children.whereType<XmlElement>()) {
+          if (child.localName == 'p') {
+            final text = _paragraphPlainText(child).trim();
+            final media = _blocksFromDocxParagraph(
+              child,
+              archive: archive,
+              rels: rels,
+              nextId: nextId,
+              onVisualUsed: onVisualUsed,
+              imageCount: imageCount,
+              maxLocalImages: maxLocalImages,
+            ).where(_isMediaBlock);
+            blocks.addAll(media);
+            if (text.isNotEmpty) {
+              blocks.add(ManuscriptBlock(
+                id: nextId(),
+                type: ManuscriptBlockType.paragraph,
+                text: appTr(
+                  '[$labelAr $noteIndex] $text',
+                  '[$labelEn $noteIndex] $text',
+                ),
+              ));
+            }
+          } else {
+            _appendDocxElement(
+              child,
+              archive: archive,
+              rels: rels,
+              blocks: blocks,
+              nextId: nextId,
+              imageCount: imageCount,
+              onVisualUsed: onVisualUsed,
+              maxLocalImages: maxLocalImages,
+              usedVisualUris: usedVisualUris,
+              mediaPool: mediaPool,
+            );
+          }
+        }
+      }
+    } catch (_) {
+      // Malformed notes part — ignore.
+    }
+  }
+
+  /// Attach any remaining word/media assets not linked from document XML.
+  static List<ManuscriptBlock> _appendUnusedMediaAsFigures({
+    required List<ManuscriptBlock> blocks,
+    required List<String> mediaPool,
+    required Set<String> usedVisualUris,
+    required String Function() nextId,
+  }) {
+    final unused = mediaPool.where((u) => !usedVisualUris.contains(u)).toList()
+      ..sort(
+        (a, b) => _dataUriByteLength(b).compareTo(_dataUriByteLength(a)),
+      );
+    if (unused.isEmpty) return blocks;
+
+    final out = List<ManuscriptBlock>.from(blocks);
+    var added = 0;
+    for (final uri in unused) {
+      if (_dataUriByteLength(uri) < minRecoveredMediaBytes) continue;
+      usedVisualUris.add(uri);
+      final id = nextId();
+      _registerImageUri(id, uri);
+      added++;
+      out.add(ManuscriptBlock(
+        id: id,
+        type: ManuscriptBlockType.image,
+        imageUrl: uri,
+        caption: appTr(
+          'شكل مستخرج من الملف ($added)',
+          'Extracted figure from file ($added)',
+        ),
+      ));
+    }
+    return out;
+  }
+
   static bool _appendDocxElement(
     XmlElement element, {
     required Archive archive,
@@ -1809,8 +2078,6 @@ class ManuscriptDocumentParser {
     }
 
     if (tag == 'p') {
-      if (_isBibliographyParagraph(element)) return true;
-
       final paragraphBlocks = _blocksFromDocxParagraph(
         element,
         archive: archive,
@@ -1895,9 +2162,16 @@ class ManuscriptDocumentParser {
       return false;
     }
 
-    // Floating drawings / alternate content wrappers.
+    // Floating drawings / shapes / OLE previews.
     if (tag == 'drawing' || tag == 'pict' || tag == 'object') {
       addImagesFrom(element);
+      for (final shapeText in _extractShapeTextBoxes(element)) {
+        blocks.add(ManuscriptBlock(
+          id: nextId(),
+          type: ManuscriptBlockType.paragraph,
+          text: shapeText,
+        ));
+      }
       return false;
     }
 
@@ -1922,6 +2196,25 @@ class ManuscriptDocumentParser {
           );
         }
         break;
+      }
+      return false;
+    }
+
+    // Nested containers (e.g. custom XML / content controls wrappers).
+    if (tag == 'body' || tag == 'tc' || tag == 'txbxContent') {
+      for (final inner in element.children.whereType<XmlElement>()) {
+        _appendDocxElement(
+          inner,
+          archive: archive,
+          rels: rels,
+          blocks: blocks,
+          nextId: nextId,
+          imageCount: imageCount,
+          onVisualUsed: onVisualUsed,
+          maxLocalImages: maxLocalImages,
+          usedVisualUris: usedVisualUris,
+          mediaPool: mediaPool,
+        );
       }
     }
     return false;

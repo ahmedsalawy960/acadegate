@@ -29,8 +29,10 @@ class StorageService {
     if (user == null) throw Exception('يجب تسجيل الدخول لرفع صورة');
 
     final bytes = await file.readAsBytes();
-    if (bytes.length > 5 * 1024 * 1024) {
-      throw Exception('حجم الصورة يجب ألا يتجاوز 5 ميجابايت');
+    // Keep in sync with storage.rules general image upload limit.
+    const maxBytes = 15 * 1024 * 1024;
+    if (bytes.length > maxBytes) {
+      throw Exception('حجم الصورة يجب ألا يتجاوز 15 ميجابايت');
     }
 
     final ext = file.name.split('.').last.toLowerCase();

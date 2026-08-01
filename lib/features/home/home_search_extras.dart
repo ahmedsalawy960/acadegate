@@ -59,16 +59,24 @@ class _HomeSearchExtrasBuilderState extends State<HomeSearchExtrasBuilder> {
   void initState() {
     super.initState();
     _subscriptions.add(
-      _db.collection('writing_services').snapshots().listen(_onWriters),
+      _db
+          .collection('writing_services')
+          .limit(400)
+          .snapshots()
+          .listen(_onWriters),
     );
     _subscriptions.add(
-      _db.collection('community_posts').snapshots().listen(_onPosts),
+      _db
+          .collection('community_posts')
+          .limit(400)
+          .snapshots()
+          .listen(_onPosts),
     );
     _subscriptions.add(
-      _db.collection('science_news').snapshots().listen(_onNews),
+      _db.collection('science_news').limit(200).snapshots().listen(_onNews),
     );
     _subscriptions.add(
-      _db.collection('research_rooms').snapshots().listen(_onRooms),
+      _db.collection('research_rooms').limit(300).snapshots().listen(_onRooms),
     );
   }
 
@@ -141,7 +149,7 @@ class _HomeSearchExtrasBuilderState extends State<HomeSearchExtrasBuilder> {
               ...e.tools,
             ]),
           )
-          .take(12)
+          .take(24)
           .toList(),
       communityPosts: _posts
           .where(
@@ -154,7 +162,7 @@ class _HomeSearchExtrasBuilderState extends State<HomeSearchExtrasBuilder> {
               ...p.tags,
             ]),
           )
-          .take(12)
+          .take(24)
           .toList(),
       scienceNews: _news
           .where(
@@ -165,7 +173,7 @@ class _HomeSearchExtrasBuilderState extends State<HomeSearchExtrasBuilder> {
               n.category,
             ]),
           )
-          .take(12)
+          .take(24)
           .toList(),
       researchRooms: _rooms
           .where(
@@ -176,7 +184,7 @@ class _HomeSearchExtrasBuilderState extends State<HomeSearchExtrasBuilder> {
               r.categoryId ?? '',
             ]),
           )
-          .take(12)
+          .take(24)
           .toList(),
     );
   }

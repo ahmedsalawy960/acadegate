@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 class HomeServiceImages {
   HomeServiceImages._();
 
-  static const supervisors =
-      'https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=800&h=500&q=80';
+  /// المشرفون الأكاديميون — صورة مولَّدة (مشرفون بحثيون)
+  static const supervisors = 'assets/images/supervisors_card.png';
   static const ideas =
       'https://images.unsplash.com/photo-1507413245160-754ec704b2d6?auto=format&fit=crop&w=800&h=500&q=80';
   static const labs =
@@ -30,8 +30,9 @@ class HomeServiceImages {
   /// مسار البحث الذكي — شبكة مترابطة (تناسب أيقونة account_tree)
   static const researchPath =
       'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?auto=format&fit=crop&w=800&h=500&q=80';
+  /// نزاهة أكاديمية — ميزان العدل والأمانة
   static const integrity =
-      'https://images.unsplash.com/photo-1450101499163-c8848c66ca85?auto=format&fit=crop&w=800&h=500&q=80';
+      'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=800&h=500&q=80';
   static const matchmaking =
       'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=800&h=500&q=80';
 }
@@ -128,40 +129,60 @@ class _ServiceImage extends StatelessWidget {
     required this.color,
   });
 
+  bool get _isAsset => imageUrl.startsWith('assets/');
+
   @override
   Widget build(BuildContext context) {
     return Stack(
       fit: StackFit.expand,
       children: [
-        Image.network(
-          imageUrl,
-          fit: BoxFit.cover,
-          alignment: Alignment.center,
-          loadingBuilder: (context, child, progress) {
-            if (progress == null) return child;
-            return Container(
-              color: color.withValues(alpha: 0.08),
-              child: const Center(
-                child: SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+        if (_isAsset)
+          Image.asset(
+            imageUrl,
+            fit: BoxFit.cover,
+            alignment: Alignment.center,
+            errorBuilder: (_, _, _) {
+              if (assetFallback != null) {
+                return Image.asset(
+                  assetFallback!,
+                  fit: BoxFit.cover,
+                  alignment: Alignment.center,
+                  errorBuilder: (_, _, _) => _iconFallback(),
+                );
+              }
+              return _iconFallback();
+            },
+          )
+        else
+          Image.network(
+            imageUrl,
+            fit: BoxFit.cover,
+            alignment: Alignment.center,
+            loadingBuilder: (context, child, progress) {
+              if (progress == null) return child;
+              return Container(
+                color: color.withValues(alpha: 0.08),
+                child: const Center(
+                  child: SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
                 ),
-              ),
-            );
-          },
-          errorBuilder: (context, error, stack) {
-            if (assetFallback != null) {
-              return Image.asset(
-                assetFallback!,
-                fit: BoxFit.cover,
-                alignment: Alignment.center,
-                errorBuilder: (_, _, _) => _iconFallback(),
               );
-            }
-            return _iconFallback();
-          },
-        ),
+            },
+            errorBuilder: (context, error, stack) {
+              if (assetFallback != null) {
+                return Image.asset(
+                  assetFallback!,
+                  fit: BoxFit.cover,
+                  alignment: Alignment.center,
+                  errorBuilder: (_, _, _) => _iconFallback(),
+                );
+              }
+              return _iconFallback();
+            },
+          ),
         Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(

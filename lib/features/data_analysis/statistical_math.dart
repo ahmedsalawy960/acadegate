@@ -255,6 +255,200 @@ class StatisticalMath {
     );
   }
 
+  /// Spearman rank correlation (Pearson on mid-ranks).
+  static StatTestResult? spearmanCorrelation(List<double> x, List<double> y) {
+    if (x.length != y.length || x.length < 3) return null;
+    final rx = _averageRanks(x);
+    final ry = _averageRanks(y);
+    final pearson = pearsonCorrelation(rx, ry);
+    if (pearson == null) return null;
+    return StatTestResult(
+      statistic: pearson.statistic,
+      pValue: pearson.pValue,
+      testName: 'Spearman correlation',
+    );
+  }
+
+  /// Mann–Whitney U (two-sided normal approximation with tie correction).
+  static StatTestResult? mannWhitneyU(List<double> a, List<double> b) {
+    if (a.length < 2 || b.length < 2) return null;
+    final n1 = a.length;
+    final n2 = b.length;
+    final combined = <({double v, int g})>[
+      ...a.map((v) => (v: v, g: 0)),
+      ...b.map((v) => (v: v, g: 1)),
+    ]..sort((x, y) => x.v.compareTo(y.v));
+
+    final ranks = List<double>.filled(combined.length, 0);
+    var i = 0;
+    while (i < combined.length) {
+      var j = i;
+      while (j + 1 < combined.length && combined[j + 1].v == combined[i].v) {
+        j++;
+      }
+      final avg = (i + j + 2) / 2.0; // 1-based mid-rank
+      for (var k = i; k <= j; k++) {
+        ranks[k] = avg;
+      }
+      i = j + 1;
+    }
+
+    var r1 = 0.0;
+    for (var k = 0; k < combined.length; k++) {
+      if (combined[k].g == 0) r1 += ranks[k];
+    }
+    final u1 = r1 - n1 * (n1 + 1) / 2;
+    final u2 = n1 * n2 - u1;
+    final u = math.min(u1, u2);
+    final mu = n1 * n2 / 2.0;
+
+    // Tie correction for variance
+    final n = n1 + n2;
+    var tieTerm = 0.0;
+    i = 0;
+    while (i < combined.length) {
+      var j = i;
+      while (j + 1 < combined.length && combined[j + 1].v == combined[i].v) {
+        j++;
+      }
+      final t = j - i + 1;
+      if (t > 1) {
+        tieTerm += t * t * t - t;
+      }
+      i = j + 1;
+    }
+    final sigma2 = (n1 * n2 / 12.0) *
+        ((n + 1) - tieTerm / (n * (n - 1)));
+    if (sigma2 <= 0) {
+      return StatTestResult(
+        statistic: u,
+        pValue: 1,
+        testName: 'Mann-Whitney U',
+      );
+    }
+    final z = (u - mu + 0.5) / math.sqrt(sigma2); // continuity correction
+    final p = 2 * (1 - _normalCdf(z.abs()));
+    return StatTestResult(
+      statistic: u,
+      pValue: p.clamp(0.0, 1.0),
+      testName: 'Mann-Whitney U',
+    );
+  }
+
+  /// Kruskal–Wallis H (chi-square approximation).
+  static StatTestResult? kruskalWallis(Map<String, List<double>> groups) {
+    final valid = groups.entries.where((e) => e.value.isNotEmpty).toList();
+    if (valid.length < 2) return null;
+
+    final tagged = <({double v, String g})>[];
+    for (final e in valid) {
+      for (final x in e.value) {
+        tagged.add((v: x, g: e.key));
+      }
+    }
+    tagged.sort((a, b) => a.v.compareTo(b.v));
+
+    final ranks = List<double>.filled(tagged.length, 0);
+    var i = 0;
+    while (i < tagged.length) {
+      var j = i;
+      while (j + 1 < tagged.length && tagged[j + 1].v == tagged[i].v) {
+        j++;
+      }
+      final avg = (i + j + 2) / 2.0;
+      for (var k = i; k <= j; k++) {
+        ranks[k] = avg;
+      }
+      i = j + 1;
+    }
+
+    final n = tagged.length;
+    final rankSum = <String, double>{};
+    final counts = <String, int>{};
+    for (var k = 0; k < tagged.length; k++) {
+      final g = tagged[k].g;
+      rankSum[g] = (rankSum[g] ?? 0) + ranks[k];
+      counts[g] = (counts[g] ?? 0) + 1;
+    }
+
+    var h = 0.0;
+    for (final g in counts.keys) {
+      final r = rankSum[g]!;
+      final ni = counts[g]!;
+      h += (r * r) / ni;
+    }
+    h = (12 / (n * (n + 1))) * h - 3 * (n + 1);
+
+    // Tie correction
+    var tieTerm = 0.0;
+    i = 0;
+    while (i < tagged.length) {
+      var j = i;
+      while (j + 1 < tagged.length && tagged[j + 1].v == tagged[i].v) {
+        j++;
+      }
+      final t = j - i + 1;
+      if (t > 1) {
+        tieTerm += t * t * t - t;
+      }
+      i = j + 1;
+    }
+    if (tieTerm > 0) {
+      final denom = 1 - tieTerm / (n * n * n - n);
+      if (denom > 0) h /= denom;
+    }
+
+    final df = valid.length - 1;
+    final p = 1 - _chi2Cdf(h, df);
+    return StatTestResult(
+      statistic: h,
+      pValue: p.clamp(0.0, 1.0),
+      testName: 'Kruskal-Wallis',
+    );
+  }
+
+  /// Count outliers via Tukey IQR fences (1.5×IQR).
+  static int outlierCountIqr(List<double> values) {
+    if (values.length < 4) return 0;
+    final sorted = List<double>.from(values)..sort();
+    final q1 = _percentile(sorted, 0.25);
+    final q3 = _percentile(sorted, 0.75);
+    final iqr = q3 - q1;
+    if (iqr == 0) return 0;
+    final lo = q1 - 1.5 * iqr;
+    final hi = q3 + 1.5 * iqr;
+    return values.where((x) => x < lo || x > hi).length;
+  }
+
+  static List<double> _averageRanks(List<double> values) {
+    final indexed = List.generate(values.length, (i) => (i: i, v: values[i]));
+    indexed.sort((a, b) => a.v.compareTo(b.v));
+    final ranks = List<double>.filled(values.length, 0);
+    var i = 0;
+    while (i < indexed.length) {
+      var j = i;
+      while (j + 1 < indexed.length && indexed[j + 1].v == indexed[i].v) {
+        j++;
+      }
+      final avg = (i + j + 2) / 2.0;
+      for (var k = i; k <= j; k++) {
+        ranks[indexed[k].i] = avg;
+      }
+      i = j + 1;
+    }
+    return ranks;
+  }
+
+  static double _percentile(List<double> sorted, double p) {
+    if (sorted.isEmpty) return 0;
+    final pos = (sorted.length - 1) * p;
+    final lo = pos.floor();
+    final hi = pos.ceil();
+    if (lo == hi) return sorted[lo];
+    final w = pos - lo;
+    return sorted[lo] * (1 - w) + sorted[hi] * w;
+  }
+
   static ({double r2, StatTestResult? fTest})? simpleLinearRegression(
     List<double> x,
     List<double> y,

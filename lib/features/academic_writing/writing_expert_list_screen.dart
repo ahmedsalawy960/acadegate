@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
 import '../../core/locale/locale_extensions.dart';
+import 'external_writing_tools_panel.dart';
 import 'writing_expert_detail_screen.dart';
 import 'writing_models.dart';
 import 'writing_service.dart';
@@ -11,6 +12,8 @@ class WritingExpertListScreen extends StatelessWidget {
   final WritingCategory category;
 
   const WritingExpertListScreen({super.key, required this.category});
+
+  bool get _isEditingCategory => category.id == 'editing';
 
   @override
   Widget build(BuildContext context) {
@@ -32,45 +35,59 @@ class WritingExpertListScreen extends StatelessWidget {
 
           final experts = snapshot.data ?? const [];
 
-          if (experts.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(
-                  context.t(
-                    'لا يوجد كتاب متاح في «${category.localizedTitle}» حالياً.\n'
-                    'يمكنك التسجيل ككاتب من الزر في الأسفل.',
-                    'No writers available in «${category.localizedTitle}» yet.\n'
-                    'You can register as a writer using the button below.',
-                  ),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey[600]),
-                ),
-              ),
-            );
-          }
-
-          return ListView.builder(
+          return ListView(
             padding: const EdgeInsets.all(16),
-            itemCount: experts.length,
-            itemBuilder: (context, index) {
-              final expert = experts[index];
-              return _ExpertCard(
-                expert: expert,
-                accent: category.color,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => WritingExpertDetailScreen(
-                        expert: expert,
-                        category: category,
-                      ),
+            children: [
+              if (_isEditingCategory) ...[
+                ExternalWritingToolsPanel(accent: category.color),
+                const SizedBox(height: 16),
+                Text(
+                  context.t(
+                    'خبراء تحرير بشريون',
+                    'Human editing experts',
+                  ),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+              if (experts.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 32),
+                  child: Text(
+                    context.t(
+                      'لا يوجد كتاب متاح في «${category.localizedTitle}» حالياً.\n'
+                      'يمكنك التسجيل ككاتب من الزر في الأسفل'
+                      '${_isEditingCategory ? '، أو استخدم أدوات التحرير أعلاه.' : '.'}',
+                      'No writers available in «${category.localizedTitle}» yet.\n'
+                      'You can register as a writer using the button below'
+                      '${_isEditingCategory ? ', or use the editing tools above.' : '.'}',
                     ),
-                  );
-                },
-              );
-            },
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                )
+              else
+                ...experts.map(
+                  (expert) => _ExpertCard(
+                    expert: expert,
+                    accent: category.color,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => WritingExpertDetailScreen(
+                            expert: expert,
+                            category: category,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+            ],
           );
         },
       ),

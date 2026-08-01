@@ -57,17 +57,31 @@ class ResearchJourneyService {
   }
 
   Future<void> _recordStageActivity(ResearchJourneyStage stage) async {
-    final activity = switch (stage) {
-      ResearchJourneyStage.choosingTopic => ThesisActivityId.topicIdea.name,
-      ResearchJourneyStage.findingSupervisor =>
-        ThesisActivityId.supervisorMatch.name,
-      ResearchJourneyStage.methodology =>
-        ThesisActivityId.methodologyEthics.name,
-      ResearchJourneyStage.dataCollection =>
-        ThesisActivityId.dataCollection.name,
-      ResearchJourneyStage.writing => ThesisActivityId.chapterWriting.name,
-      ResearchJourneyStage.defense => ThesisActivityId.vivaPractice.name,
-    };
-    await ThesisProgressService.instance.recordActivity(activity);
+    // Selecting a stage means "I am here", not "I finished this step".
+    // Credit only the steps the user has already passed.
+    const order = ResearchJourneyStage.values;
+    final idx = order.indexOf(stage);
+    if (idx <= 0) return;
+
+    final completed = <String>[];
+    if (idx > order.indexOf(ResearchJourneyStage.choosingTopic)) {
+      completed.add(ThesisActivityId.topicIdea.name);
+    }
+    if (idx > order.indexOf(ResearchJourneyStage.findingSupervisor)) {
+      completed.add(ThesisActivityId.supervisorMatch.name);
+    }
+    if (idx > order.indexOf(ResearchJourneyStage.methodology)) {
+      completed.add(ThesisActivityId.methodologyEthics.name);
+    }
+    if (idx > order.indexOf(ResearchJourneyStage.dataCollection)) {
+      completed.add(ThesisActivityId.dataCollection.name);
+    }
+    if (idx > order.indexOf(ResearchJourneyStage.writing)) {
+      completed.add(ThesisActivityId.chapterWriting.name);
+    }
+
+    for (final activityId in completed) {
+      await ThesisProgressService.instance.recordActivity(activityId);
+    }
   }
 }

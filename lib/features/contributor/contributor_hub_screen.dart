@@ -18,7 +18,7 @@ import '../supervision/supervision_requests_screen.dart';
 import '../research_marketplace/publish_research_idea_screen.dart';
 import '../research_marketplace/admin_research_ideas_seed_screen.dart';
 import '../supervisor_import/admin_supervisor_import_screen.dart';
-import '../store/store_categories_screen.dart';
+import '../store/merchant_store_screen.dart';
 import '../store/import/admin_store_import_screen.dart';
 import 'submit_lab_screen.dart';
 import 'submit_supervisor_screen.dart';
@@ -109,106 +109,113 @@ class ContributorHubScreen extends StatelessWidget {
                 const SizedBox(height: 12),
               ],
               const SizedBox(height: 16),
-              _actionTile(
-                context,
-                icon: Icons.receipt_long,
-                title: context.t(
-                  'طلبات الكتابة الواردة',
-                  'Incoming writing requests',
+              if (_canWritingIncoming(account.role))
+                _actionTile(
+                  context,
+                  icon: Icons.receipt_long,
+                  title: context.t(
+                    'طلبات الكتابة الواردة',
+                    'Incoming writing requests',
+                  ),
+                  subtitle: context.t(
+                    'قبول / رفض / تسليم طلبات العملاء',
+                    'Accept / reject / deliver client requests',
+                  ),
+                  screen: const ExpertOrdersScreen(),
                 ),
-                subtitle: context.t(
-                  'قبول / رفض / تسليم طلبات العملاء',
-                  'Accept / reject / deliver client requests',
+              if (_canOutgoingResearcher(account.role))
+                _actionTile(
+                  context,
+                  icon: Icons.shopping_bag_outlined,
+                  title: context.t('طلباتي — كتابة', 'My requests — writing'),
+                  subtitle: context.t(
+                    'متابعة ودفع طلباتك',
+                    'Track and pay for your requests',
+                  ),
+                  screen: const MyWritingOrdersScreen(),
                 ),
-                screen: const ExpertOrdersScreen(),
-              ),
-              _actionTile(
-                context,
-                icon: Icons.shopping_bag_outlined,
-                title: context.t('طلباتي — كتابة', 'My requests — writing'),
-                subtitle: context.t(
-                  'متابعة ودفع طلباتك',
-                  'Track and pay for your requests',
-                ),
-                screen: const MyWritingOrdersScreen(),
-              ),
               _actionTile(
                 context,
                 icon: Icons.chat_outlined,
                 title: context.t('الرسائل', 'Messages'),
                 subtitle: context.t(
-                  'محادثات مع المشرفين والبائعين',
-                  'Chats with supervisors and sellers',
+                  'الرد على محادثات المشترين والباحثين والمشرفين',
+                  'Reply to buyers, researchers, and supervisors',
                 ),
                 screen: const ConversationsScreen(),
               ),
-              _actionTile(
-                context,
-                icon: Icons.biotech_outlined,
-                title: context.t(
-                  'طلبات تحليل العينات',
-                  'Sample analysis requests',
+              if (_canOutgoingResearcher(account.role))
+                _actionTile(
+                  context,
+                  icon: Icons.biotech_outlined,
+                  title: context.t(
+                    'طلبات تحليل العينات',
+                    'Sample analysis requests',
+                  ),
+                  subtitle: context.t(
+                    'متابعة ما أرسلته للمختبرات',
+                    'Track what you sent to labs',
+                  ),
+                  screen: const MySampleAnalysisRequestsScreen(),
                 ),
-                subtitle: context.t(
-                  'متابعة ما أرسلته للمختبرات',
-                  'Track what you sent to labs',
+              if (_canLabIncoming(account.role))
+                _actionTile(
+                  context,
+                  icon: Icons.science_outlined,
+                  title: context.t(
+                    'طلبات التحليل الواردة',
+                    'Incoming analysis requests',
+                  ),
+                  subtitle: context.t(
+                    'عينات يرسلها الباحثون لمختبرك',
+                    'Samples researchers send to your lab',
+                  ),
+                  screen: const IncomingSampleAnalysisRequestsScreen(),
                 ),
-                screen: const MySampleAnalysisRequestsScreen(),
-              ),
-              _actionTile(
-                context,
-                icon: Icons.science_outlined,
-                title: context.t(
-                  'طلبات التحليل الواردة',
-                  'Incoming analysis requests',
+              if (_canSupervisionIncoming(account.role))
+                _actionTile(
+                  context,
+                  icon: Icons.school_outlined,
+                  title: context.t(
+                    'طلبات الإشراف الواردة',
+                    'Incoming supervision requests',
+                  ),
+                  subtitle: context.t(
+                    'رسائل وطلبات من الطلاب',
+                    'Messages and requests from students',
+                  ),
+                  screen: const IncomingSupervisionRequestsScreen(),
                 ),
-                subtitle: context.t(
-                  'عينات يرسلها الباحثون لمختبرك',
-                  'Samples researchers send to your lab',
+              if (_canOutgoingResearcher(account.role))
+                _actionTile(
+                  context,
+                  icon: Icons.outgoing_mail,
+                  title: context.t(
+                    'طلباتي — إشراف وتواصل',
+                    'My requests — supervision & contact',
+                  ),
+                  subtitle: context.t(
+                    'متابعة ما أرسلته للمشرفين',
+                    'Track what you sent to supervisors',
+                  ),
+                  screen: const MySupervisionRequestsScreen(),
                 ),
-                screen: const IncomingSampleAnalysisRequestsScreen(),
-              ),
-              _actionTile(
-                context,
-                icon: Icons.school_outlined,
-                title: context.t(
-                  'طلبات الإشراف الواردة',
-                  'Incoming supervision requests',
-                ),
-                subtitle: context.t(
-                  'رسائل وطلبات من الطلاب',
-                  'Messages and requests from students',
-                ),
-                screen: const IncomingSupervisionRequestsScreen(),
-              ),
-              _actionTile(
-                context,
-                icon: Icons.outgoing_mail,
-                title: context.t(
-                  'طلباتي — إشراف وتواصل',
-                  'My requests — supervision & contact',
-                ),
-                subtitle: context.t(
-                  'متابعة ما أرسلته للمشرفين',
-                  'Track what you sent to supervisors',
-                ),
-                screen: const MySupervisionRequestsScreen(),
-              ),
               Text(
                 context.t('إضافة محتوى', 'Add content'),
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
               const SizedBox(height: 8),
-              _actionTile(
-                context,
-                icon: Icons.cloud_download_outlined,
-                title: context.t('استيراد مشرفين', 'Import supervisors'),
-                subtitle: context.t(
-                  'CSV أو OpenAlex — للمدير أو المساهمين',
-                  'CSV or OpenAlex — for admins or contributors',
+              if (account.isAdmin)
+                _actionTile(
+                  context,
+                  icon: Icons.cloud_download_outlined,
+                  title: context.t('استيراد مشرفين', 'Import supervisors'),
+                  subtitle: context.t(
+                    'CSV أو OpenAlex — للمدير أو المساهمين',
+                    'CSV or OpenAlex — for admins or contributors',
+                  ),
+                  screen: const AdminSupervisorImportScreen(),
                 ),
-                screen: const AdminSupervisorImportScreen(),
-              ),
               if (_canPublishIdea(account.role) || account.isAdmin)
                 _actionTile(
                   context,
@@ -223,19 +230,20 @@ class ContributorHubScreen extends StatelessWidget {
                   ),
                   screen: const AdminResearchIdeasSeedScreen(),
                 ),
-              _actionTile(
-                context,
-                icon: Icons.biotech,
-                title: context.t(
-                  'استيراد مختبرات ومراكز بحوث',
-                  'Import labs & research centers',
+              if (account.isAdmin)
+                _actionTile(
+                  context,
+                  icon: Icons.biotech,
+                  title: context.t(
+                    'استيراد مختبرات ومراكز بحوث',
+                    'Import labs & research centers',
+                  ),
+                  subtitle: context.t(
+                    'CSV — أضف مختبرات حقيقية دفعة واحدة',
+                    'CSV — add real labs in bulk',
+                  ),
+                  screen: const AdminLabImportScreen(),
                 ),
-                subtitle: context.t(
-                  'CSV — أضف مختبرات حقيقية دفعة واحدة',
-                  'CSV — add real labs in bulk',
-                ),
-                screen: const AdminLabImportScreen(),
-              ),
               if (account.isAdmin)
                 _actionTile(
                   context,
@@ -281,15 +289,12 @@ class ContributorHubScreen extends StatelessWidget {
                 _actionTile(
                   context,
                   icon: Icons.storefront_outlined,
-                  title: context.t(
-                    'إضافة منتج للمتجر',
-                    'Add store product',
-                  ),
+                  title: context.t('متجري', 'My store'),
                   subtitle: context.t(
-                    'اختر قسم المتجر ثم أضف منتجك',
-                    'Choose a store category then add your product',
+                    'منتجاتك، إضافة المزيد، وطلبات الشراء',
+                    'Your products, add more, and purchase orders',
                   ),
-                  screen: const StoreCategoriesScreen(),
+                  screen: const MerchantStoreScreen(),
                 ),
               if (_canPublishIdea(account.role))
                 _actionTile(
@@ -325,11 +330,24 @@ class ContributorHubScreen extends StatelessWidget {
   bool _canSubmitLab(String role) =>
       role == UserRole.labManager || role == UserRole.admin;
 
-  bool _canAddProduct(String role) =>
-      role == UserRole.merchant || role == UserRole.admin;
+  bool _canAddProduct(String role) => UserRole.canSellProducts(role);
 
   bool _canPublishIdea(String role) =>
       role == UserRole.ideaPublisher ||
+      role == UserRole.supervisor ||
+      role == UserRole.admin;
+
+  bool _canWritingIncoming(String role) =>
+      role == UserRole.supervisor || role == UserRole.admin;
+
+  bool _canLabIncoming(String role) =>
+      role == UserRole.labManager || role == UserRole.admin;
+
+  bool _canSupervisionIncoming(String role) =>
+      role == UserRole.supervisor || role == UserRole.admin;
+
+  bool _canOutgoingResearcher(String role) =>
+      role == UserRole.student ||
       role == UserRole.supervisor ||
       role == UserRole.admin;
 

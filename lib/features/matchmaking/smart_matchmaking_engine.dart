@@ -20,6 +20,7 @@ class SmartMatchmakingEngine {
     AcademicProfile profile,
     List<AcademicSupervisor> supervisors, {
     int limit = 5,
+    bool softFallback = true,
   }) {
     if (supervisors.isEmpty) return [];
 
@@ -35,7 +36,23 @@ class SmartMatchmakingEngine {
         .toList()
       ..sort((a, b) => b.score.compareTo(a.score));
 
-    return results.where((result) => result.score > 0).take(limit).toList();
+    final matched =
+        results.where((result) => result.score > 0).take(limit).toList();
+    if (matched.isNotEmpty) return matched;
+    if (!softFallback) return [];
+    return results.take(limit).map((result) {
+      if (result.score > 0) return result;
+      return MatchResult(
+        item: result.item,
+        score: 20,
+        reasons: [
+          appTr(
+            'مشرف مقترح يمكن أن يفيد مسارك',
+            'Suggested supervisor who may help your path',
+          ),
+        ],
+      );
+    }).toList();
   }
 
   static List<AcademicSupervisor> _supervisorPool(
@@ -83,6 +100,7 @@ class SmartMatchmakingEngine {
     AcademicProfile profile,
     List<AcademicResearchIdea> ideas, {
     int limit = 3,
+    bool softFallback = true,
   }) {
     if (ideas.isEmpty) return [];
 
@@ -91,13 +109,30 @@ class SmartMatchmakingEngine {
         .toList()
       ..sort((a, b) => b.score.compareTo(a.score));
 
-    return results.where((result) => result.score > 0).take(limit).toList();
+    final matched =
+        results.where((result) => result.score > 0).take(limit).toList();
+    if (matched.isNotEmpty) return matched;
+    if (!softFallback) return [];
+    return results.take(limit).map((result) {
+      if (result.score > 0) return result;
+      return MatchResult(
+        item: result.item,
+        score: 18,
+        reasons: [
+          appTr(
+            'فكرة مقترحة قد تلهم موضوعك',
+            'Suggested idea that may inspire your topic',
+          ),
+        ],
+      );
+    }).toList();
   }
 
   static List<MatchResult<AcademicLab>> matchLabs(
     AcademicProfile profile,
     List<AcademicLab> labs, {
     int limit = 3,
+    bool softFallback = true,
   }) {
     if (labs.isEmpty) return [];
 
@@ -118,11 +153,29 @@ class SmartMatchmakingEngine {
     }
 
     final results = pool
-        .map((lab) => _scoreLab(profile, lab))
+        .map((lab) => _scoreLab(profile, lab, facultyId: facultyId))
         .toList()
       ..sort((a, b) => b.score.compareTo(a.score));
 
-    return results.where((result) => result.score > 0).take(limit).toList();
+    final matched =
+        results.where((result) => result.score > 0).take(limit).toList();
+    if (matched.isNotEmpty) return matched;
+    if (!softFallback) return [];
+
+    // Always offer useful labs for the faculty/topic rather than an empty step.
+    return results.take(limit).map((result) {
+      if (result.score > 0) return result;
+      return MatchResult(
+        item: result.item,
+        score: 22,
+        reasons: [
+          appTr(
+            'مختبر مقترح يمكن أن يفيد بحثك',
+            'Suggested lab that may help your research',
+          ),
+        ],
+      );
+    }).toList();
   }
 
   static MatchResult<AcademicSupervisor> _scoreSupervisor(
@@ -265,21 +318,43 @@ class SmartMatchmakingEngine {
 
   static MatchResult<AcademicLab> _scoreLab(
     AcademicProfile profile,
-    AcademicLab lab,
-  ) {
+    AcademicLab lab, {
+    String? facultyId,
+  }) {
     var score = 0;
     final reasons = <String>[];
 
+    final equipmentNames = lab.equipmentList.map((e) => e.name).join(' ');
+    final serviceNames = lab.sampleServices.map((s) => s.name).join(' ');
     final labText = [
       lab.name,
       lab.location,
+      lab.city,
+      lab.university,
       lab.equipment,
+      equipmentNames,
+      serviceNames,
+      lab.description,
+      lab.facultyNameAr,
+      lab.facultyId,
+      lab.category,
+      lab.labType,
       ...lab.tags,
     ].join(' ').toLowerCase();
 
+    if (facultyId != null &&
+        (lab.facultyId == facultyId ||
+            lab.category == facultyId ||
+            resolveFacultyId(lab.facultyNameAr) == facultyId)) {
+      score += 32;
+      reasons.add(
+        appTr('نفس كليتك الأكاديمية', 'Same academic faculty as you'),
+      );
+    }
+
     var matches = 0;
     for (final keyword in profile.keywords) {
-      if (labText.contains(keyword)) matches++;
+      if (keyword.length >= 3 && labText.contains(keyword)) matches++;
     }
 
     if (matches > 0) {
@@ -289,18 +364,44 @@ class SmartMatchmakingEngine {
       );
     }
 
-    if (_containsEither(profile.university, lab.location)) {
+    if (_containsEither(profile.university, lab.university) ||
+        _containsEither(profile.university, lab.location)) {
       score += 15;
       reasons.add(
         appTr('المختبر قريب من جامعتك', 'Lab is near your university'),
       );
     }
 
-    if (_containsEither(profile.researchInterest, lab.equipment)) {
-      score += 12;
+    if (_containsEither(profile.city, lab.city)) {
+      score += 10;
+      reasons.add(appTr('نفس مدينتك', 'Same city as you'));
+    }
+
+    if (_containsEither(profile.researchInterest, lab.equipment) ||
+        _containsEither(profile.researchInterest, equipmentNames) ||
+        _containsEither(profile.specialization, serviceNames)) {
+      score += 14;
       reasons.add(
-        appTr('معدات المختبر مناسبة لبحثك', 'Lab equipment suits your research'),
+        appTr('معدات/خدمات مناسبة لبحثك', 'Equipment/services suit your research'),
       );
+    }
+
+    if (lab.acceptsExternalSamples) {
+      score += 6;
+      reasons.add(
+        appTr('يقبل عينات خارجية', 'Accepts external samples'),
+      );
+    }
+
+    if (lab.offersSampleAnalysis) {
+      score += 8;
+      reasons.add(
+        appTr('يوفر تحليل عينات', 'Offers sample analysis'),
+      );
+    }
+
+    if (lab.ratingAvg >= 4) {
+      score += 4;
     }
 
     return MatchResult(

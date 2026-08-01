@@ -23,6 +23,7 @@ bool homeSearchMatches(String query, List<String> fields) {
   final haystack = normalizeSearchText(fields.join(' '));
   if (haystack.isEmpty) return false;
 
+  // تطابق العبارة كاملة أولاً.
   if (haystack.contains(normalizedQuery)) return true;
 
   final tokens = normalizedQuery
@@ -34,5 +35,19 @@ bool homeSearchMatches(String query, List<String> fields) {
     return haystack.contains(normalizedQuery);
   }
 
-  return tokens.every((token) => haystack.contains(token));
+  // كل الكلمات موجودة.
+  if (tokens.every((token) => haystack.contains(token))) return true;
+
+  // مرونة: أطول كلمة (≥3) + نصف الكلمات على الأقل — يقلل نتائج فارغة
+  // عند كتابة اسم جزئي أو كلمات إضافية شائعة.
+  if (tokens.length >= 2) {
+    final longest = tokens.reduce(
+      (a, b) => a.length >= b.length ? a : b,
+    );
+    if (longest.length < 3 || !haystack.contains(longest)) return false;
+    final matched = tokens.where((t) => haystack.contains(t)).length;
+    return matched >= (tokens.length / 2).ceil();
+  }
+
+  return false;
 }

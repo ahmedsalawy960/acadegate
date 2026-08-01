@@ -4,7 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 import '../../core/locale/locale_extensions.dart';
 import '../../core/widgets/acadegate_logo.dart';
-import 'portal_gateway.dart';
+import 'email_auth_gate.dart';
+import 'email_verification_screen.dart';
 import 'google_auth_service.dart';
 import 'auth_password_reset_service.dart';
 import 'user_account_service.dart';
@@ -25,14 +26,19 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   bool _googleLoading = false;
   bool _resetLoading = false;
+  bool _obscurePassword = true;
 
   Future<void> _navigateHome() async {
     if (!mounted) return;
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (context) => const PortalGateway()),
-      (route) => false,
-    );
+    final user = FirebaseAuth.instance.currentUser;
+    if (EmailAuthGate.requiresVerification(user)) {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const EmailVerificationScreen()),
+        (route) => false,
+      );
+      return;
+    }
+    Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
   Future<void> _handleGoogleSignIn() async {
@@ -372,7 +378,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(height: 20),
                       TextFormField(
                         controller: _passwordController,
-                        obscureText: true,
+                        obscureText: _obscurePassword,
                         textInputAction: TextInputAction.done,
                         autofillHints: const [AutofillHints.password],
                         onFieldSubmitted: (_) => _handleLogin(),
@@ -381,6 +387,19 @@ class _LoginScreenState extends State<LoginScreen> {
                           prefixIcon: const Icon(
                             Icons.lock_outline,
                             color: Color(0xFF1A237E),
+                          ),
+                          suffixIcon: IconButton(
+                            tooltip: _obscurePassword
+                                ? context.t('إظهار كلمة المرور', 'Show password')
+                                : context.t('إخفاء كلمة المرور', 'Hide password'),
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
+                            ),
+                            onPressed: () => setState(
+                              () => _obscurePassword = !_obscurePassword,
+                            ),
                           ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),

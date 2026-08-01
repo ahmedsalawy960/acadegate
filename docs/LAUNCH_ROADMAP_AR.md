@@ -80,3 +80,19 @@
 4. احجز استشارة محاسب قصيرة عن السجل — **بدون Paymob Live قبلها**
 
 **مقياس نجاح المرحلة الأولى:** 10 مستخدمين أنهوا طلباً حقيقياً بدون ضياع فلوس أو بيانات.
+
+---
+
+## اختبار الأقسام قبل الإطلاق
+
+قائمة تجربة عملية مرتّبة بالجلسات:
+[`docs/BETA_TEST_CHECKLIST_AR.md`](BETA_TEST_CHECKLIST_AR.md)
+
+## مشاركة الرابط للمختبرين (Web)
+
+دليل النشر على Firebase Hosting:
+[`docs/WEB_HOSTING_AR.md`](WEB_HOSTING_AR.md)
+
+```powershell
+.\scripts\deploy-web.ps1
+```

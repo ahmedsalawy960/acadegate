@@ -651,34 +651,78 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
           ResearchPathBranding.timelineTitle,
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
+        const SizedBox(height: 4),
+        Text(
+          context.t(
+            'عدة خيارات في كل قسم — اختر الأنسب لك.',
+            'Multiple options in each section — pick what fits you best.',
+          ),
+          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+        ),
         const SizedBox(height: 12),
-        if (bundle.idea != null)
+        if (bundle.ideas.isNotEmpty)
           _chainStep(
             icon: Icons.lightbulb,
             color: Colors.orange,
-            title: context.t('1. فكرة بحثية', '1. Research idea'),
-            subtitle: bundle.idea!.item.title,
-            score: bundle.idea!.score,
-            reasons: bundle.idea!.reasons,
+            title: context.t(
+              '1. أفكار بحثية (${bundle.ideas.length})',
+              '1. Research ideas (${bundle.ideas.length})',
+            ),
+            subtitle: bundle.ideas.first.item.title,
+            score: bundle.ideas.first.score,
+            reasons: bundle.ideas.first.reasons,
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (context) => ResearchIdeaMarketplaceDetailScreen(
-                  idea: bundle.idea!.item,
+                  idea: bundle.ideas.first.item,
                 ),
               ),
             ),
+            children: [
+              for (final match in bundle.ideas)
+                ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.lightbulb_outline, size: 20),
+                  title: Text(
+                    match.item.title,
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                  subtitle: Text(
+                    context.t(
+                      'توافق ${match.score}%${match.reasons.isEmpty ? '' : ' — ${match.reasons.first}'}',
+                      'Match ${match.score}%${match.reasons.isEmpty ? '' : ' — ${match.reasons.first}'}',
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  trailing: const Icon(Icons.open_in_new, size: 16),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          ResearchIdeaMarketplaceDetailScreen(
+                        idea: match.item,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
-        if (bundle.supervisor != null)
+        if (bundle.supervisors.isNotEmpty)
           _chainStep(
             icon: Icons.person,
             color: Colors.blue,
-            title: context.t('2. مشرف أكاديمي', '2. Academic supervisor'),
-            subtitle: bundle.supervisor!.item.name,
-            score: bundle.supervisor!.score,
-            reasons: bundle.supervisor!.reasons,
+            title: context.t(
+              '2. مشرفون أكاديميون (${bundle.supervisors.length})',
+              '2. Academic supervisors (${bundle.supervisors.length})',
+            ),
+            subtitle: bundle.supervisors.first.item.name,
+            score: bundle.supervisors.first.score,
+            reasons: bundle.supervisors.first.reasons,
             onTap: () {
-              final s = bundle.supervisor!.item;
+              final s = bundle.supervisors.first.item;
               Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -688,30 +732,97 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
                 ),
               );
             },
+            children: [
+              for (final match in bundle.supervisors)
+                ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.person_outline, size: 20),
+                  title: Text(
+                    match.item.name,
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                  subtitle: Text(
+                    context.t(
+                      '${match.item.speciality} • توافق ${match.score}%',
+                      '${match.item.speciality} • match ${match.score}%',
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  trailing: const Icon(Icons.open_in_new, size: 16),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => SupervisorProfileScreen(
+                        supervisor: match.item,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
-        if (bundle.lab != null)
+        if (bundle.labs.isNotEmpty)
           _chainStep(
             icon: Icons.science,
             color: Colors.purple,
-            title: context.t('3. مختبر ذكي', '3. Smart lab'),
-            subtitle: bundle.lab!.item.name,
-            score: bundle.lab!.score,
-            reasons: bundle.lab!.reasons,
+            title: context.t(
+              '3. مختبرات ذكية (${bundle.labs.length})',
+              '3. Smart labs (${bundle.labs.length})',
+            ),
+            subtitle: bundle.labs.first.item.name,
+            score: bundle.labs.first.score,
+            reasons: bundle.labs.first.reasons,
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (context) =>
-                    SmartLabDetailScreen(lab: bundle.lab!.item),
+                    SmartLabDetailScreen(lab: bundle.labs.first.item),
               ),
             ),
+            children: [
+              for (final match in bundle.labs)
+                ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.science_outlined, size: 20),
+                  title: Text(
+                    match.item.name,
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                  subtitle: Text(
+                    context.t(
+                      '${match.item.city.isNotEmpty ? match.item.city : match.item.location} • توافق ${match.score}%',
+                      '${match.item.city.isNotEmpty ? match.item.city : match.item.location} • match ${match.score}%',
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  trailing: const Icon(Icons.open_in_new, size: 16),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          SmartLabDetailScreen(lab: match.item),
+                    ),
+                  ),
+                ),
+            ],
           ),
         _chainStep(
           icon: Icons.storefront,
           color: Colors.green,
-          title: context.t('4. متجر — مواد وأدوات', '4. Store — supplies & tools'),
-          subtitle: bundle.storeCategory != null
-              ? L10nLookup.storeCategoryTitle(bundle.storeCategory!.id)
-              : context.t('منتجات مقترحة', 'Suggested products'),
+          title: context.t(
+            '4. متجر — مواد وأدوات (${bundle.products.length})',
+            '4. Store — supplies & tools (${bundle.products.length})',
+          ),
+          subtitle: bundle.storeCategories.isNotEmpty
+              ? bundle.storeCategories
+                  .map((c) => L10nLookup.storeCategoryTitle(c.id))
+                  .join(' · ')
+              : (bundle.storeCategory != null
+                  ? L10nLookup.storeCategoryTitle(bundle.storeCategory!.id)
+                  : context.t('منتجات مقترحة', 'Suggested products')),
           score: bundle.products.isNotEmpty ? bundle.products.first.score : 0,
           reasons: bundle.products.isNotEmpty
               ? bundle.products.first.reasons
@@ -733,7 +844,14 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.inventory_2, size: 20),
                   title: Text(p.name, style: const TextStyle(fontSize: 14)),
-                  subtitle: Text(context.t('${p.price} ج.م', '${p.price} EGP')),
+                  subtitle: Text(
+                    context.t(
+                      '${p.price} ج.م • ${p.category} • توافق ${p.score}%',
+                      '${p.price} EGP • ${p.category} • match ${p.score}%',
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   trailing: const Icon(Icons.open_in_new, size: 16),
                   onTap: p.id == null
                       ? null
@@ -742,7 +860,10 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
                             MaterialPageRoute(
                               builder: (context) => ProductDetailScreen(
                                 name: p.name,
-                                price: context.t('${p.price} ج.م', '${p.price} EGP'),
+                                price: context.t(
+                                  '${p.price} ج.م',
+                                  '${p.price} EGP',
+                                ),
                                 description: context.t(
                                   'منتج مقترح ضمن مسار البحث الذكي.',
                                   'Product suggested within the Smart Research Path.',
@@ -760,16 +881,19 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
               )
               .toList(),
         ),
-        if (bundle.writingExpert != null)
+        if (bundle.writingExperts.isNotEmpty)
           _chainStep(
             icon: Icons.edit_note,
             color: const Color(0xFF5D4037),
-            title: context.t('5. خدمة كتابة / إحصاء', '5. Writing / statistics service'),
-            subtitle: bundle.writingExpert!.item.name,
-            score: bundle.writingExpert!.score,
-            reasons: bundle.writingExpert!.reasons,
+            title: context.t(
+              '5. كتابة / إحصاء (${bundle.writingExperts.length})',
+              '5. Writing / statistics (${bundle.writingExperts.length})',
+            ),
+            subtitle: bundle.writingExperts.first.item.name,
+            score: bundle.writingExperts.first.score,
+            reasons: bundle.writingExperts.first.reasons,
             onTap: () {
-              final expert = bundle.writingExpert!.item;
+              final expert = bundle.writingExperts.first.item;
               final category = writingCategoryByTitle(expert.category) ??
                   writingCategories.first;
               Navigator.push(
@@ -782,6 +906,41 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
                 ),
               );
             },
+            children: [
+              for (final match in bundle.writingExperts)
+                ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.edit_outlined, size: 20),
+                  title: Text(
+                    match.item.name,
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                  subtitle: Text(
+                    context.t(
+                      '${match.item.category} • توافق ${match.score}%',
+                      '${match.item.category} • match ${match.score}%',
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  trailing: const Icon(Icons.open_in_new, size: 16),
+                  onTap: () {
+                    final category =
+                        writingCategoryByTitle(match.item.category) ??
+                            writingCategories.first;
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => WritingExpertDetailScreen(
+                          expert: match.item,
+                          category: category,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+            ],
           ),
       ],
     );

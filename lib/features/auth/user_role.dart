@@ -21,4 +21,8 @@ class UserRole {
   static String label(String? role) => L10nLookup.roleLabelStatic(role);
 
   static bool isAdmin(String? role) => role == admin;
+
+  /// فقط التاجر والمدير يضيفان منتجات للمتجر.
+  static bool canSellProducts(String? role) =>
+      role == merchant || role == admin;
 }

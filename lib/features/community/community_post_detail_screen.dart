@@ -1,7 +1,11 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/locale/locale_extensions.dart';
+import '../messaging/chat_screen.dart';
+import '../messaging/messaging_service.dart';
 import '../moderation/approval_status.dart';
 import '../moderation/delete_content_button.dart';
 import 'community_data.dart';
@@ -92,6 +96,37 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
     }
 
     _replyController.clear();
+  }
+
+  Future<void> _messageAuthor(CommunityPost post) async {
+    final myUid = FirebaseAuth.instance.currentUser?.uid;
+    if (post.authorId.isEmpty || post.authorId == myUid) return;
+    try {
+      final id = await MessagingService.instance.openConversation(
+        otherUserId: post.authorId,
+        otherUserName: post.authorName,
+        contextType: 'community_post',
+        contextId: post.id ?? post.title,
+        contextTitle: post.title,
+      );
+      final conv = await MessagingService.instance.getConversation(id);
+      if (!mounted || conv == null) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => ChatScreen(conversation: conv)),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  Future<void> _openAcademicLink(String url) async {
+    final uri = Uri.tryParse(url.trim());
+    if (uri == null) return;
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   @override
@@ -195,6 +230,41 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
                   ],
                 ],
               ),
+              const SizedBox(height: 8),
+              Builder(
+                builder: (context) {
+                  final english =
+                      Localizations.localeOf(context).languageCode == 'en';
+                  final label = PostAudienceScope.label(
+                    post.audienceScope,
+                    english: english,
+                  );
+                  final detail =
+                      post.audienceScope == PostAudienceScope.specialization &&
+                              (post.targetSpecialization ?? '').isNotEmpty
+                          ? '${context.t('الجمهور', 'Audience')}: $label — ${post.targetSpecialization}'
+                          : '${context.t('الجمهور', 'Audience')}: $label';
+                  return Row(
+                    children: [
+                      Icon(
+                        PostAudienceScope.icon(post.audienceScope),
+                        size: 16,
+                        color: Colors.grey[700],
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          detail,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
               if (post.eventDate != null) ...[
                 const SizedBox(height: 8),
                 Row(
@@ -210,6 +280,20 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
               ],
               const SizedBox(height: 14),
               Text(post.body, style: const TextStyle(height: 1.6, fontSize: 15)),
+              if ((post.academicLink ?? '').isNotEmpty) ...[
+                const SizedBox(height: 12),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.menu_book_outlined),
+                  title: Text(
+                    (post.academicTitle?.isNotEmpty == true)
+                        ? post.academicTitle!
+                        : context.t('مرجع أكاديمي', 'Academic reference'),
+                  ),
+                  subtitle: Text(post.academicLink!),
+                  onTap: () => _openAcademicLink(post.academicLink!),
+                ),
+              ],
               if (post.tags.isNotEmpty) ...[
                 const SizedBox(height: 14),
                 Wrap(
@@ -250,6 +334,16 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
                     '${post.repliesCount} رد',
                     '${post.repliesCount} replies',
                   )),
+                  const Spacer(),
+                  if (!isDemo &&
+                      post.authorId.isNotEmpty &&
+                      post.authorId !=
+                          FirebaseAuth.instance.currentUser?.uid)
+                    OutlinedButton.icon(
+                      onPressed: () => _messageAuthor(post),
+                      icon: const Icon(Icons.chat_bubble_outline, size: 18),
+                      label: Text(context.t('مراسلة الكاتب', 'Message author')),
+                    ),
                 ],
               ),
               const Divider(height: 32),

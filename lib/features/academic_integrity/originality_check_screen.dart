@@ -22,7 +22,7 @@ class _OriginalityCheckScreenState extends State<OriginalityCheckScreen> {
   final _service = OriginalityCheckService.instance;
   final _controller = TextEditingController();
 
-  OriginalityProvider _provider = OriginalityProvider.auto;
+  OriginalityProvider _provider = OriginalityProvider.copyleaks;
   bool _loading = false;
   String? _fileName;
   List<int>? _fileBytes;

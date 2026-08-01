@@ -125,6 +125,8 @@ class StoreOrderService {
           ? '$productName — $serverPrice ${appTr('ج.م', 'EGP')} — ${appTr('تواصل مع المشتري لإتمام التحويل', 'Contact the buyer to complete the transfer')}'
           : '$productName — $serverPrice ${appTr('ج.م', 'EGP')}',
       type: 'store_order',
+      contextId: doc.id,
+      contextType: 'store_order',
     );
 
     return doc.id;
@@ -196,6 +198,8 @@ class StoreOrderService {
           'Seller confirmed your transfer for «${data['productName']}» — awaiting delivery confirmation',
         ),
         type: 'payment_held',
+        contextId: orderId,
+        contextType: 'store_order',
       );
     }
   }

@@ -39,6 +39,20 @@ class LocalProfileStore {
     await prefs.remove(_profileKey);
   }
 
+  /// Clears journey/thesis prefs so a new account does not inherit another
+  /// session's progress (keys are device-wide, not per-uid).
+  Future<void> clearJourneySession() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_onboardingDoneKey);
+    await prefs.remove(_journeyStageKey);
+    await prefs.remove(_thesisProgressKey);
+  }
+
+  Future<void> clearAllSessionData() async {
+    await clearProfile();
+    await clearJourneySession();
+  }
+
   Future<bool> isOnboardingDone() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool(_onboardingDoneKey) ?? false;

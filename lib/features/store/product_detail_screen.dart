@@ -252,11 +252,12 @@ class ProductDetailScreen extends StatelessWidget {
                 final user = FirebaseAuth.instance.currentUser;
                 if (user == null) return;
                 try {
+                  // Same product thread as "Message supplier".
                   final id =
                       await MessagingService.instance.openConversation(
                     otherUserId: createdBy!,
                     otherUserName: storeName,
-                    contextType: 'manual_payment',
+                    contextType: 'product',
                     contextId: productId ?? '',
                     contextTitle: name,
                   );
@@ -269,7 +270,7 @@ class ProductDetailScreen extends StatelessWidget {
                           id: id,
                           participantIds: [user.uid, createdBy!],
                           participantNames: {createdBy!: storeName},
-                          contextType: 'manual_payment',
+                          contextType: 'product',
                           contextId: productId ?? '',
                         ),
                       ),

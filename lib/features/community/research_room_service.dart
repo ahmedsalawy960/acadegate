@@ -133,6 +133,7 @@ class ResearchRoomService {
         await _rooms.doc(roomId).collection('members').doc(user.uid).set({
           'grantedAt': FieldValue.serverTimestamp(),
           'method': 'legacy',
+          'role': 'member',
         });
         return null;
       }
@@ -143,7 +144,9 @@ class ResearchRoomService {
     }
   }
 
-  Future<String?> createRoom({
+  /// Returns `(error: null, roomId: id)` on success for open rooms.
+  /// Password-protected rooms via Cloud Function may return `roomId: null`.
+  Future<({String? error, String? roomId})> createRoom({
     required String title,
     required String description,
     String? categoryId,
@@ -152,20 +155,29 @@ class ResearchRoomService {
   }) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      return appTr('يجب تسجيل الدخول لإنشاء غرفة', 'Sign in to create a room');
+      return (
+        error: appTr('يجب تسجيل الدخول لإنشاء غرفة', 'Sign in to create a room'),
+        roomId: null,
+      );
     }
 
     final trimmedTitle = title.trim();
     if (trimmedTitle.isEmpty) {
-      return appTr('اسم الغرفة مطلوب', 'Room name is required');
+      return (
+        error: appTr('اسم الغرفة مطلوب', 'Room name is required'),
+        roomId: null,
+      );
     }
 
     if (isPasswordProtected) {
       final pass = password?.trim() ?? '';
       if (pass.length < 4) {
-        return appTr(
-          'كلمة المرور يجب أن تكون 4 أحرف على الأقل',
-          'Password must be at least 4 characters',
+        return (
+          error: appTr(
+            'كلمة المرور يجب أن تكون 4 أحرف على الأقل',
+            'Password must be at least 4 characters',
+          ),
+          roomId: null,
         );
       }
     }
@@ -178,7 +190,7 @@ class ResearchRoomService {
           'createResearchRoom',
           options: HttpsCallableOptions(timeout: const Duration(seconds: 30)),
         );
-        await callable.call<Map<String, dynamic>>({
+        final result = await callable.call<Map<String, dynamic>>({
           'title': trimmedTitle,
           'description': description.trim(),
           if (categoryId != null && categoryId.isNotEmpty)
@@ -187,22 +199,39 @@ class ResearchRoomService {
           'password': password!.trim(),
           'creatorName': authorName,
         });
-        return null;
+        final data = result.data;
+        final roomId = data['roomId']?.toString();
+        if (roomId != null && roomId.isNotEmpty) {
+          await ensureDefaultChannels(roomId);
+        }
+        return (error: null, roomId: roomId);
       } on FirebaseFunctionsException catch (e) {
         if (e.code == 'unauthenticated') {
-          return appTr('يجب تسجيل الدخول لإنشاء غرفة', 'Sign in to create a room');
+          return (
+            error: appTr(
+              'يجب تسجيل الدخول لإنشاء غرفة',
+              'Sign in to create a room',
+            ),
+            roomId: null,
+          );
         }
-        return e.message ??
-            appTr('تعذر إنشاء الغرفة المحمية', 'Could not create protected room');
+        return (
+          error: e.message ??
+              appTr('تعذر إنشاء الغرفة المحمية', 'Could not create protected room'),
+          roomId: null,
+        );
       } catch (_) {
-        return appTr(
-          'تعذر إنشاء الغرفة — تأكد من نشر createResearchRoom',
-          'Could not create room — ensure createResearchRoom is deployed',
+        return (
+          error: appTr(
+            'تعذر إنشاء الغرفة — تأكد من نشر createResearchRoom',
+            'Could not create room — ensure createResearchRoom is deployed',
+          ),
+          roomId: null,
         );
       }
     }
 
-    await _rooms.add({
+    final roomRef = await _rooms.add({
       'title': trimmedTitle,
       'description': description.trim(),
       'creatorId': user.uid,
@@ -210,9 +239,262 @@ class ResearchRoomService {
       if (categoryId != null && categoryId.isNotEmpty) 'categoryId': categoryId,
       'isPasswordProtected': false,
       'discussionsCount': 0,
+      'membersCount': 1,
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
+    await roomRef.collection('members').doc(user.uid).set({
+      'role': 'owner',
+      'grantedAt': FieldValue.serverTimestamp(),
+      'method': 'create',
+    });
+    await ensureDefaultChannels(roomRef.id);
+
+    return (error: null, roomId: roomRef.id);
+  }
+
+  Future<void> ensureDefaultChannels(String roomId) async {
+    try {
+      final channels = _rooms.doc(roomId).collection('channels');
+      final existing = await channels.limit(1).get();
+      if (existing.docs.isNotEmpty) return;
+
+      final batch = _db.batch();
+      for (final channel in ResearchRoomChannel.defaults) {
+        batch.set(channels.doc(channel.id), {
+          'nameAr': channel.nameAr,
+          'nameEn': channel.nameEn,
+          'sortOrder': channel.sortOrder,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
+      await batch.commit();
+    } catch (_) {
+      // Rules/index may be missing; chat UI falls back to default labels.
+    }
+  }
+
+  Future<void> ensureMemberRole({
+    required String roomId,
+    required String role,
+  }) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+      final normalized = _normalizeRole(role);
+      final ref = _rooms.doc(roomId).collection('members').doc(user.uid);
+      final snap = await ref.get();
+      if (snap.exists) {
+        final data = snap.data() ?? {};
+        if ((data['role']?.toString() ?? '').isEmpty) {
+          await ref.set({'role': normalized}, SetOptions(merge: true));
+        }
+        return;
+      }
+      await ref.set({
+        'role': normalized,
+        'grantedAt': FieldValue.serverTimestamp(),
+        'method': 'open',
+      });
+      try {
+        await _rooms.doc(roomId).set(
+          {'membersCount': FieldValue.increment(1)},
+          SetOptions(merge: true),
+        );
+      } catch (_) {
+        // Optional room meta bump.
+      }
+    } catch (_) {
+      // Membership bootstrap must never crash room entry.
+    }
+  }
+
+  static String _normalizeRole(String role) {
+    if (role == 'owner' || role == 'moderator' || role == 'member') {
+      return role;
+    }
+    return 'member';
+  }
+
+  Stream<List<ResearchRoomMember>> watchRoomMembers(String roomId) async* {
+    try {
+      await for (final snapshot
+          in _rooms.doc(roomId).collection('members').snapshots()) {
+        final members = snapshot.docs
+            .map((doc) => ResearchRoomMember.fromMap(doc.id, doc.data()))
+            .toList()
+          ..sort((a, b) {
+            int rank(String role) => switch (role) {
+                  'owner' => 0,
+                  'moderator' => 1,
+                  _ => 2,
+                };
+            final byRole = rank(a.role).compareTo(rank(b.role));
+            if (byRole != 0) return byRole;
+            return a.uid.compareTo(b.uid);
+          });
+        yield members;
+      }
+    } catch (_) {
+      yield const <ResearchRoomMember>[];
+    }
+  }
+
+  Future<String?> setMemberRole({
+    required String roomId,
+    required String memberId,
+    required String role,
+  }) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return appTr('يجب تسجيل الدخول أولاً', 'You must sign in first');
+    }
+    final roomSnap = await _rooms.doc(roomId).get();
+    if (!roomSnap.exists || roomSnap.data()?['creatorId'] != user.uid) {
+      return appTr(
+        'المالك فقط يمكنه تغيير الأدوار',
+        'Only the room owner can change roles',
+      );
+    }
+    final normalized = _normalizeRole(role);
+    if (normalized == 'owner' && memberId != user.uid) {
+      return appTr(
+        'لا يمكن نقل ملكية الغرفة من هنا',
+        'Room ownership cannot be transferred here',
+      );
+    }
+    await _rooms.doc(roomId).collection('members').doc(memberId).set(
+      {'role': normalized},
+      SetOptions(merge: true),
+    );
+    return null;
+  }
+
+  Stream<List<ResearchRoom>> watchJoinedRooms() {
+    // collectionGroup + documentId equality often lacks an index and has caused
+    // native Windows process exits. Keep this feed empty until a safer query
+    // (Cloud Function / stored roomIds on the user doc) is available.
+    return Stream.value(const []);
+  }
+
+  Stream<List<ResearchRoomChannel>> watchChannels(String roomId) async* {
+    try {
+      await for (final snapshot in _rooms
+          .doc(roomId)
+          .collection('channels')
+          .orderBy('sortOrder')
+          .snapshots()) {
+        yield snapshot.docs
+            .map((doc) => ResearchRoomChannel.fromMap(doc.id, doc.data()))
+            .toList();
+      }
+    } catch (_) {
+      yield ResearchRoomChannel.defaults;
+    }
+  }
+
+  Stream<List<ResearchChannelMessage>> watchChannelMessages({
+    required String roomId,
+    required String channelId,
+  }) async* {
+    try {
+      await for (final snapshot in _rooms
+          .doc(roomId)
+          .collection('channels')
+          .doc(channelId)
+          .collection('messages')
+          .orderBy('createdAt', descending: true)
+          .limit(100)
+          .snapshots()) {
+        final items = snapshot.docs
+            .map(
+              (doc) => ResearchChannelMessage.fromMap(
+                doc.id,
+                doc.data(),
+                channelId: channelId,
+              ),
+            )
+            .toList();
+        yield items.reversed.toList();
+      }
+    } catch (_) {
+      yield const <ResearchChannelMessage>[];
+    }
+  }
+
+  Future<String?> sendChannelMessage({
+    required String roomId,
+    required String channelId,
+    required String text,
+    String? academicLink,
+    String? academicTitle,
+  }) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return appTr('يجب تسجيل الدخول أولاً', 'You must sign in first');
+    }
+
+    final hasAccess = await hasRoomAccess(roomId);
+    if (!hasAccess) {
+      return appTr(
+        'لا تملك صلاحية الدخول لهذه الغرفة',
+        'You do not have access to this room',
+      );
+    }
+
+    final trimmed = text.trim();
+    final link = academicLink?.trim() ?? '';
+    if (trimmed.isEmpty && link.isEmpty) {
+      return appTr('اكتب رسالة أولاً', 'Write a message first');
+    }
+
+    await ensureDefaultChannels(roomId);
+    final authorName = await CommunityService.instance.resolveAuthorName();
+    final room = await getRoom(roomId);
+    final matched = ResearchRoomChannel.defaults.where((c) => c.id == channelId);
+    final channelLabel =
+        matched.isEmpty ? channelId : matched.first.nameAr;
+
+    await _rooms
+        .doc(roomId)
+        .collection('channels')
+        .doc(channelId)
+        .collection('messages')
+        .add({
+      'authorId': user.uid,
+      'authorName': authorName,
+      'text': trimmed,
+      if (link.isNotEmpty) 'academicLink': link,
+      if ((academicTitle ?? '').trim().isNotEmpty)
+        'academicTitle': academicTitle!.trim(),
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    await _rooms.doc(roomId).set({
+      'lastChannelActivity': trimmed.isNotEmpty
+          ? trimmed
+          : (academicTitle?.trim().isNotEmpty == true
+              ? academicTitle!.trim()
+              : link),
+      'lastActivityAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    if (room != null &&
+        room.creatorId.isNotEmpty &&
+        room.creatorId != user.uid) {
+      await NotificationService.instance.send(
+        userId: room.creatorId,
+        title: appTr('رسالة جديدة في غرفتك', 'New message in your room'),
+        body: appTr(
+          '$authorName في #$channelLabel: ${trimmed.isEmpty ? link : trimmed}',
+          '$authorName in #$channelLabel: ${trimmed.isEmpty ? link : trimmed}',
+        ),
+        type: 'research_room_chat',
+        contextId: roomId,
+        contextType: 'research_room',
+      );
+    }
 
     return null;
   }
@@ -220,19 +502,25 @@ class ResearchRoomService {
   Stream<List<ResearchDiscussion>> watchDiscussions({
     required String roomId,
     String searchQuery = '',
-  }) {
-    return _rooms
-        .doc(roomId)
-        .collection('discussions')
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map((snapshot) {
-      final items = snapshot.docs
-          .map((doc) => ResearchDiscussion.fromMap(doc.id, doc.data()))
-          .toList();
-      if (searchQuery.trim().isEmpty) return items;
-      return items.where((item) => item.matchesQuery(searchQuery)).toList();
-    });
+  }) async* {
+    try {
+      await for (final snapshot in _rooms
+          .doc(roomId)
+          .collection('discussions')
+          .orderBy('createdAt', descending: true)
+          .snapshots()) {
+        final items = snapshot.docs
+            .map((doc) => ResearchDiscussion.fromMap(doc.id, doc.data()))
+            .toList();
+        if (searchQuery.trim().isEmpty) {
+          yield items;
+        } else {
+          yield items.where((item) => item.matchesQuery(searchQuery)).toList();
+        }
+      }
+    } catch (_) {
+      yield const <ResearchDiscussion>[];
+    }
   }
 
   Stream<ResearchDiscussion?> watchDiscussion({
@@ -280,6 +568,8 @@ class ResearchRoomService {
     required String title,
     required String body,
     List<String> tags = const [],
+    String? academicLink,
+    String? academicTitle,
   }) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
@@ -301,10 +591,12 @@ class ResearchRoomService {
     }
 
     final authorName = await CommunityService.instance.resolveAuthorName();
+    final link = academicLink?.trim() ?? '';
+    final linkTitle = academicTitle?.trim() ?? '';
     final searchText = buildSearchText(
       title: trimmedTitle,
       body: trimmedBody,
-      tags: tags,
+      tags: [...tags, if (linkTitle.isNotEmpty) linkTitle, if (link.isNotEmpty) link],
     );
 
     final roomRef = _rooms.doc(roomId);
@@ -320,6 +612,8 @@ class ResearchRoomService {
         'authorName': authorName,
         'tags': tags,
         'searchText': searchText,
+        if (link.isNotEmpty) 'academicLink': link,
+        if (linkTitle.isNotEmpty) 'academicTitle': linkTitle,
         'repliesCount': 0,
         'createdAt': FieldValue.serverTimestamp(),
       });
@@ -414,6 +708,8 @@ class ResearchRoomService {
           '$authorName replied in "$discussionTitle" — ${room.title}',
         ),
         type: 'research_room_reply',
+        contextId: roomId,
+        contextType: 'research_room',
       );
     }
 
@@ -428,6 +724,8 @@ class ResearchRoomService {
           '$authorName replied in "$discussionTitle"',
         ),
         type: 'research_discussion_reply',
+        contextId: roomId,
+        contextType: 'research_room',
       );
     }
 

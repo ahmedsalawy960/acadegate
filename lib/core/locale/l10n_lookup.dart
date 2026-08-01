@@ -461,8 +461,12 @@ class L10nLookup {
   static String get availableServices =>
       appTr('الخدمات المتاحة', 'Available services');
   static String get noSearchMatches => appTr(
-        'عذراً، لم نجد نتائج تطابق بحثك!',
-        'Sorry, no results match your search!',
+        'لم نجد نتائج. جرّب اسماً أقصر أو كلمة من التخصص/الجامعة/المختبر.',
+        'No results. Try a shorter name or a specialty/university/lab keyword.',
+      );
+  static String get searchMinCharsHint => appTr(
+        'اكتب حرفين على الأقل للبحث في كل الأقسام',
+        'Type at least 2 characters to search all sections',
       );
   static String get sectionsAndServices =>
       appTr('الأقسام والخدمات', 'Sections & services');

@@ -323,83 +323,49 @@ class ThesisProgressService {
 
 
   Future<ThesisProgress> load({bool sync = true}) async {
-
     ThesisProgress? progress;
 
+    final user = FirebaseAuth.instance.currentUser;
 
-
-    final cached = await _local.loadThesisProgressJson();
-
-    if (cached != null) {
-
+    // Prefer cloud progress for the signed-in user so device-wide offline
+    // cache from a previous account cannot leak (e.g. fake 9%).
+    if (user != null) {
       try {
-
-        progress = ThesisProgress.fromMap(jsonDecode(cached) as Map<String, dynamic>);
-
+        final doc = await FirebaseFirestore.instance
+            .collection('thesis_progress')
+            .doc(user.uid)
+            .get();
+        if (doc.exists && doc.data() != null) {
+          progress = ThesisProgress.fromMap(doc.data()!);
+        }
       } catch (_) {}
-
     }
-
-
 
     if (progress == null) {
-
-      final user = FirebaseAuth.instance.currentUser;
-
-      if (user != null) {
-
+      final cached = await _local.loadThesisProgressJson();
+      if (cached != null) {
         try {
-
-          final doc = await FirebaseFirestore.instance
-
-              .collection('thesis_progress')
-
-              .doc(user.uid)
-
-              .get();
-
-          if (doc.exists && doc.data() != null) {
-
-            progress = ThesisProgress.fromMap(doc.data()!);
-
-          }
-
+          progress = ThesisProgress.fromMap(
+            jsonDecode(cached) as Map<String, dynamic>,
+          );
         } catch (_) {}
-
       }
-
     }
-
-
 
     progress ??= await _initialProgress();
 
-
-
     if (progress.items.isEmpty) {
-
       progress = await _initialProgress();
-
     }
-
-
 
     if (sync) {
-
       progress = await _engine.syncFromApp(progress);
-
       await _persist(progress, remote: false);
-
     } else {
-
       await _persistLocal(progress);
-
     }
 
-
-
     return progress;
-
   }
 
 

@@ -22,6 +22,7 @@ class _CreateResearchRoomScreenState extends State<CreateResearchRoomScreen> {
 
   String? _categoryId;
   bool _usePassword = false;
+  bool _obscurePassword = true;
   bool _isSaving = false;
 
   @override
@@ -36,7 +37,7 @@ class _CreateResearchRoomScreenState extends State<CreateResearchRoomScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isSaving = true);
-    final error = await ResearchRoomService.instance.createRoom(
+    final result = await ResearchRoomService.instance.createRoom(
       title: _titleController.text,
       description: _descriptionController.text,
       categoryId: _categoryId,
@@ -47,9 +48,12 @@ class _CreateResearchRoomScreenState extends State<CreateResearchRoomScreen> {
     if (!mounted) return;
     setState(() => _isSaving = false);
 
-    if (error != null) {
+    if (result.error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error), behavior: SnackBarBehavior.floating),
+        SnackBar(
+          content: Text(result.error!),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
       return;
     }
@@ -145,10 +149,23 @@ class _CreateResearchRoomScreenState extends State<CreateResearchRoomScreen> {
                 const SizedBox(height: 8),
                 TextFormField(
                   controller: _passwordController,
-                  obscureText: true,
+                  obscureText: _obscurePassword,
                   decoration: InputDecoration(
                     labelText: context.t('كلمة المرور *', 'Password *'),
                     border: const OutlineInputBorder(),
+                    suffixIcon: IconButton(
+                      tooltip: _obscurePassword
+                          ? context.t('إظهار كلمة المرور', 'Show password')
+                          : context.t('إخفاء كلمة المرور', 'Hide password'),
+                      icon: Icon(
+                        _obscurePassword
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                      ),
+                      onPressed: () => setState(
+                        () => _obscurePassword = !_obscurePassword,
+                      ),
+                    ),
                   ),
                   validator: (v) {
                     if (!_usePassword) return null;

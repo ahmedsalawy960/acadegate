@@ -10,6 +10,7 @@ import 'create_research_room_screen.dart';
 import 'research_room_models.dart';
 import 'research_room_navigator.dart';
 import 'research_room_service.dart';
+import 'study_circles_tab.dart';
 
 class CommunityHubScreen extends StatefulWidget {
   const CommunityHubScreen({super.key});
@@ -25,7 +26,7 @@ class _CommunityHubScreenState extends State<CommunityHubScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(() => setState(() {}));
   }
 
@@ -68,9 +69,11 @@ class _CommunityHubScreenState extends State<CommunityHubScreen>
           indicatorColor: Colors.white,
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white70,
+          isScrollable: true,
           tabs: [
             Tab(text: context.t('غرف التخصص', 'Faculty rooms')),
             Tab(text: context.t('الغرف البحثية', 'Research rooms')),
+            Tab(text: context.t('دوائر دراسة', 'Study circles')),
           ],
         ),
         actions: [
@@ -94,6 +97,7 @@ class _CommunityHubScreenState extends State<CommunityHubScreen>
         children: const [
           _FacultyRoomsTab(),
           _ResearchRoomsTab(),
+          StudyCirclesTab(),
         ],
       ),
     );
@@ -269,6 +273,69 @@ class _ResearchRoomsTabState extends State<_ResearchRoomsTab> {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
             children: [
               StreamBuilder<List<ResearchRoom>>(
+                stream: ResearchRoomService.instance.watchJoinedRooms(),
+                builder: (context, snapshot) {
+                  final joined = snapshot.data ?? const <ResearchRoom>[];
+                  if (joined.isEmpty) return const SizedBox.shrink();
+                  final filtered = _applyFilter(joined);
+                  if (filtered.isEmpty) return const SizedBox.shrink();
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        context.t('غرف انضممت إليها', 'Rooms I joined'),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      ...filtered.map(
+                        (room) => Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: _RoomCard(
+                            title: room.title,
+                            description: room.description.isNotEmpty
+                                ? room.description
+                                : context.t(
+                                    'بواسطة ${room.creatorName}',
+                                    'By ${room.creatorName}',
+                                  ),
+                            icon: Icons.login,
+                            color: const Color(0xFF455A64),
+                            trailing: room.isPasswordProtected
+                                ? const Icon(
+                                    Icons.lock,
+                                    size: 18,
+                                    color: Colors.grey,
+                                  )
+                                : null,
+                            subtitle: [
+                              context.t(
+                                '${room.discussionsCount} مناقشة',
+                                '${room.discussionsCount} discussions',
+                              ),
+                              if (room.membersCount > 0)
+                                context.t(
+                                  '${room.membersCount} أعضاء',
+                                  '${room.membersCount} members',
+                                ),
+                              if ((room.lastChannelActivity ?? '').isNotEmpty)
+                                context.t(
+                                  'آخر نشاط: ${room.lastChannelActivity}',
+                                  'Last: ${room.lastChannelActivity}',
+                                ),
+                            ].join(' · '),
+                            onTap: () => openResearchRoom(context, room),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                  );
+                },
+              ),
+              StreamBuilder<List<ResearchRoom>>(
                 stream: ResearchRoomService.instance.watchMyRooms(),
                 builder: (context, snapshot) {
                   final myRooms = snapshot.data ?? const <ResearchRoom>[];
@@ -317,10 +384,22 @@ class _ResearchRoomsTabState extends State<_ResearchRoomsTab> {
                                       color: Colors.grey,
                                     )
                                   : null,
-                              subtitle: context.t(
-                                '${room.discussionsCount} مناقشة',
-                                '${room.discussionsCount} discussions',
-                              ),
+                              subtitle: [
+                                context.t(
+                                  '${room.discussionsCount} مناقشة',
+                                  '${room.discussionsCount} discussions',
+                                ),
+                                if (room.membersCount > 0)
+                                  context.t(
+                                    '${room.membersCount} أعضاء',
+                                    '${room.membersCount} members',
+                                  ),
+                                if ((room.lastChannelActivity ?? '').isNotEmpty)
+                                  context.t(
+                                    'آخر نشاط: ${room.lastChannelActivity}',
+                                    'Last: ${room.lastChannelActivity}',
+                                  ),
+                              ].join(' · '),
                               onTap: () => openResearchRoom(context, room),
                             ),
                           ),
@@ -411,6 +490,16 @@ class _ResearchRoomsTabState extends State<_ResearchRoomsTab> {
                                   '${room.discussionsCount} مناقشة • ${room.creatorName}',
                                   '${room.discussionsCount} discussions • ${room.creatorName}',
                                 ),
+                                if (room.membersCount > 0)
+                                  context.t(
+                                    '${room.membersCount} أعضاء',
+                                    '${room.membersCount} members',
+                                  ),
+                                if ((room.lastChannelActivity ?? '').isNotEmpty)
+                                  context.t(
+                                    'آخر نشاط: ${room.lastChannelActivity}',
+                                    'Last: ${room.lastChannelActivity}',
+                                  ),
                               ].join(' · '),
                               onTap: () => openResearchRoom(context, room),
                             ),

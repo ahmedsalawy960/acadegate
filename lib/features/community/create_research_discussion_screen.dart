@@ -22,6 +22,8 @@ class _CreateResearchDiscussionScreenState
   final _titleController = TextEditingController();
   final _bodyController = TextEditingController();
   final _tagsController = TextEditingController();
+  final _linkController = TextEditingController();
+  final _linkTitleController = TextEditingController();
 
   String _type = CommunityPostType.discussion;
   bool _isSaving = false;
@@ -31,6 +33,8 @@ class _CreateResearchDiscussionScreenState
     _titleController.dispose();
     _bodyController.dispose();
     _tagsController.dispose();
+    _linkController.dispose();
+    _linkTitleController.dispose();
     super.dispose();
   }
 
@@ -50,6 +54,8 @@ class _CreateResearchDiscussionScreenState
       title: _titleController.text,
       body: _bodyController.text,
       tags: tags,
+      academicLink: _linkController.text,
+      academicTitle: _linkTitleController.text,
     );
 
     if (!mounted) return;
@@ -135,6 +141,28 @@ class _CreateResearchDiscussionScreenState
                   hintText: context.t(
                     'مثال: ماجستير، SPSS، طاقة',
                     'e.g. master\'s, SPSS, energy',
+                  ),
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _linkTitleController,
+                decoration: InputDecoration(
+                  labelText: context.t(
+                    'عنوان مرجع أكاديمي (اختياري)',
+                    'Academic reference title (optional)',
+                  ),
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _linkController,
+                decoration: InputDecoration(
+                  labelText: context.t(
+                    'رابط DOI / URL (اختياري)',
+                    'DOI / URL link (optional)',
                   ),
                   border: const OutlineInputBorder(),
                 ),

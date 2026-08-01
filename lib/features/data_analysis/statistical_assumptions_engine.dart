@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import '../../core/locale/app_translate.dart';
 import 'statistical_assumptions_models.dart';
+import 'statistical_report_enrichment.dart';
 
 class StatisticalAssumptionsEngine {
   StatisticalAssumptionsEngine._();
@@ -28,6 +29,25 @@ class StatisticalAssumptionsEngine {
     final tests = _recommendTests(enriched, assumptions);
     final tips = _buildTips(enriched, assumptions, power, realData: realData);
     final code = _buildCode(enriched, tests.recommended);
+    final methodology = StatisticalReportEnrichment.buildMethodology(
+      input: enriched,
+      recommendedAr: tests.recommended,
+      recommendedEn: tests.recommendedEn,
+      alternativeAr: tests.alternative,
+      alternativeEn: tests.alternativeEn,
+      assumptions: assumptions,
+      power: power,
+      realData: realData,
+    );
+    final decisionTree = StatisticalReportEnrichment.buildDecisionTree(
+      input: enriched,
+      assumptions: assumptions,
+      recommendedAr: tests.recommended,
+      recommendedEn: tests.recommendedEn,
+      alternativeAr: tests.alternative,
+      alternativeEn: tests.alternativeEn,
+      realData: realData,
+    );
 
     return StatisticalAssumptionsReport(
       input: enriched,
@@ -41,6 +61,8 @@ class StatisticalAssumptionsEngine {
       tipsEn: tips.en,
       codeSnippets: code,
       advisorPrompt: _advisorPrompt(enriched, assumptions, power, tests, realData),
+      methodology: methodology,
+      decisionTree: decisionTree,
       realData: realData,
     );
   }
@@ -480,6 +502,18 @@ class StatisticalAssumptionsEngine {
         captionEn: 'Main test — R',
         code: _rMainTest(input, v, g, recommended),
       ),
+      CodeSnippet(
+        language: CodeLanguage.python,
+        caption: 'فحص التطبيع — Python',
+        captionEn: 'Normality checks — Python',
+        code: _pythonNormality(input, v, g),
+      ),
+      CodeSnippet(
+        language: CodeLanguage.python,
+        caption: 'الاختبار الرئيسي — Python',
+        captionEn: 'Main test — Python',
+        code: _pythonMainTest(input, v, g, recommended),
+      ),
     ];
   }
 
@@ -601,6 +635,164 @@ summary(fit)
 tbl <- table(df\$$g, df\$$v)
 chisq.test(tbl)
 # إن كانت خلايا صغيرة: fisher.test(tbl)''',
+    };
+  }
+
+  String _pythonNormality(
+    StatisticalAssumptionsInput input,
+    String v,
+    String g,
+  ) {
+    if (input.testType == StatisticalTestType.independentTTest ||
+        input.testType == StatisticalTestType.oneWayAnova) {
+      return '''
+import pandas as pd
+import numpy as np
+from scipy import stats
+
+# استبدل المسار وأسماء الأعمدة
+df = pd.read_csv("data.csv")  # أو: pd.read_excel("data.xlsx")
+
+def normality_by_group(data, value_col, group_col):
+    rows = []
+    for name, part in data.groupby(group_col):
+        x = part[value_col].dropna()
+        if len(x) < 3:
+            continue
+        w, p = stats.shapiro(x) if len(x) <= 5000 else (np.nan, np.nan)
+        rows.append({
+            group_col: name,
+            "n": len(x),
+            "mean": x.mean(),
+            "std": x.std(ddof=1),
+            "skew": stats.skew(x, bias=False),
+            "kurtosis": stats.kurtosis(x, bias=False),
+            "shapiro_W": w,
+            "shapiro_p": p,
+        })
+    return pd.DataFrame(rows)
+
+print(normality_by_group(df, "$v", "$g"))
+
+# Levene (median = Brown-Forsythe)
+groups = [g["$v"].dropna().values for _, g in df.groupby("$g")]
+print(stats.levene(*groups, center="median"))''';
+    }
+
+    return '''
+import pandas as pd
+from scipy import stats
+
+df = pd.read_csv("data.csv")
+x = df["$v"].dropna()
+print(stats.describe(x))
+print(stats.shapiro(x) if len(x) <= 5000 else "n>5000: use D'Agostino / JB")
+print("skew:", stats.skew(x, bias=False), "kurtosis:", stats.kurtosis(x, bias=False))''';
+  }
+
+  String _pythonMainTest(
+    StatisticalAssumptionsInput input,
+    String v,
+    String g,
+    String recommended,
+  ) {
+    return switch (input.testType) {
+      StatisticalTestType.independentTTest => recommended.contains('Mann')
+          ? '''
+import pandas as pd
+from scipy import stats
+
+df = pd.read_csv("data.csv")
+a = df.loc[df["$g"] == df["$g"].unique()[0], "$v"].dropna()
+b = df.loc[df["$g"] == df["$g"].unique()[1], "$v"].dropna()
+
+# Mann-Whitney (بديل لا بارامتري)
+print(stats.mannwhitneyu(a, b, alternative="two-sided"))
+
+# بديل بارامتري (Welch):
+print(stats.ttest_ind(a, b, equal_var=False))'''
+          : '''
+import pandas as pd
+from scipy import stats
+
+df = pd.read_csv("data.csv")
+a = df.loc[df["$g"] == df["$g"].unique()[0], "$v"].dropna()
+b = df.loc[df["$g"] == df["$g"].unique()[1], "$v"].dropna()
+
+# Student (تباين متساوٍ) أو Welch
+print(stats.ttest_ind(a, b, equal_var=True))
+print(stats.ttest_ind(a, b, equal_var=False))  # Welch
+
+# Cohen's d تقريبي
+import numpy as np
+pooled = np.sqrt(((len(a)-1)*a.var(ddof=1) + (len(b)-1)*b.var(ddof=1)) / (len(a)+len(b)-2))
+print("Cohen d:", abs(a.mean()-b.mean()) / pooled if pooled else None)
+
+# بديل لا بارامتري:
+print(stats.mannwhitneyu(a, b, alternative="two-sided"))''',
+      StatisticalTestType.pairedTTest => '''
+import pandas as pd
+from scipy import stats
+
+df = pd.read_csv("data.csv")
+x = df["$v"].dropna()
+y = df["$g"].dropna()
+# تأكد أن العمودين مترابطان بنفس الطول
+n = min(len(x), len(y))
+print(stats.ttest_rel(x.iloc[:n], y.iloc[:n]))
+# بديل Wilcoxon:
+print(stats.wilcoxon(x.iloc[:n], y.iloc[:n]))''',
+      StatisticalTestType.oneWayAnova => '''
+import pandas as pd
+from scipy import stats
+import statsmodels.api as sm
+from statsmodels.formula.api import ols
+
+df = pd.read_csv("data.csv")
+
+# ANOVA
+groups = [g["$v"].dropna().values for _, g in df.groupby("$g")]
+print(stats.f_oneway(*groups))
+
+# تفاصيل + eta² عبر statsmodels
+model = ols("$v ~ C($g)", data=df).fit()
+anova_table = sm.stats.anova_lm(model, typ=2)
+print(anova_table)
+
+# بديل لا بارامتري:
+print(stats.kruskal(*groups))''',
+      StatisticalTestType.pearsonCorrelation => '''
+import pandas as pd
+from scipy import stats
+
+df = pd.read_csv("data.csv")
+x = df["$v"].dropna()
+y = df["$g"].dropna()
+paired = pd.concat([df["$v"], df["$g"]], axis=1).dropna()
+print(stats.pearsonr(paired["$v"], paired["$g"]))
+print(stats.spearmanr(paired["$v"], paired["$g"]))  # بديل رتبه''',
+      StatisticalTestType.linearRegression => '''
+import pandas as pd
+import statsmodels.api as sm
+
+df = pd.read_csv("data.csv")
+paired = df[["$g", "$v"]].dropna()
+X = sm.add_constant(paired["$g"])
+y = paired["$v"]
+model = sm.OLS(y, X).fit()
+print(model.summary())
+# افتراضات البواقي: model.resid — فحص Shapiro / مخططات''',
+      StatisticalTestType.chiSquare => '''
+import pandas as pd
+from scipy import stats
+
+df = pd.read_csv("data.csv")
+tbl = pd.crosstab(df["$g"], df["$v"])
+chi2, p, dof, expected = stats.chi2_contingency(tbl)
+print(tbl)
+print("chi2=", chi2, "p=", p, "dof=", dof)
+print("expected:\\n", expected)
+# خلايا صغيرة: stats.fisher_exact(tbl) للجداول 2x2''',
     };
   }
 

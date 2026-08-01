@@ -729,9 +729,8 @@ class AcademicLab {
       facultyId: _readFacultyId(map),
       facultyNameAr: _readFacultyNameAr(map),
       category: _readFacultyId(map),
-      description: lightweight
-          ? ''
-          : (map['description']?.toString() ?? ''),
+      // Keep description in lightweight mode — needed for home/list search.
+      description: map['description']?.toString() ?? '',
       acceptsExternalSamples: map['acceptsExternalSamples'] as bool? ?? true,
       contactEmail: map['contactEmail']?.toString() ?? '',
       contactPhone: map['contactPhone']?.toString() ?? '',

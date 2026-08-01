@@ -6,30 +6,44 @@ import 'package:flutter/foundation.dart';
 
 import '../../core/locale/app_translate.dart';
 import 'statistical_dataset.dart';
+import 'statistical_table_file_parser.dart';
 
 class StatisticalDatasetLoader {
   StatisticalDatasetLoader._();
 
   static final StatisticalDatasetLoader instance = StatisticalDatasetLoader._();
 
-  /// مثال CSV جاهز للتجربة بدون رفع ملف.
-  static const sampleCsvContent = '''group,score
-A,72
-A,68
-A,75
-A,70
-A,73
-B,81
-B,79
-B,85
-B,82
-B,80
+  static const allowedExtensions = [
+    'csv',
+    'txt',
+    'tsv',
+    'xlsx',
+    'docx',
+  ];
+
+  /// مثال متعدد الأعمدة (ليس عمودين فقط) — للتجربة بدون رفع ملف.
+  static const sampleCsvContent = '''id,group,score,pretest,gender
+1,A,72,65,F
+2,A,68,62,F
+3,A,75,70,M
+4,A,70,66,M
+5,A,73,68,F
+6,B,81,74,M
+7,B,79,72,F
+8,B,85,78,M
+9,B,82,76,F
+10,B,80,75,M
+11,C,90,82,F
+12,C,88,80,M
+13,C,92,85,F
+14,C,87,79,M
+15,C,91,84,F
 ''';
 
   StatisticalDataset loadSample() {
     return parse(
       content: sampleCsvContent,
-      fileName: 'sample_ttest.csv',
+      fileName: 'sample_multicolumn.csv',
     );
   }
 
@@ -41,7 +55,7 @@ B,80
 
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: const ['csv', 'txt', 'tsv'],
+      allowedExtensions: allowedExtensions,
       withData: !readFromPath,
       allowMultiple: false,
       lockParentWindow: true,
@@ -56,17 +70,41 @@ B,80
     if (bytes == null || bytes.isEmpty) {
       throw Exception(
         appTr(
-          'تعذر قراءة الملف — جرّب CSV أصغر أو «مثال CSV»',
-          'Could not read file — try a smaller CSV or use «Sample CSV»',
+          'تعذر قراءة الملف — جرّب CSV/Excel أصغر أو «مثال CSV»',
+          'Could not read file — try a smaller CSV/Excel or use «Sample CSV»',
+        ),
+      );
+    }
+
+    return loadBytes(
+      bytes: Uint8List.fromList(bytes),
+      fileName: file.name,
+    );
+  }
+
+  StatisticalDataset loadBytes({
+    required Uint8List bytes,
+    required String fileName,
+  }) {
+    final lower = fileName.toLowerCase();
+    if (lower.endsWith('.xlsx') || lower.endsWith('.docx')) {
+      return StatisticalTableFileParser.parseBytes(
+        bytes: bytes,
+        fileName: fileName,
+      );
+    }
+
+    if (lower.endsWith('.xls')) {
+      throw FormatException(
+        appTr(
+          'صيغة .xls القديمة غير مدعومة — احفظ الملف كـ .xlsx أو CSV من Excel',
+          'Legacy .xls is not supported — save as .xlsx or CSV from Excel',
         ),
       );
     }
 
     final content = _decode(bytes);
-    return parse(
-      content: content,
-      fileName: file.name,
-    );
+    return parse(content: content, fileName: fileName);
   }
 
   Future<List<int>?> _readBytes(PlatformFile file) async {
@@ -131,7 +169,7 @@ B,80
       );
     }
 
-    return StatisticalDataset(
+    return StatisticalDataset.sanitized(
       fileName: fileName,
       headers: headers,
       rows: rows,

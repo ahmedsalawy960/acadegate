@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import 'academic_models.dart';
 import 'demo_supervisor_hide_service.dart';
+import '../home/home_search_utils.dart';
 import '../lab_import/nbsle_university_cities.dart';
 
 class AcademicContentService {
@@ -147,9 +148,9 @@ class AcademicContentService {
     if (category != null) {
       query = query.where('category', isEqualTo: category);
     }
-    // Cap home/search listeners — never pull unbounded supervisor dumps.
+    // Cap home/search listeners — high enough for search, still bounded.
     if (category == null) {
-      query = query.limit(300);
+      query = query.limit(800);
     }
 
     try {
@@ -190,7 +191,7 @@ class AcademicContentService {
     }
   }
 
-  Future<List<AcademicResearchIdea>> _fetchIdeasOnce({int limit = 200}) async {
+  Future<List<AcademicResearchIdea>> _fetchIdeasOnce({int limit = 500}) async {
     try {
       final snapshot = await _db
           .collection('research_ideas')
@@ -215,7 +216,7 @@ class AcademicContentService {
     controller = StreamController<List<AcademicResearchIdea>>.broadcast(
       onListen: () {
         if (sub != null) return;
-        sub = _db.collection('research_ideas').limit(200).snapshots().listen(
+        sub = _db.collection('research_ideas').limit(500).snapshots().listen(
           (snapshot) {
             if (!controller.isClosed) {
               controller.add(_parseIdeas(snapshot));
@@ -409,23 +410,77 @@ class AcademicContentService {
           )
           .toList();
     }
-    final q = query.trim().toLowerCase();
+    final q = query.trim();
     if (q.isNotEmpty) {
-      result = result.where((lab) {
-        final hay = [
-          lab.name,
-          lab.location,
-          lab.university,
-          lab.city,
-          lab.equipment,
-          ...lab.tags,
-        ].join(' ').toLowerCase();
-        return hay.contains(q);
-      }).toList();
+      result = result.where((lab) => _labMatchesQuery(lab, q)).toList();
     }
     if (result.length > limit) result = result.take(limit).toList();
     _cachedLabs = result;
     return result;
+  }
+
+  bool _labMatchesQuery(AcademicLab lab, String query) {
+    return homeSearchMatches(query, [
+      lab.name,
+      lab.location,
+      lab.university,
+      lab.city,
+      lab.equipment,
+      lab.description,
+      lab.facultyId,
+      lab.facultyNameAr,
+      lab.displayFacultyName,
+      lab.labType,
+      lab.contactName,
+      lab.contactEmail,
+      lab.nbsleLabId,
+      lab.importSource,
+      ...lab.tags,
+      ...lab.equipmentList.map((e) => e.name),
+      ...lab.sampleServices.map((s) => s.name),
+    ]);
+  }
+
+  /// Text search across labs: page through Firestore and keep matches until
+  /// [resultLimit] or [scanCap] documents scanned (avoids "first 80 only").
+  Future<List<AcademicLab>> _searchLabsByTextQuery(
+    String query, {
+    required int resultLimit,
+    int scanCap = 2500,
+  }) async {
+    final q = query.trim();
+    if (q.length < 2) return const [];
+
+    final matches = <AcademicLab>[];
+    QueryDocumentSnapshot<Map<String, dynamic>>? cursor;
+    var scanned = 0;
+    const pageSize = 100;
+
+    while (matches.length < resultLimit && scanned < scanCap) {
+      var page = _db.collection('labs').limit(pageSize);
+      if (cursor != null) {
+        page = page.startAfterDocument(cursor);
+      }
+      final snap = await page.get().timeout(const Duration(seconds: 20));
+      if (snap.docs.isEmpty) break;
+
+      scanned += snap.docs.length;
+      final labs = _parseLabs(snap, lightweight: true);
+      for (final lab in labs) {
+        if (_labMatchesQuery(lab, q)) {
+          matches.add(lab);
+          if (matches.length >= resultLimit) break;
+        }
+      }
+
+      cursor = snap.docs.last;
+      if (snap.docs.length < pageSize) break;
+    }
+
+    debugPrint(
+      'lab text search: query="$q" matches=${matches.length} scanned=$scanned',
+    );
+    return matches;
   }
 
   Future<List<AcademicLab>> fetchCrciCenters({int limit = 40}) async {
@@ -516,7 +571,13 @@ class AcademicContentService {
         cityValues.isNotEmpty ||
         (uni != null && uni.isNotEmpty) ||
         q.length >= 2;
-    final maxTotal = hasScope ? limit.clamp(80, 800) : limit.clamp(1, 80);
+    // Text-only home search needs a higher result cap; browse stays small.
+    final maxTotal = q.length >= 2 &&
+            cityValues.isEmpty &&
+            (faculty == null || faculty.isEmpty || faculty == 'All') &&
+            (uni == null || uni.isEmpty)
+        ? limit.clamp(40, 120)
+        : (hasScope ? limit.clamp(80, 800) : limit.clamp(1, 80));
 
     // Always pull the small CRCI set so national centers are not buried
     // under thousands of NBSLE university labs.
@@ -547,9 +608,10 @@ class AcademicContentService {
           limit: maxTotal,
         );
       } else if (uni != null && uni.isNotEmpty) {
+        // University filter: scan more docs then match client-side.
         labs = await _paginateLabsQuery(
           _db.collection('labs'),
-          maxTotal: maxTotal,
+          maxTotal: maxTotal.clamp(200, 800),
         );
         labs = _applyClientLabFilters(
           labs,
@@ -558,14 +620,11 @@ class AcademicContentService {
           limit: maxTotal,
         );
       } else if (q.length >= 2) {
-        labs = await _paginateLabsQuery(
-          _db.collection('labs'),
-          maxTotal: maxTotal,
-        );
-        labs = _applyClientLabFilters(
-          labs,
-          query: q,
-          limit: maxTotal,
+        // Home/global text search: page until matches found (not first N docs).
+        labs = await _searchLabsByTextQuery(
+          q,
+          resultLimit: maxTotal,
+          scanCap: 2500,
         );
       } else {
         labs = await _paginateLabsQuery(

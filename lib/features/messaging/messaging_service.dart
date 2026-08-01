@@ -91,6 +91,13 @@ class MessagingService {
         );
   }
 
+  Future<Conversation?> getConversation(String conversationId) async {
+    if (conversationId.isEmpty) return null;
+    final snap = await _conversations.doc(conversationId).get();
+    if (!snap.exists || snap.data() == null) return null;
+    return Conversation.fromMap(snap.data()!, id: snap.id);
+  }
+
   Stream<List<ChatMessage>> messagesStream(String conversationId) {
     return _conversations
         .doc(conversationId)
@@ -150,6 +157,8 @@ class MessagingService {
         title: L10nLookup.newMessageTitle(),
         body: '$senderName: $trimmed',
         type: 'message',
+        contextId: conversationId,
+        contextType: 'conversation',
       );
     }
   }

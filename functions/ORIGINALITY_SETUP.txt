@@ -1,13 +1,40 @@
-# Firebase Functions secrets for originality check (server-side only):
-#
-#   firebase functions:secrets:set COPYLEAKS_EMAIL
-#   firebase functions:secrets:set COPYLEAKS_API_KEY
-#   firebase functions:secrets:set PLAGIARISMCHECK_API_TOKEN
-#   firebase functions:secrets:set COPYLEAKS_WEBHOOK_SECRET
-#     (long random string; appended as ?token=… on webhook URLs)
-#
-# Deploy:
-#   firebase deploy --only functions:originalityCheck,functions:originalityCheckHttp,functions:copyleaksWebhook,firestore:rules
-#
-# Copyleaks requires copyleaksWebhook (public HTTP) + COPYLEAKS_WEBHOOK_SECRET.
-# Unsigned webhook POSTs are rejected (401).
+AcadeGate — تفعيل Copyleaks لفاحص التشابه (للباحثين)
+====================================================
+
+الحالة في المشروع:
+- شاشة الباحث: بوابة المستخدم → نزاهة أكاديمية / فاحص التشابه
+  (أو من خدمات الكتابة → افحص الأصالة)
+- Cloud Functions منشورة: originalityCheck, originalityCheckHttp, copyleaksWebhook
+- أسرار Firebase موجودة: COPYLEAKS_EMAIL, COPYLEAKS_API_KEY, COPYLEAKS_WEBHOOK_SECRET
+
+1) اشتراك / حساب Copyleaks (مطلوب من لوحة Copyleaks وليس من الكود)
+-------------------------------------------------------------------
+1. سجّل أو سجّل الدخول: https://copyleaks.com/signup
+2. افتح لوحة الـ API: https://api.copyleaks.com/dashboard
+3. أنشئ API Key واربطه ببريد الحساب
+4. تأكد أن لديك رصيد/خطة تسمح بمسح المستندات (الخطط المجانية محدودة)
+
+2) ربط المفاتيح بـ Firebase (مرة واحدة أو عند تجديد المفتاح)
+---------------------------------------------------------
+من مجلد المشروع (يتطلب تسجيل firebase login):
+
+  firebase functions:secrets:set COPYLEAKS_EMAIL
+  firebase functions:secrets:set COPYLEAKS_API_KEY
+  firebase functions:secrets:set COPYLEAKS_WEBHOOK_SECRET
+    (سلسلة عشوائية طويلة؛ تُمرَّر كـ ?token= على webhook)
+
+ثم انشر الدوال:
+
+  firebase deploy --only functions:originalityCheck,functions:originalityCheckHttp,functions:copyleaksWebhook,firestore:rules
+
+3) استخدام الباحث داخل التطبيق
+------------------------------
+1. تسجيل الدخول بحساب باحث
+2. افتح «فاحص التشابه»
+3. اختر المزود: Copyleaks (أو تلقائي)
+4. الصق نصاً أو ارفع PDF/DOCX ثم اضغط فحص
+
+ملاحظات:
+- المفاتيح تبقى على السيرفر فقط (Secrets) — لا تُخزَّن في التطبيق.
+- بدون رصيد Copyleaks صالح ستفشل عملية الفحص برسالة من الـ API.
+- بديل اختياري: PLAGIARISMCHECK_API_TOKEN من plagiarismcheck.org

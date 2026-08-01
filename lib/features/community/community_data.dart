@@ -120,3 +120,48 @@ class CommunityPostType {
     };
   }
 }
+
+/// Who can see a community post.
+class PostAudienceScope {
+  PostAudienceScope._();
+
+  /// Everyone in the faculty room (all specializations).
+  static const faculty = 'faculty';
+
+  /// Only viewers whose specialization matches [targetSpecialization].
+  static const specialization = 'specialization';
+
+  /// Everyone in the app (general master's / PhD topics).
+  static const app = 'app';
+
+  static const all = [faculty, specialization, app];
+
+  static String label(String? scope, {required bool english}) {
+    return switch (scope) {
+      specialization => english
+          ? 'Specific specialization'
+          : 'تخصص محدد',
+      app => english
+          ? 'Everyone in the app'
+          : 'الجميع في التطبيق',
+      _ => english
+          ? 'All faculty specializations'
+          : 'كل تخصصات الكلية',
+    };
+  }
+
+  static IconData icon(String? scope) {
+    return switch (scope) {
+      specialization => Icons.school_outlined,
+      app => Icons.public,
+      _ => Icons.apartment_outlined,
+    };
+  }
+
+  static bool specializationMatches(String viewer, String target) {
+    final a = viewer.trim().toLowerCase();
+    final b = target.trim().toLowerCase();
+    if (a.isEmpty || b.isEmpty) return false;
+    return a == b || a.contains(b) || b.contains(a);
+  }
+}

@@ -12,6 +12,9 @@ class ResearchRoom {
   final bool isPasswordProtected;
   final String? passwordHash;
   final int discussionsCount;
+  final int membersCount;
+  final String? lastChannelActivity;
+  final DateTime? lastActivityAt;
   final DateTime? createdAt;
 
   const ResearchRoom({
@@ -24,6 +27,9 @@ class ResearchRoom {
     this.isPasswordProtected = false,
     this.passwordHash,
     this.discussionsCount = 0,
+    this.membersCount = 0,
+    this.lastChannelActivity,
+    this.lastActivityAt,
     this.createdAt,
   });
 
@@ -33,6 +39,9 @@ class ResearchRoom {
     DateTime? created;
     final raw = map['createdAt'];
     if (raw is Timestamp) created = raw.toDate();
+    DateTime? lastActivity;
+    final lastRaw = map['lastActivityAt'];
+    if (lastRaw is Timestamp) lastActivity = lastRaw.toDate();
 
     return ResearchRoom(
       id: id,
@@ -46,6 +55,134 @@ class ResearchRoom {
       isPasswordProtected: map['isPasswordProtected'] == true,
       passwordHash: map['passwordHash']?.toString(),
       discussionsCount: _parseInt(map['discussionsCount']),
+      membersCount: _parseInt(map['membersCount']),
+      lastChannelActivity: map['lastChannelActivity']?.toString(),
+      lastActivityAt: lastActivity,
+      createdAt: created,
+    );
+  }
+}
+
+class ResearchRoomMember {
+  final String uid;
+  final String role;
+  final DateTime? joinedAt;
+
+  const ResearchRoomMember({
+    required this.uid,
+    required this.role,
+    this.joinedAt,
+  });
+
+  bool get isOwner => role == 'owner';
+  bool get isModerator => role == 'moderator';
+
+  factory ResearchRoomMember.fromMap(String uid, Map<String, dynamic> map) {
+    DateTime? joined;
+    final raw = map['joinedAt'] ?? map['grantedAt'];
+    if (raw is Timestamp) joined = raw.toDate();
+    final role = map['role']?.toString() ?? 'member';
+    return ResearchRoomMember(
+      uid: uid,
+      role: role == 'owner' || role == 'moderator' || role == 'member'
+          ? role
+          : 'member',
+      joinedAt: joined,
+    );
+  }
+}
+
+class ResearchRoomChannel {
+  final String id;
+  final String nameAr;
+  final String nameEn;
+  final int sortOrder;
+
+  const ResearchRoomChannel({
+    required this.id,
+    required this.nameAr,
+    required this.nameEn,
+    this.sortOrder = 0,
+  });
+
+  String label(bool isEnglish) => isEnglish ? nameEn : nameAr;
+
+  factory ResearchRoomChannel.fromMap(String id, Map<String, dynamic> map) {
+    return ResearchRoomChannel(
+      id: id,
+      nameAr: map['nameAr']?.toString() ?? id,
+      nameEn: map['nameEn']?.toString() ?? id,
+      sortOrder: _parseInt(map['sortOrder']),
+    );
+  }
+
+  static const defaults = <ResearchRoomChannel>[
+    ResearchRoomChannel(
+      id: 'general',
+      nameAr: 'عام',
+      nameEn: 'General',
+      sortOrder: 0,
+    ),
+    ResearchRoomChannel(
+      id: 'references',
+      nameAr: 'مراجع',
+      nameEn: 'References',
+      sortOrder: 1,
+    ),
+    ResearchRoomChannel(
+      id: 'methodology',
+      nameAr: 'منهجية',
+      nameEn: 'Methodology',
+      sortOrder: 2,
+    ),
+    ResearchRoomChannel(
+      id: 'results',
+      nameAr: 'نتائج',
+      nameEn: 'Results',
+      sortOrder: 3,
+    ),
+  ];
+}
+
+class ResearchChannelMessage {
+  final String id;
+  final String channelId;
+  final String authorId;
+  final String authorName;
+  final String text;
+  final String? academicLink;
+  final String? academicTitle;
+  final DateTime? createdAt;
+
+  const ResearchChannelMessage({
+    required this.id,
+    required this.channelId,
+    required this.authorId,
+    required this.authorName,
+    required this.text,
+    this.academicLink,
+    this.academicTitle,
+    this.createdAt,
+  });
+
+  factory ResearchChannelMessage.fromMap(
+    String id,
+    Map<String, dynamic> map, {
+    required String channelId,
+  }) {
+    DateTime? created;
+    final raw = map['createdAt'];
+    if (raw is Timestamp) created = raw.toDate();
+
+    return ResearchChannelMessage(
+      id: id,
+      channelId: channelId,
+      authorId: map['authorId']?.toString() ?? '',
+      authorName: map['authorName']?.toString() ??
+          appTr('باحث', 'Researcher'),
+      text: map['text']?.toString() ?? '',
+      academicLink: map['academicLink']?.toString(),
+      academicTitle: map['academicTitle']?.toString(),
       createdAt: created,
     );
   }
@@ -61,6 +198,8 @@ class ResearchDiscussion {
   final String authorName;
   final List<String> tags;
   final String searchText;
+  final String? academicLink;
+  final String? academicTitle;
   final int repliesCount;
   final DateTime? createdAt;
 
@@ -74,6 +213,8 @@ class ResearchDiscussion {
     required this.authorName,
     this.tags = const [],
     this.searchText = '',
+    this.academicLink,
+    this.academicTitle,
     this.repliesCount = 0,
     this.createdAt,
   });
@@ -99,6 +240,8 @@ class ResearchDiscussion {
           appTr('باحث', 'Researcher'),
       tags: tags,
       searchText: map['searchText']?.toString() ?? '',
+      academicLink: map['academicLink']?.toString(),
+      academicTitle: map['academicTitle']?.toString(),
       repliesCount: _parseInt(map['repliesCount']),
       createdAt: created,
     );
@@ -111,6 +254,7 @@ class ResearchDiscussion {
         title.toLowerCase().contains(q) ||
         body.toLowerCase().contains(q) ||
         authorName.toLowerCase().contains(q) ||
+        (academicTitle?.toLowerCase().contains(q) ?? false) ||
         tags.any((tag) => tag.toLowerCase().contains(q));
   }
 }

@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
 import '../../core/locale/l10n_lookup.dart';
+import '../../core/locale/locale_extensions.dart';
 import '../auth/auth_guard.dart';
+import '../messaging/chat_screen.dart';
+import '../messaging/conversations_screen.dart';
+import '../messaging/messaging_service.dart';
 import '../research_fund/my_funded_ideas_screen.dart';
 import '../research_marketplace/research_idea_marketplace_detail_screen.dart';
 import '../research_marketplace/research_marketplace_service.dart';
@@ -20,9 +24,18 @@ class NotificationsScreen extends StatelessWidget {
       NotificationService.instance.markRead(n.id!);
     }
 
+    if (n.contextId.isEmpty) return;
+
+    final isMessage =
+        n.type == 'message' || n.contextType == 'conversation';
+    if (isMessage) {
+      await _openMessageConversation(context, n.contextId);
+      return;
+    }
+
     final isFund = n.type == 'fund_award' ||
         n.contextType == 'research_idea';
-    if (!isFund || n.contextId.isEmpty) return;
+    if (!isFund) return;
 
     showDialog<void>(
       context: context,
@@ -51,6 +64,56 @@ class NotificationsScreen extends StatelessWidget {
     } catch (_) {
       if (!context.mounted) return;
       Navigator.pop(context);
+    }
+  }
+
+  Future<void> _openMessageConversation(
+    BuildContext context,
+    String conversationId,
+  ) async {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final conversation =
+          await MessagingService.instance.getConversation(conversationId);
+      if (!context.mounted) return;
+      Navigator.pop(context); // loading
+
+      if (conversation == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              context.t(
+                'المحادثة غير متاحة. افتح الرسائل من القائمة.',
+                'Conversation unavailable. Open Messages from the menu.',
+              ),
+            ),
+          ),
+        );
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const ConversationsScreen()),
+        );
+        return;
+      }
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ChatScreen(conversation: conversation),
+        ),
+      );
+    } catch (_) {
+      if (!context.mounted) return;
+      Navigator.pop(context);
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const ConversationsScreen()),
+      );
     }
   }
 

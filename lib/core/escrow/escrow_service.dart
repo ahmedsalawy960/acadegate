@@ -13,6 +13,8 @@ class EscrowService {
     required String notifyUserId,
     required String title,
     required num amount,
+    required String orderId,
+    String contextType = 'store_order',
   }) async {
     if (notifyUserId.isEmpty) return;
     await NotificationService.instance.send(
@@ -20,6 +22,8 @@ class EscrowService {
       title: L10nLookup.paymentConfirmTitle(),
       body: L10nLookup.paymentConfirmBody(amount, title),
       type: 'payment_held',
+      contextId: orderId,
+      contextType: contextType,
     );
   }
 
@@ -27,12 +31,15 @@ class EscrowService {
     required DocumentReference<Map<String, dynamic>> orderRef,
     required String sellerId,
     required String title,
+    String contextType = 'store_order',
   }) async {
     await NotificationService.instance.send(
       userId: sellerId,
       title: L10nLookup.paymentReleasedTitle(),
       body: L10nLookup.paymentReleasedBody(title),
       type: 'payment_released',
+      contextId: orderRef.id,
+      contextType: contextType,
     );
   }
 
@@ -40,12 +47,15 @@ class EscrowService {
     required DocumentReference<Map<String, dynamic>> orderRef,
     required String buyerId,
     required String title,
+    String contextType = 'store_order',
   }) async {
     await NotificationService.instance.send(
       userId: buyerId,
       title: L10nLookup.refundTitle(),
       body: L10nLookup.refundBody(title),
       type: 'payment_refunded',
+      contextId: orderRef.id,
+      contextType: contextType,
     );
   }
 }

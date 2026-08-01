@@ -13,15 +13,15 @@ import 'welcome_feature_showcase.dart';
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
 
+  void _goHome(BuildContext context) {
+    if (!context.mounted) return;
+    Navigator.of(context).popUntil((route) => route.isFirst);
+  }
+
   Future<void> _googleSignIn(BuildContext context) async {
     try {
       final user = await GoogleAuthService.instance.signInWithGoogle();
-      if (user != null && context.mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const PortalGateway()),
-        );
-      }
+      if (user != null) _goHome(context);
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -34,12 +34,7 @@ class WelcomeScreen extends StatelessWidget {
   Future<void> _facebookSignIn(BuildContext context) async {
     try {
       final user = await FacebookAuthService.instance.signInWithFacebook();
-      if (user != null && context.mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const PortalGateway()),
-        );
-      }
+      if (user != null) _goHome(context);
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -52,12 +47,7 @@ class WelcomeScreen extends StatelessWidget {
   Future<void> _appleSignIn(BuildContext context) async {
     try {
       final user = await AppleAuthService.instance.signInWithApple();
-      if (user != null && context.mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const PortalGateway()),
-        );
-      }
+      if (user != null) _goHome(context);
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

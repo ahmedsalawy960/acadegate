@@ -42,7 +42,7 @@ class SupervisionRequestService {
         user.displayName ?? user.email?.split('@').first ?? appTr('طالب', 'Student');
     final studentEmail = user.email ?? '';
 
-    await _requests.add({
+    final reqDoc = await _requests.add({
       'studentId': user.uid,
       'studentName': studentName,
       'studentEmail': studentEmail,
@@ -65,6 +65,8 @@ class SupervisionRequestService {
             : appTr('رسالة تواصل', 'Contact message'),
         body: '$studentName: $trimmed',
         type: 'supervision_request',
+        contextId: reqDoc.id,
+        contextType: 'supervision_request',
       );
     }
 

@@ -16,8 +16,9 @@ import '../../core/locale/locale_extensions.dart';
 
 import '../../core/storage/storage_service.dart';
 
+import '../auth/user_account_service.dart';
+import '../auth/user_role.dart';
 import '../moderation/approval_status.dart';
-
 import 'store_categories.dart';
 
 
@@ -168,6 +169,24 @@ class _AddProductScreenState extends State<AddProductScreen> {
 
       return;
 
+    }
+
+    final account = await UserAccountService.instance.loadCurrentAccount();
+    if (!UserRole.canSellProducts(account?.role)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            context.t(
+              'إضافة المنتجات للتاجر/المورد فقط. سجّل حساباً بدور تاجر أو استخدم بوابة مقدم الخدمة.',
+              'Only merchants/suppliers can add products. Register as a merchant or use the provider portal.',
+            ),
+          ),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
     }
 
 

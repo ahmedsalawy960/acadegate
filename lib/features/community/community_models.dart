@@ -18,6 +18,12 @@ class CommunityPost {
   final String approvalStatus;
   final String? eventDate;
   final String? university;
+  final String? academicLink;
+  final String? academicTitle;
+  /// [PostAudienceScope.faculty] | [PostAudienceScope.specialization] | [PostAudienceScope.app]
+  final String audienceScope;
+  final String? facultyCategory;
+  final String? targetSpecialization;
   final DateTime? createdAt;
 
   const CommunityPost({
@@ -34,11 +40,41 @@ class CommunityPost {
     this.approvalStatus = ApprovalStatus.approved,
     this.eventDate,
     this.university,
+    this.academicLink,
+    this.academicTitle,
+    this.audienceScope = PostAudienceScope.faculty,
+    this.facultyCategory,
+    this.targetSpecialization,
     this.createdAt,
   });
 
   bool get isFromFirebase => id != null && id!.isNotEmpty;
   bool get isPubliclyVisible => ApprovalStatus.isPublic(approvalStatus);
+
+  /// Whether [viewerUid] with optional profile fields may see this post in a feed.
+  bool isVisibleToViewer({
+    required String? viewerUid,
+    String? viewerFaculty,
+    String? viewerSpecialization,
+  }) {
+    if (viewerUid != null && authorId == viewerUid) return true;
+    if (!isPubliclyVisible) return false;
+
+    switch (audienceScope) {
+      case PostAudienceScope.app:
+        return true;
+      case PostAudienceScope.specialization:
+        final target = targetSpecialization?.trim() ?? '';
+        if (target.isEmpty) return true;
+        return PostAudienceScope.specializationMatches(
+          viewerSpecialization ?? '',
+          target,
+        );
+      case PostAudienceScope.faculty:
+      default:
+        return true;
+    }
+  }
 
   factory CommunityPost.fromMap(Map<String, dynamic> map, {String? id}) {
     DateTime? created;
@@ -52,6 +88,11 @@ class CommunityPost {
     if (rawTags is List) {
       tags = rawTags.map((e) => e.toString()).toList();
     }
+
+    final rawScope = map['audienceScope']?.toString() ?? PostAudienceScope.faculty;
+    final scope = PostAudienceScope.all.contains(rawScope)
+        ? rawScope
+        : PostAudienceScope.faculty;
 
     return CommunityPost(
       id: id,
@@ -70,6 +111,11 @@ class CommunityPost {
           map['approvalStatus']?.toString() ?? ApprovalStatus.approved,
       eventDate: map['eventDate']?.toString(),
       university: map['university']?.toString(),
+      academicLink: map['academicLink']?.toString(),
+      academicTitle: map['academicTitle']?.toString(),
+      audienceScope: scope,
+      facultyCategory: map['facultyCategory']?.toString(),
+      targetSpecialization: map['targetSpecialization']?.toString(),
       createdAt: created,
     );
   }

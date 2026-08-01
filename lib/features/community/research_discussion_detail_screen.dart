@@ -1,7 +1,11 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/locale/locale_extensions.dart';
+import '../messaging/chat_screen.dart';
+import '../messaging/messaging_service.dart';
 import 'community_data.dart';
 import 'research_room_models.dart';
 import 'research_room_service.dart';
@@ -32,6 +36,37 @@ class _ResearchDiscussionDetailScreenState
     super.dispose();
   }
 
+  Future<void> _messageAuthor(ResearchDiscussion discussion) async {
+    final myUid = FirebaseAuth.instance.currentUser?.uid;
+    if (discussion.authorId.isEmpty || discussion.authorId == myUid) return;
+    try {
+      final id = await MessagingService.instance.openConversation(
+        otherUserId: discussion.authorId,
+        otherUserName: discussion.authorName,
+        contextType: 'research_discussion',
+        contextId: discussion.id,
+        contextTitle: discussion.title,
+      );
+      final conv = await MessagingService.instance.getConversation(id);
+      if (!mounted || conv == null) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => ChatScreen(conversation: conv)),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  Future<void> _openLink(String url) async {
+    final uri = Uri.tryParse(url.trim());
+    if (uri == null) return;
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
   Future<void> _sendReply() async {
     if (_isSending) return;
 
@@ -53,15 +88,6 @@ class _ResearchDiscussionDetailScreenState
     }
 
     _replyController.clear();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(context.t(
-          'تم إرسال الرد — سيُشعَر منشئ الغرفة',
-          'Reply sent — the room creator will be notified',
-        )),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
   }
 
   @override
@@ -117,6 +143,22 @@ class _ResearchDiscussionDetailScreenState
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
+                                    const Spacer(),
+                                    if (discussion.authorId.isNotEmpty &&
+                                        discussion.authorId !=
+                                            FirebaseAuth
+                                                .instance.currentUser?.uid)
+                                      TextButton.icon(
+                                        onPressed: () =>
+                                            _messageAuthor(discussion),
+                                        icon: const Icon(
+                                          Icons.chat_bubble_outline,
+                                          size: 16,
+                                        ),
+                                        label: Text(
+                                          context.t('مراسلة', 'Message'),
+                                        ),
+                                      ),
                                   ],
                                 ),
                                 const SizedBox(height: 12),
@@ -132,6 +174,28 @@ class _ResearchDiscussionDetailScreenState
                                   discussion.body,
                                   style: const TextStyle(height: 1.5),
                                 ),
+                                if ((discussion.academicLink ?? '')
+                                    .isNotEmpty) ...[
+                                  const SizedBox(height: 10),
+                                  ListTile(
+                                    contentPadding: EdgeInsets.zero,
+                                    leading:
+                                        const Icon(Icons.menu_book_outlined),
+                                    title: Text(
+                                      (discussion.academicTitle
+                                                  ?.isNotEmpty ==
+                                              true)
+                                          ? discussion.academicTitle!
+                                          : context.t(
+                                              'مرجع أكاديمي',
+                                              'Academic reference',
+                                            ),
+                                    ),
+                                    subtitle: Text(discussion.academicLink!),
+                                    onTap: () =>
+                                        _openLink(discussion.academicLink!),
+                                  ),
+                                ],
                                 const SizedBox(height: 12),
                                 Text(
                                   discussion.authorName,
@@ -148,7 +212,8 @@ class _ResearchDiscussionDetailScreenState
                                         .map(
                                           (tag) => Chip(
                                             label: Text(tag),
-                                            visualDensity: VisualDensity.compact,
+                                            visualDensity:
+                                                VisualDensity.compact,
                                           ),
                                         )
                                         .toList(),
@@ -191,7 +256,8 @@ class _ResearchDiscussionDetailScreenState
                         child: TextField(
                           controller: _replyController,
                           decoration: InputDecoration(
-                            hintText: context.t('اكتب ردك...', 'Write your reply...'),
+                            hintText:
+                                context.t('اكتب ردك...', 'Write your reply...'),
                             filled: true,
                             fillColor: Colors.white,
                             border: OutlineInputBorder(
@@ -200,6 +266,8 @@ class _ResearchDiscussionDetailScreenState
                           ),
                           minLines: 1,
                           maxLines: 4,
+                          textInputAction: TextInputAction.send,
+                          onSubmitted: (_) => _sendReply(),
                         ),
                       ),
                       const SizedBox(width: 8),

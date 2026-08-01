@@ -6,11 +6,11 @@ const mammoth = require("mammoth");
 const pdfParse = require("pdf-parse");
 const { assertFirebaseStorageHttpsUrl } = require("./url_safety");
 
-const MAX_IMPORT_IMAGES = 30;
+const MAX_IMPORT_IMAGES = 120;
 
-const MAX_BODY_BLOCKS = 150;
+const MAX_BODY_BLOCKS = 500;
 const MAX_BODY_TEXT = 120000;
-const MAX_REFERENCES = 35;
+const MAX_REFERENCES = 200;
 const MAX_BLOCK_TEXT = 80000;
 
 async function downloadFileBuffer(fileUrl) {

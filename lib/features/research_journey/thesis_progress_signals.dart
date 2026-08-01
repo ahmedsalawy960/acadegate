@@ -43,22 +43,24 @@ class ThesisProgressSignals {
   ) {
     const order = ResearchJourneyStage.values;
     final idx = order.indexOf(stage);
-    if (idx >= order.indexOf(ResearchJourneyStage.choosingTopic)) {
+    // Being *at* a stage means that step is in progress — only mark
+    // earlier stages complete (e.g. choosingTopic must stay 0% done).
+    if (idx > order.indexOf(ResearchJourneyStage.choosingTopic)) {
       signals[ThesisActivityId.topicIdea.name] = true;
     }
-    if (idx >= order.indexOf(ResearchJourneyStage.findingSupervisor)) {
+    if (idx > order.indexOf(ResearchJourneyStage.findingSupervisor)) {
       signals[ThesisActivityId.supervisorMatch.name] = true;
     }
-    if (idx >= order.indexOf(ResearchJourneyStage.methodology)) {
+    if (idx > order.indexOf(ResearchJourneyStage.methodology)) {
       signals[ThesisActivityId.methodologyEthics.name] = true;
     }
-    if (idx >= order.indexOf(ResearchJourneyStage.dataCollection)) {
+    if (idx > order.indexOf(ResearchJourneyStage.dataCollection)) {
       signals[ThesisActivityId.dataCollection.name] = true;
     }
-    if (idx >= order.indexOf(ResearchJourneyStage.writing)) {
+    if (idx > order.indexOf(ResearchJourneyStage.writing)) {
       signals[ThesisActivityId.chapterWriting.name] = true;
     }
-    if (idx >= order.indexOf(ResearchJourneyStage.defense)) {
+    if (idx > order.indexOf(ResearchJourneyStage.defense)) {
       signals[ThesisActivityId.vivaPractice.name] = true;
     }
   }

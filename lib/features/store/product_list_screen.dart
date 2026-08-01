@@ -5,6 +5,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/locale/app_translate.dart';
 import '../../core/locale/l10n_lookup.dart';
 import '../../core/locale/locale_extensions.dart';
+import '../auth/user_account_service.dart';
+import '../auth/user_role.dart';
 import '../moderation/approval_status.dart';
 import 'add_product_screen.dart';
 import 'import/egypt_store_suppliers_catalog.dart';
@@ -54,33 +56,41 @@ class ProductListScreen extends StatelessWidget {
         backgroundColor: accentColor,
         foregroundColor: Colors.white,
         actions: [
-          IconButton(
-            tooltip: context.t('إضافة منتج كمورد', 'Add product as supplier'),
-            icon: const Icon(Icons.add),
-            onPressed: () async {
-              final created = await Navigator.push<bool>(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => AddProductScreen(
-                    categoryTitle: category?.title ?? categoryTitle,
-                  ),
-                ),
-              );
-
-              if (!context.mounted) return;
-              if (created == true) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      context.t(
-                        'تم إرسال المنتج للمراجعة — سيظهر بعد الموافقة',
-                        'Product sent for review — it will appear after approval',
+          StreamBuilder(
+            stream: UserAccountService.instance.watchCurrentAccount(),
+            builder: (context, snapshot) {
+              if (!UserRole.canSellProducts(snapshot.data?.role)) {
+                return const SizedBox.shrink();
+              }
+              return IconButton(
+                tooltip: context.t('إضافة منتج كمورد', 'Add product as supplier'),
+                icon: const Icon(Icons.add),
+                onPressed: () async {
+                  final created = await Navigator.push<bool>(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => AddProductScreen(
+                        categoryTitle: category?.title ?? categoryTitle,
                       ),
                     ),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-              }
+                  );
+
+                  if (!context.mounted) return;
+                  if (created == true) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          context.t(
+                            'تم إرسال المنتج للمراجعة — سيظهر بعد الموافقة',
+                            'Product sent for review — it will appear after approval',
+                          ),
+                        ),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                },
+              );
             },
           ),
         ],
@@ -219,27 +229,37 @@ class ProductListScreen extends StatelessWidget {
                         style: TextStyle(color: Colors.grey[700]),
                       ),
                       const SizedBox(height: 16),
-                      FilledButton.icon(
-                        onPressed: () {
-                          Navigator.push<bool>(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => AddProductScreen(
-                                categoryTitle: category?.title ?? categoryTitle,
+                      StreamBuilder(
+                        stream:
+                            UserAccountService.instance.watchCurrentAccount(),
+                        builder: (context, snapshot) {
+                          if (!UserRole.canSellProducts(snapshot.data?.role)) {
+                            return const SizedBox.shrink();
+                          }
+                          return FilledButton.icon(
+                            onPressed: () {
+                              Navigator.push<bool>(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => AddProductScreen(
+                                    categoryTitle:
+                                        category?.title ?? categoryTitle,
+                                  ),
+                                ),
+                              );
+                            },
+                            style: FilledButton.styleFrom(
+                              backgroundColor: accentColor,
+                            ),
+                            icon: const Icon(Icons.add_business_outlined),
+                            label: Text(
+                              context.t(
+                                'إضافة منتج كمورد',
+                                'Add product as supplier',
                               ),
                             ),
                           );
                         },
-                        style: FilledButton.styleFrom(
-                          backgroundColor: accentColor,
-                        ),
-                        icon: const Icon(Icons.add_business_outlined),
-                        label: Text(
-                          context.t(
-                            'إضافة منتج كمورد',
-                            'Add product as supplier',
-                          ),
-                        ),
                       ),
                     ],
                   ),

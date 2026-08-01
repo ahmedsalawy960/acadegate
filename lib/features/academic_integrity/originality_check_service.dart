@@ -213,7 +213,7 @@ class OriginalityCheckService {
           message.isNotEmpty
               ? message
               : appTr(
-                  'مفاتiح Copyleaks أو PlagiarismCheck غير مضبوطة في Firebase',
+                  'مفاتيح Copyleaks أو PlagiarismCheck غير مضبوطة في Firebase',
                   'Copyleaks or PlagiarismCheck keys not configured in Firebase',
                 ),
         );

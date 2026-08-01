@@ -9,6 +9,7 @@ import '../../core/locale/app_translate.dart';
 import '../../core/locale/l10n_lookup.dart';
 import '../../core/locale/locale_extensions.dart';
 import '../auth/user_account_service.dart';
+import '../auth/user_role.dart';
 import '../home/home_search_utils.dart';
 import '../home/section_search_field.dart';
 import 'add_product_screen.dart';
@@ -111,6 +112,23 @@ class _StoreCategoriesScreenState extends State<StoreCategoriesScreen> {
   }
 
   Future<void> _openSupplierAdd() async {
+    final account = await UserAccountService.instance.loadCurrentAccount();
+    if (!mounted) return;
+    if (!UserRole.canSellProducts(account?.role)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            context.t(
+              'إضافة المنتجات للتاجر/المورد فقط. أنشئ حساباً بدور تاجر من شاشة التسجيل.',
+              'Only merchants can add products. Create a merchant account from the register screen.',
+            ),
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
     final category = await showModalBottomSheet<StoreCategory>(
       context: context,
       isScrollControlled: true,
@@ -264,20 +282,28 @@ class _StoreCategoriesScreenState extends State<StoreCategoriesScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: _openSupplierAdd,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.green[800],
-                side: BorderSide(color: Colors.green.shade700),
-                minimumSize: const Size.fromHeight(44),
-              ),
-              icon: const Icon(Icons.add_business_outlined),
-              label: Text(
-                context.t(
-                  'أنا مورد — أضف منتجاً',
-                  'I am a supplier — add a product',
-                ),
-              ),
+            StreamBuilder(
+              stream: UserAccountService.instance.watchCurrentAccount(),
+              builder: (context, snapshot) {
+                if (!UserRole.canSellProducts(snapshot.data?.role)) {
+                  return const SizedBox.shrink();
+                }
+                return OutlinedButton.icon(
+                  onPressed: _openSupplierAdd,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.green[800],
+                    side: BorderSide(color: Colors.green.shade700),
+                    minimumSize: const Size.fromHeight(44),
+                  ),
+                  icon: const Icon(Icons.add_business_outlined),
+                  label: Text(
+                    context.t(
+                      'أنا مورد — أضف منتجاً',
+                      'I am a supplier — add a product',
+                    ),
+                  ),
+                );
+              },
             ),
             StreamBuilder(
               stream: UserAccountService.instance.watchCurrentAccount(),

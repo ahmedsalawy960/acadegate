@@ -33,11 +33,12 @@ You are an academic advisor on the AcadeGate platform. Analyze a suggested resea
 Strict rules:
 - Reply in clear, simple English only.
 - Do not invent names or institutions not present in the supplied data.
+- The bundle may include MULTIPLE options per section (ideas, supervisors, labs, products, writers). Compare them briefly and help the researcher choose.
 - If a bundle item is missing, suggest a practical alternative within the platform (browse, register, request).
 - Use these exact headings in your reply:
 
 ${headers.analysis}
-(One or two paragraphs linking specialization and interest to each selected item)
+(One or two paragraphs linking specialization and interest to the options)
 
 ${headers.plan}
 (4–6 numbered stages: problem definition, literature review, methodology, data/lab collection, writing, review)
@@ -51,11 +52,12 @@ ${headers.next}
 قواعد صارمة:
 - أجب بالعربية الفصحى المبسطة فقط.
 - لا تخترع أسماء أو جهات غير موجودة في البيانات المرسلة.
+- قد تحتوي الحزمة على عدة خيارات في كل قسم (أفكار، مشرفون، مختبرات، منتجات، كتّاب). قارنها باختصار وساعد الباحث على الاختيار.
 - إن كان عنصراً ناقصاً في الحزمة، اقترح بديلاً عملياً من داخل المنصة (تصفح، تسجيل، طلب).
 - استخدم العناوين التالية بالضبط في ردك:
 
 ${headers.analysis}
-(فقرة أو فقرتان تربط التخصص والاهتمام بكل عنصر مختار)
+(فقرة أو فقرتان تربط التخصص والاهتمام بالخيارات)
 
 ${headers.plan}
 (مراحل مرقّمة 4–6: تحديد المشكلة، مراجعة أدبيات، منهجية، جمع بيانات/مختبر، كتابة، مراجعة)
@@ -156,14 +158,16 @@ ${headers.next}
 
     buffer.writeln(appTr('--- عناصر الحزمة ---', '--- Bundle items ---'));
 
-    final idea = bundle.idea;
-    if (idea != null) {
-      buffer.writeln(
-        appTr(
-          'فكرة (${idea.score}%): ${idea.item.title} — ${idea.item.details}',
-          'Idea (${idea.score}%): ${idea.item.title} — ${idea.item.details}',
-        ),
-      );
+    if (bundle.ideas.isNotEmpty) {
+      buffer.writeln(appTr('أفكار مقترحة:', 'Suggested ideas:'));
+      for (final idea in bundle.ideas) {
+        buffer.writeln(
+          appTr(
+            '  • (${idea.score}%) ${idea.item.title} — ${idea.item.details}',
+            '  • (${idea.score}%) ${idea.item.title} — ${idea.item.details}',
+          ),
+        );
+      }
     } else {
       buffer.writeln(
         appTr(
@@ -173,33 +177,44 @@ ${headers.next}
       );
     }
 
-    final supervisor = bundle.supervisor;
-    if (supervisor != null) {
-      buffer.writeln(
-        appTr(
-          'مشرف (${supervisor.score}%): ${supervisor.item.name} — '
-          '${supervisor.item.speciality} @ ${supervisor.item.university}',
-          'Supervisor (${supervisor.score}%): ${supervisor.item.name} — '
-          '${supervisor.item.speciality} @ ${supervisor.item.university}',
-        ),
-      );
+    if (bundle.supervisors.isNotEmpty) {
+      buffer.writeln(appTr('مشرفون مقترحون:', 'Suggested supervisors:'));
+      for (final supervisor in bundle.supervisors) {
+        buffer.writeln(
+          appTr(
+            '  • (${supervisor.score}%) ${supervisor.item.name} — '
+            '${supervisor.item.speciality} @ ${supervisor.item.university}',
+            '  • (${supervisor.score}%) ${supervisor.item.name} — '
+            '${supervisor.item.speciality} @ ${supervisor.item.university}',
+          ),
+        );
+      }
     } else {
       buffer.writeln(appTr('مشرف: غير متوفر', 'Supervisor: not available'));
     }
 
-    final lab = bundle.lab;
-    if (lab != null) {
-      buffer.writeln(
-        appTr(
-          'مختبر (${lab.score}%): ${lab.item.name} — ${lab.item.equipment}',
-          'Lab (${lab.score}%): ${lab.item.name} — ${lab.item.equipment}',
-        ),
-      );
+    if (bundle.labs.isNotEmpty) {
+      buffer.writeln(appTr('مختبرات مقترحة:', 'Suggested labs:'));
+      for (final lab in bundle.labs) {
+        buffer.writeln(
+          appTr(
+            '  • (${lab.score}%) ${lab.item.name} — ${lab.item.equipment}',
+            '  • (${lab.score}%) ${lab.item.name} — ${lab.item.equipment}',
+          ),
+        );
+      }
     } else {
       buffer.writeln(appTr('مختبر: غير متوفر', 'Lab: not available'));
     }
 
-    if (bundle.storeCategory != null) {
+    if (bundle.storeCategories.isNotEmpty) {
+      buffer.writeln(
+        appTr(
+          'أقسام المتجر: ${bundle.storeCategories.map((c) => L10nLookup.storeCategoryTitle(c.id)).join('، ')}',
+          'Store sections: ${bundle.storeCategories.map((c) => L10nLookup.storeCategoryTitle(c.id)).join(', ')}',
+        ),
+      );
+    } else if (bundle.storeCategory != null) {
       buffer.writeln(
         appTr(
           'قسم المتجر: ${L10nLookup.storeCategoryTitle(bundle.storeCategory!.id)}',
@@ -212,21 +227,23 @@ ${headers.next}
       for (final p in bundle.products) {
         buffer.writeln(
           appTr(
-            '  • ${p.name} (${p.price} ج.م) — ${p.category}',
-            '  • ${p.name} (${p.price} EGP) — ${p.category}',
+            '  • ${p.name} (${p.price} ج.م) — ${p.category} [${p.score}%]',
+            '  • ${p.name} (${p.price} EGP) — ${p.category} [${p.score}%]',
           ),
         );
       }
     }
 
-    final expert = bundle.writingExpert;
-    if (expert != null) {
-      buffer.writeln(
-        appTr(
-          'كاتب (${expert.score}%): ${expert.item.name} — ${expert.item.speciality}',
-          'Writer (${expert.score}%): ${expert.item.name} — ${expert.item.speciality}',
-        ),
-      );
+    if (bundle.writingExperts.isNotEmpty) {
+      buffer.writeln(appTr('خدمات كتابة مقترحة:', 'Suggested writing services:'));
+      for (final expert in bundle.writingExperts) {
+        buffer.writeln(
+          appTr(
+            '  • (${expert.score}%) ${expert.item.name} — ${expert.item.speciality}',
+            '  • (${expert.score}%) ${expert.item.name} — ${expert.item.speciality}',
+          ),
+        );
+      }
     } else {
       buffer.writeln(
         appTr('كاتب أكاديمي: غير متوفر', 'Academic writer: not available'),
@@ -299,43 +316,43 @@ ${headers.next}
       ),
     );
 
-    if (bundle.idea != null) {
+    if (bundle.ideas.isNotEmpty) {
       analysis.writeln(
         appTr(
-          '• الفكرة «${bundle.idea!.item.title}» تتوافق مع اهتمامك (${bundle.idea!.score}%).',
-          '• Idea "${bundle.idea!.item.title}" matches your interest (${bundle.idea!.score}%).',
+          '• ${bundle.ideas.length} أفكار بحثية — أفضلها «${bundle.ideas.first.item.title}» (${bundle.ideas.first.score}%).',
+          '• ${bundle.ideas.length} research ideas — top "${bundle.ideas.first.item.title}" (${bundle.ideas.first.score}%).',
         ),
       );
     }
-    if (bundle.supervisor != null) {
+    if (bundle.supervisors.isNotEmpty) {
       analysis.writeln(
         appTr(
-          '• المشرف ${bundle.supervisor!.item.name} قريب من مجالك (${bundle.supervisor!.score}%).',
-          '• Supervisor ${bundle.supervisor!.item.name} is close to your field (${bundle.supervisor!.score}%).',
+          '• ${bundle.supervisors.length} مشرفين — أبرزهم ${bundle.supervisors.first.item.name} (${bundle.supervisors.first.score}%).',
+          '• ${bundle.supervisors.length} supervisors — lead ${bundle.supervisors.first.item.name} (${bundle.supervisors.first.score}%).',
         ),
       );
     }
-    if (bundle.lab != null) {
+    if (bundle.labs.isNotEmpty) {
       analysis.writeln(
         appTr(
-          '• مختبر ${bundle.lab!.item.name} يخدم احتياجاتك التجريبية.',
-          '• Lab ${bundle.lab!.item.name} serves your experimental needs.',
+          '• ${bundle.labs.length} مختبرات — منها ${bundle.labs.first.item.name} لاحتياجاتك التجريبية.',
+          '• ${bundle.labs.length} labs — including ${bundle.labs.first.item.name} for experimental needs.',
         ),
       );
     }
     if (bundle.products.isNotEmpty) {
       analysis.writeln(
         appTr(
-          '• ${bundle.products.length} منتج/ات من $storeLabel.',
-          '• ${bundle.products.length} product(s) from $storeLabel.',
+          '• ${bundle.products.length} منتج/ات من $storeLabel وأقسام مرتبطة.',
+          '• ${bundle.products.length} product(s) from $storeLabel and related sections.',
         ),
       );
     }
-    if (bundle.writingExpert != null) {
+    if (bundle.writingExperts.isNotEmpty) {
       analysis.writeln(
         appTr(
-          '• ${bundle.writingExpert!.item.name} لدعم الكتابة أو الإحصاء.',
-          '• ${bundle.writingExpert!.item.name} for writing or statistics support.',
+          '• ${bundle.writingExperts.length} خدمات كتابة/إحصاء — أبرزها ${bundle.writingExperts.first.item.name}.',
+          '• ${bundle.writingExperts.length} writing/statistics services — lead ${bundle.writingExperts.first.item.name}.',
         ),
       );
     }

@@ -17,52 +17,86 @@ class ResearchSupplyChainEngine {
 
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
+  static const _ideaLimit = 5;
+  static const _supervisorLimit = 5;
+  static const _labLimit = 5;
+  static const _productLimit = 8;
+  static const _writerLimit = 4;
+
   Future<ResearchSupplyBundle> buildBundle({
     required String topic,
     AcademicProfile? profile,
   }) async {
     final trimmed = topic.trim();
     final effectiveProfile = _effectiveProfile(profile, trimmed);
+    final keywords = _richKeywords(effectiveProfile, trimmed);
 
-    final content = await AcademicContentService.instance.fetchAll();
-    final products = await _fetchProducts();
+    final content = await AcademicContentService.instance.fetchAll(
+      includeLabs: true,
+    );
+
+    // Prefer faculty-scoped labs (larger pool) then merge with cached browse.
+    final facultyId = effectiveProfile.resolvedFacultyCategory;
+    final facultyLabs = facultyId == null || facultyId.isEmpty
+        ? const <AcademicLab>[]
+        : await AcademicContentService.instance.searchLabs(
+            facultyId: facultyId,
+            university: effectiveProfile.university.trim().isEmpty
+                ? null
+                : effectiveProfile.university,
+            limit: 100,
+          );
+
+    final labsById = <String, AcademicLab>{};
+    for (final lab in [...facultyLabs, ...content.labs]) {
+      final key = lab.id ?? '${lab.name}|${lab.university}|${lab.city}';
+      labsById.putIfAbsent(key, () => lab);
+    }
+    final labsPool = labsById.values.toList();
+
+    final preferredCategories = _inferStoreCategories(keywords);
+    final products = await _fetchProducts(preferredCategories);
     final experts = await _fetchWritingExperts();
 
     final ideaMatches = SmartMatchmakingEngine.matchResearchIdeas(
       effectiveProfile,
       content.ideas,
-      limit: 1,
+      limit: _ideaLimit,
     );
     final supervisorMatches = SmartMatchmakingEngine.matchSupervisors(
       effectiveProfile,
       content.supervisors,
-      limit: 1,
+      limit: _supervisorLimit,
     );
     final labMatches = SmartMatchmakingEngine.matchLabs(
       effectiveProfile,
-      content.labs,
-      limit: 1,
+      labsPool,
+      limit: _labLimit,
     );
 
-    final storeCategory = _inferStoreCategory(effectiveProfile.keywords);
     final productMatches = _matchProducts(
-      effectiveProfile.keywords,
+      keywords,
       products,
-      preferredCategory: storeCategory?.title,
-      limit: 3,
+      preferredCategories: preferredCategories,
+      limit: _productLimit,
     );
 
-    final writingMatch = _matchWritingExpert(
+    final writingMatches = _matchWritingExperts(
       effectiveProfile,
       experts,
+      limit: _writerLimit,
     );
+
+    final primaryStore = preferredCategories.isNotEmpty
+        ? preferredCategories.first
+        : storeCategoryById('general');
 
     final scores = <int>[
       if (ideaMatches.isNotEmpty) ideaMatches.first.score,
       if (supervisorMatches.isNotEmpty) supervisorMatches.first.score,
       if (labMatches.isNotEmpty) labMatches.first.score,
       if (productMatches.isNotEmpty) productMatches.first.score,
-      if (writingMatch != null) writingMatch.score,
+      if (writingMatches.isNotEmpty) writingMatches.first.score,
     ];
 
     final overall = scores.isEmpty
@@ -70,24 +104,23 @@ class ResearchSupplyChainEngine {
         : (scores.reduce((a, b) => a + b) / scores.length).round();
 
     final summary = _buildSummary(
-      idea: ideaMatches.isNotEmpty ? ideaMatches.first : null,
-      supervisor:
-          supervisorMatches.isNotEmpty ? supervisorMatches.first : null,
-      lab: labMatches.isNotEmpty ? labMatches.first : null,
+      ideas: ideaMatches,
+      supervisors: supervisorMatches,
+      labs: labMatches,
       products: productMatches,
-      expert: writingMatch,
-      storeCategory: storeCategory,
+      experts: writingMatches,
+      storeCategories: preferredCategories,
     );
 
     return ResearchSupplyBundle(
       topic: trimmed,
-      idea: ideaMatches.isNotEmpty ? ideaMatches.first : null,
-      supervisor:
-          supervisorMatches.isNotEmpty ? supervisorMatches.first : null,
-      lab: labMatches.isNotEmpty ? labMatches.first : null,
+      ideas: ideaMatches,
+      supervisors: supervisorMatches,
+      labs: labMatches,
       products: productMatches,
-      storeCategory: storeCategory,
-      writingExpert: writingMatch,
+      storeCategory: primaryStore,
+      storeCategories: preferredCategories,
+      writingExperts: writingMatches,
       overallScore: overall,
       chainSummary: summary,
     );
@@ -95,8 +128,15 @@ class ResearchSupplyChainEngine {
 
   AcademicProfile _effectiveProfile(AcademicProfile? profile, String topic) {
     if (profile != null && profile.isComplete) {
+      final mergedInterest = topic.isEmpty
+          ? profile.researchInterest
+          : '$topic ${profile.researchInterest}'.trim();
+      final mergedSpec = topic.isEmpty
+          ? profile.specialization
+          : '${profile.specialization} $topic'.trim();
       return profile.copyWith(
-        researchInterest: topic.isNotEmpty ? topic : profile.researchInterest,
+        researchInterest: mergedInterest,
+        specialization: mergedSpec,
       );
     }
 
@@ -104,8 +144,13 @@ class ResearchSupplyChainEngine {
       fullName: profile?.fullName ?? '',
       university: profile?.university ?? '',
       degree: profile?.degree ?? appTr('ماجستير', 'Master\'s'),
-      specialization: topic,
-      researchInterest: topic,
+      facultyCategory: profile?.facultyCategory ?? '',
+      specialization: topic.isNotEmpty
+          ? topic
+          : (profile?.specialization ?? ''),
+      researchInterest: topic.isNotEmpty
+          ? topic
+          : (profile?.researchInterest ?? ''),
       methodology: profile?.methodology ?? appTr('كمي', 'Quantitative'),
       preferredLanguage:
           profile?.preferredLanguage ?? appTr('العربية', 'Arabic'),
@@ -114,28 +159,38 @@ class ResearchSupplyChainEngine {
     );
   }
 
-  StoreCategory? _storeCategoryById(String id) {
-    for (final category in storeCategories) {
-      if (category.id == id) return category;
-    }
-    return null;
+  List<String> _richKeywords(AcademicProfile profile, String topic) {
+    final tokens = <String>{
+      ...profile.keywords,
+      ...topic
+          .toLowerCase()
+          .split(RegExp(r'[\s,،.؛;/\\|+-]+'))
+          .map((t) => t.trim())
+          .where((t) => t.length >= 3),
+    };
+    return tokens.toList();
   }
 
-  StoreCategory? _inferStoreCategory(List<String> keywords) {
+  List<StoreCategory> _inferStoreCategories(List<String> keywords) {
     const rules = <String, String>{
       'كيم': 'chemicals',
       'chem': 'chemicals',
       'كاشف': 'chemicals',
+      'reagent': 'chemicals',
       'بيول': 'biology',
       'حيو': 'biology',
       'dna': 'biology',
+      'pcr': 'biology',
+      'nano': 'biology',
       'طبي': 'medical',
       'med': 'medical',
       'صيدل': 'medical',
       'أسنان': 'medical',
+      'clinic': 'medical',
       'هند': 'engineering',
       'eng': 'engineering',
       'إلكتر': 'engineering',
+      'circuit': 'engineering',
       'فيزي': 'physics_materials',
       'مواد': 'physics_materials',
       'جيول': 'physics_materials',
@@ -145,9 +200,12 @@ class ResearchSupplyChainEngine {
       'حاسب': 'computing',
       'برمج': 'computing',
       'بيانات': 'computing',
+      'machine': 'computing',
+      'ai': 'computing',
       'مستهلك': 'consumables',
       'جهاز': 'instruments',
       'قياس': 'instruments',
+      'spectr': 'instruments',
       'سلام': 'safety',
       'ميدان': 'field',
       'مسح': 'field',
@@ -156,36 +214,92 @@ class ResearchSupplyChainEngine {
       'تربي': 'humanities',
       'آداب': 'humanities',
       'اجتماع': 'humanities',
+      'قانون': 'humanities',
     };
 
     final haystack = keywords.join(' ').toLowerCase();
+    final found = <String>{};
     for (final entry in rules.entries) {
       if (haystack.contains(entry.key)) {
-        return _storeCategoryById(entry.value);
+        found.add(entry.value);
       }
     }
-    return _storeCategoryById('general');
+
+    // Cross-cutting supplies that help most experimental paths.
+    if (found.any((id) =>
+        id == 'chemicals' ||
+        id == 'biology' ||
+        id == 'medical' ||
+        id == 'physics_materials' ||
+        id == 'agriculture' ||
+        id == 'engineering')) {
+      found.add('consumables');
+      found.add('instruments');
+      found.add('safety');
+    }
+    if (found.contains('computing') || found.contains('humanities')) {
+      found.add('books');
+      found.add('office');
+    }
+    if (found.isEmpty) {
+      found.addAll(['general', 'books', 'office', 'consumables']);
+    }
+
+    final categories = <StoreCategory>[];
+    for (final id in found) {
+      final cat = storeCategoryById(id);
+      if (cat != null) categories.add(cat);
+    }
+    return categories;
   }
 
-  Future<List<Map<String, dynamic>>> _fetchProducts() async {
-    try {
-      final snap = await _db.collection('product').limit(80).get();
-      return snap.docs
-          .map((doc) => {...doc.data(), 'id': doc.id})
-          .where(
-            (data) =>
-                (data['approvalStatus']?.toString() ?? 'approved') ==
-                'approved',
-          )
-          .toList();
-    } catch (_) {
-      return const [];
+  Future<List<Map<String, dynamic>>> _fetchProducts(
+    List<StoreCategory> preferredCategories,
+  ) async {
+    final byId = <String, Map<String, dynamic>>{};
+
+    Future<void> ingest(QuerySnapshot<Map<String, dynamic>> snap) async {
+      for (final doc in snap.docs) {
+        final data = {...doc.data(), 'id': doc.id};
+        final status = data['approvalStatus']?.toString() ?? 'approved';
+        if (status != 'approved') continue;
+        byId.putIfAbsent(doc.id, () => data);
+      }
     }
+
+    try {
+      final queries = <Future<QuerySnapshot<Map<String, dynamic>>>>[];
+      for (final category in preferredCategories.take(6)) {
+        for (final title in storeCategoryQueryTitles(category)) {
+          queries.add(
+            _db
+                .collection('product')
+                .where('category', isEqualTo: title)
+                .limit(40)
+                .get(),
+          );
+        }
+      }
+      // Broad sample so soft matches still work when category tags are messy.
+      queries.add(_db.collection('product').limit(120).get());
+
+      final snaps = await Future.wait(queries);
+      for (final snap in snaps) {
+        await ingest(snap);
+      }
+    } catch (_) {
+      try {
+        final snap = await _db.collection('product').limit(120).get();
+        await ingest(snap);
+      } catch (_) {}
+    }
+
+    return byId.values.toList();
   }
 
   Future<List<WritingExpert>> _fetchWritingExperts() async {
     try {
-      final snap = await _db.collection('writing_services').limit(40).get();
+      final snap = await _db.collection('writing_services').limit(60).get();
       final experts = snap.docs
           .map((doc) => WritingExpert.fromMap(doc.data(), id: doc.id))
           .where((e) => e.isPubliclyVisible)
@@ -198,39 +312,63 @@ class ResearchSupplyChainEngine {
   List<SupplyChainProduct> _matchProducts(
     List<String> keywords,
     List<Map<String, dynamic>> products, {
-    String? preferredCategory,
-    int limit = 3,
+    required List<StoreCategory> preferredCategories,
+    int limit = 8,
   }) {
     if (products.isEmpty) return const [];
 
+    final preferredTitles = <String>{};
+    for (final cat in preferredCategories) {
+      preferredTitles.addAll(storeCategoryQueryTitles(cat));
+      preferredTitles.add(cat.title);
+    }
+
     final scored = products.map((data) {
+      final rawCategory = data['category']?.toString() ?? '';
+      final normalized =
+          storeCategoryByTitle(rawCategory)?.title ?? rawCategory;
       final text = [
         data['name'],
         data['description'],
-        data['category'],
+        rawCategory,
+        normalized,
         data['storeName'],
+        data['tags'],
       ].join(' ').toLowerCase();
 
       var score = 0;
       final reasons = <String>[];
       for (final kw in keywords) {
-        if (kw.length >= 2 && text.contains(kw)) {
+        if (kw.length >= 3 && text.contains(kw)) {
           score += 12;
           reasons.add(appTr('يتوافق مع «$kw»', 'Matches "$kw"'));
         }
       }
 
-      final category = data['category']?.toString() ?? '';
-      if (preferredCategory != null && category == preferredCategory) {
-        score += 15;
-        reasons.add(appTr('من القسم المناسب لبحثك', 'From the right section for your research'));
+      if (preferredTitles.contains(rawCategory) ||
+          preferredTitles.contains(normalized)) {
+        score += 22;
+        reasons.add(
+          appTr(
+            'من قسم مناسب لبحثك',
+            'From a section suited to your research',
+          ),
+        );
+      }
+
+      // Soft boost for always-useful lab supplies.
+      if (normalized.contains('مستهلك') ||
+          normalized.contains('أجهزة') ||
+          normalized.contains('سلامة') ||
+          normalized.contains('كتب')) {
+        score += 6;
       }
 
       return SupplyChainProduct(
         id: data['id']?.toString(),
         name: data['name']?.toString() ?? appTr('منتج', 'Product'),
         price: (data['price'] as num?) ?? 0,
-        category: category,
+        category: normalized.isNotEmpty ? normalized : rawCategory,
         imageUrl: data['imageUrl']?.toString(),
         createdBy: data['createdBy']?.toString(),
         score: score.clamp(0, 100),
@@ -241,18 +379,71 @@ class ResearchSupplyChainEngine {
 
     final matched = scored.where((p) => p.score > 0).take(limit).toList();
     if (matched.isNotEmpty) return matched;
-    return scored.take(limit).toList();
+
+    // Prefer products already in preferred sections over arbitrary catalogue.
+    final inPreferred = scored
+        .where(
+          (p) =>
+              preferredTitles.contains(p.category) ||
+              preferredCategories.any(
+                (c) =>
+                    p.category == c.title ||
+                    storeCategoryQueryTitles(c).contains(p.category),
+              ),
+        )
+        .take(limit)
+        .map(
+          (p) => SupplyChainProduct(
+            id: p.id,
+            name: p.name,
+            price: p.price,
+            category: p.category,
+            imageUrl: p.imageUrl,
+            createdBy: p.createdBy,
+            score: 24,
+            reasons: [
+              appTr(
+                'من قسم قد يفيد مسار بحثك',
+                'From a section that may help your research path',
+              ),
+            ],
+          ),
+        )
+        .toList();
+    if (inPreferred.isNotEmpty) return inPreferred;
+
+    return scored
+        .take(limit)
+        .map(
+          (p) => SupplyChainProduct(
+            id: p.id,
+            name: p.name,
+            price: p.price,
+            category: p.category,
+            imageUrl: p.imageUrl,
+            createdBy: p.createdBy,
+            score: 15,
+            reasons: [
+              appTr(
+                'خيار عام من المتجر الأكاديمي',
+                'General option from the academic store',
+              ),
+            ],
+          ),
+        )
+        .toList();
   }
 
-  MatchResult<WritingExpert>? _matchWritingExpert(
+  List<MatchResult<WritingExpert>> _matchWritingExperts(
     AcademicProfile profile,
-    List<WritingExpert> experts,
-  ) {
-    if (experts.isEmpty) return null;
+    List<WritingExpert> experts, {
+    int limit = 4,
+  }) {
+    if (experts.isEmpty) return const [];
 
     final preferredCategory = _inferWritingCategory(profile);
+    final scored = <MatchResult<WritingExpert>>[];
 
-    MatchResult<WritingExpert>? best;
     for (final expert in experts) {
       var score = 0;
       final reasons = <String>[];
@@ -264,43 +455,62 @@ class ResearchSupplyChainEngine {
       ].join(' ').toLowerCase();
 
       for (final kw in profile.keywords) {
-        if (kw.length >= 2 && text.contains(kw)) score += 10;
+        if (kw.length >= 3 && text.contains(kw)) score += 10;
       }
 
       if (_isPhdDegree(profile.degree) && expert.category.contains('رسائل')) {
         score += 20;
-        reasons.add(appTr('مناسب لمرحلة الدكتوراه', 'Suitable for PhD stage'));
+        reasons.add(
+          appTr('مناسب لمرحلة الدكتوراه', 'Suitable for PhD stage'),
+        );
       } else if (_isMastersDegree(profile.degree) &&
           (expert.category.contains('رسائل') ||
               expert.category.contains('إحصاء'))) {
         score += 18;
-        reasons.add(appTr('يدعم رسائل الماجستير', 'Supports master\'s theses'));
+        reasons.add(
+          appTr('يدعم رسائل الماجستير', 'Supports master\'s theses'),
+        );
       }
 
       if (preferredCategory != null &&
           expert.category.contains(preferredCategory)) {
         score += 15;
-        reasons.add(appTr('خدمة كتابة مناسبة لنوع بحثك', 'Writing service suited to your research type'));
+        reasons.add(
+          appTr(
+            'خدمة كتابة مناسبة لنوع بحثك',
+            'Writing service suited to your research type',
+          ),
+        );
       }
 
       if (_isQuantitativeMethodology(profile.methodology) &&
           expert.category.contains('إحصاء')) {
         score += 12;
-        reasons.add(appTr('تحليل كمي متاح', 'Quantitative analysis available'));
+        reasons.add(
+          appTr('تحليل كمي متاح', 'Quantitative analysis available'),
+        );
       }
 
-      final result = MatchResult(
-        item: expert,
-        score: score.clamp(0, 100),
-        reasons: reasons.isEmpty
-            ? [appTr('كاتب أكاديمي مقترح', 'Suggested academic writer')]
-            : reasons,
+      scored.add(
+        MatchResult(
+          item: expert,
+          score: score.clamp(0, 100),
+          reasons: reasons.isEmpty
+              ? [
+                  appTr(
+                    'كاتب أكاديمي مقترح',
+                    'Suggested academic writer',
+                  ),
+                ]
+              : reasons,
+        ),
       );
-
-      if (best == null || result.score > best.score) best = result;
     }
 
-    return best;
+    scored.sort((a, b) => b.score.compareTo(a.score));
+    final matched = scored.where((e) => e.score > 0).take(limit).toList();
+    if (matched.isNotEmpty) return matched;
+    return scored.take(limit).toList();
   }
 
   String? _inferWritingCategory(AcademicProfile profile) {
@@ -335,36 +545,36 @@ class ResearchSupplyChainEngine {
   }
 
   List<String> _buildSummary({
-    MatchResult<AcademicResearchIdea>? idea,
-    MatchResult<AcademicSupervisor>? supervisor,
-    MatchResult<AcademicLab>? lab,
+    List<MatchResult<AcademicResearchIdea>> ideas = const [],
+    List<MatchResult<AcademicSupervisor>> supervisors = const [],
+    List<MatchResult<AcademicLab>> labs = const [],
     List<SupplyChainProduct> products = const [],
-    MatchResult<WritingExpert>? expert,
-    StoreCategory? storeCategory,
+    List<MatchResult<WritingExpert>> experts = const [],
+    List<StoreCategory> storeCategories = const [],
   }) {
     final lines = <String>[];
-    if (idea != null) {
+    if (ideas.isNotEmpty) {
       lines.add(appTr(
-        '💡 فكرة: ${idea.item.title} (${idea.score}%)',
-        '💡 Idea: ${idea.item.title} (${idea.score}%)',
+        '💡 ${ideas.length} أفكار بحثية مقترحة (أفضلها: ${ideas.first.item.title})',
+        '💡 ${ideas.length} research ideas (top: ${ideas.first.item.title})',
       ));
     }
-    if (supervisor != null) {
+    if (supervisors.isNotEmpty) {
       lines.add(appTr(
-        '👤 مشرف: ${supervisor.item.name} (${supervisor.score}%)',
-        '👤 Supervisor: ${supervisor.item.name} (${supervisor.score}%)',
+        '👤 ${supervisors.length} مشرفين (أفضلهم: ${supervisors.first.item.name})',
+        '👤 ${supervisors.length} supervisors (top: ${supervisors.first.item.name})',
       ));
     }
-    if (lab != null) {
+    if (labs.isNotEmpty) {
       lines.add(appTr(
-        '🔬 مختبر: ${lab.item.name} (${lab.score}%)',
-        '🔬 Lab: ${lab.item.name} (${lab.score}%)',
+        '🔬 ${labs.length} مختبرات (أفضلها: ${labs.first.item.name})',
+        '🔬 ${labs.length} labs (top: ${labs.first.item.name})',
       ));
     }
-    if (storeCategory != null) {
+    if (storeCategories.isNotEmpty) {
       lines.add(appTr(
-        '🛒 قسم متجر: ${storeCategory.title}',
-        '🛒 Store section: ${storeCategory.title}',
+        '🛒 أقسام متجر: ${storeCategories.map((c) => c.title).join('، ')}',
+        '🛒 Store sections: ${storeCategories.map((c) => c.title).join(', ')}',
       ));
     }
     if (products.isNotEmpty) {
@@ -373,10 +583,10 @@ class ResearchSupplyChainEngine {
         '📦 ${products.length} suggested product(s)',
       ));
     }
-    if (expert != null) {
+    if (experts.isNotEmpty) {
       lines.add(appTr(
-        '✍️ كاتب: ${expert.item.name} (${expert.score}%)',
-        '✍️ Writer: ${expert.item.name} (${expert.score}%)',
+        '✍️ ${experts.length} خدمات كتابة (أفضلها: ${experts.first.item.name})',
+        '✍️ ${experts.length} writing services (top: ${experts.first.item.name})',
       ));
     }
     return lines;

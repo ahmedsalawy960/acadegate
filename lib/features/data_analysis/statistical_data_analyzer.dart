@@ -20,6 +20,8 @@ class StatisticalDataAnalyzer {
     final findings = <RealDataFinding>[];
     final summaries = <NumericColumnSummary>[];
 
+    _addDatasetHealthWarnings(dataset, warnings);
+
     try {
       return switch (testType) {
         StatisticalTestType.independentTTest => _independentT(
@@ -81,6 +83,37 @@ class StatisticalDataAnalyzer {
     }
   }
 
+  void _addDatasetHealthWarnings(
+    StatisticalDataset dataset,
+    List<String> warnings,
+  ) {
+    if (dataset.columnCount > 2) {
+      warnings.add(
+        appTr(
+          'الجدول يحتوي ${dataset.columnCount} أعمدة — اختر الأعمدة المناسبة للتحليل (ليس عمودين فقط)',
+          'Table has ${dataset.columnCount} columns — map the ones needed for analysis (not limited to 2)',
+        ),
+      );
+    }
+    if (dataset.missingRate > 0.05) {
+      final pct = (dataset.missingRate * 100).toStringAsFixed(1);
+      warnings.add(
+        appTr(
+          'قيم ناقصة ≈ $pct% من الخلايا — الصفوف الناقصة تُستبعد تلقائياً',
+          'Missing ≈ $pct% of cells — incomplete rows are dropped automatically',
+        ),
+      );
+    }
+    if (dataset.rowCount < 10) {
+      warnings.add(
+        appTr(
+          'حجم العينة صغير (n=${dataset.rowCount}) — فسّر النتائج بحذر',
+          'Small sample (n=${dataset.rowCount}) — interpret cautiously',
+        ),
+      );
+    }
+  }
+
   RealDataAnalysis _independentT(
     StatisticalDataset dataset,
     ColumnMapping mapping,
@@ -107,8 +140,48 @@ class StatisticalDataAnalyzer {
       );
     }
 
+    // >2 groups: t-test is invalid — run ANOVA + Kruskal instead and warn.
+    if (groups.length > 2) {
+      warnings.add(
+        appTr(
+          'عمود المجموعة فيه ${groups.length} مستويات — اختبار t للمستقلتين يقارن مجموعتين فقط. تم تشغيل ANOVA + Kruskal-Wallis بدلاً منه.',
+          'Group column has ${groups.length} levels — independent t-test needs exactly 2. Running ANOVA + Kruskal-Wallis instead.',
+        ),
+      );
+      return _anova(
+        dataset,
+        mapping,
+        alpha,
+        warnings,
+        findings,
+        summaries,
+      );
+    }
+
     final allValues = groups.values.expand((e) => e).toList();
-    final norm = _normality(allValues, summaries, dep);
+    _warnOutliers(dep, allValues, warnings);
+
+    final keys = groups.keys.toList()..sort();
+    final g0 = groups[keys[0]]!;
+    final g1 = groups[keys[1]]!;
+
+    for (final entry in groups.entries) {
+      if (entry.value.length < 3) {
+        warnings.add(
+          appTr(
+            'المجموعة «${entry.key}» صغيرة (n=${entry.value.length})',
+            'Group «${entry.key}» is small (n=${entry.value.length})',
+          ),
+        );
+      }
+      _summarizeColumn(summaries, '$dep (${entry.key})', entry.value);
+    }
+
+    final norm0 = StatisticalMath.normalityTest(g0);
+    final norm1 = StatisticalMath.normalityTest(g1);
+    final worstNormP = _worstP(norm0?.pValue, norm1?.pValue);
+    final normality = _normalityStatus(worstNormP, alpha);
+
     final levene = StatisticalMath.leveneTest(groups);
     final homogeneityOk =
         levene == null || !levene.significantAt(alpha);
@@ -124,19 +197,18 @@ class StatisticalDataAnalyzer {
       );
     }
 
-    final keys = groups.keys.toList()..sort();
     final tEqual = StatisticalMath.independentTTest(
-      groups[keys[0]]!,
-      groups[keys[1]]!,
+      g0,
+      g1,
       equalVariance: true,
     );
     final tWelch = StatisticalMath.independentTTest(
-      groups[keys[0]]!,
-      groups[keys[1]]!,
+      g0,
+      g1,
       equalVariance: false,
     );
     final main = homogeneityOk ? tEqual : tWelch;
-    final effect = StatisticalMath.cohensD(groups[keys[0]]!, groups[keys[1]]!);
+    final effect = StatisticalMath.cohensD(g0, g1);
 
     if (main != null) {
       findings.add(
@@ -158,8 +230,25 @@ class StatisticalDataAnalyzer {
       );
     }
 
-    for (final entry in groups.entries) {
-      _summarizeColumn(summaries, '$dep (${entry.key})', entry.value);
+    final mw = StatisticalMath.mannWhitneyU(g0, g1);
+    if (mw != null) {
+      findings.add(
+        RealDataFinding(
+          labelAr: 'Mann-Whitney U (بديل لا بارامتري)',
+          labelEn: 'Mann-Whitney U (nonparametric)',
+          value:
+              'U = ${mw.statistic.toStringAsFixed(1)}, p = ${mw.pValue.toStringAsFixed(4)}',
+          passed: true,
+        ),
+      );
+      if (normality == NormalityStatus.nonNormal) {
+        warnings.add(
+          appTr(
+            'التوزيع غير طبيعي — اعتمد Mann-Whitney أكثر من اختبار t',
+            'Non-normal distribution — prefer Mann-Whitney over t-test',
+          ),
+        );
+      }
     }
 
     return RealDataAnalysis(
@@ -167,13 +256,13 @@ class StatisticalDataAnalyzer {
       fileName: dataset.fileName,
       sampleSize: allValues.length,
       groupCount: groups.length,
-      shapiroP: norm?.pValue,
+      shapiroP: worstNormP,
       leveneP: levene?.pValue,
       observedEffectSize: effect,
       mainTestP: main?.pValue,
       mainTestName: main?.testName,
       homogeneityOk: homogeneityOk,
-      normality: _normalityStatus(norm?.pValue, alpha),
+      normality: normality,
       skewness: summaries.isNotEmpty ? summaries.first.skewness : null,
       kurtosis: summaries.isNotEmpty ? summaries.first.kurtosis : null,
       columnSummaries: summaries,
@@ -211,6 +300,16 @@ class StatisticalDataAnalyzer {
       );
     }
 
+    final dropped = dataset.rowCount - pairs.length;
+    if (dropped > 0) {
+      warnings.add(
+        appTr(
+          'تم استبعاد $dropped صفاً ناقصاً من الأزواج',
+          'Dropped $dropped incomplete paired rows',
+        ),
+      );
+    }
+
     final a = pairs.map((p) => p.$1).toList();
     final b = pairs.map((p) => p.$2).toList();
     final diffs = List<double>.generate(pairs.length, (i) => a[i] - b[i]);
@@ -218,6 +317,7 @@ class StatisticalDataAnalyzer {
     final diffStd = _sampleStd(diffs, diffMean);
     final effect = diffStd == 0 ? 0.0 : diffMean.abs() / diffStd;
 
+    _warnOutliers('$aCol − $bCol', diffs, warnings);
     final norm = _normality(diffs, summaries, '$aCol − $bCol');
     final test = StatisticalMath.pairedTTest(a, b);
 
@@ -229,6 +329,15 @@ class StatisticalDataAnalyzer {
           value:
               't = ${test.statistic.toStringAsFixed(3)}, p = ${test.pValue.toStringAsFixed(4)}',
           passed: true,
+        ),
+      );
+    }
+
+    if (_normalityStatus(norm?.pValue, alpha) == NormalityStatus.nonNormal) {
+      warnings.add(
+        appTr(
+          'فروقات غير طبيعية — فكّر في Wilcoxon signed-rank (خارج المعالج حالياً)',
+          'Non-normal differences — consider Wilcoxon signed-rank (not in wizard yet)',
         ),
       );
     }
@@ -279,7 +388,30 @@ class StatisticalDataAnalyzer {
       );
     }
 
+    if (groups.length == 2) {
+      warnings.add(
+        appTr(
+          'مجموعتان فقط — يمكنك استخدام اختبار t أيضاً؛ ANOVA يعطي نتيجة مكافئة',
+          'Only 2 groups — t-test is also valid; ANOVA is equivalent here',
+        ),
+      );
+    }
+
     final allValues = groups.values.expand((e) => e).toList();
+    _warnOutliers(dep, allValues, warnings);
+
+    for (final entry in groups.entries) {
+      if (entry.value.length < 3) {
+        warnings.add(
+          appTr(
+            'المجموعة «${entry.key}» صغيرة (n=${entry.value.length})',
+            'Group «${entry.key}» is small (n=${entry.value.length})',
+          ),
+        );
+      }
+      _summarizeColumn(summaries, '$dep (${entry.key})', entry.value);
+    }
+
     final norm = _normality(allValues, summaries, dep);
     final levene = StatisticalMath.leveneTest(groups);
     final homogeneityOk =
@@ -309,8 +441,26 @@ class StatisticalDataAnalyzer {
       );
     }
 
-    for (final entry in groups.entries) {
-      _summarizeColumn(summaries, '$dep (${entry.key})', entry.value);
+    final kw = StatisticalMath.kruskalWallis(groups);
+    if (kw != null) {
+      findings.add(
+        RealDataFinding(
+          labelAr: 'Kruskal-Wallis (بديل لا بارامتري)',
+          labelEn: 'Kruskal-Wallis (nonparametric)',
+          value:
+              'H = ${kw.statistic.toStringAsFixed(3)}, p = ${kw.pValue.toStringAsFixed(4)}',
+          passed: true,
+        ),
+      );
+      if (_normalityStatus(norm?.pValue, alpha) == NormalityStatus.nonNormal ||
+          !homogeneityOk) {
+        warnings.add(
+          appTr(
+            'عند انتهاك الطبيعية/التجانس — اعتمد Kruskal-Wallis أكثر من ANOVA',
+            'If normality/homogeneity fails — prefer Kruskal-Wallis over ANOVA',
+          ),
+        );
+      }
     }
 
     return RealDataAnalysis(
@@ -346,6 +496,11 @@ class StatisticalDataAnalyzer {
         appTr('اختر متغيرين رقميين', 'Select two numeric variables'),
       );
     }
+    if (xCol == yCol) {
+      throw Exception(
+        appTr('اختر عمودين مختلفين', 'Select two different columns'),
+      );
+    }
 
     final pairs = _pairedNumeric(dataset, xCol, yCol);
     if (pairs.length < 3) {
@@ -357,13 +512,16 @@ class StatisticalDataAnalyzer {
     final x = pairs.map((p) => p.$1).toList();
     final y = pairs.map((p) => p.$2).toList();
     final corr = StatisticalMath.pearsonCorrelation(x, y);
+    final spearman = StatisticalMath.spearmanCorrelation(x, y);
     final linearityOk = corr != null && corr.statistic.abs() >= 0.1;
 
     _summarizeColumn(summaries, xCol, x);
     _summarizeColumn(summaries, yCol, y);
+    _warnOutliers(xCol, x, warnings);
+    _warnOutliers(yCol, y, warnings);
 
-    final normX = _normality(x, summaries, xCol);
-    final normY = _normality(y, summaries, yCol);
+    final normX = StatisticalMath.normalityTest(x);
+    final normY = StatisticalMath.normalityTest(y);
     final worstP = _worstP(normX?.pValue, normY?.pValue);
 
     if (corr != null) {
@@ -376,6 +534,25 @@ class StatisticalDataAnalyzer {
           passed: true,
         ),
       );
+    }
+    if (spearman != null) {
+      findings.add(
+        RealDataFinding(
+          labelAr: 'Spearman ρ (بديل رتبه)',
+          labelEn: 'Spearman ρ (rank-based)',
+          value:
+              'ρ = ${spearman.statistic.toStringAsFixed(3)}, p = ${spearman.pValue.toStringAsFixed(4)}',
+          passed: true,
+        ),
+      );
+      if (_normalityStatus(worstP, alpha) == NormalityStatus.nonNormal) {
+        warnings.add(
+          appTr(
+            'توزيع غير طبيعي — اعتمد Spearman أكثر من Pearson',
+            'Non-normal — prefer Spearman over Pearson',
+          ),
+        );
+      }
     }
 
     return RealDataAnalysis(
@@ -438,6 +615,7 @@ class StatisticalDataAnalyzer {
       (i) => y[i] - (intercept + slope * x[i]),
     );
     final normRes = _normality(residuals, summaries, 'residuals');
+    _warnOutliers('residuals', residuals, warnings);
 
     _summarizeColumn(summaries, xCol, x);
     _summarizeColumn(summaries, yCol, y);
@@ -448,6 +626,15 @@ class StatisticalDataAnalyzer {
           labelAr: 'R²',
           labelEn: 'R²',
           value: reg.r2.toStringAsFixed(3),
+          passed: true,
+        ),
+      );
+      findings.add(
+        RealDataFinding(
+          labelAr: 'الميل / القاطع',
+          labelEn: 'Slope / intercept',
+          value:
+              'β = ${slope.toStringAsFixed(4)}, a = ${intercept.toStringAsFixed(4)}',
           passed: true,
         ),
       );
@@ -494,10 +681,32 @@ class StatisticalDataAnalyzer {
         appTr('اختر عمودين فئويين', 'Select two categorical columns'),
       );
     }
+    if (rowCol == colCol) {
+      throw Exception(
+        appTr('اختر عمودين مختلفين', 'Select two different columns'),
+      );
+    }
 
     final table = _contingencyTable(dataset, rowCol, colCol);
+    if (table.rows < 2 || table.cols < 2) {
+      throw Exception(
+        appTr(
+          'يلزم مستويين على الأقل في كل متغير فئوي',
+          'Need at least 2 levels in each categorical variable',
+        ),
+      );
+    }
+
     final chi = StatisticalMath.chiSquareTest(table.counts);
     final minExpected = table.minExpected >= 5;
+    if (!minExpected) {
+      warnings.add(
+        appTr(
+          'تكرارات متوقعة منخفضة (<5) — فكّر في Exact Fisher أو دمج فئات',
+          'Low expected counts (<5) — consider Fisher exact or merging categories',
+        ),
+      );
+    }
 
     if (chi != null) {
       findings.add(
@@ -520,6 +729,19 @@ class StatisticalDataAnalyzer {
           passed: minExpected,
         ),
       );
+      // Cramér's V
+      final k = math.min(table.rows, table.cols);
+      if (k > 1 && table.total > 0) {
+        final v = math.sqrt(chi.statistic / (table.total * (k - 1)));
+        findings.add(
+          RealDataFinding(
+            labelAr: "Cramér's V",
+            labelEn: "Cramér's V",
+            value: v.toStringAsFixed(3),
+            passed: true,
+          ),
+        );
+      }
     }
 
     return RealDataAnalysis(
@@ -533,6 +755,21 @@ class StatisticalDataAnalyzer {
       normality: NormalityStatus.normal,
       findings: findings,
       warnings: warnings,
+    );
+  }
+
+  void _warnOutliers(
+    String label,
+    List<double> values,
+    List<String> warnings,
+  ) {
+    final n = StatisticalMath.outlierCountIqr(values);
+    if (n <= 0) return;
+    warnings.add(
+      appTr(
+        'قيم شاذة محتملة في «$label»: $n (طريقة IQR)',
+        'Possible outliers in «$label»: $n (IQR rule)',
+      ),
     );
   }
 
@@ -593,8 +830,7 @@ class StatisticalDataAnalyzer {
 
     for (final row in dataset.rows) {
       if (vIdx >= row.length || gIdx >= row.length) continue;
-      final raw = row[vIdx].trim().replaceAll(',', '.');
-      final val = double.tryParse(raw);
+      final val = StatisticalDataset.parseNumber(row[vIdx]);
       final group = row[gIdx].trim();
       if (val == null || group.isEmpty) continue;
       map.putIfAbsent(group, () => []).add(val);
@@ -613,15 +849,20 @@ class StatisticalDataAnalyzer {
 
     for (final row in dataset.rows) {
       if (aIdx >= row.length || bIdx >= row.length) continue;
-      final a = double.tryParse(row[aIdx].trim().replaceAll(',', '.'));
-      final b = double.tryParse(row[bIdx].trim().replaceAll(',', '.'));
+      final a = StatisticalDataset.parseNumber(row[aIdx]);
+      final b = StatisticalDataset.parseNumber(row[bIdx]);
       if (a != null && b != null) pairs.add((a, b));
     }
     return pairs;
   }
 
-  ({List<List<double>> counts, double minExpected, int total, int rows})
-      _contingencyTable(
+  ({
+    List<List<double>> counts,
+    double minExpected,
+    int total,
+    int rows,
+    int cols,
+  }) _contingencyTable(
     StatisticalDataset dataset,
     String rowCol,
     String colCol,
@@ -675,6 +916,7 @@ class StatisticalDataAnalyzer {
       minExpected: minExpected,
       total: total.toInt(),
       rows: rowKeys.length,
+      cols: colKeys.length,
     );
   }
 

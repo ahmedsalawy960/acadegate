@@ -6,6 +6,7 @@ class UserAccount {
   final String email;
   final String displayName;
   final String role;
+  final String? photoUrl;
   final String? activePortal;
   final DateTime? createdAt;
 
@@ -14,11 +15,17 @@ class UserAccount {
     required this.email,
     required this.displayName,
     required this.role,
+    this.photoUrl,
     this.activePortal,
     this.createdAt,
   });
 
   bool get isAdmin => UserRole.isAdmin(role);
+
+  bool get hasPhoto {
+    final url = photoUrl?.trim() ?? '';
+    return url.isNotEmpty;
+  }
 
   factory UserAccount.fromMap(Map<String, dynamic> map, {required String uid}) {
     DateTime? created;
@@ -32,6 +39,7 @@ class UserAccount {
       email: map['email']?.toString() ?? '',
       displayName: map['displayName']?.toString() ?? '',
       role: map['role']?.toString() ?? UserRole.student,
+      photoUrl: map['photoUrl']?.toString(),
       activePortal: map['activePortal']?.toString(),
       createdAt: created,
     );
@@ -43,6 +51,8 @@ class UserAccount {
       'email': email,
       'displayName': displayName,
       'role': role,
+      if (photoUrl != null && photoUrl!.trim().isNotEmpty)
+        'photoUrl': photoUrl!.trim(),
       'createdAt': FieldValue.serverTimestamp(),
     };
   }

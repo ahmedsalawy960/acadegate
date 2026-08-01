@@ -6,6 +6,8 @@ import 'core/locale/locale_service.dart';
 import 'core/widgets/beta_shell.dart';
 import 'core/notifications/push_notification_bootstrap.dart';
 import 'firebase_options.dart';
+import 'features/auth/email_auth_gate.dart';
+import 'features/auth/email_verification_screen.dart';
 import 'features/auth/language_selection_screen.dart';
 import 'features/auth/portal_gateway.dart';
 import 'features/auth/welcome_screen.dart';
@@ -68,8 +70,9 @@ class _AppRoot extends StatelessWidget {
       return const LanguageSelectionScreen();
     }
 
+    // userChanges rebuilds after emailVerified flips (reload).
     return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.authStateChanges(),
+      stream: FirebaseAuth.instance.userChanges(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
@@ -78,10 +81,14 @@ class _AppRoot extends StatelessWidget {
             ),
           );
         }
-        if (snapshot.hasData) {
-          return const PortalGateway();
+        final user = snapshot.data;
+        if (user == null) {
+          return const WelcomeScreen();
         }
-        return const WelcomeScreen();
+        if (EmailAuthGate.requiresVerification(user)) {
+          return const EmailVerificationScreen();
+        }
+        return const PortalGateway();
       },
     );
   }

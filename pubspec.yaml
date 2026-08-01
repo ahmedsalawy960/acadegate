@@ -52,6 +52,7 @@ flutter:
   assets:
     - assets/images/acadegate_logo.png
     - assets/images/acadegate_logo_2x.png
+    - assets/images/supervisors_card.png
     - assets/images/
     - seed_data/csv/
     - seed_data/universities/
