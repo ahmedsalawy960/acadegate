@@ -6,6 +6,7 @@ import '../ai_advisor/advisor_attachment.dart';
 import '../ai_advisor/gemini_advisor_client.dart';
 import '../profile/academic_profile.dart';
 import 'methodology_integrity_models.dart';
+import 'methodology_pdf_service.dart';
 
 class MethodologyIntegrityService {
   MethodologyIntegrityService._();
@@ -31,7 +32,13 @@ class MethodologyIntegrityService {
     }
 
     final cloud = await _cloudAnalyze(input, profile, local);
-    return cloud ?? local;
+    if (cloud != null) return cloud;
+    return local.copyWith(
+      note: appTr(
+        'فشل التحليل السحابي — عُرض الفحص المحلي فقط. أعد المحاولة بعد قليل.',
+        'Cloud analysis failed — showing local check only. Try again shortly.',
+      ),
+    );
   }
 
   MethodologyIntegrityReport _localAnalyze(
@@ -171,19 +178,17 @@ class MethodologyIntegrityService {
     }
 
     if (_mentionsAny(text, const [
-      'كما ورد في',
-      'as described in',
       'نفس المنهجية',
       'same methodology',
       'نسخ من',
       'copied from',
-      'بحسب الدراسة',
       'without modification',
       'دون تعديل',
+      'copied verbatim',
     ])) {
       issues.add(
         IntegrityIssue(
-          severity: IntegritySeverity.high,
+          severity: IntegritySeverity.medium,
           category: IntegrityIssueCategory.plagiarism,
           title: appTr(
             'مؤشرات انتحال منهجي محتملة',
@@ -325,9 +330,8 @@ recommendations (مصفوفة 3-5 عناصر).
     final attachments = <GeminiInlinePart>[];
     if (input.hasPdfSource) {
       attachments.add(
-        GeminiInlinePart(
-          mimeType: 'application/pdf',
-          base64Data: base64Encode(input.pdfBytes!),
+        await MethodologyPdfService.instance.pdfAttachmentForCloud(
+          bytes: input.pdfBytes!,
           fileName: input.pdfFileName ?? 'thesis.pdf',
         ),
       );
@@ -355,7 +359,8 @@ recommendations (مصفوفة 3-5 عناصر).
         integrityScore: (map['integrityScore'] as num?)?.round().clamp(0, 100) ??
             local.integrityScore,
         summary: map['summary']?.toString() ?? local.summary,
-        issues: issues.isEmpty ? local.issues : issues,
+        // Trust cloud issues even when empty (clean report); do not re-inject local noise.
+        issues: issues,
         strengths: _stringList(map['strengths']).isEmpty
             ? local.strengths
             : _stringList(map['strengths']),
@@ -448,19 +453,4 @@ recommendations (مصفوفة 3-5 عناصر).
           'Consult your supervisor before adopting any major methodological change.',
         ),
       ];
-}
-
-extension on MethodologyIntegrityReport {
-  MethodologyIntegrityReport copyWith({String? note}) {
-    return MethodologyIntegrityReport(
-      integrityScore: integrityScore,
-      summary: summary,
-      issues: issues,
-      strengths: strengths,
-      recommendations: recommendations,
-      fromCloudAi: fromCloudAi,
-      modelUsed: modelUsed,
-      note: note ?? this.note,
-    );
-  }
 }

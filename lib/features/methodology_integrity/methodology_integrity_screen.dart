@@ -191,8 +191,8 @@ class _MethodologyIntegrityScreenState
         SnackBar(
           content: Text(
             context.t(
-              'أدخل نص المنهجية أو سؤال البحث أولاً',
-              'Enter methodology text or research question first',
+              'أدخل نص المنهجية (أو ارفع PDF) أولاً',
+              'Enter methodology text (or upload a PDF) first',
             ),
           ),
         ),
@@ -205,17 +205,25 @@ class _MethodologyIntegrityScreenState
       _report = null;
     });
 
-    final profile = await AcademicProfileService.instance.loadProfile();
-    final report = await _service.analyze(input: input, profile: profile);
+    try {
+      final profile = await AcademicProfileService.instance.loadProfile();
+      final report = await _service.analyze(input: input, profile: profile);
 
-    if (!mounted) return;
-    setState(() {
-      _report = report;
-      _loading = false;
-    });
-    await ThesisProgressService.instance.recordActivity(
-      ThesisActivityId.methodologyEthics.name,
-    );
+      if (!mounted) return;
+      setState(() {
+        _report = report;
+        _loading = false;
+      });
+      await ThesisProgressService.instance.recordActivity(
+        ThesisActivityId.methodologyEthics.name,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$e'), backgroundColor: Colors.red),
+      );
+    }
   }
 
   @override

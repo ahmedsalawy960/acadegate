@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/locale/l10n_lookup.dart';
 import '../academic/academic_models.dart';
 import 'scholar_link_utils.dart';
+import 'supervisor_identity.dart';
 import 'supervisor_metrics_models.dart';
 import 'supervisor_metrics_service.dart';
 
@@ -15,14 +16,13 @@ class SupervisorMetricsChipRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (supervisor.hasStoredMetrics) {
-      return _chips(
-        works: supervisor.worksCount,
-        citations: supervisor.citedByCount,
-      );
-    }
-
     if (!supervisor.hasPublicationIds) {
+      if (supervisor.hasStoredMetrics) {
+        return _chips(
+          works: supervisor.worksCount,
+          citations: supervisor.citedByCount,
+        );
+      }
       return Text(
         L10nLookup.noPublicationData,
         style: TextStyle(fontSize: 11, color: Colors.grey[500]),
@@ -33,6 +33,12 @@ class SupervisorMetricsChipRow extends StatelessWidget {
       future: SupervisorMetricsService.instance.loadMetrics(supervisor),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
+          if (supervisor.hasStoredMetrics) {
+            return _chips(
+              works: supervisor.worksCount,
+              citations: supervisor.citedByCount,
+            );
+          }
           return SizedBox(
             height: 20,
             width: 20,
@@ -45,6 +51,12 @@ class SupervisorMetricsChipRow extends StatelessWidget {
 
         final metrics = snapshot.data;
         if (metrics == null || !metrics.hasData) {
+          if (supervisor.hasStoredMetrics) {
+            return _chips(
+              works: supervisor.worksCount,
+              citations: supervisor.citedByCount,
+            );
+          }
           return Text(
             L10nLookup.noPublicationData,
             style: TextStyle(fontSize: 11, color: Colors.grey[500]),
@@ -55,6 +67,7 @@ class SupervisorMetricsChipRow extends StatelessWidget {
           works: metrics.worksCount,
           citations: metrics.citedByCount,
           highImpact: metrics.highImpactVenueCount,
+          topics: metrics.identityTopics.take(3).toList(),
         );
       },
     );
@@ -64,6 +77,7 @@ class SupervisorMetricsChipRow extends StatelessWidget {
     required int works,
     required int citations,
     int highImpact = 0,
+    List<ResearchIdentityTopic> topics = const [],
   }) {
     return Wrap(
       spacing: 6,
@@ -73,6 +87,9 @@ class SupervisorMetricsChipRow extends StatelessWidget {
         _miniChip(Icons.format_quote, L10nLookup.citationsCount(citations)),
         if (highImpact > 0)
           _miniChip(Icons.star, L10nLookup.q1q2JournalsCount(highImpact)),
+        ...topics.map(
+          (t) => _miniChip(Icons.biotech_outlined, t.label),
+        ),
       ],
     );
   }
@@ -113,6 +130,7 @@ class SupervisorPublicationPanel extends StatefulWidget {
 class _SupervisorPublicationPanelState
     extends State<SupervisorPublicationPanel> {
   late Future<SupervisorPublicationMetrics> _future;
+  bool _showAllWorks = false;
 
   @override
   void initState() {
@@ -182,6 +200,73 @@ class _SupervisorPublicationPanelState
                     label: Text(L10nLookup.viewOnGoogleScholar),
                   ),
                 ],
+                if (metrics.identityTopics.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    L10nLookup.researchIdentity,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    L10nLookup.researchIdentityHint,
+                    style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                  ),
+                  const SizedBox(height: 10),
+                  ...metrics.identityTopics.map(_topicBar),
+                ],
+                if (metrics.works.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    L10nLookup.supervisorWorks,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 6),
+                  ...(_visibleWorks(metrics.works).map(_workTile)),
+                  if (metrics.works.length > 8)
+                    TextButton(
+                      onPressed: () =>
+                          setState(() => _showAllWorks = !_showAllWorks),
+                      child: Text(
+                        _showAllWorks
+                            ? L10nLookup.showFewerWorks
+                            : L10nLookup.showMoreWorks,
+                      ),
+                    ),
+                ],
+                if (metrics.collaborators.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    L10nLookup.topCollaborators,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 6),
+                  ...metrics.collaborators.map(_collaboratorTile),
+                ],
+                if (metrics.affiliations.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    L10nLookup.partnerInstitutions,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: metrics.affiliations
+                        .map(
+                          (a) => Chip(
+                            visualDensity: VisualDensity.compact,
+                            label: Text(
+                              a.countryCode.isEmpty
+                                  ? a.name
+                                  : '${a.name} (${a.countryCode})',
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ],
                 if (metrics.topVenues.isNotEmpty) ...[
                   const SizedBox(height: 16),
                   Text(
@@ -239,6 +324,120 @@ class _SupervisorPublicationPanelState
         SnackBar(content: Text(L10nLookup.scholarLinkFailed())),
       );
     }
+  }
+
+  List<ResearchWork> _visibleWorks(List<ResearchWork> works) {
+    if (_showAllWorks || works.length <= 8) return works;
+    return works.take(8).toList();
+  }
+
+  Future<void> _openWork(ResearchWork work) async {
+    if (!work.canOpen) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(L10nLookup.paperUnavailable)),
+      );
+      return;
+    }
+    final uri = Uri.tryParse(work.openUrl);
+    if (uri == null ||
+        !await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(L10nLookup.paperOpenFailed)),
+      );
+    }
+  }
+
+  Widget _workTile(ResearchWork work) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      dense: true,
+      leading: Icon(
+        work.hasPdf ? Icons.picture_as_pdf_outlined : Icons.article_outlined,
+        color: work.canOpen ? const Color(0xFF1A237E) : Colors.grey,
+      ),
+      title: Text(work.title, style: const TextStyle(fontSize: 14)),
+      subtitle: Text(
+        [
+          if (work.year > 0) '${work.year}',
+          if (work.venue.isNotEmpty) work.venue,
+          if (work.citedByCount > 0)
+            L10nLookup.citationsCount(work.citedByCount),
+        ].join(' • '),
+        style: const TextStyle(fontSize: 12),
+      ),
+      trailing: work.canOpen
+          ? IconButton(
+              tooltip: work.hasPdf ? L10nLookup.openPdf : L10nLookup.openPaper,
+              onPressed: () => _openWork(work),
+              icon: Icon(
+                work.hasPdf ? Icons.picture_as_pdf_outlined : Icons.open_in_new,
+                size: 20,
+              ),
+            )
+          : Tooltip(
+              message: L10nLookup.paperUnavailable,
+              child: Icon(Icons.link_off, size: 18, color: Colors.grey[400]),
+            ),
+      onTap: work.canOpen ? () => _openWork(work) : null,
+    );
+  }
+
+  Widget _topicBar(ResearchIdentityTopic topic) {
+    final value = topic.percent / 100;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  topic.name,
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                ),
+              ),
+              Text(
+                '${topic.percent}%',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1A237E),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: value,
+              minHeight: 6,
+              backgroundColor: const Color(0xFF1A237E).withValues(alpha: 0.08),
+              color: const Color(0xFF1A237E),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _collaboratorTile(ResearchCollaborator person) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      dense: true,
+      leading: const Icon(Icons.people_outline, size: 20, color: Color(0xFF1A237E)),
+      title: Text(person.name, style: const TextStyle(fontSize: 14)),
+      subtitle: Text(
+        [
+          if (person.institution.isNotEmpty) person.institution,
+          L10nLookup.jointWorksCount(person.jointWorks),
+        ].join(' • '),
+        style: const TextStyle(fontSize: 12),
+      ),
+    );
   }
 
   Widget _venueTile(VenuePublicationStat venue) {

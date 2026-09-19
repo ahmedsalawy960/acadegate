@@ -7,18 +7,16 @@ class ResearchPathBranding {
   static String get title => appTr('مسار البحث الذكي', 'Smart Research Path');
   static String get shortTitle => appTr('مسار البحث الذكي', 'Smart Research Path');
   static String get tagline => appTr(
-        'حزمة بحثية واحدة مدعومة بالذكاء الاصطناعي',
-        'One AI-powered research bundle',
+        'اكتب هدفك: ماجستير أو دكتوراه في مجال محدد',
+        'Write your goal: a master’s or PhD in a specific field',
       );
   static String get description => appTr(
-        'فكرة → مشرف → مختبر → متجر → كتابة\n'
-        'نربط ما تحتاجه لبحثك من بيانات المنصة ونشرح لك الخطة بالذكاء الاصطناعي.',
-        'Idea → supervisor → lab → store → writing\n'
-        'We connect what you need for your research from platform data and explain the plan with AI.',
+        'مشرفون من OpenAlex + ORCID + مواقع الجامعات + Semantic Scholar، مع خطة ودراسات DOI مؤكدة.',
+        'Supervisors from OpenAlex + ORCID + university sites + Semantic Scholar, plus a plan and DOI-confirmed studies.',
       );
   static String get buildButton => appTr(
-        'ابنِ حزمة البحث بالذكاء الاصطناعي',
-        'Build research bundle with AI',
+        'ابنِ خطة الماجستير/الدكتوراه',
+        'Build the master’s / PhD plan',
       );
   static String get timelineTitle => appTr('مسار الحزمة', 'Bundle timeline');
   static String get aiSectionTitle => appTr(

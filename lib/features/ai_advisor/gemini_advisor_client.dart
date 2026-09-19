@@ -19,30 +19,59 @@ class GeminiGenerateResult {
   bool get isSuccess => text != null && text!.isNotEmpty;
 }
 
+class GeminiImageResult {
+  final List<int>? bytes;
+  final String mimeType;
+  final String? error;
+  final String? modelUsed;
+
+  const GeminiImageResult({
+    this.bytes,
+    this.mimeType = 'image/png',
+    this.error,
+    this.modelUsed,
+  });
+
+  bool get isSuccess => bytes != null && bytes!.isNotEmpty;
+}
+
 class GeminiAdvisorClient {
   GeminiAdvisorClient._();
 
   static final GeminiAdvisorClient instance = GeminiAdvisorClient._();
 
+  /// Local keys are debug-only. Release/web builds must not pass
+  /// `--dart-define-from-file=dart_defines.json` (keys would embed in the binary).
   static const _apiKey = String.fromEnvironment('GEMINI_API_KEY');
   static const _preferredModel = String.fromEnvironment(
     'GEMINI_MODEL',
     defaultValue: '',
   );
 
+  /// نماذج حالية — 1.5/2.0 أُوقفت؛ 2.5 Flash قوي وسريع للصور والنص
   static const _modelFallbacks = [
     'gemini-2.5-flash',
-    'gemini-2.0-flash',
     'gemini-2.5-pro',
-    'gemini-2.0-flash-lite',
-    'gemini-1.5-flash',
+    'gemini-2.5-flash-lite',
     'gemini-flash-latest',
   ];
 
-  static bool get hasLocalKey =>
-      _apiKey.isNotEmpty && !_looksLikePlaceholder(_apiKey);
+  static const _imageModels = [
+    'gemini-2.5-flash-image',
+    'gemini-2.5-flash-preview-image-generation',
+    'gemini-2.0-flash-preview-image-generation',
+    'gemini-2.0-flash-exp-image-generation',
+  ];
 
-  /// يعتمد على مفتاح dart-define (Windows/Android/iOS).
+  static const _thinkingModels = {
+    'gemini-2.5-flash',
+    'gemini-2.5-pro',
+  };
+
+  static bool get hasLocalKey =>
+      kDebugMode && _apiKey.isNotEmpty && !_looksLikePlaceholder(_apiKey);
+
+  /// مفتاح dart-define محلي — Debug فقط؛ الإنتاج عبر Cloud Functions.
   static bool get isConfigured => hasLocalKey;
 
   static bool get runsOnWeb => kIsWeb;
@@ -77,12 +106,22 @@ class GeminiAdvisorClient {
     return _modelFallbacks;
   }
 
+  List<String> _modelsToTryFor({required bool preferPro}) {
+    final base = _modelsToTry;
+    if (!preferPro) return base;
+    return [
+      'gemini-2.5-pro',
+      ...base.where((m) => m != 'gemini-2.5-pro'),
+    ];
+  }
+
   Future<GeminiGenerateResult> generateResult({
     required String systemPrompt,
     required String userMessage,
     List<Map<String, String>> history = const [],
     List<GeminiInlinePart> attachments = const [],
     int maxOutputTokens = 8192,
+    bool preferPro = false,
   }) async {
     final needsStorageBackend =
         attachments.any((a) => a.hasStoragePath) && canUseCloudBackend;
@@ -94,9 +133,12 @@ class GeminiAdvisorClient {
         history: history,
         attachments: attachments,
         maxOutputTokens: maxOutputTokens,
+        preferPro: preferPro,
       );
       if (viaFunction.isSuccess) return viaFunction;
       if (!hasLocalKey || needsStorageBackend) return viaFunction;
+      // Signed-in users stay on cloud quotas (no local API-key bypass).
+      if (FirebaseAuth.instance.currentUser != null) return viaFunction;
     }
 
     if (!hasLocalKey) {
@@ -128,8 +170,8 @@ class GeminiAdvisorClient {
       );
     }
 
-    GeminiGenerateResult? lastError;
-    for (final model in _modelsToTry) {
+    final errors = <GeminiGenerateResult>[];
+    for (final model in _modelsToTryFor(preferPro: preferPro)) {
       var result = await _generateViaHttp(
         model: model,
         systemPrompt: systemPrompt,
@@ -152,12 +194,13 @@ class GeminiAdvisorClient {
         if (result.isSuccess) return result;
       }
 
-      lastError = result;
+      errors.add(result);
     }
 
-    if (kIsWeb && lastError != null) {
+    final chosen = _pickUsefulError(errors);
+    if (kIsWeb && chosen != null) {
       return GeminiGenerateResult(
-        error: '${lastError.error}\n\n'
+        error: '${chosen.error}\n\n'
             '${appTr(
               'على المتصفح (Chrome): شغّل التطبيق على Windows بدلاً من Chrome، '
                   'أو انشر Cloud Function من مجلد functions في المشروع.',
@@ -167,7 +210,7 @@ class GeminiAdvisorClient {
       );
     }
 
-    return lastError ??
+    return chosen ??
         GeminiGenerateResult(
           error: appTr(
             'تعذر الحصول على رد من Gemini',
@@ -176,12 +219,26 @@ class GeminiAdvisorClient {
         );
   }
 
+  static GeminiGenerateResult? _pickUsefulError(List<GeminiGenerateResult> errors) {
+    if (errors.isEmpty) return null;
+    final notFound = RegExp(
+      r'is not found|not supported for generateContent',
+      caseSensitive: false,
+    );
+    for (final e in errors) {
+      final msg = e.error ?? '';
+      if (msg.isNotEmpty && !notFound.hasMatch(msg)) return e;
+    }
+    return errors.last;
+  }
+
   Future<GeminiGenerateResult> _generateViaCloudFunction({
     required String systemPrompt,
     required String userMessage,
     required List<Map<String, String>> history,
     required List<GeminiInlinePart> attachments,
     required int maxOutputTokens,
+    bool preferPro = false,
   }) async {
     final payload = <String, dynamic>{
       'systemPrompt': systemPrompt,
@@ -198,6 +255,7 @@ class GeminiAdvisorClient {
           )
           .toList(),
       'maxOutputTokens': maxOutputTokens,
+      'preferPro': preferPro,
     };
 
     // Windows cloud_functions pigeon channel often fails; use HTTP like other callables.
@@ -236,6 +294,16 @@ class GeminiAdvisorClient {
             'Cloud Function غير منشورة بعد (geminiAdvisor)',
             'Cloud Function not deployed yet (geminiAdvisor)',
           ),
+        );
+      }
+      if (e.code == 'resource-exhausted' || e.code == 'resource_exhausted') {
+        return GeminiGenerateResult(
+          error: e.message?.trim().isNotEmpty == true
+              ? e.message!.trim()
+              : appTr(
+                  'وصلت للحد اليومي لـ AcadeGate AI.',
+                  'Daily AcadeGate AI limit reached.',
+                ),
         );
       }
       return GeminiGenerateResult(error: 'Cloud Function: ${e.message}');
@@ -296,7 +364,26 @@ class GeminiAdvisorClient {
           ),
         );
       }
-      return GeminiGenerateResult(error: 'Cloud Function: ${e.message}');
+      if (e.code == 'resource-exhausted' || e.code == 'resource_exhausted') {
+        return GeminiGenerateResult(
+          error: e.message.trim().isNotEmpty
+              ? e.message.trim()
+              : appTr(
+                  'وصلت للحد اليومي لـ AcadeGate AI.',
+                  'Daily AcadeGate AI limit reached.',
+                ),
+        );
+      }
+      final msg = e.message.trim();
+      if (msg.isEmpty || msg.toUpperCase() == 'INTERNAL') {
+        return GeminiGenerateResult(
+          error: appTr(
+            'خطأ داخلي في خادم AI (Firestore/الحصة). أعد المحاولة بعد لحظات.',
+            'Internal AI server error (Firestore/quota). Try again in a moment.',
+          ),
+        );
+      }
+      return GeminiGenerateResult(error: 'Cloud Function: $msg');
     } catch (e) {
       return GeminiGenerateResult(error: 'Cloud Function: $e');
     }
@@ -338,17 +425,17 @@ class GeminiAdvisorClient {
             uri,
             headers: const {'Content-Type': 'application/json'},
             body: jsonEncode({
-              'system_instruction': {
+              'systemInstruction': {
                 'parts': [
                   {'text': systemPrompt},
                 ],
               },
               'contents': contents,
-              'generationConfig': {
-                'temperature': 0.85,
-                'maxOutputTokens': maxOutputTokens,
-                'thinkingConfig': {'thinkingBudget': 0},
-              },
+              'generationConfig': _generationConfig(
+                model: model,
+                maxOutputTokens: maxOutputTokens,
+                hasAttachments: attachments.any((a) => a.hasInlineData),
+              ),
             }),
           )
           .timeout(const Duration(seconds: 90));
@@ -392,6 +479,30 @@ class GeminiAdvisorClient {
     }
   }
 
+  static Map<String, dynamic> _generationConfig({
+    required String model,
+    required int maxOutputTokens,
+    required bool hasAttachments,
+  }) {
+    final config = <String, dynamic>{
+      'temperature': hasAttachments ? 0.4 : 0.85,
+      'maxOutputTokens': maxOutputTokens,
+    };
+    // thinkingConfig يكسر طلبات الصور وكثيراً من النماذج غير 2.5
+    if (!hasAttachments && _thinkingModels.contains(model)) {
+      config['thinkingConfig'] = {'thinkingBudget': 0};
+    }
+    return config;
+  }
+
+  static String _cleanBase64(String raw) {
+    var s = raw.replaceAll(RegExp(r'\s'), '');
+    final m = RegExp(r'^data:[^;]+;base64,(.+)$', caseSensitive: false)
+        .firstMatch(s);
+    if (m != null) s = m.group(1) ?? s;
+    return s;
+  }
+
   static List<Map<String, dynamic>> _buildUserParts(
     String userMessage,
     List<GeminiInlinePart> attachments,
@@ -404,10 +515,12 @@ class GeminiAdvisorClient {
 
     for (final attachment in attachments) {
       if (!attachment.hasInlineData) continue;
+      final data = _cleanBase64(attachment.base64Data);
+      if (data.isEmpty) continue;
       parts.add({
-        'inline_data': {
-          'mime_type': attachment.mimeType,
-          'data': attachment.base64Data,
+        'inlineData': {
+          'mimeType': attachment.mimeType,
+          'data': data,
         },
       });
     }
@@ -479,5 +592,184 @@ class GeminiAdvisorClient {
       maxOutputTokens: maxOutputTokens,
     );
     return result.text;
+  }
+
+  /// يولّد صورة أنيميشن/مشهد من وصف نصي (+ صورة منتج اختيارية كمرجع).
+  Future<GeminiImageResult> generateImage({
+    required String prompt,
+    List<GeminiInlinePart> referenceImages = const [],
+  }) async {
+    if (canUseCloudBackend) {
+      final viaFunction = await _generateImageViaCloud(prompt, referenceImages);
+      if (viaFunction.isSuccess) return viaFunction;
+      if (!hasLocalKey) return viaFunction;
+    }
+
+    if (!hasLocalKey) {
+      return GeminiImageResult(
+        error: appTr(
+          'سجّل الدخول لتوليد فيديو الأنيميشن، أو أضف مفتاح Gemini.',
+          'Sign in to generate the animation video, or add a Gemini key.',
+        ),
+      );
+    }
+
+    final inlineOnly = referenceImages.where((a) => a.hasInlineData).toList();
+    GeminiImageResult? last;
+    for (final model in _imageModels) {
+      last = await _generateImageViaHttp(
+        model: model,
+        prompt: prompt,
+        references: inlineOnly,
+      );
+      if (last.isSuccess) return last;
+    }
+    return last ??
+        GeminiImageResult(
+          error: appTr(
+            'تعذر توليد صورة الأنيميشن',
+            'Could not generate animation frame',
+          ),
+        );
+  }
+
+  Future<GeminiImageResult> _generateImageViaCloud(
+    String prompt,
+    List<GeminiInlinePart> references,
+  ) async {
+    final payload = <String, dynamic>{
+      'generateImage': true,
+      'userMessage': prompt,
+      'attachments': references
+          .where((a) => a.hasInlineData || a.hasStoragePath)
+          .map(
+            (a) => {
+              'mimeType': a.mimeType,
+              if (a.hasInlineData) 'base64Data': a.base64Data,
+              if (a.hasStoragePath) 'storagePath': a.storagePath,
+              'fileName': a.fileName,
+            },
+          )
+          .toList(),
+    };
+    try {
+      late final Map<String, dynamic> data;
+      if (_preferHttpCallable) {
+        data = await CallableHttpClient.call(
+          name: 'geminiAdvisor',
+          data: payload,
+          timeout: const Duration(seconds: 180),
+          callableProtocol: true,
+        );
+      } else {
+        try {
+          final callable = FirebaseFunctions.instance.httpsCallable(
+            'geminiAdvisor',
+            options: HttpsCallableOptions(timeout: const Duration(seconds: 180)),
+          );
+          final response = await callable.call<Map<String, dynamic>>(payload);
+          data = Map<String, dynamic>.from(response.data);
+        } on FirebaseFunctionsException catch (e) {
+          if (_isPluginChannelError(e.message)) {
+            data = await CallableHttpClient.call(
+              name: 'geminiAdvisor',
+              data: payload,
+              timeout: const Duration(seconds: 180),
+              callableProtocol: true,
+            );
+          } else {
+            return GeminiImageResult(error: 'Cloud Function: ${e.message}');
+          }
+        }
+      }
+      return _imageResultFromMap(data);
+    } catch (e) {
+      return GeminiImageResult(error: 'Cloud Function: $e');
+    }
+  }
+
+  Future<GeminiImageResult> _generateImageViaHttp({
+    required String model,
+    required String prompt,
+    required List<GeminiInlinePart> references,
+  }) async {
+    try {
+      final uri = Uri.parse(
+        'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$_apiKey',
+      );
+      final parts = _buildUserParts(prompt, references);
+      final response = await http
+          .post(
+            uri,
+            headers: const {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'contents': [
+                {'role': 'user', 'parts': parts},
+              ],
+              'generationConfig': {
+                'responseModalities': ['TEXT', 'IMAGE'],
+                'temperature': 0.7,
+              },
+            }),
+          )
+          .timeout(const Duration(seconds: 90));
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        return GeminiImageResult(
+          error: 'Gemini ($model): ${_parseApiError(response.body)}',
+        );
+      }
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      return _imageResultFromMap(data, modelHint: model);
+    } catch (e) {
+      return GeminiImageResult(error: 'Gemini image: $e');
+    }
+  }
+
+  static GeminiImageResult _imageResultFromMap(
+    Map<String, dynamic> data, {
+    String? modelHint,
+  }) {
+    final err = data['error']?.toString();
+    if (err != null && err.isNotEmpty && data['imageBase64'] == null) {
+      return GeminiImageResult(error: err, modelUsed: modelHint);
+    }
+    final b64 = data['imageBase64']?.toString() ??
+        _extractInlineImageBase64(data);
+    if (b64 == null || b64.isEmpty) {
+      return GeminiImageResult(
+        error: appTr(
+          'النموذج لم يُرجع صورة. جرّب مرة أخرى.',
+          'The model did not return an image. Please retry.',
+        ),
+        modelUsed: data['model']?.toString() ?? modelHint,
+      );
+    }
+    try {
+      final bytes = base64Decode(_cleanBase64(b64));
+      return GeminiImageResult(
+        bytes: bytes,
+        mimeType: data['mimeType']?.toString() ?? 'image/png',
+        modelUsed: data['model']?.toString() ?? modelHint,
+      );
+    } catch (e) {
+      return GeminiImageResult(error: 'Image decode: $e');
+    }
+  }
+
+  static String? _extractInlineImageBase64(Map<String, dynamic> data) {
+    final candidates = data['candidates'] as List<dynamic>?;
+    if (candidates == null || candidates.isEmpty) return null;
+    final content = (candidates.first as Map)['content'];
+    if (content is! Map) return null;
+    final parts = content['parts'];
+    if (parts is! List) return null;
+    for (final raw in parts) {
+      if (raw is! Map) continue;
+      final inline = raw['inlineData'] ?? raw['inline_data'];
+      if (inline is! Map) continue;
+      final b64 = inline['data']?.toString();
+      if (b64 != null && b64.isNotEmpty) return b64;
+    }
+    return null;
   }
 }

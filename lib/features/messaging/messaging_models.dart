@@ -40,6 +40,7 @@ class Conversation {
   final String contextType;
   final String contextId;
   final DateTime? updatedAt;
+  final List<String> hiddenFor;
 
   const Conversation({
     required this.id,
@@ -49,6 +50,7 @@ class Conversation {
     this.contextType = '',
     this.contextId = '',
     this.updatedAt,
+    this.hiddenFor = const [],
   });
 
   factory Conversation.fromMap(Map<String, dynamic> map, {required String id}) {
@@ -74,8 +76,13 @@ class Conversation {
       contextType: map['contextType']?.toString() ?? '',
       contextId: map['contextId']?.toString() ?? '',
       updatedAt: updated,
+      hiddenFor: (map['hiddenFor'] as List<dynamic>? ?? [])
+          .map((e) => e.toString())
+          .toList(),
     );
   }
+
+  bool isHiddenFor(String uid) => hiddenFor.contains(uid);
 
   String otherParticipantName(String myUid) {
     for (final entry in participantNames.entries) {

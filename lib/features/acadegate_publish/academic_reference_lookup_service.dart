@@ -241,7 +241,7 @@ class AcademicReferenceLookupService {
     for (final t in tokens) {
       if (hay.contains(t)) hits++;
     }
-    // Match if most tokens hit (handles pasted "Daun, J. K., … (2011)")
+    // Match if most tokens hit (a pasted "Author, J. K., … (Year)").
     return hits >= (tokens.length * 0.55).ceil() || hits >= 2;
   }
 

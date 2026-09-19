@@ -3,7 +3,9 @@ import 'package:url_launcher/url_launcher.dart';
 import '../config/app_contact_info.dart';
 import '../locale/locale_extensions.dart';
 import '../../features/legal/privacy_policy_screen.dart';
+import '../../features/legal/privacy_rights_screen.dart';
 import '../../features/legal/support_help_screen.dart';
+import '../../features/legal/terms_of_service_screen.dart';
 import 'acadegate_logo.dart';
 
 /// تذييل الموقع أسفل أقسام الصفحة الرئيسية: شعار، روابط قانونية، دعم، هواتف، حقوق.
@@ -96,11 +98,29 @@ class AppSiteFooter extends StatelessWidget {
                 ),
               ),
               _FooterChip(
+                icon: Icons.gavel_outlined,
+                label: context.t('شروط الاستخدام', 'Terms of Service'),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const TermsOfServiceScreen(),
+                  ),
+                ),
+              ),
+              _FooterChip(
                 icon: Icons.support_agent_outlined,
                 label: context.t('المساعدة والدعم', 'Help & Support'),
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => const SupportHelpScreen(),
+                  ),
+                ),
+              ),
+              _FooterChip(
+                icon: Icons.manage_accounts_outlined,
+                label: context.t('حقوق الخصوصية', 'Privacy rights'),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const PrivacyRightsScreen(),
                   ),
                 ),
               ),

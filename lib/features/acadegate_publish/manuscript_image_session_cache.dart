@@ -1,4 +1,4 @@
-/// In-memory image bytes for Windows import (Firestore strips data URIs).
+/// In-memory image bytes so formatted Word export does not depend on Storage HTTP.
 class ManuscriptImageSessionCache {
   ManuscriptImageSessionCache._();
 
@@ -13,11 +13,15 @@ class ManuscriptImageSessionCache {
 
   String? resolve(String placeholder) {
     final trimmed = placeholder.trim();
+    if (trimmed.isEmpty) return null;
+    if (trimmed.startsWith('data:')) return trimmed;
     final match = RegExp(r'^\{\{img:(.+)\}\}$').firstMatch(trimmed);
-    if (match == null) return null;
-    final key = match.group(1)?.trim() ?? '';
-    if (key.isEmpty) return null;
-    return _byKey[key];
+    if (match != null) {
+      final key = match.group(1)?.trim() ?? '';
+      if (key.isEmpty) return null;
+      return _byKey[key];
+    }
+    return _byKey[trimmed];
   }
 
   void clear() => _byKey.clear();

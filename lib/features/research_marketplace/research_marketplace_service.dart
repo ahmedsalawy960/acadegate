@@ -3,6 +3,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../core/locale/app_translate.dart';
 import '../academic/academic_models.dart';
+import '../auth/provider_publish_gate.dart';
+import '../auth/user_account_service.dart';
 import '../moderation/approval_status.dart';
 import '../profile/academic_profile_service.dart';
 import '../research_journey/research_journey_service.dart';
@@ -33,6 +35,7 @@ class ResearchMarketplaceService {
     required String budget,
     List<String> tags = const [],
     String category = '',
+    String degreeLevel = '',
     bool autoApprove = false,
   }) async {
     final user = FirebaseAuth.instance.currentUser;
@@ -43,6 +46,23 @@ class ResearchMarketplaceService {
       ));
     }
 
+    final account = await UserAccountService.instance.loadCurrentAccount();
+    if (ProviderPublishGate.isProviderRole(account?.role) &&
+        !ProviderPublishGate.canSubmitContent(account)) {
+      throw Exception(
+        appTr(
+          ProviderPublishGate.blockMessageAr(account),
+          ProviderPublishGate.blockMessageEn(account),
+        ),
+      );
+    }
+
+    final status = autoApprove
+        ? ApprovalStatus.approved
+        : (ProviderPublishGate.isProviderRole(account?.role)
+            ? ProviderPublishGate.contentApprovalStatus(account)
+            : ApprovalStatus.pending);
+
     await _ideas.add({
       'title': title,
       'provider': provider,
@@ -50,12 +70,13 @@ class ResearchMarketplaceService {
       'budget': budget,
       'tags': tags,
       if (category.isNotEmpty) 'category': category,
+      if (degreeLevel.isNotEmpty) 'degreeLevel': degreeLevel,
       'status': 'open',
-      'approvalStatus':
-          autoApprove ? ApprovalStatus.approved : ApprovalStatus.pending,
+      'approvalStatus': status,
       'votesCount': 0,
       'proposalsCount': 0,
       'publisherId': user.uid,
+      'importSource': 'manual',
       'createdAt': FieldValue.serverTimestamp(),
     });
   }

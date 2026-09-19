@@ -1,15 +1,21 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/locale/locale_extensions.dart';
+import '../admin/admin_access_gate.dart';
 import '../auth/user_account_service.dart';
 import 'crci_catalog.dart';
 import 'csv_lab_parser.dart';
+import 'lab_contact_directory_builder.dart';
 import 'lab_import_service.dart';
 import 'nbsle_client.dart';
 
@@ -34,6 +40,7 @@ class _AdminLabImportScreenState extends State<AdminLabImportScreen> {
   DateTime? _lastCrciSyncAt;
   String? _lastError;
   bool _importingCrci = false;
+  bool _exportingDirectory = false;
 
   bool get _previewIsNbsle =>
       _preview.isNotEmpty &&
@@ -285,6 +292,125 @@ class _AdminLabImportScreenState extends State<AdminLabImportScreen> {
     );
   }
 
+  Future<void> _exportContactDirectory() async {
+    setState(() {
+      _exportingDirectory = true;
+      _lastError = null;
+    });
+    try {
+      final labs =
+          await LabImportService.instance.fetchLabsForContactDirectory();
+      if (labs.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              context.t(
+                'لا توجد مختبرات في قاعدة البيانات بعد',
+                'No labs in the database yet',
+              ),
+            ),
+          ),
+        );
+        return;
+      }
+
+      final csv = LabContactDirectoryBuilder.buildCsv(labs);
+      final html = LabContactDirectoryBuilder.buildHtml(labs);
+      final stamp = DateTime.now()
+          .toIso8601String()
+          .replaceAll(':', '-')
+          .split('.')
+          .first;
+      final csvName = 'AcadeGate_Labs_Contact_Directory_$stamp.csv';
+      final htmlName = 'AcadeGate_Labs_Contact_Directory_$stamp.html';
+
+      if (kIsWeb) {
+        await SharePlus.instance.share(
+          ShareParams(
+            files: [
+              XFile.fromData(
+                Uint8List.fromList(utf8.encode(csv)),
+                mimeType: 'text/csv',
+                name: csvName,
+              ),
+              XFile.fromData(
+                Uint8List.fromList(utf8.encode(html)),
+                mimeType: 'text/html',
+                name: htmlName,
+              ),
+            ],
+            subject: 'AcadeGate labs directory',
+          ),
+        );
+      } else {
+        final dir = await getTemporaryDirectory();
+        final csvPath = '${dir.path}/$csvName';
+        final htmlPath = '${dir.path}/$htmlName';
+        await File(csvPath).writeAsString(csv, encoding: utf8);
+        await File(htmlPath).writeAsString(html, encoding: utf8);
+
+        try {
+          final downloads = await getDownloadsDirectory();
+          if (downloads != null) {
+            await File('${downloads.path}/$csvName')
+                .writeAsString(csv, encoding: utf8);
+            await File('${downloads.path}/$htmlName')
+                .writeAsString(html, encoding: utf8);
+          }
+        } catch (_) {}
+
+        // نسخة ثابتة في docs/ إن شغّلت التطبيق من جذر المشروع.
+        try {
+          final docs = Directory('${Directory.current.path}/docs');
+          if (await docs.exists()) {
+            await File('${docs.path}/AcadeGate_Labs_Contact_Directory.csv')
+                .writeAsString(csv, encoding: utf8);
+            await File(
+              '${docs.path}/AcadeGate_Labs_Contact_Directory_AR.html',
+            ).writeAsString(html, encoding: utf8);
+          }
+        } catch (_) {}
+
+        await SharePlus.instance.share(
+          ShareParams(
+            files: [
+              XFile(csvPath, mimeType: 'text/csv'),
+              XFile(htmlPath, mimeType: 'text/html'),
+            ],
+            subject: 'AcadeGate labs directory',
+          ),
+        );
+      }
+
+      if (!mounted) return;
+      final withContact = labs
+          .where(
+            (l) =>
+                l.displayContactEmail.contains('@') ||
+                l.displayContactPhone.trim().length >= 8,
+          )
+          .length;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          duration: const Duration(seconds: 6),
+          content: Text(
+            context.t(
+              'تم تصدير ${labs.length} مختبراً ($withContact ببيانات تواصل)',
+              'Exported ${labs.length} labs ($withContact with contacts)',
+            ),
+          ),
+          backgroundColor: Colors.green[700],
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      await _showErrorDialog('$e');
+    } finally {
+      if (mounted) setState(() => _exportingDirectory = false);
+    }
+  }
+
   Future<void> _import({
     required bool autoApprove,
     bool? syncExisting,
@@ -342,7 +468,8 @@ class _AdminLabImportScreenState extends State<AdminLabImportScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return AdminAccessGate(
+      child: Scaffold(
       appBar: AcadeGateAppBar(
         title: Text(
           context.t(
@@ -560,6 +687,75 @@ class _AdminLabImportScreenState extends State<AdminLabImportScreen> {
                             )),
                           ),
                         ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Card(
+                color: Colors.deepPurple.withValues(alpha: 0.08),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.contact_phone_outlined,
+                              color: Colors.deepPurple[800]),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              context.t(
+                                'كشف تواصل المختبرات المستوردة',
+                                'Imported labs contact directory',
+                              ),
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.deepPurple[900],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        context.t(
+                          'يصدّر CSV + HTML من كل المختبرات في قاعدة البيانات '
+                          '(بريد/هاتف/رابط المصدر) لإرسال العروض والتواصل.',
+                          'Exports CSV + HTML of all labs in the database '
+                          '(email/phone/source URL) for outreach.',
+                        ),
+                        style: TextStyle(height: 1.45, color: Colors.grey[800]),
+                      ),
+                      const SizedBox(height: 12),
+                      FilledButton.icon(
+                        onPressed: (_exportingDirectory ||
+                                _importing ||
+                                _scraping ||
+                                !isAdmin)
+                            ? null
+                            : _exportContactDirectory,
+                        icon: _exportingDirectory
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.table_view_outlined),
+                        label: Text(
+                          context.t(
+                            'تصدير كشف التواصل الآن',
+                            'Export contact directory now',
+                          ),
+                        ),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.deepPurple[700],
+                        ),
                       ),
                     ],
                   ),
@@ -795,6 +991,7 @@ class _AdminLabImportScreenState extends State<AdminLabImportScreen> {
             ],
           );
         },
+      ),
       ),
     );
   }

@@ -76,6 +76,18 @@ class OpenAlexAuthor {
     final institutionName =
         institutionNames.isNotEmpty ? institutionNames.first : '';
 
+    final topics = map['topics'] as List<dynamic>? ?? [];
+    final topicNames = topics
+        .map((topic) {
+          if (topic is Map<String, dynamic>) {
+            return topic['display_name']?.toString() ?? '';
+          }
+          return topic.toString();
+        })
+        .where((name) => name.isNotEmpty)
+        .take(8)
+        .toList();
+
     final concepts = (map['x_concepts'] as List<dynamic>?) ??
         (map['concepts'] as List<dynamic>?) ??
         [];
@@ -89,6 +101,8 @@ class OpenAlexAuthor {
         .where((name) => name.isNotEmpty)
         .take(8)
         .toList();
+    final identityTags =
+        topicNames.isNotEmpty ? topicNames : topConcepts;
 
     final stats = map['summary_stats'] as Map<String, dynamic>?;
     final countsByYear = map['counts_by_year'] as List<dynamic>? ?? [];
@@ -112,8 +126,8 @@ class OpenAlexAuthor {
       institutionName: institutionName,
       institutionNames: institutionNames,
       speciality:
-          topConcepts.isNotEmpty ? topConcepts.first : L10nLookup.academicResearch,
-      tags: topConcepts,
+          identityTags.isNotEmpty ? identityTags.first : L10nLookup.academicResearch,
+      tags: identityTags,
       worksCount: (map['works_count'] as num?)?.toInt() ?? 0,
       citedByCount: (map['cited_by_count'] as num?)?.toInt() ?? 0,
       hIndex: (stats?['h_index'] as num?)?.toInt() ?? 0,

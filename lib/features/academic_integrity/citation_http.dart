@@ -12,6 +12,16 @@ class CitationHttp {
     'api.crossref.org',
     'api.openalex.org',
     'api.semanticscholar.org',
+    'www.ebi.ac.uk',
+    'serpapi.com',
+    'pub.orcid.org',
+    'query.wikidata.org',
+  };
+
+  /// ORCID and Wikidata publish CORS headers; call them directly on Chrome.
+  static const _directOnWeb = {
+    'pub.orcid.org',
+    'query.wikidata.org',
   };
 
   static Future<http.Response> get(
@@ -19,6 +29,11 @@ class CitationHttp {
     Map<String, String>? headers,
   }) async {
     if (kIsWeb) {
+      if (_directOnWeb.contains(uri.host)) {
+        return http
+            .get(uri, headers: headers)
+            .timeout(const Duration(seconds: 25));
+      }
       if (!_allowedHosts.contains(uri.host)) {
         throw Exception('Citation proxy: host not allowed');
       }

@@ -98,7 +98,7 @@ class _SampleAnalysisMarketplaceTabState
 
   List<String> get _cityOptions {
     final fromData = _labs
-        .map((l) => l.city.trim())
+        .map((l) => NbsleUniversityCities.canonicalCity(l.city))
         .where((c) => c.isNotEmpty)
         .toSet();
     final merged = {

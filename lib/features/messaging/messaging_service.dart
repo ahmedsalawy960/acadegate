@@ -68,8 +68,14 @@ class MessagingService {
         'contextId': contextId,
         'contextTitle': contextTitle,
         'lastMessage': '',
+        'hiddenFor': <String>[],
         'updatedAt': FieldValue.serverTimestamp(),
         'createdAt': FieldValue.serverTimestamp(),
+      });
+    } else {
+      // إعادة فتح محادثة سبق إخفاؤها من قائمتي.
+      await ref.update({
+        'hiddenFor': FieldValue.arrayRemove([user.uid]),
       });
     }
 
@@ -87,8 +93,42 @@ class MessagingService {
         .map(
           (snapshot) => snapshot.docs
               .map((doc) => Conversation.fromMap(doc.data(), id: doc.id))
+              .where((c) => !c.isHiddenFor(user.uid))
               .toList(),
         );
+  }
+
+  /// يخفي المحادثة من قائمتي فقط (مثل مسح إشعار) — الطرف الآخر يحتفظ بها.
+  Future<void> hideConversationForMe(String conversationId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception(L10nLookup.loginRequiredMessage);
+    await _conversations.doc(conversationId).update({
+      'hiddenFor': FieldValue.arrayUnion([user.uid]),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> hideAllConversationsForMe() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception(L10nLookup.loginRequiredMessage);
+    final snap = await _conversations
+        .where('participantIds', arrayContains: user.uid)
+        .get();
+    final batch = _db.batch();
+    var n = 0;
+    for (final doc in snap.docs) {
+      final hidden = (doc.data()['hiddenFor'] as List<dynamic>? ?? [])
+          .map((e) => e.toString())
+          .toList();
+      if (hidden.contains(user.uid)) continue;
+      batch.update(doc.reference, {
+        'hiddenFor': FieldValue.arrayUnion([user.uid]),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      n++;
+      if (n >= 400) break;
+    }
+    if (n > 0) await batch.commit();
   }
 
   Future<Conversation?> getConversation(String conversationId) async {
@@ -148,6 +188,8 @@ class MessagingService {
     await convRef.update({
       'lastMessage': trimmed,
       'updatedAt': FieldValue.serverTimestamp(),
+      // أعد إظهار المحادثة للطرفين عند رسالة جديدة.
+      'hiddenFor': FieldValue.arrayRemove(participants),
     });
 
     for (final participantId in participants) {

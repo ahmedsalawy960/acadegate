@@ -8,6 +8,9 @@ class OpenAlexWork {
   final int? year;
   final String? authors;
   final String? url;
+  final bool isRetracted;
+  final String? journal;
+  final String abstractText;
 
   const OpenAlexWork({
     required this.title,
@@ -15,6 +18,9 @@ class OpenAlexWork {
     this.year,
     this.authors,
     this.url,
+    this.isRetracted = false,
+    this.journal,
+    this.abstractText = '',
   });
 }
 
@@ -44,14 +50,35 @@ class OpenAlexWorksClient {
     return _fromMap(data);
   }
 
-  Future<List<OpenAlexWork>> searchTitle(String query, {int perPage = 5}) async {
+  Future<List<OpenAlexWork>> searchTitle(
+    String query, {
+    int perPage = 5,
+    bool byRelevance = false,
+    bool englishOnly = false,
+    bool arabicOnly = false,
+    int? fromYear,
+    bool hasDoi = false,
+    bool includeTheses = false,
+  }) async {
     if (query.trim().length < 3) return const [];
+
+    final filters = <String>[
+      if (hasDoi) 'has_doi:true',
+      'is_retracted:false',
+      if (englishOnly) 'language:en',
+      if (arabicOnly) 'language:ar',
+      if (fromYear != null) 'from_publication_year:$fromYear',
+      includeTheses
+          ? 'type:article|review|dissertation'
+          : 'type:article|review',
+    ];
 
     final uri = Uri.parse(_base).replace(
       queryParameters: {
         'search': query.trim(),
-        'per-page': '$perPage',
-        'sort': 'cited_by_count:desc',
+        'per-page': '${perPage.clamp(1, 50)}',
+        'sort': byRelevance ? 'relevance_score:desc' : 'cited_by_count:desc',
+        'filter': filters.join(','),
       },
     );
 
@@ -93,6 +120,33 @@ class OpenAlexWorksClient {
       year: (data['publication_year'] as num?)?.toInt(),
       authors: authors.isEmpty ? null : authors,
       url: data['id']?.toString(),
+      isRetracted: data['is_retracted'] == true,
+      journal: _journal(data),
+      abstractText: _abstractFromInverted(data['abstract_inverted_index']),
     );
+  }
+
+  static String? _journal(Map<String, dynamic> data) {
+    final loc = data['primary_location'] as Map<String, dynamic>?;
+    final source = loc?['source'] as Map<String, dynamic>?;
+    final name = source?['display_name']?.toString().trim();
+    if (name != null && name.isNotEmpty) return name;
+    return null;
+  }
+
+  static String _abstractFromInverted(dynamic inverted) {
+    if (inverted is! Map) return '';
+    final positions = <int, String>{};
+    inverted.forEach((word, idxs) {
+      if (idxs is List) {
+        for (final i in idxs) {
+          if (i is num) positions[i.toInt()] = word.toString();
+        }
+      }
+    });
+    if (positions.isEmpty) return '';
+    final max = positions.keys.reduce((a, b) => a > b ? a : b);
+    final words = List.generate(max + 1, (i) => positions[i] ?? '');
+    return words.join(' ').replaceAll(RegExp(r'\s+'), ' ').trim();
   }
 }

@@ -1,8 +1,11 @@
+import 'dart:convert';
+
 import '../../core/locale/app_translate.dart';
 import '../../core/locale/l10n_lookup.dart';
 import '../../core/locale/locale_service.dart';
 import '../ai_advisor/gemini_advisor_client.dart';
 import '../profile/academic_profile.dart';
+import 'research_goal.dart';
 import 'research_supply_chain_models.dart';
 
 class ResearchPathAiService {
@@ -14,13 +17,13 @@ class ResearchPathAiService {
     required ResearchSupplyBundle bundle,
     AcademicProfile? profile,
   }) async {
-    if (!GeminiAdvisorClient.isConfigured) {
+    if (!GeminiAdvisorClient.isAvailable) {
       return _localInsight(
         bundle,
         profile,
         note: appTr(
-          'فعّل AcadeGate AI (مفتاح Gemini) لتحليل أعمق.',
-          'Enable AcadeGate AI (Gemini key) for deeper analysis.',
+          'سجّل الدخول لتفعيل AcadeGate AI (Gemini) لخطة ودراسات على نفس النقطة.',
+          'Sign in to enable AcadeGate AI (Gemini) for a plan and studies on the same topic.',
         ),
       );
     }
@@ -41,10 +44,13 @@ ${headers.analysis}
 (One or two paragraphs linking specialization and interest to the options)
 
 ${headers.plan}
-(4–6 numbered stages: problem definition, literature review, methodology, data/lab collection, writing, review)
+(A precise plan for THIS topic only: ${bundle.goal?.fieldEn.isNotEmpty == true ? bundle.goal!.fieldEn : bundle.topic}. Name methods, samples, instruments, and milestones for that topic. Do not write a generic “lock the topic” plan.)
+
+${headers.stages}
+(Use ### headings: ### Semester 1 · Year 1 then a title line, - outcomes, → platform actions. Every heading must include the topic words.)
 
 ${headers.next}
-(One or two practical sentences for the researcher today)
+(One or two practical sentences for today on this same topic)
 '''
         : '''
 أنت مستشار أكاديمي في منصة AcadeGate. مهمتك تحليل حزمة بحث مقترحة لباحث عربي وربطها بملفه الأكاديمي وبيانات المنصة الحقيقية.
@@ -60,10 +66,13 @@ ${headers.analysis}
 (فقرة أو فقرتان تربط التخصص والاهتمام بالخيارات)
 
 ${headers.plan}
-(مراحل مرقّمة 4–6: تحديد المشكلة، مراجعة أدبيات، منهجية، جمع بيانات/مختبر، كتابة، مراجعة)
+(خطة دقيقة لنفس نقطة البحث فقط: ${bundle.goal?.field.isNotEmpty == true ? bundle.goal!.field : bundle.topic}. اذكر العينات والأجهزة والمنهج والمخرج لكل مرحلة. ممنوع خطة عامة من نوع «ثبّت الموضوع» بلا ذكر النقطة.)
+
+${headers.stages}
+(عناوين ### مثل: ### الفصل 1 · السنة 1 ثم سطر العنوان، ثم - مخرجات، ثم → أعمال المنةصة. كل مرحلة تذكر كلمات الموضوع.)
 
 ${headers.next}
-(جملة أو جملتان عمليتان للباحث اليوم)
+(جملة عملية اليوم على نفس النقطة)
 ''';
 
     final userMessage =
@@ -73,7 +82,7 @@ ${headers.next}
     final result = await GeminiAdvisorClient.instance.generateResult(
       systemPrompt: systemPrompt,
       userMessage: userMessage,
-      maxOutputTokens: 4096,
+      maxOutputTokens: 8192,
     );
 
     if (result.isSuccess && result.text != null) {
@@ -84,6 +93,7 @@ ${headers.next}
         nextStep: parsed.nextStep,
         fromGemini: true,
         modelUsed: result.modelUsed,
+        stages: parsed.stages,
       );
     }
 
@@ -95,19 +105,53 @@ ${headers.next}
     );
   }
 
-  ({String analysis, String plan, String next}) get _sectionHeaders {
+  ({String analysis, String plan, String stages, String next}) get _sectionHeaders {
     if (LocaleService.instance.isEnglish) {
       return (
         analysis: '## Why this bundle?',
         plan: '## Suggested research plan',
+        stages: '## Stages',
         next: '## Next step',
       );
     }
     return (
       analysis: '## لماذا هذه الحزمة؟',
       plan: '## خطة البحث المقترحة',
+      stages: '## المراحل',
       next: '## الخطوة التالية',
     );
+  }
+
+  Future<ResearchGoal> briefGoal(ResearchGoal goal, {bool? arabicDraft}) async {
+    final local = ResearchGoalParser.applyLocalEnglish(goal);
+    if (!GeminiAdvisorClient.isAvailable) return local;
+
+    final lang = arabicDraft == false ? 'English' : (arabicDraft == true ? 'Arabic' : 'match the user goal');
+    final result = await GeminiAdvisorClient.instance.generateResult(
+      systemPrompt: '''
+You convert a student's research goal into English academic search terms for OpenAlex.
+The goal may be one sentence, several sentences, or a short paragraph. Read ALL of it.
+Preferred draft language: $lang
+Return JSON only, no markdown:
+{
+  "field_ar": "short Arabic topic covering the whole goal",
+  "field_en": "precise English research topic, 4-16 words, summarizing every sentence",
+  "search_queries": ["3 to 5 English scholarly search phrases drawn from the full goal"],
+  "match_keywords": ["8 to 16 English keywords for matching supervisors/labs"],
+  "methods": ["likely methods or instruments, if inferable"],
+  "track": "masters|phd|diploma",
+  "institution": "factory|ministry|development|university"
+}
+Rules: do not invent a paper, DOI, supervisor, lab, or company. field_en must be the scientific topic, not "master thesis". Do not ignore methods, samples, or constraints that appear after the first sentence.
+''',
+      userMessage: ResearchGoalParser.contextForAi(goal.raw),
+      maxOutputTokens: 1200,
+      preferPro: true,
+    );
+    if (!result.isSuccess || result.text == null) return local;
+    final map = _parseJsonMap(result.text!);
+    if (map == null) return local;
+    return ResearchGoalParser.fromAiMap(map, local) ?? local;
   }
 
   String _buildContext(ResearchSupplyBundle bundle, AcademicProfile? profile) {
@@ -250,10 +294,63 @@ ${headers.next}
       );
     }
 
+    if (bundle.goal != null) {
+      buffer.writeln(appTr('--- الهدف ---', '--- Goal ---'));
+      buffer.writeln(
+        appTr(
+          'الدرجة: ${bundle.goal!.degreeLabel} · المجال: ${bundle.goal!.field} · الأفق: ${bundle.goal!.years} سنوات · التطبيق: ${bundle.goal!.institutionLabel}',
+          'Degree: ${bundle.goal!.degreeLabel} · field: ${bundle.goal!.field} · horizon: ${bundle.goal!.years} years · application: ${bundle.goal!.institutionLabel}',
+        ),
+      );
+    }
+    if (bundle.degreePlan.isNotEmpty) {
+      buffer.writeln(appTr(
+        'خطة فصلية جاهزة (لا تستبدل الأسماء):',
+        'Semester plan ready (do not replace names):',
+      ));
+      for (final stage in bundle.degreePlan) {
+        buffer.writeln('  • ${stage.period}: ${stage.title}');
+      }
+    }
+    if (bundle.literature.isNotEmpty) {
+      buffer.writeln(
+        appTr(
+          'دراسات مؤكدة (${bundle.literature.length}) — استشهد بهذه فقط:',
+          'Confirmed studies (${bundle.literature.length}) — cite these only:',
+        ),
+      );
+      for (final work in bundle.literature.take(15)) {
+        buffer.writeln('  • ${work.apaLine}');
+      }
+    } else {
+      buffer.writeln(
+        appTr(
+          'لا دراسات مؤكدة بعد. لا تختلق مراجع.',
+          'No confirmed studies yet. Do not invent references.',
+        ),
+      );
+    }
+    if (bundle.institutionalNotes.isNotEmpty) {
+      buffer.writeln(appTr('أثر مؤسسي:', 'Institutional impact:'));
+      for (final note in bundle.institutionalNotes) {
+        buffer.writeln('  • $note');
+      }
+    }
+    if (bundle.fundingFits.isNotEmpty) {
+      buffer.writeln(appTr(
+        'تمويل ظاهر في المنصة فقط:',
+        'Funding visible on the platform only:',
+      ));
+      for (final fit in bundle.fundingFits) {
+        buffer.writeln('  • ${fit.title} — ${fit.why}');
+      }
+    }
+
     return buffer.toString();
   }
 
-  ({String analysis, String plan, String? nextStep}) _parseSections(String text) {
+  ({String analysis, String plan, String? nextStep, List<DegreePlanStage> stages})
+      _parseSections(String text) {
     final headers = _sectionHeaders;
 
     String extractBetween(String start, String? end) {
@@ -266,7 +363,11 @@ ${headers.next}
     }
 
     var analysis = extractBetween(headers.analysis, headers.plan);
-    var plan = extractBetween(headers.plan, headers.next);
+    var plan = extractBetween(headers.plan, headers.stages);
+    if (plan.isEmpty) {
+      plan = extractBetween(headers.plan, headers.next);
+    }
+    var stagesText = extractBetween(headers.stages, headers.next);
     var nextStep = extractBetween(headers.next, null);
 
     if (analysis.isEmpty && plan.isEmpty) {
@@ -286,15 +387,43 @@ ${headers.next}
       nextStep = extractBetween(alt.next, null);
     }
 
+    final stages = ResearchGoalParser.stagesFromAiText(
+      stagesText.isNotEmpty ? stagesText : text,
+    );
+
     if (analysis.isEmpty && plan.isEmpty) {
-      return (analysis: text.trim(), plan: '', nextStep: null);
+      return (
+        analysis: text.trim(),
+        plan: '',
+        nextStep: null,
+        stages: stages,
+      );
     }
 
     return (
       analysis: analysis.isEmpty ? text.trim() : analysis,
       plan: plan,
       nextStep: nextStep.isEmpty ? null : nextStep,
+      stages: stages,
     );
+  }
+
+  Map<String, dynamic>? _parseJsonMap(String raw) {
+    var text = raw.trim();
+    final fence = RegExp(r'```(?:json)?\s*([\s\S]*?)```', caseSensitive: false);
+    final match = fence.firstMatch(text);
+    if (match != null) text = match.group(1)!.trim();
+    final start = text.indexOf('{');
+    final end = text.lastIndexOf('}');
+    if (start < 0 || end <= start) return null;
+    try {
+      final decoded = jsonDecode(text.substring(start, end + 1));
+      if (decoded is Map<String, dynamic>) return decoded;
+      if (decoded is Map) return Map<String, dynamic>.from(decoded);
+    } catch (_) {
+      return null;
+    }
+    return null;
   }
 
   ResearchPathAiInsight _localInsight(

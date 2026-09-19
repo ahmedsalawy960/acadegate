@@ -5,6 +5,11 @@ import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/locale/locale_extensions.dart';
+import '../../core/voice/voice_stt_service.dart';
+import '../../core/voice/voice_tts_service.dart';
+import '../auth/usage_quota_banner.dart';
+import '../guides/section_guide_catalog.dart';
+import '../guides/section_guide_screen.dart';
 import '../viva_simulator/viva_screen.dart';
 import 'advisor_attachment.dart';
 import 'advisor_attachment_service.dart';
@@ -15,6 +20,8 @@ import 'advisor_message.dart';
 import 'advisor_prompts.dart';
 import 'advisor_router.dart';
 import 'ai_advisor_service.dart';
+import 'catalog_hit.dart';
+import 'catalog_hit_actions.dart';
 
 class AiAdvisorScreen extends StatefulWidget {
   final String? initialMessage;
@@ -31,6 +38,8 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
   final _scrollController = ScrollController();
   final _service = AiAdvisorService.instance;
   final _store = AdvisorChatStore.instance;
+  final _tts = VoiceTtsService.instance;
+  final _stt = VoiceSttService.instance;
 
   final List<AdvisorMessage> _messages = [];
   final List<PendingAdvisorAttachment> _pendingAttachments = [];
@@ -41,6 +50,8 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
   bool _isLoadingHistory = true;
   int _sidebarRevision = 0;
   bool _initialMessageQueued = false;
+  bool _voiceEnabled = true;
+  bool _sttAvailable = false;
 
   static const _accent = Color(0xFF4527A0);
   static const _sidebarWidth = 280.0;
@@ -49,6 +60,20 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
   void initState() {
     super.initState();
     _bootstrap();
+    _initVoice();
+  }
+
+  Future<void> _initVoice() async {
+    _tts.onStateChanged = _onVoiceState;
+    _stt.addListener(_onVoiceState);
+    _tts.init();
+    final available = await _stt.init();
+    if (!mounted) return;
+    setState(() => _sttAvailable = available);
+  }
+
+  void _onVoiceState() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _bootstrap() async {
@@ -293,8 +318,50 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
     );
   }
 
+  Future<void> _toggleMic() async {
+    if (_isThinking || _stt.isTranscribing) return;
+    if (_stt.isListening) {
+      await _stt.stopListening();
+      return;
+    }
+    await _tts.stop();
+    final started = await _stt.startListening(
+      existingText: _inputController.text,
+      onText: (text, _) {
+        if (!mounted) return;
+        _inputController.text = text;
+        _inputController.selection = TextSelection.collapsed(offset: text.length);
+      },
+    );
+    if (!started && mounted) {
+      final needsCloud = _stt.language != VoiceSttLanguage.english;
+      _showSnack(
+        needsCloud && !_service.isCloudAiEnabled
+            ? context.t(
+                'التعرف على العربية على Windows يحتاج تسجيل الدخول للذكاء السحابي. على Chrome يُستخدم ميكروفون المتصفح.',
+                'Arabic on Windows needs sign-in for cloud AI. On Chrome the browser microphone is used.',
+              )
+            : context.t(
+                'التعرف على الصوت غير متاح — اسمح بالميكروفون ثم أعد المحاولة.',
+                'Speech recognition unavailable — allow the microphone and try again.',
+              ),
+      );
+    }
+  }
+
+  Future<void> _speakMessage(String content) async {
+    if (!_voiceEnabled) {
+      setState(() => _voiceEnabled = true);
+    }
+    await _tts.speak(content);
+  }
+
   @override
   void dispose() {
+    _stt.removeListener(_onVoiceState);
+    _tts.onStateChanged = null;
+    _stt.cancel();
+    _tts.stop();
     _inputController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -302,9 +369,12 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
 
   Future<void> _sendMessage([String? text]) async {
     final trimmed = (text ?? _inputController.text).trim();
+    final fallbackTitle = context.t('محادثة جديدة', 'New conversation');
     if ((trimmed.isEmpty && _pendingAttachments.isEmpty) || _isThinking) {
       return;
     }
+    await _stt.cancel();
+    await _tts.stop();
 
     final pending = List<PendingAdvisorAttachment>.from(_pendingAttachments);
     final geminiParts =
@@ -316,7 +386,7 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
         ? trimmed
         : pending.isNotEmpty
             ? pending.first.name
-            : context.t('محادثة جديدة', 'New conversation');
+            : fallbackTitle;
 
     setState(() {
       _pendingAttachments.clear();
@@ -384,6 +454,9 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
         _messages.add(reply);
       });
       await _persistMessage(reply, conversationId: conversationId);
+      if (_voiceEnabled && mounted) {
+        await _tts.speak(reply.content);
+      }
     } catch (_) {
       if (!mounted) return;
       final errorMessage = AdvisorMessage(
@@ -463,6 +536,17 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
 
     return Column(
       children: [
+        const Padding(
+          padding: EdgeInsets.fromLTRB(12, 8, 12, 0),
+          child: SectionGuideBanner(
+            guideId: SectionGuideCatalog.ai,
+            accent: _accent,
+          ),
+        ),
+        const UsageQuotaBanner(
+          showGemini: true,
+          showScholar: false,
+        ),
         if (_showAgents) ...[
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
@@ -488,7 +572,12 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
               if (_isThinking && index == _messages.length) {
                 return const _TypingIndicator();
               }
-              return _MessageBubble(message: _messages[index]);
+              return _MessageBubble(
+                message: _messages[index],
+                onSpeak: _messages[index].role == AdvisorMessageRole.assistant
+                    ? () => _speakMessage(_messages[index].content)
+                    : null,
+              );
             },
           ),
         ),
@@ -533,6 +622,58 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
                     ),
                   ),
                 if (_pendingAttachments.isNotEmpty) const SizedBox(height: 8),
+                if (_stt.isListening || _stt.isTranscribing)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      _stt.isTranscribing
+                          ? context.t(
+                              'جاري تحويل صوتك إلى نص…',
+                              'Turning your voice into text…',
+                            )
+                          : context.t(
+                              'جارٍ الاستماع — اضغط الميكروفون للإيقاف',
+                              'Listening — tap the mic to stop',
+                            ),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: _stt.isListening ? Colors.red[700] : _accent,
+                      ),
+                    ),
+                  ),
+                Wrap(
+                  spacing: 6,
+                  children: [
+                    _SttLangChip(
+                      label: context.t('تلقائي', 'Auto'),
+                      selected: _stt.language == VoiceSttLanguage.auto,
+                      onSelected: _stt.isListening || _stt.isTranscribing
+                          ? null
+                          : () => setState(
+                                () => _stt.language = VoiceSttLanguage.auto,
+                              ),
+                    ),
+                    _SttLangChip(
+                      label: context.t('عربي', 'Arabic'),
+                      selected: _stt.language == VoiceSttLanguage.arabic,
+                      onSelected: _stt.isListening || _stt.isTranscribing
+                          ? null
+                          : () => setState(
+                                () => _stt.language = VoiceSttLanguage.arabic,
+                              ),
+                    ),
+                    _SttLangChip(
+                      label: context.t('English', 'English'),
+                      selected: _stt.language == VoiceSttLanguage.english,
+                      onSelected: _stt.isListening || _stt.isTranscribing
+                          ? null
+                          : () => setState(
+                                () => _stt.language = VoiceSttLanguage.english,
+                              ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
@@ -551,15 +692,49 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
                         iconSize: 26,
                       ),
                     ),
+                    const SizedBox(width: 4),
+                    Material(
+                      color: _stt.isListening ? Colors.red : Colors.white,
+                      shape: const CircleBorder(),
+                      elevation: 1,
+                      child: IconButton(
+                        tooltip: _stt.isListening
+                            ? context.t('إيقاف التسجيل', 'Stop recording')
+                            : (_sttAvailable
+                                ? context.t(
+                                    'تحدث إلى المستشار',
+                                    'Speak to the advisor',
+                                  )
+                                : context.t(
+                                    'تفعيل الميكروفون',
+                                    'Enable the microphone',
+                                  )),
+                        onPressed: _isThinking || _stt.isTranscribing
+                            ? null
+                            : _toggleMic,
+                        icon: Icon(
+                          _stt.isListening ? Icons.mic : Icons.mic_none,
+                          color: _stt.isListening ? Colors.white : _accent,
+                        ),
+                      ),
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: TextField(
                         controller: _inputController,
+                        enabled: !_stt.isTranscribing,
                         decoration: InputDecoration(
-                          hintText: context.t(
-                            'اكتب سؤالك أو أرفق ملفاً...',
-                            'Type your question or attach a file...',
-                          ),
+                          hintText: _stt.isTranscribing
+                              ? context.t(
+                                  'جاري تحويل الصوت...',
+                                  'Converting speech...',
+                                )
+                              : _stt.isListening
+                                  ? context.t('تحدّث الآن…', 'Speak now…')
+                                  : context.t(
+                                      'اكتب أو تحدّث…',
+                                      'Type or speak…',
+                                    ),
                           filled: true,
                           fillColor: Colors.white,
                           border: OutlineInputBorder(
@@ -614,6 +789,28 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
+          const SectionGuideAppBarButton(
+            guideId: SectionGuideCatalog.ai,
+            accent: _accent,
+          ),
+          IconButton(
+            tooltip: _voiceEnabled
+                ? context.t('إيقاف قراءة الردود', 'Stop reading replies')
+                : context.t('تفعيل قراءة الردود', 'Read replies aloud'),
+            icon: Icon(
+              _tts.isSpeaking
+                  ? Icons.volume_up
+                  : (_voiceEnabled ? Icons.volume_up_outlined : Icons.volume_off),
+            ),
+            onPressed: () async {
+              if (_tts.isSpeaking) {
+                await _tts.stop();
+                return;
+              }
+              setState(() => _voiceEnabled = !_voiceEnabled);
+              if (!_voiceEnabled) await _tts.stop();
+            },
+          ),
           IconButton(
             tooltip: context.t(
               'محاكي لجنة المناقشة',
@@ -1010,8 +1207,9 @@ class _AgentsPanel extends StatelessWidget {
 
 class _MessageBubble extends StatelessWidget {
   final AdvisorMessage message;
+  final VoidCallback? onSpeak;
 
-  const _MessageBubble({required this.message});
+  const _MessageBubble({required this.message, this.onSpeak});
 
   @override
   Widget build(BuildContext context) {
@@ -1082,6 +1280,29 @@ class _MessageBubble extends StatelessWidget {
                 height: 1.5,
               ),
             ),
+            if (!isUser && onSpeak != null)
+              Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: IconButton(
+                  visualDensity: VisualDensity.compact,
+                  tooltip: context.t('اقرأ الرد', 'Read aloud'),
+                  onPressed: onSpeak,
+                  icon: Icon(
+                    Icons.volume_up_outlined,
+                    size: 18,
+                    color: Colors.deepPurple.shade400,
+                  ),
+                ),
+              ),
+            if (!isUser && message.catalog.allHits.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              ...message.catalog.labs.map(
+                (hit) => _CatalogHitCard(hit: hit),
+              ),
+              ...message.catalog.supervisors.map(
+                (hit) => _CatalogHitCard(hit: hit),
+              ),
+            ],
             if (message.attachments.isNotEmpty) ...[
               const SizedBox(height: 8),
               ...message.attachments.map(
@@ -1109,6 +1330,96 @@ class _MessageBubble extends StatelessWidget {
 
   String _formatContent(String content) {
     return content.replaceAll('**', '').replaceAll('```', '');
+  }
+}
+
+class _CatalogHitCard extends StatelessWidget {
+  final CatalogHit hit;
+
+  const _CatalogHitCard({required this.hit});
+
+  @override
+  Widget build(BuildContext context) {
+    final isLab = hit.kind == CatalogHitKind.lab;
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F5F5),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE0E0E0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            hit.title,
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 13.5,
+            ),
+          ),
+          if (hit.subtitle.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                hit.subtitle,
+                style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+              ),
+            ),
+          if (hit.reason.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                hit.reason,
+                style: TextStyle(fontSize: 11.5, color: Colors.grey[600]),
+              ),
+            ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              _hitButton(
+                context.t('فتح', 'Open'),
+                () => CatalogHitActions.open(context, hit),
+              ),
+              if (isLab && hit.canBook)
+                _hitButton(
+                  context.t('حجز', 'Book'),
+                  () => CatalogHitActions.book(context, hit),
+                  filled: true,
+                ),
+              if (!isLab && hit.canContact)
+                _hitButton(
+                  context.t('تواصل', 'Contact'),
+                  () => CatalogHitActions.contact(context, hit),
+                  filled: true,
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _hitButton(String label, VoidCallback onTap, {bool filled = false}) {
+    return FilledButton.tonal(
+      onPressed: onTap,
+      style: filled
+          ? FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF00695C),
+              foregroundColor: Colors.white,
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+            )
+          : FilledButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+            ),
+      child: Text(label, style: const TextStyle(fontSize: 12)),
+    );
   }
 }
 
@@ -1282,6 +1593,34 @@ class _AttachmentTile extends StatelessWidget {
             Icon(Icons.open_in_new, size: 16, color: subColor),
         ],
       ),
+    );
+  }
+}
+
+class _SttLangChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback? onSelected;
+
+  const _SttLangChip({
+    required this.label,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ChoiceChip(
+      label: Text(label, style: const TextStyle(fontSize: 12)),
+      selected: selected,
+      onSelected: onSelected == null ? null : (_) => onSelected!(),
+      selectedColor: const Color(0xFF4527A0).withValues(alpha: 0.15),
+      labelStyle: TextStyle(
+        color: selected ? const Color(0xFF4527A0) : Colors.grey[800],
+        fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+      ),
+      visualDensity: VisualDensity.compact,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
     );
   }
 }

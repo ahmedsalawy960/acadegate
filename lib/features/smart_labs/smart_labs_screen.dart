@@ -10,6 +10,8 @@ import '../academic/faculty_categories.dart';
 import '../analysis_labs/sample_requests_screens.dart';
 import '../auth/user_account_service.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../guides/section_guide_catalog.dart';
+import '../guides/section_guide_screen.dart';
 import '../lab_import/admin_lab_import_screen.dart';
 import '../lab_import/crci_catalog.dart';
 import '../lab_import/nbsle_university_cities.dart';
@@ -107,7 +109,7 @@ class _SmartLabsScreenState extends State<SmartLabsScreen>
 
   List<String> _cityDropdownOptions(List<AcademicLab> loadedLabs) {
     final fromData = loadedLabs
-        .map((lab) => lab.city.trim())
+        .map((lab) => NbsleUniversityCities.canonicalCity(lab.city))
         .where((city) => city.isNotEmpty)
         .toSet();
     final catalog = NbsleUniversityCities.browseCities.toSet();
@@ -277,7 +279,10 @@ class _SmartLabsScreenState extends State<SmartLabsScreen>
   Map<String, List<AcademicLab>> _groupLabs(List<AcademicLab> labs) {
     final grouped = <String, List<AcademicLab>>{};
     for (final lab in labs) {
-      final key = lab.city.isNotEmpty ? lab.city : _otherCityKey;
+      final raw = lab.city.trim();
+      final key = raw.isNotEmpty
+          ? NbsleUniversityCities.canonicalCity(raw)
+          : _otherCityKey;
       grouped.putIfAbsent(key, () => []).add(lab);
     }
     return grouped;
@@ -312,6 +317,10 @@ class _SmartLabsScreenState extends State<SmartLabsScreen>
           ],
         ),
         actions: [
+          SectionGuideAppBarButton(
+            guideId: SectionGuideCatalog.labs,
+            accent: Colors.purple.shade700,
+          ),
           StreamBuilder(
             stream: UserAccountService.instance.watchCurrentAccount(),
             builder: (context, snapshot) {
@@ -392,6 +401,13 @@ class _SmartLabsScreenState extends State<SmartLabsScreen>
       ),
       body: Column(
         children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(12, 8, 12, 0),
+            child: SectionGuideBanner(
+              guideId: SectionGuideCatalog.labs,
+              accent: Color(0xFF7B1FA2),
+            ),
+          ),
           StreamBuilder(
             stream: UserAccountService.instance.watchCurrentAccount(),
             builder: (context, snapshot) {
@@ -564,9 +580,9 @@ class _SmartLabsScreenState extends State<SmartLabsScreen>
                   padding: const EdgeInsets.all(14),
                   child: Text(
                     context.t(
-                      'احجز جلسة على جهاز بنفسك (SEM، HPLC...) — للتحليل الجاهز بالتقرير استخدم تبويب «تحليل عينات».'
+                      'احجز جلسة على جهاز بنفسك (SEM، HPLC...) برزنامة بلا تعارض وبوابة تدريب — للتحليل الجاهز بالتقرير استخدم تبويب «تحليل عينات».'
                       '${_profile?.isComplete == true ? '\nمقترحات مخصصة لملفك الأكاديمي أدناه.' : ''}',
-                      'Book a device session yourself (SEM, HPLC...) — for full analysis with report use the Sample analysis tab.'
+                      'Book a device session yourself (SEM, HPLC...) with a no-overlap calendar and a training gate — for full analysis with report use the Sample analysis tab.'
                       '${_profile?.isComplete == true ? '\nPersonalized suggestions for your profile below.' : ''}',
                     ),
                     style: TextStyle(
@@ -861,8 +877,14 @@ class _SmartLabsScreenState extends State<SmartLabsScreen>
       padding: const EdgeInsets.only(top: 4),
       child: DropdownButtonFormField<String>(
         key: ValueKey('city-$_selectedCity-${cities.length}'),
-        initialValue: cities.contains(_selectedCity)
-            ? _selectedCity
+        initialValue: cities.contains(
+              _selectedCity == _allCitiesKey
+                  ? _allCitiesKey
+                  : NbsleUniversityCities.canonicalCity(_selectedCity),
+            )
+            ? (_selectedCity == _allCitiesKey
+                ? _allCitiesKey
+                : NbsleUniversityCities.canonicalCity(_selectedCity))
             : _allCitiesKey,
         decoration: InputDecoration(
           labelText: context.t('المدينة / المحافظة', 'City / governorate'),

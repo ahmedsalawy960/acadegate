@@ -7,8 +7,9 @@ import '../../core/locale/l10n_lookup.dart';
 import '../../core/locale/locale_extensions.dart';
 import '../academic/faculty_categories.dart';
 import '../auth/auth_guard.dart';
+import '../auth/provider_publish_gate.dart';
+import '../auth/user_account_service.dart';
 import '../academic/academic_models.dart';
-import '../moderation/approval_status.dart';
 import '../store/store_categories.dart';
 
 class _EquipmentDraft {
@@ -95,6 +96,19 @@ class _SubmitLabScreenState extends State<SubmitLabScreen> {
     final loggedIn = await ensureLoggedIn(context);
     if (!loggedIn || !mounted) return;
 
+    final account = await UserAccountService.instance.loadCurrentAccount();
+    if (!ProviderPublishGate.canSubmitContent(account)) {
+      if (!mounted) return;
+      _showMessage(
+        context.t(
+          ProviderPublishGate.blockMessageAr(account),
+          ProviderPublishGate.blockMessageEn(account),
+        ),
+        isError: true,
+      );
+      return;
+    }
+
     final user = FirebaseAuth.instance.currentUser!;
     final equipmentList = _equipment.map((item) => item.toMap()).toList();
     final mainEquipment = equipmentList.map((e) => e['name']).join('، ');
@@ -127,7 +141,8 @@ class _SubmitLabScreenState extends State<SubmitLabScreen> {
             .map((item) => item['waitDays'] as int)
             .reduce((a, b) => a < b ? a : b),
         'ownerId': user.uid,
-        'approvalStatus': ApprovalStatus.pending,
+        'approvalStatus':
+            ProviderPublishGate.contentApprovalStatus(account),
         'createdAt': FieldValue.serverTimestamp(),
       });
 

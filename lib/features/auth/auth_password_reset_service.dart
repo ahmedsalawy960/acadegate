@@ -32,17 +32,25 @@ class AuthPasswordResetService {
 
     await FirebaseAuth.instance.setLanguageCode(languageCode);
 
+    // On localhost / http, ActionCodeSettings often breaks delivery or hits
+    // unauthorized-continue-uri. Use the default Firebase email template.
+    // On HTTPS production hosts, deep-link back to the app origin.
     ActionCodeSettings? actionCodeSettings;
     if (kIsWeb) {
-      // Firebase Hosting domain is always on the authorized-domains list.
-      actionCodeSettings = ActionCodeSettings(
-        url: 'https://$firebaseAuthDomain',
-        handleCodeInApp: false,
-      );
+      final origin = Uri.base.origin;
+      if (origin.startsWith('https://') &&
+          !origin.contains('localhost') &&
+          !origin.contains('127.0.0.1')) {
+        actionCodeSettings = ActionCodeSettings(
+          url: origin,
+          handleCodeInApp: false,
+        );
+      }
     }
 
     debugPrint(
-      'Password reset requested for $normalized (lang=$languageCode)',
+      'Password reset requested for $normalized '
+      '(lang=$languageCode, continue=${actionCodeSettings?.url ?? 'default'})',
     );
 
     await FirebaseAuth.instance.sendPasswordResetEmail(

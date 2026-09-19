@@ -2,9 +2,11 @@
 
 الهدف: رابط عام يفتحه المختبرون من المتصفح بدون تثبيت.
 
-**الرابط المتوقع بعد النشر**
-- https://acadegate-new.web.app
-- https://acadegate-new.firebaseapp.com
+**الروابط بعد النشر**
+- التطبيق: https://acadegate-new.web.app
+- **التسجيل المباشر:** https://acadegate-new.web.app/register
+- الدخول: https://acadegate-new.web.app/login
+- بديل: https://acadegate-new.firebaseapp.com/register
 
 ---
 
@@ -56,8 +58,12 @@ firebase deploy --only hosting
 
 - `firebase.json` يوجّه Hosting إلى `build/web` مع rewrite لـ SPA
 - الصفحة موضوعة `noindex` حتى لا تظهر في محركات البحث أثناء البيتا
+- `robots.txt` يسمح بالزحف لمعاينات واتساب/تلغرام (سابقاً `Disallow: /` كان يمنع المعاينة)
 - لا تشارك ملفات الأسرار (`dart_defines.json` / `.env`)
 - Paymob Live غير مطلوب للبيتا — التحويل اليدوي كافٍ
+- للواتساب: إن فشل إرسال `https://acadegate-new.web.app` (علامة تعجب حمراء)، استخدم البديل
+  `https://acadegate-new.firebaseapp.com` — واتساب أحياناً يحجب نطاق `.web.app`
+- لا ترسل رابط localhost من `flutter run`
 
 ---
 

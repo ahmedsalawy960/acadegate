@@ -20,6 +20,7 @@ import '../research_marketplace/admin_research_ideas_seed_screen.dart';
 import '../supervisor_import/admin_supervisor_import_screen.dart';
 import '../store/merchant_store_screen.dart';
 import '../store/import/admin_store_import_screen.dart';
+import '../home/admin_home_feed_screen.dart';
 import 'submit_lab_screen.dart';
 import 'submit_supervisor_screen.dart';
 
@@ -101,6 +102,41 @@ class ContributorHubScreen extends StatelessWidget {
                           builder: (context) => const AdminModerationScreen(
                             initialFilter: 'supervisors',
                           ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Card(
+                  color: const Color(0xFF006064),
+                  child: ListTile(
+                    leading: const Icon(Icons.view_carousel_rounded,
+                        color: Colors.white),
+                    title: Text(
+                      context.t(
+                        'إدارة الصفحة الرئيسية والإعلانات',
+                        'Home feed & ads admin',
+                      ),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    subtitle: Text(
+                      context.t(
+                        'أضف إعلاناتك، عدّل الوجهة والصورة، وازرع التخطيط',
+                        'Add ads, set destination & image, seed layout',
+                      ),
+                      style: const TextStyle(color: Colors.white70),
+                    ),
+                    trailing: const Icon(Icons.arrow_forward_ios,
+                        color: Colors.white, size: 14),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const AdminHomeFeedScreen(),
                         ),
                       );
                     },
@@ -221,12 +257,12 @@ class ContributorHubScreen extends StatelessWidget {
                   context,
                   icon: Icons.auto_awesome_outlined,
                   title: context.t(
-                    'حزمة أفكار بحثية (90)',
-                    'Research ideas pack (90)',
+                    'أفكار بحثية — نشر ومزامنة',
+                    'Research ideas — publish & sync',
                   ),
                   subtitle: context.t(
-                    '5 أفكار كاملة لكل كلية — تُنشر باسمك',
-                    '5 full ideas per faculty — published as you',
+                    'حزمة مصر + مزامنة OpenAlex/RSS للمدير',
+                    'Egypt pack + OpenAlex/RSS sync for admins',
                   ),
                   screen: const AdminResearchIdeasSeedScreen(),
                 ),
@@ -338,7 +374,7 @@ class ContributorHubScreen extends StatelessWidget {
       role == UserRole.admin;
 
   bool _canWritingIncoming(String role) =>
-      role == UserRole.supervisor || role == UserRole.admin;
+      UserRole.canReceiveWritingOrders(role);
 
   bool _canLabIncoming(String role) =>
       role == UserRole.labManager || role == UserRole.admin;

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../core/locale/locale_extensions.dart';
 import '../../core/widgets/acadegate_logo.dart';
+import 'auth_navigation.dart';
+import 'auth_web_deep_link.dart';
 import 'portal_gateway.dart';
 import 'google_auth_service.dart';
 import 'facebook_auth_service.dart';
@@ -10,18 +12,47 @@ import 'register_screen.dart';
 import 'language_switcher_button.dart';
 import 'welcome_feature_showcase.dart';
 
-class WelcomeScreen extends StatelessWidget {
-  const WelcomeScreen({super.key});
+class WelcomeScreen extends StatefulWidget {
+  /// `register` | `login` | null — يُفتح تلقائياً من رابط المتصفح.
+  final String? initialAuthAction;
 
-  void _goHome(BuildContext context) {
-    if (!context.mounted) return;
-    Navigator.of(context).popUntil((route) => route.isFirst);
+  const WelcomeScreen({super.key, this.initialAuthAction});
+
+  @override
+  State<WelcomeScreen> createState() => _WelcomeScreenState();
+}
+
+class _WelcomeScreenState extends State<WelcomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    final action =
+        widget.initialAuthAction ?? AuthWebDeepLink.actionFromUri();
+    if (action == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (action == 'register') {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const RegisterScreen()),
+        );
+      } else if (action == 'login') {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+        );
+      }
+    });
+  }
+
+  void _goHome(BuildContext context, {String method = 'social'}) {
+    AuthNavigation.goAfterSignIn(context, method: method);
   }
 
   Future<void> _googleSignIn(BuildContext context) async {
     try {
       final user = await GoogleAuthService.instance.signInWithGoogle();
-      if (user != null) _goHome(context);
+      if (user != null) _goHome(context, method: 'google');
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -34,7 +65,7 @@ class WelcomeScreen extends StatelessWidget {
   Future<void> _facebookSignIn(BuildContext context) async {
     try {
       final user = await FacebookAuthService.instance.signInWithFacebook();
-      if (user != null) _goHome(context);
+      if (user != null) _goHome(context, method: 'facebook');
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -47,7 +78,7 @@ class WelcomeScreen extends StatelessWidget {
   Future<void> _appleSignIn(BuildContext context) async {
     try {
       final user = await AppleAuthService.instance.signInWithApple();
-      if (user != null) _goHome(context);
+      if (user != null) _goHome(context, method: 'apple');
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -133,7 +164,7 @@ class _WelcomeAuthPanel extends StatelessWidget {
           Row(
             children: [
               TextButton(
-                onPressed: () => Navigator.pushReplacement(
+                onPressed: () => Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const PortalGateway()),
                 ),

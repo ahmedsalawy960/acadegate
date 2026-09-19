@@ -148,7 +148,7 @@ class PaymobPaymentService {
       'kind': kind == PaymobOrderKind.store ? 'store' : 'writing',
       'orderId': orderId,
       if (serviceId != null && serviceId.isNotEmpty) 'serviceId': serviceId,
-      if (rating != null) 'rating': rating,
+      'rating': ?rating,
     };
     try {
       await _call('confirmEscrowRelease', data);

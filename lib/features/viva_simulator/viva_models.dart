@@ -1,3 +1,6 @@
+import '../../core/locale/app_translate.dart';
+import '../academic_integrity/citation_health.dart';
+
 enum VivaPhase { setup, session, report }
 
 enum VivaMessageRole { system, committee, student }
@@ -60,6 +63,18 @@ class VivaSessionConfig {
   final VivaAnswerMode answerMode;
   /// معرّف كلية من faculty_categories (Engineering, Medicine, …).
   final String? facultyCategoryId;
+  /// أسئلة مناقشة مبنية على نص الرسالة (ليست قوالب عامة).
+  final List<String> extractedQuestions;
+  /// أخطاء وملاحظات مستخرجة من الرسالة لمناقشتها.
+  final List<VivaThesisIssue> issues;
+  /// اسم المشرف إن وُجد مطبوعاً على الرسالة فقط.
+  final String? supervisorFromThesis;
+  /// المشرفون المطبوعون على الغلاف/الإشراف (رئيسي + مساعدون).
+  final List<String> supervisorsFromThesis;
+  /// أسطر المراجع المستخرجة من الرسالة (بدون اختلاق).
+  final String? bibliographyText;
+  /// ملخص سجل السحب/التصحيح بعد الفحص.
+  final CitationHealthSnapshot? citationHealth;
 
   const VivaSessionConfig({
     required this.thesisTitle,
@@ -74,12 +89,36 @@ class VivaSessionConfig {
     this.questionCount = 10,
     this.answerMode = VivaAnswerMode.written,
     this.facultyCategoryId,
+    this.extractedQuestions = const [],
+    this.issues = const [],
+    this.supervisorFromThesis,
+    this.supervisorsFromThesis = const [],
+    this.bibliographyText,
+    this.citationHealth,
   });
 
   static const questionCountOptions = [6, 8, 10, 12, 15];
 
+  List<String> get printedSupervisors {
+    if (supervisorsFromThesis.isNotEmpty) {
+      return supervisorsFromThesis
+          .map((e) => e.trim())
+          .where((e) => e.length >= 4)
+          .toList();
+    }
+    final one = supervisorFromThesis?.trim() ?? '';
+    return one.length >= 4 ? [one] : const [];
+  }
+
+  bool get hasThesisMaterial =>
+      extractedQuestions.any((q) => q.trim().length >= 12) ||
+      issues.isNotEmpty ||
+      (thesisExcerpt?.trim().length ?? 0) >= 40 ||
+      (defenseContext?.trim().length ?? 0) >= 40;
+
   bool get isValid =>
-      thesisTitle.trim().length >= 5 && thesisSummary.trim().length >= 40;
+      (thesisTitle.trim().length >= 5 && thesisSummary.trim().length >= 40) ||
+      hasThesisMaterial;
 
   bool get isOralMode => answerMode == VivaAnswerMode.oral;
 
@@ -99,6 +138,23 @@ class VivaSessionConfig {
       ..writeln('AnswerMode: ${answerMode.name}')
       ..writeln('PlannedQuestions: $resolvedQuestionCount')
       ..writeln('Summary: $thesisSummary');
+    if (extractedQuestions.isNotEmpty) {
+      buffer.writeln('PreparedVivaQuestionsFromThesis:');
+      for (var i = 0; i < extractedQuestions.length; i++) {
+        buffer.writeln('${i + 1}. ${extractedQuestions[i]}');
+      }
+    }
+    if (issues.isNotEmpty) {
+      buffer.writeln('IssuesAndCommentsFromThesis:');
+      for (var i = 0; i < issues.length; i++) {
+        buffer.writeln('${i + 1}. [${issues[i].kind}] ${issues[i].label}');
+      }
+    }
+    if (printedSupervisors.isNotEmpty) {
+      buffer.writeln(
+        'SupervisorsPrintedOnThesis: ${printedSupervisors.join('؛ ')}',
+      );
+    }
     if (defenseContext != null && defenseContext!.trim().isNotEmpty) {
       buffer.writeln('DefenseContextFromThesis:\n${defenseContext!.trim()}');
     }
@@ -106,7 +162,16 @@ class VivaSessionConfig {
       buffer.writeln('ThesisExcerpt:\n${thesisExcerpt!.trim()}');
     }
     if (pdfFileName != null) {
-      buffer.writeln('Source PDF: $pdfFileName');
+      buffer.writeln('SourceFile: $pdfFileName');
+    }
+    final health = citationHealth;
+    if (health != null && health.checked > 0) {
+      buffer.writeln('CitationHealthRegistry: ${health.headline}');
+      if (health.seriousTitles.isNotEmpty) {
+        buffer.writeln(
+          'SeriousCitationNotices: ${health.seriousTitles.join(' | ')}',
+        );
+      }
     }
     return buffer.toString();
   }
@@ -124,6 +189,12 @@ class VivaSessionConfig {
     int? questionCount,
     VivaAnswerMode? answerMode,
     String? facultyCategoryId,
+    List<String>? extractedQuestions,
+    List<VivaThesisIssue>? issues,
+    String? supervisorFromThesis,
+    List<String>? supervisorsFromThesis,
+    String? bibliographyText,
+    CitationHealthSnapshot? citationHealth,
     bool clearPdf = false,
     bool clearFaculty = false,
   }) {
@@ -142,6 +213,20 @@ class VivaSessionConfig {
       facultyCategoryId: clearFaculty
           ? null
           : (facultyCategoryId ?? this.facultyCategoryId),
+      extractedQuestions: clearPdf
+          ? const []
+          : (extractedQuestions ?? this.extractedQuestions),
+      issues: clearPdf ? const [] : (issues ?? this.issues),
+      supervisorFromThesis: clearPdf
+          ? null
+          : (supervisorFromThesis ?? this.supervisorFromThesis),
+      supervisorsFromThesis: clearPdf
+          ? const []
+          : (supervisorsFromThesis ?? this.supervisorsFromThesis),
+      bibliographyText:
+          clearPdf ? null : (bibliographyText ?? this.bibliographyText),
+      citationHealth:
+          clearPdf ? null : (citationHealth ?? this.citationHealth),
     );
   }
 
@@ -158,6 +243,12 @@ class VivaSessionConfig {
         'questionCount': questionCount,
         'answerMode': answerMode.name,
         'facultyCategoryId': facultyCategoryId,
+        'extractedQuestions': extractedQuestions,
+        'issues': issues.map((e) => e.toMap()).toList(),
+        'supervisorFromThesis': supervisorFromThesis,
+        'supervisorsFromThesis': supervisorsFromThesis,
+        'bibliographyText': bibliographyText,
+        'citationHealth': citationHealth?.toMap(),
       };
 
   factory VivaSessionConfig.fromMap(Map<String, dynamic> map) {
@@ -180,6 +271,28 @@ class VivaSessionConfig {
       questionCount: count,
       answerMode: mode,
       facultyCategoryId: map['facultyCategoryId']?.toString(),
+      extractedQuestions: (map['extractedQuestions'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .where((e) => e.trim().isNotEmpty)
+              .toList() ??
+          const [],
+      issues: (map['issues'] as List<dynamic>?)
+              ?.whereType<Map>()
+              .map((e) => VivaThesisIssue.fromMap(Map<String, dynamic>.from(e)))
+              .toList() ??
+          const [],
+      supervisorFromThesis: map['supervisorFromThesis']?.toString(),
+      supervisorsFromThesis: (map['supervisorsFromThesis'] as List<dynamic>?)
+              ?.map((e) => e.toString().trim())
+              .where((e) => e.length >= 4)
+              .toList() ??
+          const [],
+      bibliographyText: map['bibliographyText']?.toString(),
+      citationHealth: map['citationHealth'] is Map
+          ? CitationHealthSnapshot.fromMap(
+              Map<String, dynamic>.from(map['citationHealth'] as Map),
+            )
+          : null,
     );
   }
 }
@@ -287,6 +400,82 @@ class VivaSavedSession {
   }
 }
 
+class VivaThesisIssue {
+  final String kind;
+  final String quote;
+  final String comment;
+
+  const VivaThesisIssue({
+    this.kind = 'comment',
+    this.quote = '',
+    this.comment = '',
+  });
+
+  String get label {
+    final q = quote.trim();
+    final c = comment.trim();
+    if (q.isEmpty) return c;
+    if (c.isEmpty) return '«$q»';
+    return '«$q» — $c';
+  }
+
+  String get kindLabel {
+    switch (kind.toLowerCase()) {
+      case 'error':
+        return appTr('خطأ', 'Error');
+      case 'gap':
+        return appTr('فجوة', 'Gap');
+      case 'inconsistency':
+        return appTr('تناقض', 'Inconsistency');
+      case 'citation':
+        return appTr('صحة الاستشهاد', 'Citation health');
+      default:
+        return appTr('ملاحظة', 'Comment');
+    }
+  }
+
+  Map<String, dynamic> toMap() => {
+        'kind': kind,
+        'quote': quote,
+        'comment': comment,
+      };
+
+  factory VivaThesisIssue.fromMap(Map<String, dynamic> map) {
+    String pick(List<String> keys) {
+      for (final key in keys) {
+        final value = map[key]?.toString().trim() ?? '';
+        if (value.isNotEmpty) return value;
+      }
+      return '';
+    }
+
+    final kindRaw = pick(const ['kind', 'type', 'category', 'نوع', 'التصنيف']);
+    final kind = switch (kindRaw.toLowerCase()) {
+      'error' || 'خطأ' || 'خطا' => 'error',
+      'gap' || 'فجوة' || 'نقص' => 'gap',
+      'inconsistency' || 'تناقض' || 'تعارض' => 'inconsistency',
+      'citation' || 'استشهاد' || 'مرجع' => 'citation',
+      _ => kindRaw.isEmpty ? 'comment' : kindRaw,
+    };
+
+    return VivaThesisIssue(
+      kind: kind,
+      quote: pick(const ['quote', 'passage', 'excerpt', 'اقتباس', 'النص']),
+      comment: pick(const [
+        'comment',
+        'detail',
+        'note',
+        'text',
+        'problem',
+        'التعليق',
+        'الملاحظة',
+        'المشكلة',
+        'الخطأ',
+      ]),
+    );
+  }
+}
+
 class VivaPdfExtractionResult {
   final String fileName;
   final String title;
@@ -296,6 +485,11 @@ class VivaPdfExtractionResult {
   final String? excerpt;
   /// نص مركّز للمناقشة: أسئلة بحثية، عينة، نتائج، حدود…
   final String? defenseContext;
+  final List<String> extractedQuestions;
+  final List<VivaThesisIssue> issues;
+  final String? supervisorFromThesis;
+  final List<String> supervisorsFromThesis;
+  final String? bibliographyText;
 
   const VivaPdfExtractionResult({
     required this.fileName,
@@ -305,5 +499,10 @@ class VivaPdfExtractionResult {
     this.specialization,
     this.excerpt,
     this.defenseContext,
+    this.extractedQuestions = const [],
+    this.issues = const [],
+    this.supervisorFromThesis,
+    this.supervisorsFromThesis = const [],
+    this.bibliographyText,
   });
 }

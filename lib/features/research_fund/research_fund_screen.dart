@@ -4,10 +4,13 @@ import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 import '../../core/locale/locale_extensions.dart';
 import '../academic/academic_models.dart';
 import '../auth/user_account_service.dart';
+import '../guides/section_guide_catalog.dart';
+import '../guides/section_guide_screen.dart';
 import '../research_marketplace/research_idea_marketplace_detail_screen.dart';
 import '../research_marketplace/research_marketplace_screen.dart';
 import '../research_marketplace/research_marketplace_service.dart';
 import 'admin_fund_config_screen.dart';
+import 'industry_challenges_screen.dart';
 import 'research_fund_models.dart';
 
 class ResearchFundScreen extends StatelessWidget {
@@ -23,6 +26,10 @@ class ResearchFundScreen extends StatelessWidget {
         backgroundColor: _brand,
         foregroundColor: Colors.white,
         actions: [
+          const SectionGuideAppBarButton(
+            guideId: SectionGuideCatalog.fund,
+            accent: _brand,
+          ),
           StreamBuilder(
             stream: UserAccountService.instance.watchCurrentAccount(),
             builder: (context, snapshot) {
@@ -49,57 +56,66 @@ class ResearchFundScreen extends StatelessWidget {
           final config = configSnap.data ?? const ResearchFundConfig();
 
           if (!config.isConfigured) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(32),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.savings_outlined,
-                        size: 56, color: Colors.grey[400]),
-                    const SizedBox(height: 16),
-                    Text(
-                      context.t(
-                        'الصندوق غير مُفعّل بعد',
-                        'Fund is not configured yet',
-                      ),
-                      style: const TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      context.t(
-                        'يُفعَّل من مدير النظام مع شركاء الجامعات — بدون بيانات افتراضية',
-                        'Enabled by admin with university partners — no default data',
-                      ),
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.grey[600], height: 1.4),
-                    ),
-                    const SizedBox(height: 20),
-                    OutlinedButton.icon(
-                      onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const ResearchMarketplaceScreen(),
-                        ),
-                      ),
-                      icon: const Icon(Icons.lightbulb_outline),
-                      label: Text(context.t(
-                        'تصفح سوق الأفكار',
-                        'Browse ideas marketplace',
-                      )),
-                    ),
-                  ],
+            return ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                const SectionGuideBanner(
+                  guideId: SectionGuideCatalog.fund,
+                  accent: _brand,
                 ),
-              ),
+                const SizedBox(height: 12),
+                const IndustryChallengesFundItem(),
+                const SizedBox(height: 20),
+                Icon(Icons.savings_outlined, size: 48, color: Colors.grey[400]),
+                const SizedBox(height: 12),
+                Text(
+                  context.t(
+                    'صندوق الجامعات غير مُفعّل بعد',
+                    'University fund is not configured yet',
+                  ),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  context.t(
+                    'يُفعَّل من مدير النظام مع شركاء الجامعات — بدون بيانات افتراضية',
+                    'Enabled by admin with university partners — no default data',
+                  ),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey[600], height: 1.4),
+                ),
+                const SizedBox(height: 16),
+                OutlinedButton.icon(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const ResearchMarketplaceScreen(),
+                    ),
+                  ),
+                  icon: const Icon(Icons.lightbulb_outline),
+                  label: Text(context.t(
+                    'تصفح سوق الأفكار',
+                    'Browse ideas marketplace',
+                  )),
+                ),
+              ],
             );
           }
 
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
+              const SectionGuideBanner(
+                guideId: SectionGuideCatalog.fund,
+                accent: _brand,
+              ),
+              const SizedBox(height: 12),
+              const IndustryChallengesFundItem(),
+              const SizedBox(height: 16),
               _configCard(context, config),
               const SizedBox(height: 12),
               Card(

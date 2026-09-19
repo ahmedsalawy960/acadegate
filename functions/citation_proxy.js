@@ -4,6 +4,10 @@ const ALLOWED_HOSTS = new Set([
   "api.crossref.org",
   "api.openalex.org",
   "api.semanticscholar.org",
+  "www.ebi.ac.uk",
+  "serpapi.com",
+  "pub.orcid.org",
+  "query.wikidata.org",
 ]);
 
 const DEFAULT_HEADERS = {

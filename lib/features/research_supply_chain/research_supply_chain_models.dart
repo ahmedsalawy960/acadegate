@@ -1,7 +1,9 @@
 import '../academic/academic_models.dart';
 import '../academic_writing/writing_models.dart';
+import '../ai_advisor/grounded_work.dart';
 import '../matchmaking/smart_matchmaking_engine.dart';
 import '../store/store_categories.dart';
+import 'research_goal.dart';
 
 /// نتيجة تحليل Gemini (أو التحليل الأساسي) لحزمة البحث.
 class ResearchPathAiInsight {
@@ -11,6 +13,7 @@ class ResearchPathAiInsight {
   final bool fromGemini;
   final String? modelUsed;
   final String? error;
+  final List<DegreePlanStage> stages;
 
   const ResearchPathAiInsight({
     required this.analysis,
@@ -19,6 +22,7 @@ class ResearchPathAiInsight {
     this.fromGemini = false,
     this.modelUsed,
     this.error,
+    this.stages = const [],
   });
 }
 
@@ -32,6 +36,8 @@ class SupplyChainProduct {
   final String? createdBy;
   final int score;
   final List<String> reasons;
+  final String city;
+  final String storeName;
 
   const SupplyChainProduct({
     this.id,
@@ -42,6 +48,8 @@ class SupplyChainProduct {
     this.createdBy,
     this.score = 0,
     this.reasons = const [],
+    this.city = '',
+    this.storeName = '',
   });
 }
 
@@ -59,6 +67,11 @@ class ResearchSupplyBundle {
   final int overallScore;
   final List<String> chainSummary;
   final ResearchPathAiInsight? aiInsight;
+  final ResearchGoal? goal;
+  final List<DegreePlanStage> degreePlan;
+  final List<GroundedWork> literature;
+  final List<String> institutionalNotes;
+  final List<FundingFit> fundingFits;
 
   const ResearchSupplyBundle({
     required this.topic,
@@ -72,6 +85,11 @@ class ResearchSupplyBundle {
     this.overallScore = 0,
     this.chainSummary = const [],
     this.aiInsight,
+    this.goal,
+    this.degreePlan = const [],
+    this.literature = const [],
+    this.institutionalNotes = const [],
+    this.fundingFits = const [],
   });
 
   MatchResult<AcademicResearchIdea>? get idea =>
@@ -97,6 +115,11 @@ class ResearchSupplyBundle {
     int? overallScore,
     List<String>? chainSummary,
     ResearchPathAiInsight? aiInsight,
+    ResearchGoal? goal,
+    List<DegreePlanStage>? degreePlan,
+    List<GroundedWork>? literature,
+    List<String>? institutionalNotes,
+    List<FundingFit>? fundingFits,
   }) {
     return ResearchSupplyBundle(
       topic: topic ?? this.topic,
@@ -110,6 +133,11 @@ class ResearchSupplyBundle {
       overallScore: overallScore ?? this.overallScore,
       chainSummary: chainSummary ?? this.chainSummary,
       aiInsight: aiInsight ?? this.aiInsight,
+      goal: goal ?? this.goal,
+      degreePlan: degreePlan ?? this.degreePlan,
+      literature: literature ?? this.literature,
+      institutionalNotes: institutionalNotes ?? this.institutionalNotes,
+      fundingFits: fundingFits ?? this.fundingFits,
     );
   }
 
@@ -118,7 +146,8 @@ class ResearchSupplyBundle {
       supervisors.isNotEmpty ||
       labs.isNotEmpty ||
       products.isNotEmpty ||
-      writingExperts.isNotEmpty;
+      writingExperts.isNotEmpty ||
+      literature.isNotEmpty;
 
   int get completedSteps {
     var n = 0;

@@ -1,3 +1,5 @@
 {
-  "GEMINI_API_KEY": "ضع_مفتاحك_من_Google_AI_Studio_هنا"
+  "_comment": "DEBUG ONLY. Never pass this file to release/web/store builds — keys embed in the binary. Production AI uses Cloud Function secrets.",
+  "GEMINI_API_KEY": "ضع_مفتاحك_من_Google_AI_Studio_هنا",
+  "SERPAPI_API_KEY": "اختياري_مفتاح_SerpAPI_لـ_Google_Scholar"
 }

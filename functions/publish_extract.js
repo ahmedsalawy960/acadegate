@@ -319,12 +319,14 @@ function htmlToBodyBlocks(html) {
       if (isBibliographyHeading(text)) break;
       blocks.push({ id: nextId(), type: "paragraph", text });
     } else if (tag === "table") {
-      const rows = normalizeTableRows(parseHtmlTable(chunk));
-      if (rows.length > 0) {
+      const parsed = parseHtmlTable(chunk);
+      if (parsed.rows.length > 0) {
         blocks.push({
           id: nextId(),
           type: "table",
-          rowCells: rows.map((cells) => ({ cells })),
+          rowCells: parsed.rows.map((cells) => ({ cells })),
+          colSpans: parsed.colSpans.map((cells) => ({ cells })),
+          rowSpans: parsed.rowSpans.map((cells) => ({ cells })),
         });
       }
     } else if (tag === "img") {
@@ -346,25 +348,89 @@ function htmlToBodyBlocks(html) {
 }
 
 function parseHtmlTable(tableHtml) {
-  const rows = [];
+  const rawRows = [];
   const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
   let rowMatch;
   while ((rowMatch = rowRegex.exec(tableHtml)) !== null) {
     const cells = [];
-    const cellRegex = /<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi;
+    const cellRegex = /<(td|th)([^>]*)>([\s\S]*?)<\/\1>/gi;
     let cellMatch;
     while ((cellMatch = cellRegex.exec(rowMatch[1])) !== null) {
-      const tag = cellMatch[0];
-      const colspanMatch = tag.match(/colspan="(\d+)"/i);
-      const colspan = colspanMatch ? parseInt(colspanMatch[1], 10) : 1;
-      const value = stripTags(cellMatch[1]).trim();
-      for (let c = 0; c < Math.max(1, colspan); c++) {
-        cells.push(c === 0 ? value : "");
-      }
+      const attrs = cellMatch[2] || "";
+      const colspan = parseInt((attrs.match(/colspan="(\d+)"/i) || [])[1] || "1", 10);
+      const rowspan = parseInt((attrs.match(/rowspan="(\d+)"/i) || [])[1] || "1", 10);
+      cells.push({
+        text: stripTags(cellMatch[3]).trim(),
+        colspan: Math.max(1, colspan || 1),
+        rowspan: Math.max(1, rowspan || 1),
+      });
     }
-    if (cells.length > 0) rows.push(cells);
+    if (cells.length > 0) rawRows.push(cells);
   }
-  return rows;
+
+  const grid = [];
+  const colSpans = [];
+  const rowSpans = [];
+
+  function ensure(r, c) {
+    while (grid.length <= r) {
+      grid.push([]);
+      colSpans.push([]);
+      rowSpans.push([]);
+    }
+    while (grid[r].length <= c) {
+      grid[r].push("");
+      colSpans[r].push(1);
+      rowSpans[r].push(1);
+    }
+  }
+
+  function covered(r, c) {
+    if (r >= colSpans.length || c >= colSpans[r].length) return false;
+    if (colSpans[r][c] === 0) return true;
+    return colSpans[r][c] > 0 && rowSpans[r][c] === 0;
+  }
+
+  for (let r = 0; r < rawRows.length; r++) {
+    let col = 0;
+    for (const cell of rawRows[r]) {
+      while (covered(r, col)) col++;
+      const cs = cell.colspan;
+      const rs = cell.rowspan;
+      for (let dr = 0; dr < rs; dr++) {
+        for (let dc = 0; dc < cs; dc++) {
+          ensure(r + dr, col + dc);
+          if (dr === 0 && dc === 0) {
+            grid[r][col] = cell.text;
+            colSpans[r][col] = cs;
+            rowSpans[r][col] = rs;
+          } else if (dr === 0) {
+            colSpans[r][col + dc] = 0;
+            rowSpans[r][col + dc] = 0;
+          } else if (dc === 0) {
+            colSpans[r + dr][col] = cs;
+            rowSpans[r + dr][col] = 0;
+          } else {
+            colSpans[r + dr][col + dc] = 0;
+            rowSpans[r + dr][col + dc] = 0;
+          }
+        }
+      }
+      col += cs;
+    }
+  }
+
+  let maxCols = 0;
+  for (const row of grid) maxCols = Math.max(maxCols, row.length);
+  for (let r = 0; r < grid.length; r++) {
+    while (grid[r].length < maxCols) {
+      grid[r].push("");
+      colSpans[r].push(1);
+      rowSpans[r].push(1);
+    }
+  }
+
+  return { rows: grid, colSpans, rowSpans };
 }
 
 function toSubUnicode(text) {
@@ -481,11 +547,50 @@ function bibliographySection(text) {
   return section.trim();
 }
 
+function isRunningMatterLine(line) {
+  const t = String(line || "").replace(/\s+/g, " ").trim();
+  if (!t || t.length > 220) return false;
+  if (/©|ISSN\s*:|Open Access|Cite this:|Creative Commons|All rights reserved/i.test(t)) {
+    return true;
+  }
+  if (/\|\s*\d{1,3}\s*$/.test(t) && /\b(?:19|20)\d{2}\b/.test(t)) return true;
+  return (
+    t.length < 64 &&
+    /^[A-Za-z]{2,14}\s+[A-Z]\.\s+\S+(?:\s+\S+)?\s+et\s+al\.?\s*$/i.test(t)
+  );
+}
+
+function bibliographyLineContinues(current, line) {
+  const t = String(line || "").trim();
+  const cur = String(current || "").trim();
+  if (!t || !cur || isRunningMatterLine(t)) return false;
+  if (/^\((?:19|20)\d{2}[a-z]?\)/.test(t)) return true;
+  if (/^(?:19|20)\d{2}[a-z]?\. /.test(t)) return true;
+  if (/^https?:\/\/|^doi\b/i.test(t)) return true;
+  if (/^[&,]/.test(t) || /^and\s+/i.test(t)) return true;
+  if (/[,&]\s*$/.test(cur) || /\b(?:and|&)\s*$/i.test(cur)) return true;
+  if (/^(?:[A-Z]\.\s*)+\(?\s*(?:19|20)\d{2}/.test(t)) return true;
+  if (/^[a-z]/.test(t)) return true;
+  if (!/\b(?:19|20)\d{2}\b/.test(cur) && looksLikeAuthorListFragment(cur)) {
+    return true;
+  }
+  return false;
+}
+
+function looksLikeAuthorListFragment(raw) {
+  const t = String(raw || "").trim();
+  if (t.length < 8 || t.length > 400 || isRunningMatterLine(t)) return false;
+  if (/\((?:19|20)\d{2}/.test(t) && /\.\s+\S/.test(t)) return false;
+  return /[A-Z][\p{L}\p{M}'’.\-]*(?:\s+[\p{L}\p{M}'’.\-]+)*,\s*[A-Z]/u.test(t);
+}
+
 function looksLikeReference(block) {
   const t = String(block || "").trim();
   if (t.length < 20 || t.length > 2500) return false;
+  if (isRunningMatterLine(t)) return false;
+  if (/^\((?:19|20)\d{2}[a-z]?\)/.test(t) || /^[&,]/.test(t)) return false;
   if (
-    /^(The|This|In |However|Moreover|Figure|Table|Results show|Conclusion|Abstract|GC-MS|Analysis|Method|Sample|Flaxseed|Therefore|These|It is|We |Our )/i.test(
+    /^(The|This|These|Those|It |We |Our |In |For |Using |According|However|Therefore|Moreover|Furthermore|Additionally|Thus|Hence|Figure|Table|Many |It is)/i.test(
       t,
     )
   ) {
@@ -495,7 +600,7 @@ function looksLikeReference(block) {
   if (/doi\.org|DOI:|vol\.|pp\.|Journal|Proceedings|\bet al\./i.test(t)) {
     return true;
   }
-  return /^[A-Z][A-Za-z\-,\s.]{2,80},\s*[A-Z.]/.test(t);
+  return /[A-Z][\p{L}\p{M}'’.\-\s]{1,80},\s*[A-Z.]/u.test(t);
 }
 
 function parseReferences(fullText) {
@@ -547,29 +652,45 @@ function parseApa(section) {
   const merged = [];
   let current = "";
 
-  function startsReference(line) {
+  function looksLikeStart(line) {
     const t = line.trim();
-    if (t.length < 20) return false;
-    if (/^\[\d+\]/.test(t)) return true;
-    if (/^\d+[.)]\s/.test(t)) return true;
+    if (t.length < 8 || isRunningMatterLine(t)) return false;
+    if (/^\[\d+\]/.test(t) || /^\d+[.)]\s/.test(t)) return true;
+    if (/^\((?:19|20)\d{2}[a-z]?\)/.test(t)) return false;
+    if (looksLikeAuthorListFragment(t)) return true;
     return /\(\d{4}[a-z]?\)/.test(t) || (/\b(19|20)\d{2}\b/.test(t) && t.length > 35);
+  }
+
+  function hasYear(text) {
+    return /\b(?:19|20)\d{2}\b/.test(text);
   }
 
   for (const raw of lines) {
     const line = raw.trim();
     if (!line) {
-      if (current) {
+      if (current && hasYear(current)) {
         merged.push(current.trim());
         current = "";
       }
       continue;
     }
-    if (startsReference(line)) {
-      if (current) merged.push(current.trim());
-      current = line;
-    } else if (current) {
-      current += " " + line;
+    if (isRunningMatterLine(line)) continue;
+    if (!current) {
+      if (looksLikeStart(line) || looksLikeAuthorListFragment(line)) {
+        current = line;
+      }
+      continue;
     }
+    if (bibliographyLineContinues(current, line)) {
+      current += " " + line;
+      continue;
+    }
+    if (looksLikeStart(line) && hasYear(current)) {
+      merged.push(current.trim());
+      current = line;
+      continue;
+    }
+    current += " " + line;
   }
   if (current) merged.push(current.trim());
 

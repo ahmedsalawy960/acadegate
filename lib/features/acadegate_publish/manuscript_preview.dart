@@ -34,6 +34,7 @@ class ManuscriptBlockPreview extends StatelessWidget {
                 ),
               ),
             ),
+            textDirection: TextDirection.ltr,
           ),
         ),
       ManuscriptBlockType.paragraph => Padding(
@@ -46,6 +47,7 @@ class ManuscriptBlockPreview extends StatelessWidget {
                 style: style,
               ),
             ),
+            textDirection: TextDirection.ltr,
           ),
         ),
       ManuscriptBlockType.equation => Container(
@@ -111,13 +113,16 @@ class ManuscriptPreview extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: manuscript.bodyBlocks
-          .map(
-            (b) => ManuscriptBlockPreview(block: b, manuscript: manuscript),
-          )
-          .toList(),
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: manuscript.bodyBlocks
+            .map(
+              (b) => ManuscriptBlockPreview(block: b, manuscript: manuscript),
+            )
+            .toList(),
+      ),
     );
   }
 }

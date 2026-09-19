@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../profile/academic_profile_service.dart';
+import '../thesis_studio/thesis_studio_storage.dart';
 import 'research_journey_service.dart';
 import 'research_journey_stage.dart';
 import 'thesis_progress.dart';
@@ -33,6 +34,21 @@ class ThesisProgressSignals {
     if (user != null) {
       await _applyFirestoreSignals(signals, user.uid);
     }
+
+    try {
+      final studio = await ThesisStudioStorage.instance.load();
+      final draft = studio?.draft;
+      final goalOk = (studio?.goalText.trim().length ?? 0) >= 24;
+      final proseOk = draft?.hasGeneratedProse == true;
+      final litOk = (draft?.literature.works.length ?? 0) >= 1;
+      if (proseOk || litOk || goalOk) {
+        signals[ThesisActivityId.thesisStudio.name] = true;
+      }
+      // Prose written in Thesis Studio also advances the writing milestone.
+      if (proseOk) {
+        signals[ThesisActivityId.chapterWriting.name] = true;
+      }
+    } catch (_) {}
 
     return signals;
   }

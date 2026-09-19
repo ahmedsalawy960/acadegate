@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../../../core/directory/directory_trust_status.dart';
 import '../../auth/user_account_service.dart';
 import '../../moderation/approval_status.dart';
 import 'egypt_store_suppliers_catalog.dart';
@@ -57,9 +58,10 @@ class StoreSupplierImportService {
   }
 
   /// Upsert all curated suppliers (with contacts). Optionally sync products
-  /// from WooCommerce-enabled suppliers.
+  /// from WooCommerce-enabled suppliers (full catalog — every API page).
   Future<StoreSupplierSyncResult> syncAll({
     bool syncProducts = true,
+    /// Debug-only cap. Leave null to pull the entire supplier catalog.
     int? maxProductsPerSupplier,
     void Function(StoreSupplierSyncProgress progress)? onProgress,
     bool Function()? shouldCancel,
@@ -87,10 +89,22 @@ class StoreSupplierImportService {
     final supplierBatch = _db.batch();
     for (final supplier in egyptStoreSuppliersCatalog) {
       final ref = _db.collection(suppliersCollection).doc(supplier.id);
+      final map = Map<String, dynamic>.from(
+        supplier.toFirestoreMap(syncedAt: now),
+      );
+      // Preserve admin/claim trust lifecycle on re-sync.
+      map.remove('directoryStatus');
+      map.remove('isPartner');
+      map.remove('isVerifiedSeller');
+      map.remove('claimedByUid');
+      map.remove('claimedByName');
+      map.remove('claimedAt');
+      map.remove('lastVerifiedIso');
+      map.remove('lastReviewedAt');
       supplierBatch.set(
         ref,
         {
-          ...supplier.toFirestoreMap(syncedAt: now),
+          ...map,
           'updatedAt': FieldValue.serverTimestamp(),
         },
         SetOptions(merge: true),
@@ -98,6 +112,22 @@ class StoreSupplierImportService {
       suppliersUpserted++;
     }
     await supplierBatch.commit();
+
+    // Seed directoryStatus only when absent.
+    for (final supplier in egyptStoreSuppliersCatalog) {
+      final ref = _db.collection(suppliersCollection).doc(supplier.id);
+      final snap = await ref.get();
+      final data = snap.data();
+      if (data == null) continue;
+      if ((data['directoryStatus']?.toString() ?? '').isEmpty) {
+        await ref.set({
+          'directoryStatus': supplier.resolvedDirectoryStatus,
+          'isPartner': supplier.isPartner,
+          'isVerifiedSeller': supplier.isPartner,
+          'lastVerifiedIso': supplier.lastVerifiedIso,
+        }, SetOptions(merge: true));
+      }
+    }
 
     var imported = 0;
     var updated = 0;
@@ -126,13 +156,14 @@ class StoreSupplierImportService {
             await WooCommerceStoreApiClient.instance.fetchAllProducts(
           baseUrl: base,
           supplierId: supplier.id,
+          // Full catalog unless an explicit debug cap is passed.
           maxProducts: maxProductsPerSupplier ?? supplier.syncMaxProducts,
           onProgress: (p) {
             onProgress?.call(
               StoreSupplierSyncProgress(
                 stage: 'fetch',
                 detail:
-                    '${supplier.nameAr}: صفحة ${p.page}/${p.totalPages} · ${p.productsSoFar} منتج',
+                    '${supplier.nameAr}: كتالوج كامل · صفحة ${p.page}/${p.totalPages} · ${p.productsSoFar} منتج',
                 fraction: 0.05 +
                     (0.55 * (i + p.fraction) / targets.length),
               ),
@@ -253,8 +284,18 @@ class StoreSupplierImportService {
           'supplierId': supplier.id,
           'importSource': 'wc_${supplier.id}',
           'externalProductId': product.externalId,
-          'isVerifiedSeller': true,
+          'directoryStatus': supplier.resolvedDirectoryStatus,
+          'isVerifiedSeller':
+              DirectoryTrustStatus.isTrusted(supplier.resolvedDirectoryStatus) ||
+              supplier.isPartner,
+          'isPartner':
+              DirectoryTrustStatus.isTrusted(supplier.resolvedDirectoryStatus) ||
+              supplier.isPartner,
           'isDirectoryListing': true,
+          'dataSource': 'public_web_directory',
+          'dataSourceLabelAr': supplier.dataSourceLabelAr,
+          'dataSourceLabelEn': supplier.dataSourceLabelEn,
+          'lastVerifiedIso': supplier.lastVerifiedIso,
           'inStock': product.inStock,
           'approvalStatus': ApprovalStatus.approved,
           'syncedAt': FieldValue.serverTimestamp(),
@@ -275,6 +316,11 @@ class StoreSupplierImportService {
             skipped++;
             continue;
           }
+          // Preserve trust lifecycle set by admin/claim.
+          payload.remove('directoryStatus');
+          payload.remove('isPartner');
+          payload.remove('isVerifiedSeller');
+          payload.remove('lastVerifiedIso');
           batch.set(ref, payload, SetOptions(merge: true));
           updated++;
         }

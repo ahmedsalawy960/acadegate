@@ -50,6 +50,9 @@ app.*.map.json
 *.secrets
 dart_defines.json
 
+# Firebase local cache / hosting deploy state
+.firebase/
+
 # Windows build tool (run scripts/setup-windows-build.ps1)
 tools/nuget.exe
 

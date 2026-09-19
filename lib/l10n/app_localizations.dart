@@ -476,6 +476,12 @@ abstract class AppLocalizations {
   /// **'Writing services'**
   String get serviceWriting;
 
+  /// No description provided for @serviceThesisStudio.
+  ///
+  /// In en, this message translates to:
+  /// **'Thesis Studio'**
+  String get serviceThesisStudio;
+
   /// No description provided for @servicePublish.
   ///
   /// In en, this message translates to:
@@ -889,6 +895,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Faculty of Fine Arts'**
   String get facultyFineArts;
+
+  /// No description provided for @facultyProfessionalStudies.
+  ///
+  /// In en, this message translates to:
+  /// **'Professional postgraduate & diplomas'**
+  String get facultyProfessionalStudies;
 
   /// No description provided for @storeChemical.
   ///

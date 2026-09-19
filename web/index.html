@@ -19,7 +19,24 @@
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
-  <meta name="description" content="AcadeGate — بوابة الدراسات العليا والبحث الأكاديمي">
+  <meta name="description" content="AcadeGate — بوابة الدراسات العليا والبحث الأكاديمي: مشرفون، مختبرات، متجر، كتابة، نشر وتمويل.">
+  <meta name="robots" content="noindex, follow">
+
+  <!-- Open Graph — معاينة واتساب / فيسبوك / تلغرام -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="AcadeGate">
+  <meta property="og:title" content="AcadeGate — بوابة الدراسات العليا">
+  <meta property="og:description" content="منصة أكاديمية للباحثين: مشرفون، مختبرات، متجر، كتابة بشرية، نشر وتمويل بحثي.">
+  <meta property="og:url" content="https://acadegate-new.web.app/">
+  <meta property="og:locale" content="ar_AR">
+  <meta property="og:image" content="https://acadegate-new.web.app/icons/Icon-512.png">
+  <meta property="og:image:width" content="512">
+  <meta property="og:image:height" content="512">
+
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="AcadeGate — بوابة الدراسات العليا">
+  <meta name="twitter:description" content="منصة أكاديمية للباحثين: مشرفون، مختبرات، متجر، كتابة، نشر وتمويل.">
+  <meta name="twitter:image" content="https://acadegate-new.web.app/icons/Icon-512.png">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
@@ -31,18 +48,28 @@
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <title>AcadeGate</title>
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
-  <!--
-    You can customize the "flutter_bootstrap.js" script.
-    This is useful to provide a custom configuration to the Flutter loader
-    or to give the user feedback during the initialization process.
-
-    For more details:
-    * https://docs.flutter.dev/platform-integration/web/initialization
-  -->
-  <script src="flutter_bootstrap.js" async></script>
+  <script>
+    (async function () {
+      try {
+        if ('serviceWorker' in navigator) {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map(function (r) { return r.unregister(); }));
+        }
+        if (window.caches) {
+          const keys = await caches.keys();
+          await Promise.all(keys.map(function (k) { return caches.delete(k); }));
+        }
+      } catch (e) {}
+      var s = document.createElement('script');
+      s.src = 'flutter_bootstrap.js?v=10119';
+      s.async = true;
+      document.body.appendChild(s);
+    })();
+  </script>
 </body>
 </html>

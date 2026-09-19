@@ -23,6 +23,8 @@ class L10nLookup {
         return appTr('مسؤول مختبر', 'Lab manager');
       case UserRole.ideaPublisher:
         return appTr('ناشر أفكار بحثية', 'Research idea publisher');
+      case UserRole.writer:
+        return appTr('كاتب أكاديمي', 'Academic writer');
       case UserRole.admin:
         return appTr('مدير النظام', 'System admin');
       default:
@@ -84,6 +86,11 @@ class L10nLookup {
         return appTr('كلية التربية الرياضية', 'Faculty of Physical Education');
       case 'FineArts':
         return appTr('كلية الفنون الجميلة', 'Faculty of Fine Arts');
+      case 'ProfessionalStudies':
+        return appTr(
+          'دراسات عليا مهنية ودبلومات',
+          'Professional postgraduate & diplomas',
+        );
       default:
         return facultyId;
     }
@@ -91,6 +98,12 @@ class L10nLookup {
 
   static String supervisorsTitleForCategory(String facultyId) {
     final title = facultyTitleStatic(facultyId);
+    if (facultyId == 'ProfessionalStudies') {
+      return appTr(
+        'مشرفو الدراسات العليا المهنية',
+        'Professional postgraduate supervisors',
+      );
+    }
     if (LocaleService.instance.isEnglish) {
       final short = title.replaceFirst('Faculty of ', '');
       return '$short Supervisors';
@@ -105,7 +118,10 @@ class L10nLookup {
     switch (id) {
       case 'chemicals':
       case 'chemical': // legacy id
-        return appTr('كيميائيات وكواشف', 'Chemicals & reagents');
+        return appTr(
+          'مستلزمات ومواد كيميائية وكواشف',
+          'Chemical supplies, materials & reagents',
+        );
       case 'biology':
         return appTr('بيولوجيا وتقنية حيوية', 'Biology & biotech');
       case 'medical':
@@ -119,6 +135,8 @@ class L10nLookup {
         return appTr('زراعة وبيطري', 'Agriculture & veterinary');
       case 'computing':
         return appTr('حوسبة وبرمجيات بحثية', 'Computing & research software');
+      case 'knowledge_assets':
+        return appTr('أصول معرفية رقمية', 'Digital knowledge assets');
       case 'consumables':
         return appTr('مستهلكات وأدوات مختبر', 'Lab consumables & tools');
       case 'instruments':
@@ -504,6 +522,30 @@ class L10nLookup {
   static String get citations => appTr('استشهادات', 'Citations');
   static String get topJournals =>
       appTr('أبرز المجلات التي نُشر فيها', 'Top journals published in');
+  static String get researchIdentity =>
+      appTr('بصمة بحثية (OpenAlex)', 'Research identity (OpenAlex)');
+  static String get researchIdentityHint => appTr(
+        'نسب التصنيف من موضوعات ومنشورات OpenAlex — ليست درجة رسمية.',
+        'Classification share from OpenAlex topics and works — not an official grade.',
+      );
+  static String get topCollaborators =>
+      appTr('أبرز المتعاونين', 'Top collaborators');
+  static String get partnerInstitutions =>
+      appTr('جهات التعاون', 'Partner institutions');
+  static String get supervisorWorks =>
+      appTr('أبحاث المشرف', 'Supervisor works');
+  static String get openPaper => appTr('فتح البحث', 'Open paper');
+  static String get openPdf => appTr('فتح PDF', 'Open PDF');
+  static String get paperUnavailable =>
+      appTr('غير متاح للفتح', 'Not available to open');
+  static String get showMoreWorks => appTr('عرض المزيد', 'Show more');
+  static String get showFewerWorks => appTr('عرض أقل', 'Show fewer');
+  static String get paperOpenFailed => appTr(
+        'تعذّر فتح البحث',
+        'Could not open the paper',
+      );
+  static String jointWorksCount(int n) =>
+      appTr('$n أعمال مشتركة', '$n joint works');
   static String get viewOnGoogleScholar =>
       appTr('عرض على Google Scholar', 'View on Google Scholar');
   static String get noSupervisorPublicationData => appTr(
@@ -541,6 +583,10 @@ class L10nLookup {
         return researchIdea;
       case 'community_posts':
         return communityPostFull;
+      case 'writing_services':
+        return writingExperts;
+      case 'provider_applications':
+        return appTr('طلب مقدم خدمة', 'Provider application');
       default:
         return collection;
     }
@@ -558,6 +604,10 @@ class L10nLookup {
         return ideas;
       case 'community_posts':
         return community;
+      case 'writing_services':
+        return writingExperts;
+      case 'provider_applications':
+        return appTr('طلبات مقدمي الخدمة', 'Provider applications');
       default:
         return collection;
     }

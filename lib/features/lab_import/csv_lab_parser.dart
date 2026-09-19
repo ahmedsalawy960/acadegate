@@ -326,6 +326,7 @@ Map<String, dynamic> csvLabRowToFirestoreMap(CsvLabRow row) {
     'waitDays': 5,
     'importSource':
         row.importSource.isNotEmpty ? row.importSource : 'csv',
+    'directoryStatus': 'unverified',
     if (row.sourceUrl.isNotEmpty) 'sourceUrl': row.sourceUrl,
     if (row.externalId.isNotEmpty) 'externalId': row.externalId,
     if (row.importSource == 'nbsle' && row.externalId.isNotEmpty)

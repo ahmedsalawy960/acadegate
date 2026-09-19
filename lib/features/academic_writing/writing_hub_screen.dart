@@ -5,6 +5,8 @@ import '../../core/locale/locale_extensions.dart';
 import '../../core/widgets/category_visual.dart';
 import '../ai_advisor/ai_advisor_screen.dart';
 import '../data_analysis/statistical_assumptions_screen.dart';
+import '../guides/section_guide_catalog.dart';
+import '../guides/section_guide_screen.dart';
 import '../home/home_search_utils.dart';
 import '../home/section_search_field.dart';
 import '../viva_simulator/viva_screen.dart';
@@ -85,6 +87,10 @@ class _WritingHubScreenState extends State<WritingHubScreen> {
         backgroundColor: _brandColor,
         foregroundColor: Colors.white,
         actions: [
+          const SectionGuideAppBarButton(
+            guideId: SectionGuideCatalog.writing,
+            accent: _brandColor,
+          ),
           IconButton(
             tooltip: context.t('طلباتي', 'My orders'),
             icon: const Icon(Icons.receipt_long_outlined),
@@ -105,6 +111,11 @@ class _WritingHubScreenState extends State<WritingHubScreen> {
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
+                const SectionGuideBanner(
+                  guideId: SectionGuideCatalog.writing,
+                  accent: _brandColor,
+                ),
+                const SizedBox(height: 12),
                 SectionSearchField(
                   query: _searchQuery,
                   onChanged: (value) => setState(() => _searchQuery = value),

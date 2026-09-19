@@ -28,7 +28,7 @@ class OpenAlexAuthorPreviewCard extends StatelessWidget {
         ? Colors.green
         : quality.score >= 45
             ? Colors.orange
-            : Colors.red;
+            : Colors.blueGrey;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
@@ -46,7 +46,7 @@ class OpenAlexAuthorPreviewCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        author.name,
+                        OpenAlexSearchAliases.formatPersonName(author.name),
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,

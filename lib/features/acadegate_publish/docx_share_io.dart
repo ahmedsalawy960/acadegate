@@ -5,7 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
-Future<void> shareDocxBytesPlatform({
+/// Returns `true` when saved/shared, `false` if the user cancelled (Windows save dialog).
+Future<bool> shareDocxBytesPlatform({
   required Uint8List bytes,
   required String name,
 }) async {
@@ -17,12 +18,12 @@ Future<void> shareDocxBytesPlatform({
       type: FileType.custom,
       allowedExtensions: const ['docx'],
     );
-    if (savePath == null || savePath.isEmpty) return;
+    if (savePath == null || savePath.isEmpty) return false;
     if (!savePath.toLowerCase().endsWith('.docx')) {
       savePath = '$savePath.docx';
     }
     await File(savePath).writeAsBytes(bytes);
-    return;
+    return true;
   }
 
   final dir = await getTemporaryDirectory();
@@ -40,4 +41,5 @@ Future<void> shareDocxBytesPlatform({
       subject: name,
     ),
   );
+  return true;
 }

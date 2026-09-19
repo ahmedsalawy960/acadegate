@@ -1,8 +1,19 @@
 import '../../core/locale/app_translate.dart';
 import 'citation_formatter.dart';
+import 'citation_linker.dart';
 import 'publish_models.dart';
 
 enum FormatRuleConfidence { partnerOfficial, publisherStandard, estimated }
+
+class JournalCitationInference {
+  final PublishCitationStyle style;
+  final bool plainNumber;
+
+  const JournalCitationInference({
+    required this.style,
+    this.plainNumber = false,
+  });
+}
 
 class JournalFormatRules {
   final String journalName;
@@ -27,6 +38,31 @@ class JournalFormatRules {
   final String? sourceUrl;
   final bool extractedFromGuide;
   final String? excerpt;
+  /// 1 = single column, 2 = two-column body.
+  final int columnCount;
+  /// `a4` or `letter`.
+  final String paperSize;
+  final int firstLineIndentTwips;
+  final bool headingNumbered;
+  final bool headingUppercase;
+  final String titleAlign;
+  final bool pageNumbers;
+  final bool runningHeader;
+  final int? abstractMaxWords;
+  final List<String> sectionOrder;
+  /// Sample bibliography line copied from the author guide.
+  final String? referenceExample;
+  /// Sample in-text citation copied from the author guide.
+  final String? inTextExample;
+  final bool titleUppercase;
+  final int? maxReferences;
+  final int? maxFiguresAndTables;
+  final double? figureMaxWidthCm;
+  final int? keywordsMin;
+  final int? keywordsMax;
+  final int? runningTitleMaxChars;
+  final bool noEtAlInReferences;
+  final List<String> keyRequirements;
 
   const JournalFormatRules({
     required this.journalName,
@@ -50,7 +86,40 @@ class JournalFormatRules {
     this.sourceUrl,
     this.extractedFromGuide = false,
     this.excerpt,
+    this.columnCount = 1,
+    this.paperSize = 'a4',
+    this.firstLineIndentTwips = 0,
+    this.headingNumbered = false,
+    this.headingUppercase = false,
+    this.titleAlign = 'center',
+    this.pageNumbers = true,
+    this.runningHeader = false,
+    this.abstractMaxWords,
+    this.sectionOrder = const [],
+    this.referenceExample,
+    this.inTextExample,
+    this.titleUppercase = false,
+    this.maxReferences,
+    this.maxFiguresAndTables,
+    this.figureMaxWidthCm,
+    this.keywordsMin,
+    this.keywordsMax,
+    this.runningTitleMaxChars,
+    this.noEtAlInReferences = false,
+    this.keyRequirements = const [],
   });
+
+  factory JournalFormatRules.forStudentStyle(PublishCitationStyle style) {
+    return JournalFormatRules(
+      journalName: '',
+      citationStyle: style,
+      profileLabel: CitationFormatter.styleLabel(style),
+      referenceListPlainNumber: style == PublishCitationStyle.vancouver ||
+          style == PublishCitationStyle.acs,
+      basisAr: 'تنسيق المراجع الذي اختاره الطالب قبل اختيار المجلة',
+      basisEn: 'Student-selected reference style before journal selection',
+    );
+  }
 
   int get lineSpacingTwips => (lineSpacing * 240).round();
 
@@ -70,13 +139,22 @@ class JournalFormatRules {
           citationStyle == PublishCitationStyle.acs) &&
       !usesAuthorDateInText;
 
-  /// Some guides require author names in text, not [1] (rare; overrides ieee list).
-  bool get usesAuthorDateInText => false;
+  /// APA / Harvard / Chicago keep (Author, Year) in the body.
+  bool get usesAuthorDateInText =>
+      citationStyle == PublishCitationStyle.apa ||
+      citationStyle == PublishCitationStyle.harvard ||
+      citationStyle == PublishCitationStyle.chicago;
 
   /// From extracted guide — bibliography as 1. 2. 3. instead of [1].
   bool get usesPlainNumberBibliography => referenceListPlainNumber;
 
   String confidenceLabel({required bool isEnglish}) {
+    if (extractedFromGuide && (sourceUrl ?? '').startsWith('template:')) {
+      return appTr(
+        'مستخرج من قالب المجلة المرفوع',
+        'Extracted from uploaded journal template',
+      );
+    }
     if (extractedFromGuide) {
       return appTr(
         'مستخرج من دليل المؤلفين',
@@ -100,31 +178,44 @@ class JournalFormatRules {
   }
 
   List<String> ruleDescriptions({required bool isEnglish}) {
-    final styleName = referenceListPlainNumber
-        ? appTr(
-            'مرقّم [1] في النص — 1. 2. 3. في قائمة المراجع',
-            'Numbered [1] in text — 1. 2. 3. in reference list',
-          )
-        : citationStyle == PublishCitationStyle.ieee
-            ? appTr(
-                'IEEE / Vancouver — [1] في النص والقائمة',
-                'IEEE / Vancouver — [1] in text and list',
-              )
-            : appTr('APA — (Author, Year)', 'APA — (Author, Year)');
+    final styleName = CitationFormatter.styleMenuLabel(
+      citationStyle,
+      arabic: !isEnglish,
+    );
     return [
       appTr(
         'نمط المراجع: $styleName',
         'Reference style: $styleName',
       ),
-      if (extractedFromGuide)
+      if (referenceListPlainNumber)
+        appTr(
+          'قائمة المراجع: 1. 2. 3. بدون أقواس مربعة',
+          'Reference list: 1. 2. 3. without square brackets',
+        ),
+      if (referenceExample != null && referenceExample!.trim().isNotEmpty)
+        appTr(
+          'شكل المرجع في الدليل: ${referenceExample!.trim()}',
+          'Guide reference sample: ${referenceExample!.trim()}',
+        ),
+      if (inTextExample != null && inTextExample!.trim().isNotEmpty)
+        appTr(
+          'شكل الاقتباس في النص: ${inTextExample!.trim()}',
+          'Guide in-text sample: ${inTextExample!.trim()}',
+        ),
+      if (extractedFromGuide && (sourceUrl ?? '').startsWith('template:'))
+        appTr(
+          'المصدر: قالب Word الرسمي المرفوع',
+          'Source: uploaded official Word template',
+        )
+      else if (extractedFromGuide)
         appTr(
           'المصدر: دليل المؤلفين',
           'Source: author guidelines',
         )
       else
         appTr(
-          'المصدر: تقدير احتياطي — الصق دليل المجلة للدقة',
-          'Source: fallback estimate — paste author guide for accuracy',
+          'المصدر: تقدير احتياطي — ارفع قالب المجلة أو الصق دليل المؤلفين',
+          'Source: fallback estimate — upload the journal template or paste the author guide',
         ),
       appTr(
         'الخط: $fontFamily — ${bodyFontHalfPoints ~/ 2} نقطة',
@@ -143,6 +234,77 @@ class JournalFormatRules {
       else
         appTr('محاذاة النص: يسار', 'Alignment: left'),
       appTr(
+        'الأعمدة: ${columnCount == 2 ? 'عمودان (العنوان والملخص بعرض كامل)' : 'عمود واحد'}',
+        'Columns: ${columnCount == 2 ? 'two-column body (title/abstract full width)' : 'single column'}',
+      ),
+      appTr(
+        'حجم الورق: ${paperSize.toUpperCase()}',
+        'Paper: ${paperSize.toUpperCase()}',
+      ),
+      if (firstLineIndentTwips > 0)
+        appTr(
+          'مسافة أول السطر: ${(firstLineIndentTwips / 1440).toStringAsFixed(2)} بوصة',
+          'First-line indent: ${(firstLineIndentTwips / 1440).toStringAsFixed(2)} in',
+        ),
+      if (titleUppercase)
+        appTr(
+          'العنوان: أحرف كبيرة عريضة',
+          'Title: bold uppercase',
+        ),
+      appTr(
+        'محاذاة العنوان: ${titleAlign == 'center' ? 'وسط' : 'يسار'}',
+        'Title alignment: $titleAlign',
+      ),
+      if (headingNumbered)
+        appTr('ترقيم العناوين: مفعّل', 'Numbered headings: on')
+      else if (extractedFromGuide || keyRequirements.isNotEmpty)
+        appTr('ترقيم العناوين: غير مسموح', 'Numbered headings: off'),
+      if (headingUppercase)
+        appTr('العناوين بأحرف كبيرة', 'Headings in uppercase'),
+      if (keywordsMin != null || keywordsMax != null)
+        appTr(
+          'الكلمات المفتاحية: ${keywordsMin ?? 1}–${keywordsMax ?? keywordsMin} مفصولة بفاصلة',
+          'Keywords: ${keywordsMin ?? 1}–${keywordsMax ?? keywordsMin}, comma-separated',
+        ),
+      if (runningTitleMaxChars != null)
+        appTr(
+          'عنوان جارٍ: حتى $runningTitleMaxChars حرفاً تحت العنوان',
+          'Running title: up to $runningTitleMaxChars characters under the title',
+        ),
+      if (maxReferences != null)
+        appTr(
+          'حد المراجع: $maxReferences (للمراجعة قد يختلف)',
+          'Reference limit: $maxReferences (reviews may differ)',
+        ),
+      if (noEtAlInReferences)
+        appTr(
+          'قائمة المراجع: أسماء كل المؤلفين — بدون et al.',
+          'Reference list: all author names — do not use et al.',
+        ),
+      if (maxFiguresAndTables != null)
+        appTr(
+          'حد الأشكال والجداول والمخططات: $maxFiguresAndTables',
+          'Schemes, tables, and figures: at most $maxFiguresAndTables',
+        ),
+      if (figureMaxWidthCm != null)
+        appTr(
+          'عرض الشكل/الجدول: حتى ${figureMaxWidthCm!.toStringAsFixed(1)} سم، والتوضيحات أسفل الشكل',
+          'Figure/table width: at most ${figureMaxWidthCm!.toStringAsFixed(1)} cm; legends below figures',
+        ),
+      if (pageNumbers) appTr('ترقيم الصفحات: نعم', 'Page numbers: yes'),
+      if (runningHeader)
+        appTr('ترويسة جارية باسم المجلة', 'Running header with journal name'),
+      if (abstractMaxWords != null)
+        appTr(
+          'حد الملخص: $abstractMaxWords كلمة',
+          'Abstract limit: $abstractMaxWords words',
+        ),
+      if (sectionOrder.isNotEmpty)
+        appTr(
+          'ترتيب الأقسام: ${sectionOrder.join(' → ')}',
+          'Section order: ${sectionOrder.join(' → ')}',
+        ),
+      appTr(
         'عنوان قسم المراجع: $referenceSectionTitle',
         'References heading: $referenceSectionTitle',
       ),
@@ -154,35 +316,101 @@ class JournalFormatRules {
 
   String basis({required bool isEnglish}) => isEnglish ? basisEn : basisAr;
 
-  /// Guide-extracted rules win; otherwise use publisher/journal fallback estimate.
-  JournalFormatRules orFallback(JournalFormatRules fallback) =>
-      extractedFromGuide ? this : fallback;
+  /// Prefer rules read from a guide/paste. Fill only empty layout slots from
+  /// the publisher estimate — never discard the extracted guide.
+  JournalFormatRules orFallback(JournalFormatRules fallback) {
+    if (extractedFromGuide) return this;
+    return fallback;
+  }
 
-  JournalFormatRules withCitationStyle(PublishCitationStyle style) {
+  JournalFormatRules copyWith({
+    PublishCitationStyle? citationStyle,
+    String? fontFamily,
+    int? bodyFontHalfPoints,
+    int? titleFontHalfPoints,
+    int? headingFontHalfPoints,
+    double? lineSpacing,
+    int? marginTwips,
+    bool? justifyBody,
+    String? referenceSectionTitle,
+    bool? referenceListPlainNumber,
+    String? profileLabel,
+    int? columnCount,
+    String? paperSize,
+    int? firstLineIndentTwips,
+    bool? headingNumbered,
+    bool? headingUppercase,
+    String? titleAlign,
+    bool? pageNumbers,
+    bool? runningHeader,
+    int? abstractMaxWords,
+    List<String>? sectionOrder,
+    String? referenceExample,
+    String? inTextExample,
+    bool? extractedFromGuide,
+    bool? titleUppercase,
+    int? maxReferences,
+    int? maxFiguresAndTables,
+    double? figureMaxWidthCm,
+    int? keywordsMin,
+    int? keywordsMax,
+    int? runningTitleMaxChars,
+    bool? noEtAlInReferences,
+    List<String>? keyRequirements,
+  }) {
     return JournalFormatRules(
       journalName: journalName,
       publisher: publisher,
-      citationStyle: style,
-      fontFamily: fontFamily,
-      bodyFontHalfPoints: bodyFontHalfPoints,
-      titleFontHalfPoints: titleFontHalfPoints,
-      headingFontHalfPoints: headingFontHalfPoints,
-      lineSpacing: lineSpacing,
-      marginTwips: marginTwips,
-      justifyBody: justifyBody,
-      referenceSectionTitle: referenceSectionTitle,
-      referenceListPlainNumber: referenceListPlainNumber,
-      profileLabel: referenceListPlainNumber
-          ? profileLabel
-          : CitationFormatter.styleLabel(style),
+      citationStyle: citationStyle ?? this.citationStyle,
+      fontFamily: fontFamily ?? this.fontFamily,
+      bodyFontHalfPoints: bodyFontHalfPoints ?? this.bodyFontHalfPoints,
+      titleFontHalfPoints: titleFontHalfPoints ?? this.titleFontHalfPoints,
+      headingFontHalfPoints: headingFontHalfPoints ?? this.headingFontHalfPoints,
+      lineSpacing: lineSpacing ?? this.lineSpacing,
+      marginTwips: marginTwips ?? this.marginTwips,
+      justifyBody: justifyBody ?? this.justifyBody,
+      referenceSectionTitle: referenceSectionTitle ?? this.referenceSectionTitle,
+      referenceListPlainNumber:
+          referenceListPlainNumber ?? this.referenceListPlainNumber,
+      profileLabel: profileLabel ?? this.profileLabel,
       confidence: confidence,
       basisAr: basisAr,
       basisEn: basisEn,
       verifyStepsAr: verifyStepsAr,
       verifyStepsEn: verifyStepsEn,
       sourceUrl: sourceUrl,
-      extractedFromGuide: extractedFromGuide,
+      extractedFromGuide: extractedFromGuide ?? this.extractedFromGuide,
       excerpt: excerpt,
+      columnCount: columnCount ?? this.columnCount,
+      paperSize: paperSize ?? this.paperSize,
+      firstLineIndentTwips: firstLineIndentTwips ?? this.firstLineIndentTwips,
+      headingNumbered: headingNumbered ?? this.headingNumbered,
+      headingUppercase: headingUppercase ?? this.headingUppercase,
+      titleAlign: titleAlign ?? this.titleAlign,
+      pageNumbers: pageNumbers ?? this.pageNumbers,
+      runningHeader: runningHeader ?? this.runningHeader,
+      abstractMaxWords: abstractMaxWords ?? this.abstractMaxWords,
+      sectionOrder: sectionOrder ?? this.sectionOrder,
+      referenceExample: referenceExample ?? this.referenceExample,
+      inTextExample: inTextExample ?? this.inTextExample,
+      titleUppercase: titleUppercase ?? this.titleUppercase,
+      maxReferences: maxReferences ?? this.maxReferences,
+      maxFiguresAndTables: maxFiguresAndTables ?? this.maxFiguresAndTables,
+      figureMaxWidthCm: figureMaxWidthCm ?? this.figureMaxWidthCm,
+      keywordsMin: keywordsMin ?? this.keywordsMin,
+      keywordsMax: keywordsMax ?? this.keywordsMax,
+      runningTitleMaxChars: runningTitleMaxChars ?? this.runningTitleMaxChars,
+      noEtAlInReferences: noEtAlInReferences ?? this.noEtAlInReferences,
+      keyRequirements: keyRequirements ?? this.keyRequirements,
+    );
+  }
+
+  JournalFormatRules withCitationStyle(PublishCitationStyle style) {
+    return copyWith(
+      citationStyle: style,
+      profileLabel: referenceListPlainNumber
+          ? profileLabel
+          : CitationFormatter.styleLabel(style),
     );
   }
 
@@ -193,10 +421,25 @@ class JournalFormatRules {
     required Map<String, dynamic> extracted,
     JournalFormatRules? fallback,
   }) {
+    final fromTemplate = sourceUrl.startsWith('template:');
     final citationRaw = extracted['citationStyle']?.toString().trim();
-    final citation = citationRaw != null && citationRaw.isNotEmpty
+    final refExample = extracted['referenceExample']?.toString().trim();
+    final inTextExample = extracted['inTextExample']?.toString().trim();
+    final inferred = inferCitationFromExamples(
+      referenceExample: refExample,
+      inTextExample: inTextExample,
+    );
+    var citation = citationRaw != null &&
+            citationRaw.isNotEmpty &&
+            citationRaw.toLowerCase() != 'other'
         ? _mapExtractedCitation(citationRaw)
-        : (fallback?.citationStyle ?? PublishCitationStyle.apa);
+        : (inferred?.style ?? fallback?.citationStyle ?? PublishCitationStyle.apa);
+    if ((citationRaw == null ||
+            citationRaw.isEmpty ||
+            citationRaw.toLowerCase() == 'other') &&
+        inferred != null) {
+      citation = inferred.style;
+    }
     final font = extracted['fontFamily']?.toString().trim();
     final bodyPt = _asExtractedDouble(extracted['bodyFontSizePt']);
     var lineSpacing = _asExtractedDouble(extracted['lineSpacing']);
@@ -211,6 +454,17 @@ class JournalFormatRules {
     final justify = extracted['justifyText'];
     final refsHeading = extracted['referencesHeading']?.toString().trim();
     final confidenceRaw = extracted['confidence']?.toString().toLowerCase();
+    final columnsRaw = _asExtractedDouble(extracted['columns']);
+    final paperRaw = extracted['paperSize']?.toString().toLowerCase().trim();
+    final indentCm = _asExtractedDouble(extracted['firstLineIndentCm']);
+    final titleFontPt = _asExtractedDouble(extracted['titleFontSizePt']);
+    final headingFontPt = _asExtractedDouble(extracted['headingFontSizePt']);
+    final abstractMax = extracted['abstractMaxWords'];
+    final sections = extracted['sectionOrder'];
+    final sectionOrder = sections is List
+        ? sections.map((e) => e.toString()).where((s) => s.isNotEmpty).toList()
+        : const <String>[];
+    final titleAlignRaw = extracted['titleAlign']?.toString().toLowerCase();
 
     final confidence = switch (confidenceRaw) {
       'high' => FormatRuleConfidence.partnerOfficial,
@@ -218,7 +472,10 @@ class JournalFormatRules {
       _ => FormatRuleConfidence.estimated,
     };
 
-    final plainNumber = extracted['referenceListPlainNumber'] == true;
+    var plainNumber = extracted['referenceListPlainNumber'] == true;
+    if (!plainNumber && inferred?.plainNumber == true) {
+      plainNumber = true;
+    }
 
     return JournalFormatRules(
       journalName: journalName,
@@ -230,12 +487,16 @@ class JournalFormatRules {
       bodyFontHalfPoints: bodyPt != null
           ? (bodyPt * 2).round()
           : (fallback?.bodyFontHalfPoints ?? 24),
-      titleFontHalfPoints: bodyPt != null
-          ? (bodyPt * 2 + 8).round()
-          : (fallback?.titleFontHalfPoints ?? 32),
-      headingFontHalfPoints: bodyPt != null
-          ? (bodyPt * 2 + 4).round()
-          : (fallback?.headingFontHalfPoints ?? 28),
+      titleFontHalfPoints: titleFontPt != null
+          ? (titleFontPt * 2).round()
+          : bodyPt != null
+              ? (bodyPt * 2 + 8).round()
+              : (fallback?.titleFontHalfPoints ?? 32),
+      headingFontHalfPoints: headingFontPt != null
+          ? (headingFontPt * 2).round()
+          : bodyPt != null
+              ? (bodyPt * 2 + 4).round()
+              : (fallback?.headingFontHalfPoints ?? 28),
       lineSpacing: lineSpacing ?? fallback?.lineSpacing ?? 2.0,
       marginTwips: marginCm != null
           ? (marginCm * 567).round()
@@ -244,20 +505,84 @@ class JournalFormatRules {
       referenceSectionTitle: refsHeading?.isNotEmpty == true
           ? refsHeading!
           : (fallback?.referenceSectionTitle ?? 'References'),
-      referenceListPlainNumber: plainNumber,
+      referenceListPlainNumber:
+          plainNumber || (fallback?.referenceListPlainNumber ?? false),
       profileLabel: extracted['citationStyle']?.toString().toUpperCase() ??
           fallback?.profileLabel ??
           'GUIDE',
       confidence: confidence,
       sourceUrl: sourceUrl,
-      extractedFromGuide: true,
+      extractedFromGuide: fromTemplate ||
+          extracted['found'] == true ||
+          _isDistinctiveExtract(extracted),
       excerpt: extracted['excerpt']?.toString(),
-      basisAr: sourceUrl.isNotEmpty
-          ? 'مستخرج من دليل المؤلفين: $sourceUrl'
-          : 'مستخرج من دليل المؤلفين',
-      basisEn: sourceUrl.isNotEmpty
-          ? 'Extracted from author guide: $sourceUrl'
-          : 'Extracted from author guide',
+      columnCount: columnsRaw != null
+          ? (columnsRaw >= 2 ? 2 : 1)
+          : (fallback?.columnCount ?? 1),
+      paperSize: paperRaw == 'letter'
+          ? 'letter'
+          : (paperRaw == 'a4' ? 'a4' : (fallback?.paperSize ?? 'a4')),
+      firstLineIndentTwips: indentCm != null
+          ? (indentCm * 567).round()
+          : (fallback?.firstLineIndentTwips ?? 0),
+      headingNumbered: extracted.containsKey('headingNumbered')
+          ? extracted['headingNumbered'] == true
+          : (fallback?.headingNumbered ?? false),
+      headingUppercase: extracted['headingUppercase'] == true ||
+          extracted['titleUppercase'] == true ||
+          (fallback?.headingUppercase ?? false),
+      titleAlign: titleAlignRaw == 'left'
+          ? 'left'
+          : (titleAlignRaw == 'center' || fallback?.titleAlign == 'center'
+              ? 'center'
+              : (fallback?.titleAlign ?? 'center')),
+      pageNumbers: extracted['pageNumbers'] != false,
+      runningHeader: extracted['runningHeader'] == true ||
+          extracted['runningTitleMaxChars'] != null ||
+          (fallback?.runningHeader ?? false),
+      abstractMaxWords: abstractMax is num
+          ? abstractMax.toInt()
+          : int.tryParse(abstractMax?.toString() ?? '') ??
+              fallback?.abstractMaxWords,
+      sectionOrder: sectionOrder.isNotEmpty
+          ? sectionOrder
+          : (fallback?.sectionOrder ?? const []),
+      referenceExample:
+          (refExample != null && refExample.isNotEmpty) ? refExample : fallback?.referenceExample,
+      inTextExample: (inTextExample != null && inTextExample.isNotEmpty)
+          ? inTextExample
+          : fallback?.inTextExample,
+      titleUppercase: extracted['titleUppercase'] == true ||
+          (fallback?.titleUppercase ?? false),
+      maxReferences: _asExtractedInt(extracted['maxReferences']) ??
+          fallback?.maxReferences,
+      maxFiguresAndTables:
+          _asExtractedInt(extracted['maxFiguresAndTables']) ??
+              fallback?.maxFiguresAndTables,
+      figureMaxWidthCm: _asExtractedDouble(extracted['figureMaxWidthCm']) ??
+          fallback?.figureMaxWidthCm,
+      keywordsMin:
+          _asExtractedInt(extracted['keywordsMin']) ?? fallback?.keywordsMin,
+      keywordsMax:
+          _asExtractedInt(extracted['keywordsMax']) ?? fallback?.keywordsMax,
+      runningTitleMaxChars:
+          _asExtractedInt(extracted['runningTitleMaxChars']) ??
+              fallback?.runningTitleMaxChars,
+      noEtAlInReferences: extracted['noEtAlInReferences'] == true ||
+          (fallback?.noEtAlInReferences ?? false),
+      keyRequirements: _stringList(extracted['keyRequirements']).isNotEmpty
+          ? _stringList(extracted['keyRequirements'])
+          : (fallback?.keyRequirements ?? const []),
+      basisAr: fromTemplate
+          ? 'قُرئ من قالب Word الرسمي: ${sourceUrl.replaceFirst('template:', '')}'
+          : sourceUrl.isNotEmpty
+              ? 'مستخرج من دليل المؤلفين: $sourceUrl'
+              : 'مستخرج من دليل المؤلفين',
+      basisEn: fromTemplate
+          ? 'Read from official Word template: ${sourceUrl.replaceFirst('template:', '')}'
+          : sourceUrl.isNotEmpty
+              ? 'Extracted from author guide: $sourceUrl'
+              : 'Extracted from author guide',
       verifyStepsAr: const [
         'راجع المقتطف أدناه مع الصفحة الأصلية.',
         'إن وُجد قالب Word رسمي على موقع المجلة فهو الأدق.',
@@ -267,6 +592,97 @@ class JournalFormatRules {
         'If the journal provides an official Word template, prefer it.',
       ],
     );
+  }
+
+  static bool _isDistinctiveExtract(Map<String, dynamic> extracted) {
+    if (extracted['found'] != true) return false;
+    var n = 0;
+    final style = extracted['citationStyle']?.toString().trim() ?? '';
+    if (style.isNotEmpty && style != 'other') n++;
+    if (extracted['lineSpacing'] != null ||
+        extracted['lineSpacingLabel'] != null) {
+      n++;
+    }
+    if (extracted['bodyFontSizePt'] != null) n++;
+    if (extracted['columns'] != null) n++;
+    if (extracted['firstLineIndentCm'] != null) n++;
+    if (extracted['abstractMaxWords'] != null) n++;
+    if (extracted['headingNumbered'] == true ||
+        extracted['headingNumbered'] == false) {
+      n++;
+    }
+    if (extracted['titleUppercase'] == true) n++;
+    if (extracted['maxReferences'] != null) n++;
+    if (extracted['keywordsMin'] != null) n++;
+    if ((extracted['referenceExample']?.toString() ?? '').trim().length >= 20) {
+      n++;
+    }
+    if ((extracted['inTextExample']?.toString() ?? '').trim().length >= 4) {
+      n++;
+    }
+    final font = extracted['fontFamily']?.toString().trim() ?? '';
+    if (font.isNotEmpty &&
+        (extracted['bodyFontSizePt'] != null ||
+            extracted['lineSpacing'] != null)) {
+      n++;
+    }
+    return n >= 1;
+  }
+
+  /// Reads a sample bibliography / in-text line from the author guide.
+  static JournalCitationInference? inferCitationFromExamples({
+    String? referenceExample,
+    String? inTextExample,
+  }) {
+    PublishCitationStyle? fromInText;
+    PublishCitationStyle? fromList;
+    var plain = false;
+
+    final inT = (inTextExample ?? '').trim();
+    if (inT.isNotEmpty) {
+      if (RegExp(r'[¹²³⁴⁵⁶⁷⁸⁹⁰]').hasMatch(inT) ||
+          inT.toLowerCase().contains('superscript')) {
+        fromInText = PublishCitationStyle.acs;
+      } else if (RegExp(r'\[\d+\]').hasMatch(inT)) {
+        fromInText = PublishCitationStyle.ieee;
+      } else if (RegExp(
+        r'\([A-Z][A-Za-z\-]+.+(?:19|20)\d{2}',
+      ).hasMatch(inT)) {
+        fromInText = PublishCitationStyle.apa;
+      }
+    }
+
+    final ref = (referenceExample ?? '').trim();
+    if (ref.isNotEmpty) {
+      if (RegExp(r'^\[\d+\]').hasMatch(ref)) {
+        fromList = PublishCitationStyle.ieee;
+      } else if (RegExp(r'^\d+\.\s').hasMatch(ref)) {
+        fromList = PublishCitationStyle.vancouver;
+        plain = true;
+      } else if (RegExp(r'\((?:19|20)\d{2}\)\.').hasMatch(ref)) {
+        fromList = PublishCitationStyle.apa;
+      } else if (RegExp(r';\s*[A-Z][A-Za-z\-]+,\s*[A-Z]\.').hasMatch(ref) &&
+          RegExp(r'\b(?:19|20)\d{2},\s*\d').hasMatch(ref)) {
+        fromList = PublishCitationStyle.acs;
+        plain = true;
+      }
+    }
+
+    if (fromInText == PublishCitationStyle.acs) {
+      return JournalCitationInference(
+        style: PublishCitationStyle.acs,
+        plainNumber: fromList == PublishCitationStyle.vancouver || plain,
+      );
+    }
+    if (fromInText == PublishCitationStyle.ieee && plain) {
+      return const JournalCitationInference(
+        style: PublishCitationStyle.vancouver,
+        plainNumber: true,
+      );
+    }
+    final style = fromInText ?? fromList;
+    if (style == null) return null;
+    return JournalCitationInference(style: style, plainNumber: plain);
   }
 
   static PublishCitationStyle _mapExtractedCitation(String? raw) {
@@ -285,6 +701,20 @@ class JournalFormatRules {
   static double? _asExtractedDouble(dynamic value) {
     if (value is num) return value.toDouble();
     return double.tryParse(value?.toString() ?? '');
+  }
+
+  static int? _asExtractedInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.round();
+    return int.tryParse(value?.toString() ?? '');
+  }
+
+  static List<String> _stringList(dynamic value) {
+    if (value is! List) return const [];
+    return [
+      for (final item in value)
+        if (item.toString().trim().isNotEmpty) item.toString().trim(),
+    ];
   }
 }
 
@@ -317,6 +747,155 @@ class _PublisherProfile {
 
   bool matches(String combined) =>
       matchTokens.any((token) => combined.contains(token));
+}
+
+class JournalSectionLayout {
+  JournalSectionLayout._();
+
+  static const _aliases = <String, List<String>>{
+    'abstract': ['abstract', 'الملخص'],
+    'keywords': ['keywords', 'الكلمات المفتاحية', 'كلمات مفتاحية'],
+    'introduction': ['introduction', 'المقدمة'],
+    'experimental': ['experimental', 'experiment', 'التجريبي'],
+    'methods': ['methods', 'methodology', 'materials and methods', 'المنهجية', 'المواد والطرق'],
+    'results': ['results', 'النتائج'],
+    'discussion': ['discussion', 'المناقشة'],
+    'conclusion': ['conclusion', 'conclusions', 'الخاتمة'],
+    'references': [
+      'references',
+      'bibliography',
+      'literature cited',
+      'works cited',
+      'reference list',
+      'المراجع',
+    ],
+    'acknowledgments': ['acknowledgment', 'acknowledgements', 'شكر'],
+  };
+
+  static bool isHeading(String text, List<String> names) {
+    final key = _normalize(text);
+    if (key.isEmpty) return false;
+    // Headings are short labels. Never match the word "abstract" inside a
+    // body sentence, or الملخص inside a long Arabic paragraph.
+    if (key.length > 48) return false;
+    for (final name in names) {
+      final aliases = _aliases[_normalize(name)] ?? [_normalize(name)];
+      for (final alias in aliases) {
+        if (alias.isEmpty) continue;
+        if (key == alias) return true;
+        if (key.startsWith(alias) && key.length <= alias.length + 24) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  static bool isReferencesHeading(String text) =>
+      isHeading(text, const ['References', 'Bibliography', 'المراجع']);
+
+  static bool isEnglishAbstractHeading(String text) =>
+      isHeading(text, const ['Abstract']) &&
+      !isHeading(text, const ['الملخص']);
+
+  static bool isArabicAbstractHeading(String text) =>
+      isHeading(text, const ['الملخص']);
+
+  static bool isAbstractHeading(String text) =>
+      isEnglishAbstractHeading(text) || isArabicAbstractHeading(text);
+
+  static bool _looksLikeImportedBibliographyEntry(ManuscriptBlock block) {
+    if (block.type != ManuscriptBlockType.paragraph) return false;
+    final t = block.text.trim();
+    if (t.length < 28 || t.length > 2500) return false;
+    if (CitationLinker.looksLikeBibliographyLine(t)) return true;
+    final numbered = RegExp(r'^\[(\d{1,3})\]\s+(.+)$').firstMatch(t) ??
+        RegExp(r'^(\d{1,3})[.)]\s+(.+)$').firstMatch(t);
+    if (numbered == null) return false;
+    final body = numbered.group(2)!.trim();
+    if (RegExp(
+      r'^(The|This|In |However|Moreover|Figure|Table|Results|Therefore|These|It is|We |Our )\b',
+      caseSensitive: false,
+    ).hasMatch(body)) {
+      return false;
+    }
+    final authorStart = RegExp(r"^(?:[A-Z]\.\s*)+[A-Z][A-Za-z'\-]").hasMatch(body) ||
+        RegExp(r"^[A-Z][A-Za-z'\-]+,\s*[A-Z]\.").hasMatch(body);
+    if (!authorStart) return false;
+    return RegExp(
+      r'\b(19|20)\d{2}\b|\bdoi\b|\bvol\.|\bpp\.|\bet al\.',
+      caseSensitive: false,
+    ).hasMatch(body);
+  }
+
+  static String _normalize(String raw) => raw
+      .toLowerCase()
+      .replaceAll(RegExp(r'^\d+[.)]\s*'), '')
+      .replaceAll(RegExp(r'[^a-z\u0600-\u06FF]'), '');
+
+  /// Keep preamble and the file's section order. Drop only the imported
+  /// References list (rebuilt from manuscript.references on export).
+  /// Never drop الملخص when dropping a duplicated English Abstract.
+  static List<ManuscriptBlock> prepareExportBlocks({
+    required List<ManuscriptBlock> blocks,
+    required List<String> sectionOrder,
+    required bool dropAbstractSection,
+  }) {
+    if (blocks.isEmpty) return blocks;
+
+    final preamble = <ManuscriptBlock>[];
+    final sections = <_SectionGroup>[];
+    _SectionGroup? current;
+
+    for (final block in blocks) {
+      if (block.type == ManuscriptBlockType.heading &&
+          isReferencesHeading(block.text)) {
+        current = _SectionGroup(block, const [], skip: true);
+        sections.add(current);
+        continue;
+      }
+      if (dropAbstractSection &&
+          block.type == ManuscriptBlockType.heading &&
+          isEnglishAbstractHeading(block.text)) {
+        current = _SectionGroup(block, const [], skip: true);
+        sections.add(current);
+        continue;
+      }
+      // Bibliography lines belong after a References heading only.
+      // A Methods sentence that happens to look like a citation must stay.
+      if (current != null &&
+          current.skip &&
+          _looksLikeImportedBibliographyEntry(block)) {
+        continue;
+      }
+      if (block.type == ManuscriptBlockType.heading) {
+        current = _SectionGroup(block, []);
+        sections.add(current);
+      } else if (current == null) {
+        preamble.add(block);
+      } else if (!current.skip) {
+        current.blocks.add(block);
+      }
+    }
+
+    // Keep the imported order. Journal `sectionOrder` must not move الملخص
+    // under Abstract or relocate figures.
+    sectionOrder;
+    return [
+      ...preamble,
+      for (final s in sections)
+        if (!s.skip) ...[s.heading, ...s.blocks],
+    ];
+  }
+}
+
+class _SectionGroup {
+  final ManuscriptBlock heading;
+  final List<ManuscriptBlock> blocks;
+  final bool skip;
+
+  _SectionGroup(this.heading, List<ManuscriptBlock> blocks, {this.skip = false})
+      : blocks = List<ManuscriptBlock>.from(blocks);
 }
 
 class JournalFormatRulesService {
@@ -410,7 +989,7 @@ class JournalFormatRulesService {
     ),
     _PublisherProfile(
       label: 'ACS',
-      citationStyle: PublishCitationStyle.apa,
+      citationStyle: PublishCitationStyle.acs,
       fontFamily: 'Times New Roman',
       bodyFontHalfPoints: 24,
       titleFontHalfPoints: 28,
@@ -532,6 +1111,8 @@ class JournalFormatRulesService {
           justifyBody: profile.justifyBody,
           referenceSectionTitle: profile.referenceSectionTitle,
           profileLabel: profile.label,
+          columnCount: profile.label.startsWith('IEEE') ? 2 : 1,
+          paperSize: profile.label.startsWith('IEEE') ? 'letter' : 'a4',
           confidence: FormatRuleConfidence.publisherStandard,
           basisAr: 'معيار عام لناشر ${profile.label} — ليست قواعد المجلة حرفياً',
           basisEn:

@@ -3,6 +3,8 @@ import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
 import '../../core/locale/l10n_lookup.dart';
 import '../../core/locale/locale_extensions.dart';
+import '../guides/section_guide_catalog.dart';
+import '../guides/section_guide_screen.dart';
 import '../profile/academic_profile_service.dart';
 import 'community_data.dart';
 import 'community_room_screen.dart';
@@ -77,6 +79,10 @@ class _CommunityHubScreenState extends State<CommunityHubScreen>
           ],
         ),
         actions: [
+          const SectionGuideAppBarButton(
+            guideId: SectionGuideCatalog.community,
+            accent: Color(0xFF00695C),
+          ),
           IconButton(
             tooltip: context.t('إنشاء غرفة بحثية', 'Create research room'),
             icon: const Icon(Icons.add_circle_outline),
@@ -92,12 +98,25 @@ class _CommunityHubScreenState extends State<CommunityHubScreen>
               label: Text(context.t('غرفة جديدة', 'New room')),
             )
           : null,
-      body: TabBarView(
-        controller: _tabController,
-        children: const [
-          _FacultyRoomsTab(),
-          _ResearchRoomsTab(),
-          StudyCirclesTab(),
+      body: Column(
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(12, 8, 12, 0),
+            child: SectionGuideBanner(
+              guideId: SectionGuideCatalog.community,
+              accent: Color(0xFF00695C),
+            ),
+          ),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: const [
+                _FacultyRoomsTab(),
+                _ResearchRoomsTab(),
+                StudyCirclesTab(),
+              ],
+            ),
+          ),
         ],
       ),
     );

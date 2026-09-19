@@ -16,13 +16,15 @@ import '../../core/locale/locale_extensions.dart';
 
 import '../auth/auth_guard.dart';
 
+import '../auth/provider_publish_gate.dart';
+
+import '../auth/user_account_service.dart';
+
 import '../academic/faculty_categories.dart';
 
 import '../academic/verification_status.dart';
 
 import '../../core/storage/storage_service.dart';
-
-import '../moderation/approval_status.dart';
 
 
 
@@ -152,11 +154,24 @@ class _SubmitSupervisorScreenState extends State<SubmitSupervisorScreen> {
 
     if (!loggedIn || !mounted) return;
 
-
+    final account = await UserAccountService.instance.loadCurrentAccount();
+    if (!ProviderPublishGate.canSubmitContent(account)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            context.t(
+              ProviderPublishGate.blockMessageAr(account),
+              ProviderPublishGate.blockMessageEn(account),
+            ),
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
 
     final user = FirebaseAuth.instance.currentUser!;
-
-
 
     setState(() => _isSaving = true);
 
@@ -222,7 +237,8 @@ class _SubmitSupervisorScreenState extends State<SubmitSupervisorScreen> {
 
         'photoUrl': ?photoUrl,
 
-        'approvalStatus': ApprovalStatus.pending,
+        'approvalStatus':
+            ProviderPublishGate.contentApprovalStatus(account),
 
         'createdAt': FieldValue.serverTimestamp(),
 

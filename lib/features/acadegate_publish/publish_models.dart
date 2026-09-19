@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'academic_text.dart';
+
 enum PublishCitationStyle { apa, ieee, vancouver, harvard, chicago, acs }
 
 /// How an in-text citation is rendered for a given marker.
@@ -58,6 +60,8 @@ class PublishReference {
   final String url;
   final String publisher;
   final String conference;
+  /// Original list number from the imported file ([3] or 3.). Never remapped.
+  final int? importedNumber;
   /// Original bibliographic line when imported from Word/PDF.
   final String rawText;
 
@@ -75,10 +79,12 @@ class PublishReference {
     this.url = '',
     this.publisher = '',
     this.conference = '',
+    this.importedNumber,
     this.rawText = '',
   });
 
   PublishReference copyWith({
+    String? id,
     ReferenceType? type,
     List<String>? authors,
     String? title,
@@ -91,10 +97,11 @@ class PublishReference {
     String? url,
     String? publisher,
     String? conference,
+    int? importedNumber,
     String? rawText,
   }) {
     return PublishReference(
-      id: id,
+      id: id ?? this.id,
       type: type ?? this.type,
       authors: authors ?? this.authors,
       title: title ?? this.title,
@@ -107,6 +114,7 @@ class PublishReference {
       url: url ?? this.url,
       publisher: publisher ?? this.publisher,
       conference: conference ?? this.conference,
+      importedNumber: importedNumber ?? this.importedNumber,
       rawText: rawText ?? this.rawText,
     );
   }
@@ -125,6 +133,7 @@ class PublishReference {
         'url': url,
         'publisher': publisher,
         'conference': conference,
+        if (importedNumber != null) 'importedNumber': importedNumber,
         if (rawText.isNotEmpty) 'rawText': rawText,
       };
 
@@ -148,8 +157,20 @@ class PublishReference {
       url: map['url']?.toString() ?? '',
       publisher: map['publisher']?.toString() ?? '',
       conference: map['conference']?.toString() ?? '',
+      importedNumber: map['importedNumber'] is int
+          ? map['importedNumber'] as int
+          : int.tryParse(map['importedNumber']?.toString() ?? ''),
       rawText: map['rawText']?.toString() ?? '',
     );
+  }
+
+  /// [3] or "3." at the start of an imported bibliography line.
+  static int? numberFromImportedLine(String raw) {
+    final t = AcademicText.westernDigits(raw.trim());
+    final m = RegExp(r'^\[(\d{1,3})\]').firstMatch(t) ??
+        RegExp(r'^(\d{1,3})[.)](?:\s|$)').firstMatch(t) ??
+        RegExp(r'^(\d{1,3})[.)](?=[A-Z])').firstMatch(t);
+    return m == null ? null : int.tryParse(m.group(1)!);
   }
 }
 
@@ -162,6 +183,15 @@ class ManuscriptBlock {
   final List<List<String>> rows;
   /// Image URL per table cell (same shape as [rows]); empty = text-only cell.
   final List<List<String>> rowCellImages;
+  /// Word `gridSpan`. 0 = covered by a cell to the left (do not emit `tc`).
+  final List<List<int>> colSpans;
+  /// Word vertical merge. 0 = continuation row; >1 = restart with rowspan.
+  final List<List<int>> rowSpans;
+  /// Column widths in fiftieths of a percent (sum ≈ 5000) from `tblGrid`.
+  final List<int> columnWidthsPct;
+  /// Original displayed size from Word `wp:extent` (EMUs).
+  final int? imageWidthEmu;
+  final int? imageHeightEmu;
   /// Original Office Math ML for equation blocks (preserves fractions/layout on export).
   final String? ommlXml;
 
@@ -173,6 +203,11 @@ class ManuscriptBlock {
     this.caption,
     this.rows = const [],
     this.rowCellImages = const [],
+    this.colSpans = const [],
+    this.rowSpans = const [],
+    this.columnWidthsPct = const [],
+    this.imageWidthEmu,
+    this.imageHeightEmu,
     this.ommlXml,
   });
 
@@ -183,6 +218,8 @@ class ManuscriptBlock {
         if (imageUrl != null) 'imageUrl': imageUrl,
         if (caption != null && caption!.isNotEmpty) 'caption': caption,
         if (ommlXml != null && ommlXml!.isNotEmpty) 'ommlXml': ommlXml,
+        if (imageWidthEmu != null) 'imageWidthEmu': imageWidthEmu,
+        if (imageHeightEmu != null) 'imageHeightEmu': imageHeightEmu,
         if (rows.isNotEmpty)
           'rowCells': rows
               .map((cells) => {'cells': cells})
@@ -191,6 +228,15 @@ class ManuscriptBlock {
           'rowCellImages': rowCellImages
               .map((cells) => {'cells': cells})
               .toList(),
+        if (colSpans.isNotEmpty)
+          'colSpans': colSpans
+              .map((cells) => {'cells': cells})
+              .toList(),
+        if (rowSpans.isNotEmpty)
+          'rowSpans': rowSpans
+              .map((cells) => {'cells': cells})
+              .toList(),
+        if (columnWidthsPct.isNotEmpty) 'columnWidthsPct': columnWidthsPct,
       };
 
   static List<List<String>> _rowsFromMap(dynamic rowsRaw) {
@@ -259,6 +305,71 @@ class ManuscriptBlock {
     });
   }
 
+  static List<List<int>> normalizedIntGrid(
+    List<List<int>> grid,
+    List<List<String>> rows, {
+    int fill = 1,
+  }) {
+    if (rows.isEmpty) return const [];
+    final maxCols = rows.fold<int>(
+      0,
+      (max, row) => row.length > max ? row.length : max,
+    );
+    if (grid.isEmpty) {
+      return List.generate(
+        rows.length,
+        (_) => List<int>.filled(maxCols, fill),
+      );
+    }
+    return List.generate(rows.length, (r) {
+      final src = r < grid.length ? grid[r] : const <int>[];
+      return List.generate(
+        maxCols,
+        (c) => c < src.length ? src[c] : fill,
+      );
+    });
+  }
+
+  static List<List<int>> _intGridFromMap(dynamic raw) {
+    if (raw == null) return const [];
+    if (raw is String && raw.isNotEmpty) {
+      try {
+        return _intGridFromMap(jsonDecode(raw));
+      } catch (_) {
+        return const [];
+      }
+    }
+    if (raw is! List) return const [];
+    if (raw.isNotEmpty && raw.first is List) {
+      return raw
+          .whereType<List>()
+          .map(
+            (row) => row
+                .map((cell) => int.tryParse(cell.toString()) ?? 1)
+                .toList(),
+          )
+          .toList();
+    }
+    return raw
+        .whereType<Map>()
+        .map((row) {
+          final cellsRaw = row['cells'];
+          if (cellsRaw is List) {
+            return cellsRaw
+                .map((cell) => int.tryParse(cell.toString()) ?? 1)
+                .toList();
+          }
+          return const <int>[];
+        })
+        .where((row) => row.isNotEmpty)
+        .toList();
+  }
+
+  static List<int> _intListFromMap(dynamic raw) {
+    if (raw is! List) return const [];
+    return raw.map((v) => int.tryParse(v.toString()) ?? 0).toList();
+  }
+
   factory ManuscriptBlock.fromMap(Map<String, dynamic> map) {
     final type = ManuscriptBlockType.values.firstWhere(
       (t) => t.name == map['type'],
@@ -266,9 +377,13 @@ class ManuscriptBlock {
     );
     var rows = _rowsFromMap(map['rowCells'] ?? map['rows']);
     var cellImages = _rowsFromMap(map['rowCellImages']);
+    var colSpans = _intGridFromMap(map['colSpans']);
+    var rowSpans = _intGridFromMap(map['rowSpans']);
     if (type == ManuscriptBlockType.table) {
       rows = normalizedRows(rows);
       cellImages = normalizedCellImages(cellImages, rows);
+      colSpans = normalizedIntGrid(colSpans, rows);
+      rowSpans = normalizedIntGrid(rowSpans, rows);
     }
 
     return ManuscriptBlock(
@@ -279,7 +394,23 @@ class ManuscriptBlock {
       caption: map['caption']?.toString(),
       rows: rows,
       rowCellImages: cellImages,
+      colSpans: colSpans,
+      rowSpans: rowSpans,
+      columnWidthsPct: _intListFromMap(map['columnWidthsPct']),
+      imageWidthEmu: int.tryParse(map['imageWidthEmu']?.toString() ?? ''),
+      imageHeightEmu: int.tryParse(map['imageHeightEmu']?.toString() ?? ''),
       ommlXml: map['ommlXml']?.toString(),
+    );
+  }
+
+  static ManuscriptBlock normalizeTableLayout(ManuscriptBlock block) {
+    if (block.type != ManuscriptBlockType.table) return block;
+    final rows = normalizedRows(block.rows);
+    return block.copyWith(
+      rows: rows,
+      rowCellImages: normalizedCellImages(block.rowCellImages, rows),
+      colSpans: normalizedIntGrid(block.colSpans, rows),
+      rowSpans: normalizedIntGrid(block.rowSpans, rows),
     );
   }
 
@@ -290,6 +421,11 @@ class ManuscriptBlock {
     String? caption,
     List<List<String>>? rows,
     List<List<String>>? rowCellImages,
+    List<List<int>>? colSpans,
+    List<List<int>>? rowSpans,
+    List<int>? columnWidthsPct,
+    int? imageWidthEmu,
+    int? imageHeightEmu,
     String? ommlXml,
   }) {
     return ManuscriptBlock(
@@ -300,6 +436,11 @@ class ManuscriptBlock {
       caption: caption ?? this.caption,
       rows: rows ?? this.rows,
       rowCellImages: rowCellImages ?? this.rowCellImages,
+      colSpans: colSpans ?? this.colSpans,
+      rowSpans: rowSpans ?? this.rowSpans,
+      columnWidthsPct: columnWidthsPct ?? this.columnWidthsPct,
+      imageWidthEmu: imageWidthEmu ?? this.imageWidthEmu,
+      imageHeightEmu: imageHeightEmu ?? this.imageHeightEmu,
       ommlXml: ommlXml ?? this.ommlXml,
     );
   }
@@ -322,7 +463,10 @@ class ManuscriptAttachment {
 
   bool get isPdf => mime.contains('pdf');
   bool get isWord =>
-      mime.contains('word') || name.toLowerCase().endsWith('.docx');
+      mime.contains('word') ||
+      mime.contains('officedocument') ||
+      name.toLowerCase().endsWith('.docx') ||
+      name.toLowerCase().endsWith('.doc');
 
   Map<String, dynamic> toMap() => {
         'id': id,
@@ -526,13 +670,28 @@ class PublishManuscript {
   }
 
   int referenceIndex(String refId) {
-    final cited = citedReferencesInOrder();
-    if (cited.isNotEmpty) {
-      final i = cited.indexWhere((r) => r.id == refId);
-      if (i >= 0) return i + 1;
+    for (final ref in references) {
+      if (ref.id != refId) continue;
+      if (ref.importedNumber != null) return ref.importedNumber!;
+      final fromRaw = PublishReference.numberFromImportedLine(ref.rawText);
+      if (fromRaw != null) return fromRaw;
     }
     final i = references.indexWhere((r) => r.id == refId);
     return i >= 0 ? i + 1 : 0;
+  }
+
+  /// Bibliography item n from the imported file. Not “the nth row after sorting”.
+  PublishReference? referenceByNumber(int n) {
+    if (n < 1) return null;
+    for (final ref in references) {
+      if (ref.importedNumber == n) return ref;
+    }
+    for (final ref in references) {
+      if (PublishReference.numberFromImportedLine(ref.rawText) == n) {
+        return ref;
+      }
+    }
+    return null;
   }
 
   PublishReference? referenceById(String refId) {
@@ -569,10 +728,6 @@ class PublishManuscript {
     scan(body);
 
     if (ordered.isEmpty) return List<PublishReference>.from(references);
-    // Append uncited refs so nothing is silently dropped from the library.
-    for (final r in references) {
-      if (!seen.contains(r.id)) ordered.add(r);
-    }
     return ordered;
   }
 

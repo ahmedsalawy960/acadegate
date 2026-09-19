@@ -51,13 +51,33 @@ Return ONLY valid JSON (no markdown fences):
   "confidence": "high" | "medium" | "low",
   "citationStyle": "ieee" | "apa" | "vancouver" | "acs" | "chicago" | "harvard" | "other",
   "fontFamily": string or null,
+  "titleFontSizePt": number or null,
+  "headingFontSizePt": number or null,
   "bodyFontSizePt": number or null,
   "lineSpacing": number or null,
   "lineSpacingLabel": "single" | "double" | "1.5" | null,
   "marginCm": number or null,
   "justifyText": boolean or null,
+  "columns": 1 | 2 | null,
+  "paperSize": "a4" | "letter" | null,
+  "firstLineIndentCm": number or null,
+  "headingNumbered": boolean or null,
+  "headingUppercase": boolean or null,
+  "titleUppercase": boolean or null,
+  "titleAlign": "center" | "left" | null,
+  "pageNumbers": boolean or null,
+  "runningHeader": boolean or null,
+  "runningTitleMaxChars": number or null,
+  "maxReferences": number or null,
+  "maxFiguresAndTables": number or null,
+  "figureMaxWidthCm": number or null,
+  "keywordsMin": number or null,
+  "keywordsMax": number or null,
+  "noEtAlInReferences": boolean or null,
   "referencesHeading": string or null,
   "referenceListPlainNumber": boolean or null,
+  "referenceExample": string or null,
+  "inTextExample": string or null,
   "abstractMaxWords": number or null,
   "sectionOrder": string[],
   "acceptedFileFormats": string[],
@@ -66,7 +86,7 @@ Return ONLY valid JSON (no markdown fences):
   "excerpt": string,
   "notes": string
 }
-Rules: found=false if no formatting instructions. single-spaced => lineSpacing=1. referenceListPlainNumber=true when the guide says references are listed as 1., 2., 3. without square brackets while in-text uses [1]. Do not invent rules.
+Rules: found=false if no formatting instructions. Extract EVERY layout rule stated: columns, paper size, first-line indent, heading numbering/case, title alignment, page numbers, running header, title/heading/body font sizes, section order. citationStyle must be THIS journal's style (acs/ieee/apa/vancouver/harvard/chicago). ACS chemistry journals typically use superscript numbers. excerpt must quote the actual instruction. Do not invent Times New Roman, double spacing, or APA. single-spaced => lineSpacing=1. referenceListPlainNumber=true when the guide lists references as 1., 2., 3. without square brackets. Copy the guide's SAMPLE reference line into referenceExample and the SAMPLE in-text citation into inTextExample exactly as printed. Also extract: titleUppercase, maxReferences, maxFiguresAndTables, figureMaxWidthCm, keywordsMin, keywordsMax, runningTitleMaxChars, noEtAlInReferences, headingNumbered=false when the guide forbids numbering sections.
 ''';
 
   Future<JournalGuidelinesExtractionResult> extract({
@@ -90,25 +110,17 @@ Rules: found=false if no formatting instructions. single-spaced => lineSpacing=1
       );
     }
 
+    // Pasted / uploaded guide text is the source of truth for ANY journal.
+    // Never fall through to URL search — that made «Apply pasted text» appear
+    // to do nothing while a 3-minute cloud fetch ran.
     if (text.length >= 15) {
-      final heuristic = JournalGuidelinesHeuristic.extract(text);
-      if (heuristic != null) {
-        final rules = JournalFormatRules.fromExtracted(
-          journalName: journalName,
-          publisher: publisher,
-          sourceUrl: url.isNotEmpty ? url : 'pasted_by_user',
-          extracted: heuristic,
-          fallback: fallback,
-        );
-        return JournalGuidelinesExtractionResult(
-          success: true,
-          sourceUrl: url.isNotEmpty ? url : 'pasted_by_user',
-          sourceType: 'pasted_text_heuristic',
-          rules: rules,
-          keyRequirements: _requirementsFromExtracted(heuristic),
-          excerpt: heuristic['excerpt']?.toString(),
-        );
-      }
+      return _extractFromProvidedText(
+        journalName: journalName,
+        publisher: publisher,
+        text: text,
+        sourceUrl: url.isNotEmpty ? url : 'pasted_by_user',
+        fallback: fallback,
+      );
     }
 
     final payload = {
@@ -116,7 +128,6 @@ Rules: found=false if no formatting instructions. single-spaced => lineSpacing=1
       'publisher': publisher,
       'issn': issn,
       if (url.isNotEmpty) 'guidelinesUrl': url,
-      if (text.isNotEmpty) 'guidelinesText': text,
       if (submissionUrl.trim().isNotEmpty) 'submissionUrl': submissionUrl.trim(),
       if (candidateUrls.isNotEmpty) 'candidateUrls': candidateUrls,
     };
@@ -136,31 +147,10 @@ Rules: found=false if no formatting instructions. single-spaced => lineSpacing=1
         journalName: journalName,
         publisher: publisher,
         fallback: fallback,
+        heuristic: null,
       );
       if (parsed.success) return parsed;
-
-      if (text.length >= 80) {
-        final local = await _extractWithGeminiClient(
-          journalName: journalName,
-          publisher: publisher,
-          sourceUrl: url.isNotEmpty ? url : 'pasted_by_user',
-          pageText: text,
-          fallback: fallback,
-        );
-        if (local != null) return local;
-      }
       return parsed;
-    }
-
-    if (text.length >= 80) {
-      final local = await _extractWithGeminiClient(
-        journalName: journalName,
-        publisher: publisher,
-        sourceUrl: url.isNotEmpty ? url : 'pasted_by_user',
-        pageText: text,
-        fallback: fallback,
-      );
-      if (local != null) return local;
     }
 
     return JournalGuidelinesExtractionResult(
@@ -168,9 +158,42 @@ Rules: found=false if no formatting instructions. single-spaced => lineSpacing=1
       reason: 'cloud_unavailable',
       message: cloudError ??
           appTr(
-            'تعذّر الاتصال بخدمة القراءة. انسخ نص الدليل من الصفحة والصقه في الحقل النصي.',
-            'Could not reach the reader service. Copy the guide text from the page and paste it.',
+            'تعذّر البحث التلقائي. الصق نص دليل المؤلفين من موقع المجلة ثم اضغط تطبيق.',
+            'Automatic search failed. Paste the author guide from the journal site, then apply.',
           ),
+    );
+  }
+
+  Future<JournalGuidelinesExtractionResult> _extractFromProvidedText({
+    required String journalName,
+    required String publisher,
+    required String text,
+    required String sourceUrl,
+    JournalFormatRules? fallback,
+  }) async {
+    final heuristic = JournalGuidelinesHeuristic.extract(
+      text,
+      requireDistinctive: false,
+    );
+
+    if (heuristic != null) {
+      return _resultFromExtracted(
+        extracted: heuristic,
+        journalName: journalName,
+        publisher: publisher,
+        sourceUrl: sourceUrl,
+        sourceType: 'pasted_text_heuristic',
+        fallback: fallback,
+      );
+    }
+
+    return JournalGuidelinesExtractionResult(
+      success: false,
+      reason: 'paste_unparsed',
+      message: appTr(
+        'لم يُستخرج من النص الملصوق تعليمات تنسيق واضحة. الصق فقرات الدليل (المراجع، الملخص، العنوان، الأشكال) ثم أعد التطبيق.',
+        'No clear formatting instructions were found in the pasted text. Paste the guide sections on references, abstract, title, and figures, then apply again.',
+      ),
     );
   }
 
@@ -196,6 +219,7 @@ Rules: found=false if no formatting instructions. single-spaced => lineSpacing=1
     required String journalName,
     required String publisher,
     JournalFormatRules? fallback,
+    Map<String, dynamic>? heuristic,
   }) {
     final success = data['success'] == true;
     final fetchLog = _fetchLogLines(data['fetchLog']);
@@ -220,21 +244,45 @@ Rules: found=false if no formatting instructions. single-spaced => lineSpacing=1
       );
     }
 
-    final extracted = Map<String, dynamic>.from(rulesMap);
-    final rules = JournalFormatRules.fromExtracted(
+    final extracted = JournalGuidelinesHeuristic.merge(
+      heuristic,
+      Map<String, dynamic>.from(rulesMap),
+    );
+    return _resultFromExtracted(
+      extracted: extracted,
       journalName: journalName,
       publisher: publisher,
       sourceUrl: data['sourceUrl']?.toString() ?? '',
+      sourceType: data['sourceType']?.toString() ?? 'cloud',
+      fallback: fallback,
+      attemptedUrls: _stringList(data['attemptedUrls']),
+      fetchLog: fetchLog,
+    );
+  }
+
+  JournalGuidelinesExtractionResult _resultFromExtracted({
+    required Map<String, dynamic> extracted,
+    required String journalName,
+    required String publisher,
+    required String sourceUrl,
+    required String sourceType,
+    JournalFormatRules? fallback,
+    List<String> attemptedUrls = const [],
+    List<String> fetchLog = const [],
+  }) {
+    final rules = JournalFormatRules.fromExtracted(
+      journalName: journalName,
+      publisher: publisher,
+      sourceUrl: sourceUrl,
       extracted: extracted,
       fallback: fallback,
     );
-
     return JournalGuidelinesExtractionResult(
       success: true,
-      sourceUrl: data['sourceUrl']?.toString(),
-      sourceType: data['sourceType']?.toString(),
+      sourceUrl: sourceUrl,
+      sourceType: sourceType,
       rules: rules,
-      attemptedUrls: _stringList(data['attemptedUrls']),
+      attemptedUrls: attemptedUrls,
       keyRequirements: _requirementsFromExtracted(extracted),
       fetchLog: fetchLog,
       excerpt: extracted['excerpt']?.toString(),
@@ -248,6 +296,7 @@ Rules: found=false if no formatting instructions. single-spaced => lineSpacing=1
     required String sourceUrl,
     required String pageText,
     JournalFormatRules? fallback,
+    Map<String, dynamic>? heuristic,
   }) async {
     if (!GeminiAdvisorClient.isAvailable) return null;
 
@@ -264,25 +313,17 @@ Rules: found=false if no formatting instructions. single-spaced => lineSpacing=1
 
     if (!result.isSuccess || result.text == null) return null;
 
-    final extracted = _parseJsonFromModel(result.text!);
-    if (extracted == null || extracted['found'] != true) return null;
+    final parsed = _parseJsonFromModel(result.text!);
+    final extracted = JournalGuidelinesHeuristic.merge(heuristic, parsed);
+    if (extracted['found'] != true) return null;
 
-    final rules = JournalFormatRules.fromExtracted(
+    return _resultFromExtracted(
+      extracted: extracted,
       journalName: journalName,
       publisher: publisher,
       sourceUrl: sourceUrl,
-      extracted: extracted,
-      fallback: fallback,
-    );
-
-    return JournalGuidelinesExtractionResult(
-      success: true,
-      sourceUrl: sourceUrl,
       sourceType: 'gemini_client',
-      rules: rules,
-      keyRequirements: _requirementsFromExtracted(extracted),
-      excerpt: extracted['excerpt']?.toString(),
-      notes: extracted['notes']?.toString(),
+      fallback: fallback,
     );
   }
 
@@ -316,13 +357,23 @@ Rules: found=false if no formatting instructions. single-spaced => lineSpacing=1
     final apc = extracted['articleProcessingCharge']?.toString().trim();
     final abstractMax = extracted['abstractMaxWords'];
     final formats = _stringList(extracted['acceptedFileFormats']);
+    final refExample = extracted['referenceExample']?.toString().trim();
+    final inTextExample = extracted['inTextExample']?.toString().trim();
 
+    final columns = extracted['columns'];
+    final paper = extracted['paperSize']?.toString();
     return [
       ...reqs,
+      if (refExample != null && refExample.isNotEmpty)
+        'شكل المرجع: $refExample',
+      if (inTextExample != null && inTextExample.isNotEmpty)
+        'الاقتباس في النص: $inTextExample',
       if (sections.isNotEmpty) 'ترتيب الأقسام: ${sections.join(' → ')}',
       if (apc != null && apc.isNotEmpty) 'رسوم النشر: $apc',
       if (abstractMax != null) 'حد أقصى للملخص: $abstractMax كلمة',
       if (formats.isNotEmpty) 'صيغ الملفات: ${formats.join(', ')}',
+      if (columns != null) 'أعمدة: $columns',
+      if (paper != null && paper.isNotEmpty) 'حجم الورق: $paper',
     ];
   }
 

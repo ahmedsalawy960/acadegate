@@ -129,6 +129,38 @@
       ]
     },
     {
+      "collectionGroup": "industry_challenges",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "companyId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "industry_challenge_protocols",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "challengeId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "industry_challenge_protocols",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "researcherId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "industry_challenge_protocols",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "challengeId", "order": "ASCENDING" },
+        { "fieldPath": "researcherId", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "research_ideas",
       "queryScope": "COLLECTION",
       "fields": [
@@ -137,11 +169,85 @@
       ]
     },
     {
+      "collectionGroup": "research_ideas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "approvalStatus", "order": "ASCENDING" },
+        { "fieldPath": "degreeLevel", "order": "ASCENDING" },
+        { "fieldPath": "votesCount", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "research_ideas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "importSource", "order": "ASCENDING" },
+        { "fieldPath": "externalId", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "sample_analysis_requests",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "needsOwnerRouting", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "profile_claims",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "targetType", "order": "ASCENDING" },
+        { "fieldPath": "targetId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "kpi_events",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "weekId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "bug_reports",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "kpi_events",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "createdAt", "order": "ASCENDING" },
+        { "fieldPath": "type", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "store_suppliers",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "claimedByUid", "order": "ASCENDING" },
+        { "fieldPath": "directoryStatus", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "labs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "ownerId", "order": "ASCENDING" },
+        { "fieldPath": "directoryStatus", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "supervisors",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "ownerId", "order": "ASCENDING" },
+        { "fieldPath": "directoryStatus", "order": "ASCENDING" }
       ]
     }
   ],
@@ -193,6 +299,26 @@
         {
           "order": "ASCENDING",
           "queryScope": "COLLECTION_GROUP"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "kpi_events",
+      "fieldPath": "weekId",
+      "indexes": [
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "kpi_weekly",
+      "fieldPath": "weekStart",
+      "indexes": [
+        {
+          "order": "DESCENDING",
+          "queryScope": "COLLECTION"
         }
       ]
     }

@@ -85,10 +85,124 @@ class NbsleUniversityCities {
 
   /// Cities shown in equipment booking filters (governorate-style labels).
   static List<String> get browseCities {
-    final cities = _cities.values.toSet();
-    // Legacy Firestore label for Zagazig University labs.
-    cities.add('الزقازيق');
-    return cities.toList()..sort();
+    return _cities.values.map(canonicalCity).toSet().toList()..sort();
+  }
+
+  static const _cityCanon = <String, String>{
+    'الفيوم': 'الفيوم',
+    'fayoum': 'الفيوم',
+    'fayum': 'الفيوم',
+    'al fayoum': 'الفيوم',
+    'el fayoum': 'الفيوم',
+    'القاهرة': 'القاهرة',
+    'cairo': 'القاهرة',
+    'الإسكندرية': 'الإسكندرية',
+    'الاسكندرية': 'الإسكندرية',
+    'alexandria': 'الإسكندرية',
+    'alex': 'الإسكندرية',
+    'أسيوط': 'أسيوط',
+    'اسيوط': 'أسيوط',
+    'assiut': 'أسيوط',
+    'asyut': 'أسيوط',
+    'طنطا': 'طنطا',
+    'tanta': 'طنطا',
+    'المنصورة': 'المنصورة',
+    'mansoura': 'المنصورة',
+    'المنيا': 'المنيا',
+    'minia': 'المنيا',
+    'menia': 'المنيا',
+    'minya': 'المنيا',
+    'شبين الكوم': 'شبين الكوم',
+    'شبين القوم': 'شبين الكوم',
+    'shebin el kom': 'شبين الكوم',
+    'shibin el kom': 'شبين الكوم',
+    'shibin el-kom': 'شبين الكوم',
+    'قنا': 'قنا',
+    'qena': 'قنا',
+    'كفر الشيخ': 'كفر الشيخ',
+    'kafr elsheikh': 'كفر الشيخ',
+    'kafr el sheikh': 'كفر الشيخ',
+    'سوهاج': 'سوهاج',
+    'sohag': 'سوهاج',
+    'أسوان': 'أسوان',
+    'اسوان': 'أسوان',
+    'aswan': 'أسوان',
+    'بني سويف': 'بني سويف',
+    'beni suef': 'بني سويف',
+    'beni sueif': 'بني سويف',
+    'بنها': 'بنها',
+    'banha': 'بنها',
+    'benha': 'بنها',
+    'بورسعيد': 'بورسعيد',
+    'port said': 'بورسعيد',
+    'دمياط': 'دمياط',
+    'damietta': 'دمياط',
+    'السويس': 'السويس',
+    'suez': 'السويس',
+    'الإسماعيلية': 'الإسماعيلية',
+    'الاسماعيلية': 'الإسماعيلية',
+    'ismailia': 'الإسماعيلية',
+    'دمنهور': 'دمنهور',
+    'damanhour': 'دمنهور',
+    'مطروح': 'مطروح',
+    'matrouh': 'مطروح',
+    'الأقصر': 'الأقصر',
+    'الاقصر': 'الأقصر',
+    'luxor': 'الأقصر',
+    'الغردقة': 'الغردقة',
+    'hurghada': 'الغردقة',
+    'الجيزة': 'الجيزة',
+    'giza': 'الجيزة',
+    '6 أكتوبر': 'الجيزة',
+    '6 october': 'الجيزة',
+  };
+
+  static const _cityQueryAliases = <String, List<String>>{
+    'الفيوم': ['الفيوم', 'Fayoum', 'Fayum', 'Al Fayoum'],
+    'القاهرة': ['القاهرة', 'Cairo'],
+    'الإسكندرية': ['الإسكندرية', 'الاسكندرية', 'Alexandria', 'Alex'],
+    'أسيوط': ['أسيوط', 'اسيوط', 'Assiut', 'Asyut'],
+    'طنطا': ['طنطا', 'Tanta'],
+    'المنصورة': ['المنصورة', 'Mansoura'],
+    'المنيا': ['المنيا', 'Minia', 'Minya', 'Menia'],
+    'شبين الكوم': ['شبين الكوم', 'Shibin El Kom', 'Shebin El Kom'],
+    'قنا': ['قنا', 'Qena'],
+    'كفر الشيخ': ['كفر الشيخ', 'Kafr El Sheikh'],
+    'سوهاج': ['سوهاج', 'Sohag'],
+    'أسوان': ['أسوان', 'اسوان', 'Aswan'],
+    'بني سويف': ['بني سويف', 'Beni Suef'],
+    'بنها': ['بنها', 'Benha', 'Banha'],
+    'بورسعيد': ['بورسعيد', 'Port Said'],
+    'دمياط': ['دمياط', 'Damietta'],
+    'السويس': ['السويس', 'Suez'],
+    'الإسماعيلية': ['الإسماعيلية', 'Ismailia'],
+    'دمنهور': ['دمنهور', 'Damanhour'],
+    'مطروح': ['مطروح', 'Matrouh'],
+    'الأقصر': ['الأقصر', 'Luxor'],
+    'الغردقة': ['الغردقة', 'Hurghada'],
+    'الجيزة': ['الجيزة', 'Giza', '6 أكتوبر', '6 October'],
+    'الشرقية': ['الشرقية', 'الزقازيق', 'Zagazig'],
+  };
+
+  /// الزقازيق عاصمة محافظة الشرقية — نفس منطقة جامعة الزقازيق.
+  static String canonicalCity(String city) {
+    final t = city.trim();
+    if (t.isEmpty) return t;
+    final lower = t.toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+    const sharqia = {
+      'الزقازيق',
+      'zagazig',
+      'el zagazig',
+      'sharkia',
+      'sharqia',
+      'al-sharqia',
+      'al sharqia',
+      'ash sharqia',
+    };
+    if (t == 'الشرقية' || sharqia.contains(t) || sharqia.contains(lower)) {
+      return 'الشرقية';
+    }
+    return _cityCanon[t] ?? _cityCanon[lower] ?? t;
   }
 
   /// Arabic university names for filters.
@@ -100,19 +214,25 @@ class NbsleUniversityCities {
 
   /// Firestore may still store older labels (e.g. الزقازيق) for the same area.
   static List<String> cityQueryValues(String selectedCity) {
-    final city = selectedCity.trim();
+    final city = canonicalCity(selectedCity);
     if (city.isEmpty) return const [];
-    const aliases = <String, List<String>>{
-      'الشرقية': ['الشرقية', 'الزقازيق'],
-      'الزقازيق': ['الزقازيق', 'الشرقية'],
-    };
-    return aliases[city] ?? [city];
+    return _cityQueryAliases[city] ?? [city];
   }
 
   static bool cityMatches(String labCity, String selectedCity) {
     if (selectedCity.trim().isEmpty) return true;
-    final values = cityQueryValues(selectedCity);
-    return values.contains(labCity.trim());
+    return isSameCity(labCity, selectedCity);
+  }
+
+  static bool isSameCity(String leftCity, String rightCity) {
+    if (leftCity.trim().isEmpty || rightCity.trim().isEmpty) return false;
+    final left = canonicalCity(leftCity);
+    final right = canonicalCity(rightCity);
+    if (left.isEmpty || right.isEmpty) return false;
+    if (left == right) return true;
+    final leftLower = left.toLowerCase();
+    final rightLower = right.toLowerCase();
+    return leftLower.contains(rightLower) || rightLower.contains(leftLower);
   }
 
   static bool universityMatches(String labUniversity, String selectedUniversity) {

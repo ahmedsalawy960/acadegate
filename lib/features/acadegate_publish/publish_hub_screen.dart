@@ -4,6 +4,8 @@ import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 import '../../core/locale/locale_extensions.dart';
 import '../auth/auth_guard.dart';
 import '../auth/user_account_service.dart';
+import '../guides/section_guide_catalog.dart';
+import '../guides/section_guide_screen.dart';
 import 'admin_journal_form_screen.dart';
 import 'manuscript_editor_screen.dart';
 import 'publish_models.dart';
@@ -22,6 +24,10 @@ class PublishHubScreen extends StatelessWidget {
         backgroundColor: _brand,
         foregroundColor: Colors.white,
         actions: [
+          const SectionGuideAppBarButton(
+            guideId: SectionGuideCatalog.publish,
+            accent: _brand,
+          ),
           StreamBuilder(
             stream: UserAccountService.instance.watchCurrentAccount(),
             builder: (context, snapshot) {
@@ -45,6 +51,33 @@ class PublishHubScreen extends StatelessWidget {
       body: StreamBuilder<List<PublishManuscript>>(
         stream: ManuscriptService.instance.watchMine(),
         builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.error_outline, size: 48, color: Colors.red[400]),
+                    const SizedBox(height: 12),
+                    Text(
+                      context.t(
+                        'تعذر تحميل المسودات. تحقق من الاتصال وتسجيل الدخول.',
+                        'Could not load drafts. Check connection and sign-in.',
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '${snapshot.error}',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
           if (snapshot.connectionState == ConnectionState.waiting &&
               !snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
@@ -59,6 +92,15 @@ class PublishHubScreen extends StatelessWidget {
 
               return CustomScrollView(
                 slivers: [
+                  const SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
+                      child: SectionGuideBanner(
+                        guideId: SectionGuideCatalog.publish,
+                        accent: _brand,
+                      ),
+                    ),
+                  ),
                   if (isAdmin)
                     SliverToBoxAdapter(
                       child: _PendingJournalsPanel(),
@@ -159,8 +201,8 @@ class PublishHubScreen extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               context.t(
-                'ابدأ مسودة → نسّق IEEE/APA → اختر مجلة للتقديم',
-                'Start a draft → format IEEE/APA → pick a journal to submit',
+                'ابدأ مسودة → اختر نوع تنسيق المراجع → اختر مجلة للتقديم',
+                'Start a draft → pick a reference style → choose a journal',
               ),
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.grey[600], height: 1.4),

@@ -125,6 +125,12 @@ const facultyCategories = <FacultyCategory>[
     icon: Icons.palette,
     color: Color(0xFFAD1457),
   ),
+  FacultyCategory(
+    id: 'ProfessionalStudies',
+    titleAr: 'دراسات عليا مهنية ودبلومات',
+    icon: Icons.workspace_premium,
+    color: Color(0xFF4527A0),
+  ),
 ];
 
 FacultyCategory? facultyById(String id) {
@@ -239,6 +245,23 @@ String? inferFacultyCategoryFromText(String text) {
     'Tourism': ['سياح', 'tourism', 'فنادق', 'hospitality'],
     'PhysicalEducation': ['رياضة', 'sport', 'physical educ'],
     'FineArts': ['فنون', 'fine art', 'تصميم', 'design'],
+    'ProfessionalStudies': [
+      'مهني',
+      'professional',
+      'mba',
+      'emba',
+      'dba',
+      'dpa',
+      'mpa',
+      'edd',
+      'dnp',
+      'دبلوم دراسات',
+      'دبلوم مهني',
+      'postgraduate diploma',
+      'إدارة عامة',
+      'public administration',
+      'executive mba',
+    ],
   };
 
   for (final entry in hints.entries) {

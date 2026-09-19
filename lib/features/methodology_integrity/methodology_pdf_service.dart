@@ -1,4 +1,8 @@
 import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 
 import '../../core/locale/app_translate.dart';
 import '../../core/locale/locale_service.dart';
@@ -15,12 +19,49 @@ class MethodologyPdfService {
   /// Max chars loaded into the editor from PDF extraction.
   /// If the chapter is longer, [truncated] is set and the full PDF is used at check time.
   static const maxMethodologyChars = 60000;
-  static const _extractionOutputTokens = 16384;
+  static const _extractionOutputTokens = 8192;
 
   int get _maxMethodologyChars => maxMethodologyChars;
 
   Future<({List<int> bytes, String name})?> pickPdf() =>
       VivaPdfService.instance.pickPdf();
+
+  /// Prefer Storage for large PDFs (same limit as Viva) to avoid callable payload failures.
+  Future<GeminiInlinePart> pdfAttachmentForCloud({
+    required List<int> bytes,
+    required String fileName,
+  }) async {
+    final useStorage = GeminiAdvisorClient.canUseCloudBackend &&
+        bytes.length > VivaPdfService.inlineCloudMaxBytes;
+    if (useStorage) {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw Exception(appTr(
+          'سجّل الدخول لرفع ملفات الرسالة الكبيرة',
+          'Sign in to upload large thesis files',
+        ));
+      }
+      final safeName = fileName.replaceAll(RegExp(r'[^\w.\-]+'), '_');
+      final path =
+          'uploads/${user.uid}/methodology/${DateTime.now().millisecondsSinceEpoch}_$safeName';
+      final ref = FirebaseStorage.instance.ref().child(path);
+      await ref.putData(
+        Uint8List.fromList(bytes),
+        SettableMetadata(contentType: 'application/pdf'),
+      );
+      return GeminiInlinePart(
+        mimeType: 'application/pdf',
+        base64Data: '',
+        fileName: fileName,
+        storagePath: path,
+      );
+    }
+    return GeminiInlinePart(
+      mimeType: 'application/pdf',
+      base64Data: base64Encode(bytes),
+      fileName: fileName,
+    );
+  }
 
   Future<MethodologyPdfExtractionResult> extractMethodologyFromPdf({
     required List<int> bytes,
@@ -33,9 +74,8 @@ class MethodologyPdfService {
       ));
     }
 
-    final attachment = GeminiInlinePart(
-      mimeType: 'application/pdf',
-      base64Data: base64Encode(bytes),
+    final attachment = await pdfAttachmentForCloud(
+      bytes: bytes,
       fileName: fileName,
     );
 
@@ -120,38 +160,29 @@ title, researchQuestion, methodologyType, methodologyText, populationSample, dat
       );
     }
 
-    String field(String key) => data[key]?.toString().trim() ?? '';
-
-    var methodologyText = field('methodologyText');
+    var methodology = (data['methodologyText'] ?? '').toString().trim();
     final truncatedFlag = data['truncated'] == true;
     var truncated = truncatedFlag;
-    if (methodologyText.length > _maxMethodologyChars) {
-      methodologyText = methodologyText.substring(0, _maxMethodologyChars);
+    if (methodology.length > _maxMethodologyChars) {
+      methodology = methodology.substring(0, _maxMethodologyChars);
       truncated = true;
     }
-
-    if (methodologyText.length < 80) {
+    if (methodology.length < 80) {
       throw Exception(appTr(
-        'لم يُعثر على فصل منهجية كافٍ في PDF — جرّب ملفاً يتضمن فصل المنهجية بوضوح',
-        'No sufficient methodology chapter found in PDF — try a file with a clear methodology section',
+        'لم يُستخرج نص منهجية كافٍ — تأكد أن PDF يحتوي فصل المنهجية',
+        'Could not extract enough methodology text — ensure the PDF includes a methodology chapter',
       ));
     }
 
     return MethodologyPdfExtractionResult(
       fileName: fileName,
-      title: field('title').isNotEmpty
-          ? field('title')
-          : fileName.replaceAll(RegExp(r'\.pdf$', caseSensitive: false), ''),
-      researchQuestion: field('researchQuestion'),
-      methodologyText: methodologyText,
-      methodologyType:
-          field('methodologyType').isEmpty ? null : field('methodologyType'),
-      populationSample:
-          field('populationSample').isEmpty ? null : field('populationSample'),
-      dataCollection:
-          field('dataCollection').isEmpty ? null : field('dataCollection'),
-      analysisApproach:
-          field('analysisApproach').isEmpty ? null : field('analysisApproach'),
+      title: (data['title'] ?? '').toString().trim(),
+      researchQuestion: (data['researchQuestion'] ?? '').toString().trim(),
+      methodologyText: methodology,
+      methodologyType: (data['methodologyType'] ?? '').toString().trim(),
+      populationSample: (data['populationSample'] ?? '').toString().trim(),
+      dataCollection: (data['dataCollection'] ?? '').toString().trim(),
+      analysisApproach: (data['analysisApproach'] ?? '').toString().trim(),
       truncated: truncated,
     );
   }

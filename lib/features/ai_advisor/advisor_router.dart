@@ -1,6 +1,7 @@
 import 'advisor_agent.dart';
 import 'advisor_agent_registry.dart';
 import 'advisor_query_parser.dart';
+import 'catalog_intent.dart';
 
 class AdvisorRouter {
   AdvisorRouter._();
@@ -11,6 +12,10 @@ class AdvisorRouter {
   static const _maxSupporting = 2;
 
   AdvisorRoutePlan route(String message) {
+    if (CatalogIntentParser.parse(message).isCatalogRequest) {
+      return const AdvisorRoutePlan(primary: AdvisorAgentId.catalogExecute);
+    }
+
     final parsed = AcademicQueryParser.parse(message);
     final goalAgent = _agentForGoal(parsed.goal);
 
@@ -33,6 +38,7 @@ class AdvisorRouter {
       AcademicQueryGoal.summarize =>
         AdvisorAgentId.thesisPlanning,
       AcademicQueryGoal.supervisor => AdvisorAgentId.supervisorMatch,
+      AcademicQueryGoal.catalog => AdvisorAgentId.catalogExecute,
       AcademicQueryGoal.thesisWriting => AdvisorAgentId.thesisWriter,
       AcademicQueryGoal.literatureReview => AdvisorAgentId.literatureReview,
       AcademicQueryGoal.citations => AdvisorAgentId.citations,

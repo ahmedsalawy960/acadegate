@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../core/locale/app_translate.dart';
+import '../analytics/kpi_analytics_service.dart';
 import '../notifications/notification_service.dart';
 import '../research_journey/thesis_progress.dart';
 import '../research_journey/thesis_progress_activity.dart';
@@ -53,9 +54,16 @@ class SupervisionRequestService {
       'requestType': requestType,
       'message': trimmed,
       'status': 'pending',
+      'source': 'matchmaking',
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
+
+    // ignore: unawaited_futures
+    KpiAnalyticsService.instance.logContactRequest(
+      channel: requestType,
+      targetId: supervisorDocId,
+    );
 
     if (supervisorOwnerId.isNotEmpty) {
       await NotificationService.instance.send(

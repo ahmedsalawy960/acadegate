@@ -40,6 +40,11 @@ class ResearchJourneyService {
     await setStage(stage);
   }
 
+  /// Completes first-run without a research stage (e.g. became a provider).
+  Future<void> completeOnboardingWithoutStage() async {
+    await _local.setOnboardingDone(done: true, stage: 'provider');
+  }
+
   Future<void> setStage(ResearchJourneyStage stage) async {
     await _local.setOnboardingDone(done: true, stage: stage.id);
 

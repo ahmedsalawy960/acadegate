@@ -3,6 +3,8 @@ import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
 import '../../core/locale/locale_extensions.dart';
 import '../ai_advisor/advisor_branding.dart';
+import '../guides/section_guide_catalog.dart';
+import '../guides/section_guide_screen.dart';
 import '../home/home_search_utils.dart';
 import '../home/section_search_field.dart';
 import '../methodology_integrity/methodology_integrity_screen.dart';
@@ -25,19 +27,23 @@ class _AcademicIntegrityHubScreenState extends State<AcademicIntegrityHubScreen>
     _IntegrityTool(
       color: const Color(0xFF0D47A1),
       icon: Icons.menu_book_outlined,
-      titleAr: 'فاحص المراجع',
-      titleEn: 'Reference checker',
-      subtitleAr: 'تحقق DOI والعناوين — Crossref + OpenAlex + Semantic Scholar',
-      subtitleEn: 'Verify DOIs & titles — Crossref + OpenAlex + Semantic Scholar',
+      titleAr: 'تقرير صحة الاستشهاد',
+      titleEn: 'Citation health report',
+      subtitleAr: 'تأكيد DOI ثم سحب/تصحيح/تعبير قلق من سجل Crossref وOpenAlex',
+      subtitleEn: 'Confirm DOI, then retraction / correction / concern from Crossref and OpenAlex',
       keywords: const [
         'citation',
         'reference',
         'doi',
         'crossref',
         'openalex',
+        'retraction',
+        'correction',
         'مراجع',
         'مرجع',
         'توثيق',
+        'سحب',
+        'تصحيح',
       ],
       screen: const CitationCheckScreen(),
     ),
@@ -102,10 +108,21 @@ class _AcademicIntegrityHubScreenState extends State<AcademicIntegrityHubScreen>
         title: Text(AdvisorBranding.integrityTitle),
         backgroundColor: _brand,
         foregroundColor: Colors.white,
+        actions: const [
+          SectionGuideAppBarButton(
+            guideId: SectionGuideCatalog.integrity,
+            accent: _brand,
+          ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          const SectionGuideBanner(
+            guideId: SectionGuideCatalog.integrity,
+            accent: _brand,
+          ),
+          const SizedBox(height: 12),
           SectionSearchField(
             query: _searchQuery,
             onChanged: (value) => setState(() => _searchQuery = value),

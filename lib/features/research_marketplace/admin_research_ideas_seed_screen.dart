@@ -5,9 +5,10 @@ import '../../core/locale/locale_extensions.dart';
 import '../academic/faculty_categories.dart';
 import '../auth/user_account_service.dart';
 import 'research_ideas_seed_service.dart';
+import 'research_ideas_sync_service.dart';
 import 'seed/egypt_research_ideas_seed.dart';
 
-/// ينشر 90 فكرة كاملة (5 لكل كلية) باسم الحساب الحالي.
+/// نشر حزمة مصر + مزامنة مستمرة (OpenAlex / RSS / Gemini) للمدير.
 class AdminResearchIdeasSeedScreen extends StatefulWidget {
   const AdminResearchIdeasSeedScreen({super.key});
 
@@ -19,9 +20,24 @@ class AdminResearchIdeasSeedScreen extends StatefulWidget {
 class _AdminResearchIdeasSeedScreenState
     extends State<AdminResearchIdeasSeedScreen> {
   bool _publishing = false;
+  bool _syncing = false;
   int _done = 0;
   int _total = egyptResearchIdeasSeed.length;
   String? _lastMessage;
+  String? _syncMessage;
+  DateTime? _lastSyncAt;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLastSync();
+  }
+
+  Future<void> _loadLastSync() async {
+    final at = await ResearchIdeasSyncService.instance.loadLastSyncAt();
+    if (!mounted) return;
+    setState(() => _lastSyncAt = at);
+  }
 
   Future<void> _publish() async {
     final confirmed = await showDialog<bool>(
@@ -87,6 +103,70 @@ class _AdminResearchIdeasSeedScreenState
     }
   }
 
+  Future<void> _syncLive() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(context.t('مزامنة أفكار حية', 'Live ideas sync')),
+        content: Text(
+          context.t(
+            'ستُجلب أفكار من OpenAlex وأخبار العلوم، تُحوَّل عبر Gemini '
+            '(أو قالب ذكي احتياطي)، وتُضاف لسوق الأفكار مع إزالة التكرار.',
+            'Fetches OpenAlex + science news, normalizes via Gemini '
+            '(or heuristic fallback), and upserts marketplace ideas with dedupe.',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(context.t('إلغاء', 'Cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(context.t('مزامنة الآن', 'Sync now')),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() {
+      _syncing = true;
+      _syncMessage = null;
+    });
+
+    try {
+      final result = await ResearchIdeasSyncService.instance.syncNow(
+        autoApprove: true,
+      );
+      if (!mounted) return;
+      await _loadLastSync();
+      if (!mounted) return;
+      final msg = context.t(
+        'مزامنة: ${result.imported} جديدة · ${result.updated} محدّثة · '
+        'مرشّحات ${result.candidates} (OpenAlex ${result.openalex} / RSS ${result.rss})'
+        '${result.usedGemini ? ' · Gemini' : ' · قالب احتياطي'}',
+        'Sync: ${result.imported} new · ${result.updated} updated · '
+        '${result.candidates} candidates (OpenAlex ${result.openalex} / RSS ${result.rss})'
+        '${result.usedGemini ? ' · Gemini' : ' · heuristic'}',
+      );
+      setState(() => _syncMessage = msg);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg), backgroundColor: Colors.teal[700]),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$e'.replaceFirst('Exception: ', '')),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _syncing = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final byFaculty = <String, int>{};
@@ -101,8 +181,8 @@ class _AdminResearchIdeasSeedScreenState
         return Scaffold(
           appBar: AcadeGateAppBar(
             title: Text(context.t(
-              'حزمة أفكار بحثية',
-              'Research ideas pack',
+              'أفكار بحثية — نشر ومزامنة',
+              'Research ideas — publish & sync',
             )),
             backgroundColor: Colors.orange[800],
             foregroundColor: Colors.white,
@@ -110,6 +190,82 @@ class _AdminResearchIdeasSeedScreenState
           body: ListView(
             padding: const EdgeInsets.all(16),
             children: [
+              if (isAdmin) ...[
+                Card(
+                  color: Colors.teal.withValues(alpha: 0.08),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          context.t(
+                            'مزامنة مستمرة (ماجستير / دكتوراه)',
+                            'Continuous sync (Master\'s / PhD)',
+                          ),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          context.t(
+                            'OpenAlex + أخبار علمية → تطبيع ذكي → سوق الأفكار. '
+                            'جدولة أسبوعية: الثلاثاء 04:00 (القاهرة) بعد نشر الدالة.',
+                            'OpenAlex + science news → smart normalize → marketplace. '
+                            'Weekly schedule: Tuesday 04:00 (Cairo) after function deploy.',
+                          ),
+                          style: TextStyle(color: Colors.grey[800], height: 1.4),
+                        ),
+                        if (_lastSyncAt != null) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            context.t(
+                              'آخر مزامنة: ${_lastSyncAt!.toLocal()}',
+                              'Last sync: ${_lastSyncAt!.toLocal()}',
+                            ),
+                            style: TextStyle(color: Colors.teal[900]),
+                          ),
+                        ],
+                        if (_syncMessage != null) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            _syncMessage!,
+                            style: TextStyle(
+                              color: Colors.teal[900],
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 12),
+                        if (_syncing) ...[
+                          const LinearProgressIndicator(),
+                          const SizedBox(height: 8),
+                          Text(context.t(
+                            'جاري المزامنة (قد تستغرق دقيقة أو أكثر)…',
+                            'Syncing (may take a minute or more)…',
+                          )),
+                          const SizedBox(height: 12),
+                        ],
+                        FilledButton.icon(
+                          onPressed: (_syncing || _publishing) ? null : _syncLive,
+                          icon: const Icon(Icons.sync),
+                          label: Text(context.t(
+                            'مزامنة الأفكار الآن',
+                            'Sync ideas now',
+                          )),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: Colors.teal[700],
+                            minimumSize: const Size.fromHeight(48),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
               Card(
                 color: Colors.orange.withValues(alpha: 0.08),
                 child: Padding(
@@ -183,7 +339,7 @@ class _AdminResearchIdeasSeedScreenState
                 const SizedBox(height: 12),
               ],
               FilledButton.icon(
-                onPressed: _publishing ? null : _publish,
+                onPressed: (_publishing || _syncing) ? null : _publish,
                 icon: const Icon(Icons.publish_outlined),
                 label: Text(context.t(
                   'نشر الحزمة باسمي',

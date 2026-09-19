@@ -11,6 +11,8 @@ class StoreCategory {
   /// Who this section serves (researchers / faculties / suppliers).
   final String audienceAr;
   final String audienceEn;
+  /// Local asset used as section cover / background.
+  final String backgroundAsset;
 
   const StoreCategory({
     required this.id,
@@ -19,6 +21,7 @@ class StoreCategory {
     required this.color,
     required this.audienceAr,
     required this.audienceEn,
+    required this.backgroundAsset,
   });
 }
 
@@ -27,11 +30,12 @@ class StoreCategory {
 const List<StoreCategory> storeCategories = [
   StoreCategory(
     id: 'chemicals',
-    title: 'كيميائيات وكواشف',
+    title: 'مستلزمات ومواد كيميائية وكواشف',
     icon: Icons.science_outlined,
     color: Color(0xFF2E7D32),
     audienceAr: 'علوم · صيدلة · هندسة كيميائية',
     audienceEn: 'Science · Pharmacy · ChemEng',
+    backgroundAsset: 'assets/images/store/categories/cat_chemicals.png',
   ),
   StoreCategory(
     id: 'biology',
@@ -40,6 +44,7 @@ const List<StoreCategory> storeCategories = [
     color: Color(0xFF00897B),
     audienceAr: 'علوم · زراعة · طب بيطري',
     audienceEn: 'Science · Agriculture · Vet',
+    backgroundAsset: 'assets/images/store/categories/cat_biology.png',
   ),
   StoreCategory(
     id: 'medical',
@@ -48,6 +53,7 @@ const List<StoreCategory> storeCategories = [
     color: Color(0xFFC62828),
     audienceAr: 'طب · أسنان · تمريض · علاج طبيعي',
     audienceEn: 'Medicine · Dentistry · Nursing',
+    backgroundAsset: 'assets/images/store/categories/cat_medical.png',
   ),
   StoreCategory(
     id: 'engineering',
@@ -56,6 +62,7 @@ const List<StoreCategory> storeCategories = [
     color: Color(0xFF1565C0),
     audienceAr: 'هندسة · حاسبات · تكنولوجيا',
     audienceEn: 'Engineering · Computing · Tech',
+    backgroundAsset: 'assets/images/store/categories/cat_engineering.png',
   ),
   StoreCategory(
     id: 'physics_materials',
@@ -64,6 +71,7 @@ const List<StoreCategory> storeCategories = [
     color: Color(0xFF5E35B1),
     audienceAr: 'علوم · هندسة مواد · جيولوجيا',
     audienceEn: 'Physics · Materials · Geology',
+    backgroundAsset: 'assets/images/store/categories/cat_physics.png',
   ),
   StoreCategory(
     id: 'agriculture',
@@ -72,6 +80,7 @@ const List<StoreCategory> storeCategories = [
     color: Color(0xFF558B2F),
     audienceAr: 'زراعة · بيطري · ثروة سمكية',
     audienceEn: 'Agriculture · Vet · Fisheries',
+    backgroundAsset: 'assets/images/store/categories/cat_agriculture.png',
   ),
   StoreCategory(
     id: 'computing',
@@ -80,6 +89,16 @@ const List<StoreCategory> storeCategories = [
     color: Color(0xFF0277BD),
     audienceAr: 'حاسبات · ذكاء اصطناعي · بيانات',
     audienceEn: 'CS · AI · Data science',
+    backgroundAsset: 'assets/images/store/categories/cat_computing.png',
+  ),
+  StoreCategory(
+    id: 'knowledge_assets',
+    title: 'أصول معرفية رقمية',
+    icon: Icons.lock_outline,
+    color: Color(0xFF4527A0),
+    audienceAr: 'كود · نماذج 3D · بيانات · قوالب مرخّصة',
+    audienceEn: 'Code · 3D models · datasets · licensed templates',
+    backgroundAsset: 'assets/images/store/categories/cat_computing.png',
   ),
   StoreCategory(
     id: 'consumables',
@@ -88,6 +107,7 @@ const List<StoreCategory> storeCategories = [
     color: Color(0xFF6D4C41),
     audienceAr: 'جميع المعامل والكليات العملية',
     audienceEn: 'All labs & practical faculties',
+    backgroundAsset: 'assets/images/store/categories/cat_consumables.png',
   ),
   StoreCategory(
     id: 'instruments',
@@ -96,6 +116,7 @@ const List<StoreCategory> storeCategories = [
     color: Color(0xFF455A64),
     audienceAr: 'باحثون يحتاجون أجهزة صغيرة / قطع غيار',
     audienceEn: 'Small instruments & spare parts',
+    backgroundAsset: 'assets/images/store/categories/cat_instruments.png',
   ),
   StoreCategory(
     id: 'safety',
@@ -104,6 +125,7 @@ const List<StoreCategory> storeCategories = [
     color: Color(0xFFE65100),
     audienceAr: 'كل المعامل — موردو PPE',
     audienceEn: 'All labs — PPE suppliers',
+    backgroundAsset: 'assets/images/store/categories/cat_safety.png',
   ),
   StoreCategory(
     id: 'field',
@@ -112,6 +134,7 @@ const List<StoreCategory> storeCategories = [
     color: Color(0xFF00695C),
     audienceAr: 'جغرافيا · آثار · بيئة · مسح',
     audienceEn: 'Geography · Archaeology · Env',
+    backgroundAsset: 'assets/images/store/categories/cat_field.png',
   ),
   StoreCategory(
     id: 'books',
@@ -120,6 +143,7 @@ const List<StoreCategory> storeCategories = [
     color: Color(0xFF4E342E),
     audienceAr: 'جميع الكليات والتخصصات',
     audienceEn: 'All faculties & disciplines',
+    backgroundAsset: 'assets/images/store/categories/cat_books.png',
   ),
   StoreCategory(
     id: 'humanities',
@@ -128,6 +152,7 @@ const List<StoreCategory> storeCategories = [
     color: Color(0xFF7B1FA2),
     audienceAr: 'آداب · تربية · حقوق · إعلام · خدمة اجتماعية',
     audienceEn: 'Arts · Education · Law · Media',
+    backgroundAsset: 'assets/images/store/categories/cat_humanities.png',
   ),
   StoreCategory(
     id: 'office',
@@ -136,6 +161,7 @@ const List<StoreCategory> storeCategories = [
     color: Color(0xFF546E7A),
     audienceAr: 'دفاتر · ملفات · طباعة أطروحات · أرشفة',
     audienceEn: 'Notebooks · binders · thesis print · archive',
+    backgroundAsset: 'assets/images/store/categories/cat_office.png',
   ),
   StoreCategory(
     id: 'general',
@@ -144,12 +170,15 @@ const List<StoreCategory> storeCategories = [
     color: Color(0xFF37474F),
     audienceAr: 'ما لا يندرج تحت قسم محدد',
     audienceEn: 'Anything not covered above',
+    backgroundAsset: 'assets/images/store/categories/cat_general.png',
   ),
 ];
 
 /// Old Firestore category titles → current titles (for legacy products).
 const Map<String, String> storeCategoryLegacyAliases = {
-  'متجر كيميائي': 'كيميائيات وكواشف',
+  'متجر كيميائي': 'مستلزمات ومواد كيميائية وكواشف',
+  'كيميائيات وكواشف': 'مستلزمات ومواد كيميائية وكواشف',
+  'كيميائيات': 'مستلزمات ومواد كيميائية وكواشف',
   'متجر هندسي': 'هندسة وإلكترونيات',
   'متجر طبي': 'طبي وصيدلي وسريري',
   'متجر زراعي': 'زراعة وبيطري',

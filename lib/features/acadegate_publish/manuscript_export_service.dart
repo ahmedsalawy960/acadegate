@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -11,7 +10,11 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../core/locale/app_translate.dart';
 import 'citation_formatter.dart';
+import 'citation_style_converter.dart';
+import 'journal_format_rules.dart';
 import 'manuscript_citation_helper.dart';
+import 'manuscript_document_parser.dart';
+import 'manuscript_upload_service.dart';
 import 'publish_models.dart';
 
 class ManuscriptExportService {
@@ -33,6 +36,15 @@ class ManuscriptExportService {
   }
 
   Future<Uint8List> buildPdfBytes(PublishManuscript manuscript) async {
+    manuscript = CitationStyleConverter.apply(
+      manuscript: manuscript,
+      style: manuscript.effectiveStyle,
+    );
+    manuscript = manuscript.copyWith(
+      bodyBlocks: ManuscriptDocumentParser.hydratePersistedImageUris(
+        manuscript.bodyBlocks,
+      ),
+    );
     final font = await PdfGoogleFonts.notoNaskhArabicRegular();
     final fontBold = await PdfGoogleFonts.notoNaskhArabicBold();
     final style = manuscript.effectiveStyle;
@@ -47,7 +59,8 @@ class ManuscriptExportService {
             manuscript.title,
             style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold),
           ),
-          if (manuscript.abstractText.trim().isNotEmpty) ...[
+          if (manuscript.abstractText.trim().isNotEmpty &&
+              !_bodyHasAbstract(manuscript)) ...[
             pw.SizedBox(height: 12),
             pw.Text(
               appTr('الملخص', 'Abstract'),
@@ -69,7 +82,6 @@ class ManuscriptExportService {
               CitationFormatter.formatBibliography(
                 references: ManuscriptCitationHelper.bibliographyReferences(
                   manuscript,
-                  citedOnly: true,
                 ),
                 style: style,
               ),
@@ -188,9 +200,24 @@ class ManuscriptExportService {
 
   Future<pw.MemoryImage?> _loadPdfImage(String url) async {
     try {
-      final response = await http.get(Uri.parse(url));
-      if (response.statusCode == 200) {
-        return pw.MemoryImage(response.bodyBytes);
+      var source = url.trim();
+      if (source.isEmpty) return null;
+      if (source.startsWith('{{img:')) {
+        // Unhydrated placeholder — nothing to embed.
+        return null;
+      }
+      if (source.startsWith('data:')) {
+        final comma = source.indexOf(',');
+        if (comma < 0) return null;
+        final bytes = base64Decode(source.substring(comma + 1));
+        if (bytes.isEmpty) return null;
+        return pw.MemoryImage(bytes);
+      }
+      // Authenticated Storage download — raw http.get often returns 403.
+      final bytes =
+          await ManuscriptUploadService.instance.downloadBytesFromUrl(source);
+      if (bytes != null && bytes.isNotEmpty) {
+        return pw.MemoryImage(bytes);
       }
     } catch (_) {}
     return null;
@@ -208,7 +235,8 @@ class ManuscriptExportService {
       ..writeln('</style></head><body>')
       ..writeln('<h1>${_escapeHtml(manuscript.title)}</h1>');
 
-    if (manuscript.abstractText.trim().isNotEmpty) {
+    if (manuscript.abstractText.trim().isNotEmpty &&
+        !_bodyHasAbstract(manuscript)) {
       buffer
         ..writeln('<h2>${appTr('الملخص', 'Abstract')}</h2>')
         ..writeln('<p>${_escapeHtml(manuscript.abstractText)}</p>');
@@ -220,7 +248,6 @@ class ManuscriptExportService {
 
     final bibRefs = ManuscriptCitationHelper.bibliographyReferences(
       manuscript,
-      citedOnly: true,
     );
     if (bibRefs.isNotEmpty) {
       buffer
@@ -277,12 +304,34 @@ class ManuscriptExportService {
 
   String _htmlTable(ManuscriptBlock block) {
     if (block.rows.isEmpty) return '';
+    final rows = ManuscriptBlock.normalizedRows(block.rows);
+    final cellImages = ManuscriptBlock.normalizedCellImages(
+      block.rowCellImages,
+      rows,
+    );
+    final colSpans = ManuscriptBlock.normalizedIntGrid(block.colSpans, rows);
+    final rowSpans = ManuscriptBlock.normalizedIntGrid(block.rowSpans, rows);
     final b = StringBuffer('<table>');
-    for (var i = 0; i < block.rows.length; i++) {
+    for (var r = 0; r < rows.length; r++) {
       b.write('<tr>');
-      for (final cell in block.rows[i]) {
-        final tag = i == 0 ? 'th' : 'td';
-        b.write('<$tag>${_escapeHtml(cell)}</$tag>');
+      for (var c = 0; c < rows[r].length; c++) {
+        final colSpan =
+            r < colSpans.length && c < colSpans[r].length ? colSpans[r][c] : 1;
+        if (colSpan == 0) continue;
+        final rowSpan =
+            r < rowSpans.length && c < rowSpans[r].length ? rowSpans[r][c] : 1;
+        if (rowSpan == 0) continue;
+        final tag = r == 0 ? 'th' : 'td';
+        final spanAttrs =
+            '${colSpan > 1 ? ' colspan="$colSpan"' : ''}${rowSpan > 1 ? ' rowspan="$rowSpan"' : ''}';
+        final img = r < cellImages.length && c < cellImages[r].length
+            ? cellImages[r][c]
+            : '';
+        final inner = img.isNotEmpty
+            ? '<img src="${_escapeHtml(img)}" style="max-width:100%;height:auto"/>'
+                '${rows[r][c].trim().isEmpty ? '' : '<br>${_escapeHtml(rows[r][c])}'}'
+            : _escapeHtml(rows[r][c]);
+        b.write('<$tag$spanAttrs>$inner</$tag>');
       }
       b.write('</tr>');
     }
@@ -291,6 +340,14 @@ class ManuscriptExportService {
       b.write('<p><em>${_escapeHtml(block.caption!)}</em></p>');
     }
     return b.toString();
+  }
+
+  bool _bodyHasAbstract(PublishManuscript manuscript) {
+    return manuscript.bodyBlocks.any(
+      (b) =>
+          b.type == ManuscriptBlockType.heading &&
+          JournalSectionLayout.isAbstractHeading(b.text),
+    );
   }
 
   String _escapeHtml(String input) => input

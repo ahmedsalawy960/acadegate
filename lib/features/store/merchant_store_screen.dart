@@ -13,9 +13,13 @@ import '../messaging/messaging_models.dart';
 import '../messaging/messaging_service.dart';
 import '../moderation/approval_status.dart';
 import 'add_product_screen.dart';
+import 'assembly_guide/assembly_guide_screen.dart';
+import 'assembly_guide/assembly_guide_service.dart';
+import 'assembly_guide/edit_assembly_guide_screen.dart';
 import 'product_detail_screen.dart';
 import 'store_categories.dart';
 import 'store_order_service.dart';
+import 'store_theme.dart';
 
 /// لوحة المورد داخل المتجر: منتجاته + إضافة المزيد + الطلبات الواردة.
 class MerchantStoreScreen extends StatefulWidget {
@@ -27,8 +31,6 @@ class MerchantStoreScreen extends StatefulWidget {
 
 class _MerchantStoreScreenState extends State<MerchantStoreScreen>
     with SingleTickerProviderStateMixin {
-  static const _brand = Color(0xFFE65100);
-
   late final TabController _tabs;
 
   @override
@@ -92,7 +94,7 @@ class _MerchantStoreScreenState extends State<MerchantStoreScreen>
                   child: ListView.separated(
                     shrinkWrap: true,
                     itemCount: storeCategories.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    separatorBuilder: (_, _) => const Divider(height: 1),
                     itemBuilder: (context, i) {
                       final c = storeCategories[i];
                       return ListTile(
@@ -135,8 +137,8 @@ class _MerchantStoreScreenState extends State<MerchantStoreScreen>
       SnackBar(
         content: Text(
           context.t(
-            'تم إرسال المنتج للمراجعة — يمكنك إضافة منتج آخر من الزر أدناه',
-            'Product sent for review — add another with the button below',
+            'تم حفظ المنتج — يمكنك إضافة منتج آخر من الزر أدناه',
+            'Product saved — add another with the button below',
           ),
         ),
         behavior: SnackBarBehavior.floating,
@@ -152,48 +154,51 @@ class _MerchantStoreScreenState extends State<MerchantStoreScreen>
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF7F8FA),
-      appBar: AcadeGateAppBar(
-        title: Text(context.t('متجري', 'My store')),
-        backgroundColor: _brand,
-        foregroundColor: Colors.white,
-        bottom: TabBar(
-          controller: _tabs,
-          indicatorColor: Colors.white,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          tabs: [
-            Tab(text: context.t('منتجاتي', 'My products')),
-            Tab(text: context.t('الطلبات', 'Orders')),
-          ],
+    return Theme(
+      data: StoreTheme.overlay(context),
+      child: Scaffold(
+        backgroundColor: StoreTheme.bg,
+        appBar: AcadeGateAppBar(
+          title: Text(context.t('متجري', 'My store')),
+          backgroundColor: StoreTheme.appBar,
+          foregroundColor: StoreTheme.appBarForeground,
+          bottom: TabBar(
+            controller: _tabs,
+            indicatorColor: StoreTheme.accent,
+            labelColor: StoreTheme.ink,
+            unselectedLabelColor: StoreTheme.muted,
+            tabs: [
+              Tab(text: context.t('منتجاتي', 'My products')),
+              Tab(text: context.t('الطلبات', 'Orders')),
+            ],
+          ),
         ),
-      ),
-      floatingActionButton: user == null
-          ? null
-          : FloatingActionButton.extended(
-              onPressed: _addProduct,
-              backgroundColor: _brand,
-              foregroundColor: Colors.white,
-              icon: const Icon(Icons.add),
-              label: Text(context.t('إضافة منتج', 'Add product')),
-            ),
-      body: user == null
-          ? Center(
-              child: Text(
-                context.t(
-                  'سجّل الدخول لإدارة متجرك',
-                  'Sign in to manage your store',
-                ),
+        floatingActionButton: user == null
+            ? null
+            : FloatingActionButton.extended(
+                onPressed: _addProduct,
+                backgroundColor: StoreTheme.accent,
+                foregroundColor: Colors.white,
+                icon: const Icon(Icons.add),
+                label: Text(context.t('إضافة منتج', 'Add product')),
               ),
-            )
-          : TabBarView(
-              controller: _tabs,
-              children: [
-                _MyProductsTab(uid: user.uid, onAdd: _addProduct),
-                const _SellerOrdersTab(),
-              ],
-            ),
+        body: user == null
+            ? Center(
+                child: Text(
+                  context.t(
+                    'سجّل الدخول لإدارة متجرك',
+                    'Sign in to manage your store',
+                  ),
+                ),
+              )
+            : TabBarView(
+                controller: _tabs,
+                children: [
+                  _MyProductsTab(uid: user.uid, onAdd: _addProduct),
+                  const _SellerOrdersTab(),
+                ],
+              ),
+      ),
     );
   }
 }
@@ -209,13 +214,38 @@ class _MyProductsTab extends StatelessWidget {
   Color _statusColor(String? status) {
     switch (status) {
       case ApprovalStatus.approved:
-        return const Color(0xFF2E7D32);
+        return StoreTheme.verified;
       case ApprovalStatus.rejected:
-        return const Color(0xFFC62828);
+        return StoreTheme.danger;
       case ApprovalStatus.suspended:
-        return const Color(0xFF6A1B9A);
+        return const Color(0xFF475569);
       default:
-        return const Color(0xFFEF6C00);
+        return StoreTheme.accent;
+    }
+  }
+
+  Future<void> _tryGuide(BuildContext context, String productId, String name) async {
+    try {
+      final guide = await AssemblyGuideService.instance.ensurePlayableGuide(
+        productId: productId,
+        productName: name,
+      );
+      if (!context.mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => AssemblyGuideScreen(
+            productId: productId,
+            productName: name,
+            guide: guide,
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$e'), backgroundColor: Colors.red),
+      );
     }
   }
 
@@ -320,7 +350,7 @@ class _MyProductsTab extends StatelessWidget {
                   FilledButton.icon(
                     onPressed: onAdd,
                     style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFFE65100),
+                      backgroundColor: StoreTheme.accent,
                     ),
                     icon: const Icon(Icons.add),
                     label: Text(context.t('إضافة منتج', 'Add product')),
@@ -375,19 +405,19 @@ class _MyProductsTab extends StatelessWidget {
                         ? Image.network(
                             imageUrl,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => ColoredBox(
-                              color: Colors.orange.shade50,
-                              child: const Icon(
+                            errorBuilder: (_, _, _) => const ColoredBox(
+                              color: StoreTheme.accentSoft,
+                              child: Icon(
                                 Icons.inventory_2_outlined,
-                                color: Color(0xFFE65100),
+                                color: StoreTheme.ink,
                               ),
                             ),
                           )
-                        : ColoredBox(
-                            color: Colors.orange.shade50,
-                            child: const Icon(
+                        : const ColoredBox(
+                            color: StoreTheme.accentSoft,
+                            child: Icon(
                               Icons.inventory_2_outlined,
-                              color: Color(0xFFE65100),
+                              color: StoreTheme.ink,
                             ),
                           ),
                   ),
@@ -452,6 +482,18 @@ class _MyProductsTab extends StatelessWidget {
                           ),
                         ),
                       );
+                    } else if (value == 'try_guide') {
+                      _tryGuide(context, doc.id, name);
+                    } else if (value == 'guide') {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => EditAssemblyGuideScreen(
+                            productId: doc.id,
+                            productName: name,
+                          ),
+                        ),
+                      );
                     } else if (value == 'delete') {
                       _deleteProduct(context, doc.id, name);
                     }
@@ -460,6 +502,20 @@ class _MyProductsTab extends StatelessWidget {
                     PopupMenuItem(
                       value: 'view',
                       child: Text(ctx.t('عرض', 'View')),
+                    ),
+                    PopupMenuItem(
+                      value: 'try_guide',
+                      child: Text(ctx.t(
+                        'جرّب الدليل الآن',
+                        'Try the guide now',
+                      )),
+                    ),
+                    PopupMenuItem(
+                      value: 'guide',
+                      child: Text(ctx.t(
+                        'تعديل الدليل التفاعلي',
+                        'Edit interactive product guide',
+                      )),
                     ),
                     PopupMenuItem(
                       value: 'delete',
@@ -699,7 +755,7 @@ class _SellerOrderCard extends StatelessWidget {
                   FilledButton(
                     onPressed: () => _confirmTransfer(context),
                     style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFFE65100),
+                      backgroundColor: StoreTheme.accent,
                     ),
                     child: Text(
                       context.t('تأكيد التحويل', 'Confirm transfer'),

@@ -5,8 +5,9 @@ import '../../core/locale/app_translate.dart';
 import '../../core/escrow/payment_status.dart';
 import '../../core/payments/payment_method.dart';
 import '../../core/payments/paymob_payment_service.dart';
-import '../moderation/approval_status.dart';
 import '../notifications/notification_service.dart';
+import '../auth/provider_publish_gate.dart';
+import '../auth/user_account_service.dart';
 import 'writing_models.dart';
 
 class WritingService {
@@ -423,13 +424,27 @@ class WritingService {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) throw Exception(appTr('يجب تسجيل الدخول', 'Sign in required'));
 
+    final account = await UserAccountService.instance.loadCurrentAccount();
+    if (!ProviderPublishGate.canSubmitContent(account)) {
+      throw Exception(
+        appTr(
+          ProviderPublishGate.blockMessageAr(account),
+          ProviderPublishGate.blockMessageEn(account),
+        ),
+      );
+    }
+
     final payload = expert.toMap()
       ..['ownerId'] = user.uid
-      ..['approvalStatus'] = ApprovalStatus.pending
+      ..['approvalStatus'] =
+          ProviderPublishGate.contentApprovalStatus(account)
       ..['rating'] = 0
       ..['completedOrders'] = 0
       ..['createdAt'] = FieldValue.serverTimestamp();
 
     await _services.add(payload);
+    try {
+      await UserAccountService.instance.enableWriterRole();
+    } catch (_) {}
   }
 }

@@ -1,4 +1,7 @@
 const { onRequest } = require("firebase-functions/v2/https");
+const { createIpRateLimiter } = require("./http_rate_limit");
+
+const rateLimit = createIpRateLimiter({ windowMs: 60_000, max: 30 });
 
 const ITEMS_PER_FEED = 12;
 const MAX_ITEMS = 200;
@@ -204,6 +207,27 @@ async function fetchFeedBatch(feeds, language) {
   return batches.flat();
 }
 
+async function fetchScienceNewsForIngest({ language = "en", limit = 40 } = {}) {
+  let items = [];
+  if (language === "ar") {
+    items = await fetchFeedBatch(FEEDS_AR, "ar");
+    if (items.length < AR_SUPPLEMENT_THRESHOLD) {
+      const supplement = await fetchFeedBatch(FEEDS_EN, "en");
+      items = [...items, ...supplement];
+    }
+  } else {
+    items = await fetchFeedBatch(FEEDS_EN, "en");
+  }
+
+  items.sort((a, b) => {
+    const ad = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
+    const bd = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
+    return bd - ad;
+  });
+
+  return dedupeItems(items).slice(0, Math.min(limit, MAX_ITEMS));
+}
+
 function createScienceNewsRssHandler() {
   return onRequest(
     {
@@ -217,26 +241,13 @@ function createScienceNewsRssHandler() {
         return;
       }
 
+      if (rateLimit(req, res)) return;
+
       const lang = req.query.lang === "ar" ? "ar" : "en";
-      let items = [];
-
-      if (lang === "ar") {
-        items = await fetchFeedBatch(FEEDS_AR, "ar");
-        if (items.length < AR_SUPPLEMENT_THRESHOLD) {
-          const supplement = await fetchFeedBatch(FEEDS_EN, "en");
-          items = [...items, ...supplement];
-        }
-      } else {
-        items = await fetchFeedBatch(FEEDS_EN, "en");
-      }
-
-      items.sort((a, b) => {
-        const ad = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
-        const bd = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
-        return bd - ad;
+      const items = await fetchScienceNewsForIngest({
+        language: lang,
+        limit: MAX_ITEMS,
       });
-
-      items = dedupeItems(items).slice(0, MAX_ITEMS);
 
       res.status(200).json({
         ok: true,
@@ -248,4 +259,7 @@ function createScienceNewsRssHandler() {
   );
 }
 
-module.exports = { createScienceNewsRssHandler };
+module.exports = {
+  createScienceNewsRssHandler,
+  fetchScienceNewsForIngest,
+};

@@ -4,10 +4,13 @@ import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
 import '../../core/locale/locale_extensions.dart';
 import '../../core/storage/storage_service.dart';
+import '../../core/widgets/safe_network_avatar.dart';
 import '../auth/user_account.dart';
 import '../auth/user_account_service.dart';
 import '../auth/user_role.dart';
 import 'academic_profile_screen.dart';
+import 'merchant_business_section.dart';
+import 'provider_org_section.dart';
 
 /// ملف الحساب الشخصي — صورة، بريد، اسم، وإدارة الملف الأكاديمي.
 class AccountProfileScreen extends StatefulWidget {
@@ -193,23 +196,21 @@ class _AccountProfileScreenState extends State<AccountProfileScreen> {
                 child: Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    CircleAvatar(
+                    SafeNetworkAvatar(
+                      imageUrl: photoUrl,
                       radius: 56,
-                      backgroundColor: const Color(0xFF1A237E).withValues(alpha: 0.12),
-                      backgroundImage:
-                          photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
-                      child: photoUrl.isEmpty
-                          ? Text(
-                              name.isNotEmpty
-                                  ? name.characters.first.toUpperCase()
-                                  : '?',
-                              style: const TextStyle(
-                                fontSize: 36,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF1A237E),
-                              ),
-                            )
-                          : null,
+                      backgroundColor:
+                          const Color(0xFF1A237E).withValues(alpha: 0.12),
+                      fallback: Text(
+                        name.isNotEmpty
+                            ? name.characters.first.toUpperCase()
+                            : '?',
+                        style: const TextStyle(
+                          fontSize: 36,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1A237E),
+                        ),
+                      ),
                     ),
                     Positioned(
                       bottom: 0,
@@ -327,41 +328,67 @@ class _AccountProfileScreenState extends State<AccountProfileScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              Card(
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  side: BorderSide(color: Colors.grey.shade300),
+              if (UserRole.showsMerchantBusiness(role)) ...[
+                MerchantBusinessSection(
+                  account: account ??
+                      UserAccount(
+                        uid: authUser.uid,
+                        email: email,
+                        displayName: name,
+                        role: role,
+                      ),
                 ),
-                child: Column(
-                  children: [
-                    ListTile(
-                      leading: const Icon(
-                        Icons.school_outlined,
-                        color: Color(0xFF1A237E),
+                const SizedBox(height: 16),
+              ],
+              if (UserRole.showsProviderOrg(role) &&
+                  role != UserRole.admin) ...[
+                ProviderOrgSection(
+                  account: account ??
+                      UserAccount(
+                        uid: authUser.uid,
+                        email: email,
+                        displayName: name,
+                        role: role,
                       ),
-                      title: Text(
-                        context.t('الملف الأكاديمي', 'Academic profile'),
-                      ),
-                      subtitle: Text(
-                        context.t(
-                          'الجامعة، التخصص، الاهتمام البحثي، المهارات',
-                          'University, specialization, research interest, skills',
+                ),
+                const SizedBox(height: 16),
+              ],
+              if (UserRole.showsAcademicProfile(role))
+                Card(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    side: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  child: Column(
+                    children: [
+                      ListTile(
+                        leading: const Icon(
+                          Icons.school_outlined,
+                          color: Color(0xFF1A237E),
                         ),
-                      ),
-                      trailing: const Icon(Icons.chevron_left),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const AcademicProfileScreen(),
+                        title: Text(
+                          context.t('الملف الأكاديمي', 'Academic profile'),
+                        ),
+                        subtitle: Text(
+                          context.t(
+                            'الجامعة، التخصص، الاهتمام البحثي، المهارات',
+                            'University, specialization, research interest, skills',
                           ),
-                        );
-                      },
-                    ),
-                  ],
+                        ),
+                        trailing: const Icon(Icons.chevron_left),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const AcademicProfileScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
                 ),
-              ),
             ],
           );
         },

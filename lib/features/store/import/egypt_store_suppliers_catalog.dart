@@ -19,8 +19,17 @@ class EgyptStoreSupplier {
   final String? wooCommerceBaseUrl;
   final String defaultCategoryTitle;
   final bool productSyncEnabled;
-  /// Soft cap for huge catalogs (e.g. Makers ~8k). Null = no cap.
+  /// Optional hard cap (debug only). Null = pull full WooCommerce catalog.
   final int? syncMaxProducts;
+  /// True only when the supplier has an approved Partner relationship on AcadeGate.
+  final bool isPartner;
+  /// Directory trust: unverified | contacted | verified | claimed
+  final String directoryStatus;
+  /// Human-readable provenance for directory listings.
+  final String dataSourceLabelAr;
+  final String dataSourceLabelEn;
+  /// ISO date (yyyy-MM-dd) of last human/catalog verification.
+  final String lastVerifiedIso;
 
   const EgyptStoreSupplier({
     required this.id,
@@ -38,6 +47,11 @@ class EgyptStoreSupplier {
     this.defaultCategoryTitle = 'مستلزمات عامة',
     this.productSyncEnabled = false,
     this.syncMaxProducts,
+    this.isPartner = false,
+    this.directoryStatus = 'unverified',
+    this.dataSourceLabelAr = 'دليل عام من مواقع الموردين المعلنة',
+    this.dataSourceLabelEn = 'Public directory from published supplier websites',
+    this.lastVerifiedIso = '2026-03-01',
   });
 
   String get displayContact {
@@ -50,7 +64,19 @@ class EgyptStoreSupplier {
     return parts.join(' · ');
   }
 
+  String dataSourceLabel(bool isAr) =>
+      isAr ? dataSourceLabelAr : dataSourceLabelEn;
+
+  String get resolvedDirectoryStatus {
+    // Curated catalog "partner" flag → Confirmed (not Managed Verified).
+    if (isPartner) return 'verified';
+    return directoryStatus;
+  }
+
   Map<String, dynamic> toFirestoreMap({required DateTime? syncedAt}) {
+    final status = resolvedDirectoryStatus;
+    // Partner commerce flags only for Managed Verified (admin-approved claim).
+    final trusted = status == 'managed_verified';
     return {
       'id': id,
       'nameAr': nameAr,
@@ -69,7 +95,13 @@ class EgyptStoreSupplier {
       'productSyncEnabled': productSyncEnabled,
       'wooCommerceBaseUrl': ?wooCommerceBaseUrl,
       'importSource': 'egypt_suppliers_catalog_2026',
-      'isVerifiedSeller': true,
+      'dataSource': 'public_web_directory',
+      'dataSourceLabelAr': dataSourceLabelAr,
+      'dataSourceLabelEn': dataSourceLabelEn,
+      'lastVerifiedIso': lastVerifiedIso,
+      'directoryStatus': status,
+      'isPartner': trusted,
+      'isVerifiedSeller': trusted,
       'syncedAt': ?syncedAt,
     };
   }
@@ -89,7 +121,7 @@ const egyptStoreSuppliersCatalog = <EgyptStoreSupplier>[
     focusAreas: ['كيميائيات', 'مذيبات', 'كواشف معامل'],
     categoryIds: ['chemicals'],
     wooCommerceBaseUrl: 'https://piochem.com',
-    defaultCategoryTitle: 'كيميائيات وكواشف',
+    defaultCategoryTitle: 'مستلزمات ومواد كيميائية وكواشف',
     productSyncEnabled: true,
   ),
   EgyptStoreSupplier(
@@ -104,7 +136,7 @@ const egyptStoreSuppliersCatalog = <EgyptStoreSupplier>[
     focusAreas: ['كيماويات بحثية', 'زجاجيات', 'مستهلكات'],
     categoryIds: ['chemicals', 'consumables'],
     wooCommerceBaseUrl: 'https://cornelllab.com',
-    defaultCategoryTitle: 'كيميائيات وكواشف',
+    defaultCategoryTitle: 'مستلزمات ومواد كيميائية وكواشف',
     productSyncEnabled: true,
   ),
   EgyptStoreSupplier(
@@ -117,7 +149,7 @@ const egyptStoreSuppliersCatalog = <EgyptStoreSupplier>[
     address: '56 El Eshreen St, Faisal, Giza',
     focusAreas: ['كيماويات بحثية', 'NMR'],
     categoryIds: ['chemicals', 'physics_materials'],
-    defaultCategoryTitle: 'كيميائيات وكواشف',
+    defaultCategoryTitle: 'مستلزمات ومواد كيميائية وكواشف',
   ),
   EgyptStoreSupplier(
     id: 'lct_chemicals',
@@ -129,7 +161,7 @@ const egyptStoreSuppliersCatalog = <EgyptStoreSupplier>[
     address: '12st Dr Handousa, Kasr el Ani, Garden City',
     focusAreas: ['كيماويات معامل', 'صيدلانية'],
     categoryIds: ['chemicals'],
-    defaultCategoryTitle: 'كيميائيات وكواشف',
+    defaultCategoryTitle: 'مستلزمات ومواد كيميائية وكواشف',
   ),
   EgyptStoreSupplier(
     id: 'nile_chem',
@@ -139,7 +171,7 @@ const egyptStoreSuppliersCatalog = <EgyptStoreSupplier>[
     city: 'مصر',
     focusAreas: ['كيماويات صناعية', 'كيماويات مختبرات'],
     categoryIds: ['chemicals'],
-    defaultCategoryTitle: 'كيميائيات وكواشف',
+    defaultCategoryTitle: 'مستلزمات ومواد كيميائية وكواشف',
   ),
   EgyptStoreSupplier(
     id: 'perfect_lab',
@@ -153,7 +185,7 @@ const egyptStoreSuppliersCatalog = <EgyptStoreSupplier>[
     address: '11 Aly Yousef St, Alqasr Al Ayni',
     focusAreas: ['كيماويات', 'زجاجيات'],
     categoryIds: ['chemicals', 'consumables'],
-    defaultCategoryTitle: 'كيميائيات وكواشف',
+    defaultCategoryTitle: 'مستلزمات ومواد كيميائية وكواشف',
   ),
 
   // ─── Biology ───────────────────────────────────────────
@@ -164,6 +196,81 @@ const egyptStoreSuppliersCatalog = <EgyptStoreSupplier>[
     website: 'https://www.igtechnologyeg.com/',
     city: 'مصر',
     focusAreas: ['ELISA', 'PCR', 'زراعة خلايا'],
+    categoryIds: ['biology'],
+    defaultCategoryTitle: 'بيولوجيا وتقنية حيوية',
+  ),
+  EgyptStoreSupplier(
+    id: 'genetech_egypt',
+    nameAr: 'جينيتك — Genetech',
+    nameEn: 'Genetech',
+    website: 'https://genetech.biz/',
+    city: 'مصر',
+    focusAreas: [
+      'كيماويات بحثية وتقنية حيوية',
+      'جينوميات وبروتيوميات',
+      'إنزيمات ومعدات معامل',
+    ],
+    categoryIds: ['biology'],
+    defaultCategoryTitle: 'بيولوجيا وتقنية حيوية',
+  ),
+  EgyptStoreSupplier(
+    id: 'biokit_egypt',
+    nameAr: 'بيوكيت للبحث العلمي',
+    nameEn: 'Biokit for Scientific Research',
+    website: 'https://www.biokit-eg.com/',
+    email: 'info@biokit-eg.com',
+    phone: '03-5262810',
+    city: 'الإسكندرية',
+    address: 'قصر الحجر، فيكتوريا — الإسكندرية',
+    focusAreas: [
+      'ELISA وPCR',
+      'أجسام مضادة وكواشف',
+      'أطقم لونية وكيميائيات بحثية',
+    ],
+    categoryIds: ['biology'],
+    defaultCategoryTitle: 'بيولوجيا وتقنية حيوية',
+  ),
+  EgyptStoreSupplier(
+    id: 'primatech_egypt',
+    nameAr: 'برايماتك — Primatech',
+    nameEn: 'Primatech',
+    website: 'https://primatech.com.eg/',
+    phone: '+201285206880',
+    city: 'الجيزة',
+    address: '4 شارع العشرين، المساحة، الهرم',
+    focusAreas: [
+      'تنقية أحماض نووية',
+      'كواشف PCR وqPCR',
+      'بلاستيكيات بيولوجيا جزيئية',
+    ],
+    categoryIds: ['biology'],
+    defaultCategoryTitle: 'بيولوجيا وتقنية حيوية',
+  ),
+  EgyptStoreSupplier(
+    id: 'genome_egypt',
+    nameAr: 'جينوم — Genome Molecular',
+    nameEn: 'Genome Egypt',
+    website: 'https://genome-eg.com/',
+    city: 'القاهرة',
+    focusAreas: [
+      'أطقم PCR وReal-Time PCR',
+      'بيولوجيا جزيئية وتشخيص جيني',
+      'كواشف معامل بحثية',
+    ],
+    categoryIds: ['biology'],
+    defaultCategoryTitle: 'بيولوجيا وتقنية حيوية',
+  ),
+  EgyptStoreSupplier(
+    id: 'nilegen_egypt',
+    nameAr: 'نايل جين — NileGen',
+    nameEn: 'NileGen',
+    website: 'https://nilegen.com/',
+    city: 'مصر',
+    focusAreas: [
+      'استخلاص DNA وRNA',
+      'أطقم بيولوجيا جزيئية محلية',
+      'دعم معامل البحث المصرية',
+    ],
     categoryIds: ['biology'],
     defaultCategoryTitle: 'بيولوجيا وتقنية حيوية',
   ),
@@ -243,6 +350,136 @@ const egyptStoreSuppliersCatalog = <EgyptStoreSupplier>[
     defaultCategoryTitle: 'طبي وصيدلي وسريري',
   ),
 
+  // ─── Dentistry ─────────────────────────────────────────
+  EgyptStoreSupplier(
+    id: 'trigroup_dental',
+    nameAr: 'تراي جروب — مستلزمات وأجهزة أسنان',
+    nameEn: 'Trigroup Dental',
+    website: 'https://trigroup-eg.com/',
+    phone: '01002658518',
+    city: 'القاهرة',
+    address: '29 بستان الفاضل، القصر العيني',
+    focusAreas: [
+      'وحدات أسنان وأوتوكلاف',
+      'أشعة وأجهزة ليزر',
+      'مواد ومستلزمات طب أسنان',
+    ],
+    categoryIds: ['medical'],
+    defaultCategoryTitle: 'طبي وصيدلي وسريري',
+  ),
+  EgyptStoreSupplier(
+    id: 'safwan_dental',
+    nameAr: 'صفوان إيجيبت — أجهزة أسنان',
+    nameEn: 'Safwan Egypt',
+    website: 'https://safwanegypt.com/',
+    email: 'info@safwanegypt.com',
+    phone: '+2 33031796',
+    city: 'الجيزة',
+    address: '41 شارع لبنان، المهندسين',
+    focusAreas: [
+      'أجهزة أسنان متقدمة',
+      'تدريب وتعليم طب الأسنان',
+      'مشاريع جامعات وعيادات',
+    ],
+    categoryIds: ['medical'],
+    defaultCategoryTitle: 'طبي وصيدلي وسريري',
+  ),
+  EgyptStoreSupplier(
+    id: 'meditech_dental',
+    nameAr: 'ميديتك — طب أسنان رقمي',
+    nameEn: 'Meditech Dental',
+    website: 'https://meditech-eg.com/',
+    city: 'القاهرة',
+    focusAreas: [
+      'Dentsply Sirona وCEREC',
+      'ماسحات داخل الفم وطباعة ثلاثية الأبعاد',
+      'مواد وأجهزة عيادات أسنان',
+    ],
+    categoryIds: ['medical'],
+    defaultCategoryTitle: 'طبي وصيدلي وسريري',
+  ),
+
+  // ─── Nursing / clinical / physio ───────────────────────
+  EgyptStoreSupplier(
+    id: 'euromed_egypt',
+    nameAr: 'يوروميد — مستهلكات طبية وتمريض',
+    nameEn: 'Euromed',
+    website: 'https://euromed.com.eg/',
+    email: 'sales@euromed.com.eg',
+    phone: '+20 2 2272 5953',
+    city: 'مدينة نصر / القاهرة',
+    address: 'المنطقة الحرة، مدينة نصر',
+    focusAreas: [
+      'قفازات وسرنجات وقساطر',
+      'مستهلكات تمريض وعدوى',
+      'علاج تنفسي وتسريب وريدي',
+    ],
+    categoryIds: ['medical'],
+    defaultCategoryTitle: 'طبي وصيدلي وسريري',
+  ),
+  EgyptStoreSupplier(
+    id: 'cairo_medical_equip',
+    nameAr: 'كايرو ميديكال — أجهزة مستشفيات',
+    nameEn: 'Cairo Medical',
+    website: 'https://cairo-medical.com/',
+    email: 'info@cairo-medical.com',
+    phone: '+202 275 10 248',
+    city: 'المعادي / القاهرة',
+    address: '25 شارع 10، المعادي',
+    focusAreas: [
+      'مراقبين ومزيلات رجفان',
+      'أجهزة سريرية للمستشفيات',
+      'صيانة ودعم فني',
+    ],
+    categoryIds: ['medical'],
+    defaultCategoryTitle: 'طبي وصيدلي وسريري',
+  ),
+  EgyptStoreSupplier(
+    id: 'surgimed_egypt',
+    nameAr: 'سيرجيميد — أدوات جراحية',
+    nameEn: 'SURGIMED',
+    website: 'https://surgimed.com.eg/',
+    email: 'management@surgimed.com.eg',
+    city: 'القاهرة',
+    address: '14 عزيز الدين محمد عطية',
+    focusAreas: [
+      'أدوات جراحية دقيقة',
+      'خيوط وإبر جراحية',
+      'مستلزمات غرف عمليات',
+    ],
+    categoryIds: ['medical'],
+    defaultCategoryTitle: 'طبي وصيدلي وسريري',
+  ),
+  EgyptStoreSupplier(
+    id: 'lmc_physio',
+    nameAr: 'لايف ميديكال كونسلت — علاج طبيعي',
+    nameEn: 'Life Medical Consult',
+    website: 'https://lmc-eg.com/',
+    phone: '+(202) 2685 0425',
+    city: 'القاهرة',
+    focusAreas: [
+      'أجهزة علاج طبيعي وإعادة تأهيل',
+      'كهرباء علاجية وموجات فوق صوتية',
+      'تجهيز عيادات علاج طبيعي',
+    ],
+    categoryIds: ['medical'],
+    defaultCategoryTitle: 'طبي وصيدلي وسريري',
+  ),
+  EgyptStoreSupplier(
+    id: 'intercheim_physio',
+    nameAr: 'إنترخيم — علاج طبيعي ولياقة',
+    nameEn: 'Intercheim',
+    website: 'https://intercheim.com/',
+    city: 'مصر',
+    focusAreas: [
+      'أجهزة علاج طبيعي',
+      'معدات إعادة تأهيل',
+      'أجهزة لياقة علاجية',
+    ],
+    categoryIds: ['medical'],
+    defaultCategoryTitle: 'طبي وصيدلي وسريري',
+  ),
+
   // ─── Agriculture / vet ─────────────────────────────────
   EgyptStoreSupplier(
     id: 'biolab_pharma',
@@ -311,7 +548,6 @@ const egyptStoreSuppliersCatalog = <EgyptStoreSupplier>[
     wooCommerceBaseUrl: 'https://makerselectronics.com',
     defaultCategoryTitle: 'هندسة وإلكترونيات',
     productSyncEnabled: true,
-    syncMaxProducts: 2000,
   ),
   EgyptStoreSupplier(
     id: 'am_electronics',
@@ -415,6 +651,68 @@ const egyptStoreSuppliersCatalog = <EgyptStoreSupplier>[
     defaultCategoryTitle: 'هندسة وإلكترونيات',
   ),
 
+  // ─── Civil / mechanical / materials testing ────────────
+  EgyptStoreSupplier(
+    id: 'control_engineering_egypt',
+    nameAr: 'كنترول إنجينيرنج — معامل مدنية',
+    nameEn: 'Control Engineering',
+    website: 'https://controleng.org/',
+    city: 'مصر',
+    focusAreas: [
+      'اختبار تربة وأسمنت وخرسانة',
+      'أجهزة معامل إنشاءات',
+      'أسفلت ومواد بناء',
+    ],
+    categoryIds: ['engineering'],
+    defaultCategoryTitle: 'هندسة وإلكترونيات',
+  ),
+  EgyptStoreSupplier(
+    id: 'ags_geotech_egypt',
+    nameAr: 'إيه جي إس — أنظمة جيوتقنية',
+    nameEn: 'Automatic Geotechnical Systems (AGS)',
+    website: 'https://ags-eg.com/',
+    email: 'sales@ags-eg.com',
+    phone: '+20 1157111847',
+    whatsapp: '+201157111847',
+    city: '6 أكتوبر / الجيزة',
+    address: 'مدينة الفردوس، 6 أكتوبر',
+    focusAreas: [
+      'اختبارات جيوتقنية آلية',
+      'ضغط خرسانة وقص تربة',
+      'أجهزة معامل هندسة مدنية',
+    ],
+    categoryIds: ['engineering'],
+    defaultCategoryTitle: 'هندسة وإلكترونيات',
+  ),
+  EgyptStoreSupplier(
+    id: 'pact_egypt',
+    nameAr: 'بكت مصر — أجهزة جودة واختبار',
+    nameEn: 'PACT Egypt',
+    website: 'https://pact-egypt.com/',
+    city: 'مصر',
+    focusAreas: [
+      'اختبار مواد وبلاستيك ومعادن',
+      'أجهزة هندسة مدنية',
+      'ضبط جودة معامل',
+    ],
+    categoryIds: ['engineering'],
+    defaultCategoryTitle: 'هندسة وإلكترونيات',
+  ),
+  EgyptStoreSupplier(
+    id: 'bardissi_medical',
+    nameAr: 'برديسي ميديكال — أجهزة ومعامل',
+    nameEn: 'Bardissi Medical',
+    website: 'https://bardissi.com/',
+    city: 'مصر',
+    focusAreas: [
+      'أجهزة معامل طبية وبحثية',
+      'مستهلكات زراعة خلايا',
+      'كواشف وكيماويات سريرية',
+    ],
+    categoryIds: ['medical', 'biology'],
+    defaultCategoryTitle: 'طبي وصيدلي وسريري',
+  ),
+
   // ─── Physics / materials ───────────────────────────────
   EgyptStoreSupplier(
     id: 'gemicatech',
@@ -425,6 +723,34 @@ const egyptStoreSuppliersCatalog = <EgyptStoreSupplier>[
     focusAreas: ['أجهزة تحليلية', 'حلول علمية'],
     categoryIds: ['instruments', 'physics_materials'],
     defaultCategoryTitle: 'أجهزة وأدوات قياس',
+  ),
+  EgyptStoreSupplier(
+    id: 'scientific_services_egypt',
+    nameAr: 'ساينتيفيك سيرفيسز — اختبار مواد',
+    nameEn: 'Scientific Services',
+    website: 'https://www.scientificserv.com/',
+    city: 'القاهرة الجديدة',
+    focusAreas: [
+      'أجهزة اختبار المواد (Instron)',
+      'تحضير عينات (Struers)',
+      'NDT لمواد البناء وهندسة ميكانيكية',
+    ],
+    categoryIds: ['physics_materials', 'engineering'],
+    defaultCategoryTitle: 'فيزياء ومواد',
+  ),
+  EgyptStoreSupplier(
+    id: 'els_egypt',
+    nameAr: 'خدمات البيئة والمعامل — ELS',
+    nameEn: 'Environmental & Lab Services',
+    website: 'https://els-eg.com/',
+    city: 'مصر',
+    focusAreas: [
+      'أجهزة تحليلية ومواد',
+      'رصد بيئي',
+      'حلول معامل بحثية وصناعية',
+    ],
+    categoryIds: ['physics_materials'],
+    defaultCategoryTitle: 'فيزياء ومواد',
   ),
 
   // ─── Consumables ───────────────────────────────────────
@@ -486,8 +812,8 @@ const egyptStoreSuppliersCatalog = <EgyptStoreSupplier>[
     nameEn: 'Lab Egypt',
     website: 'https://labegypt.com/',
     city: 'مصر',
-    focusAreas: ['أجهزة قياس pH / EC / DO'],
-    categoryIds: ['instruments'],
+    focusAreas: ['أجهزة قياس pH / EC / DO', 'قياس ميداني وبيئي'],
+    categoryIds: ['instruments', 'field'],
     defaultCategoryTitle: 'أجهزة وأدوات قياس',
   ),
 
@@ -499,6 +825,63 @@ const egyptStoreSuppliersCatalog = <EgyptStoreSupplier>[
     website: 'https://www.first-env.com/',
     city: 'مصر',
     focusAreas: ['سلامة شخصية', 'معايرة', 'حماية'],
+    categoryIds: ['safety'],
+    defaultCategoryTitle: 'سلامة ومعدات وقاية',
+  ),
+  EgyptStoreSupplier(
+    id: 'yehia_abdin_safety',
+    nameAr: 'يحيى عابدين — معدات وقاية',
+    nameEn: 'Yehia Abdin Co.',
+    website: 'https://yehiaco.com/',
+    city: 'مصر',
+    focusAreas: [
+      'PPE من الرأس للقدم',
+      'معدات إطفاء',
+      'علامات تجارية عالمية (3M، Ansell، Uvex)',
+    ],
+    categoryIds: ['safety'],
+    defaultCategoryTitle: 'سلامة ومعدات وقاية',
+  ),
+  EgyptStoreSupplier(
+    id: 'aman_safety_egypt',
+    nameAr: 'أمان إيجيبت — AMAN Safety',
+    nameEn: 'AMAN Egypt',
+    website: 'https://www.aman-safety.com/',
+    city: 'القاهرة',
+    focusAreas: [
+      'معدات وقاية شخصية',
+      'سلامة حريق وطوارئ',
+      'حلول HSSE',
+    ],
+    categoryIds: ['safety'],
+    defaultCategoryTitle: 'سلامة ومعدات وقاية',
+  ),
+  EgyptStoreSupplier(
+    id: 'icis_safety_egypt',
+    nameAr: 'الآيسس للسلامة الصناعية — ICIS',
+    nameEn: 'ICIS Safety',
+    website: 'https://icissafety.com/',
+    city: 'القاهرة',
+    focusAreas: [
+      'نظارات وقفازات وخوذات',
+      'إطفاء حريق',
+      'كواشف غاز وحماية بيئة',
+    ],
+    categoryIds: ['safety'],
+    defaultCategoryTitle: 'سلامة ومعدات وقاية',
+  ),
+  EgyptStoreSupplier(
+    id: 'smart_safety_egypt',
+    nameAr: 'سمارت سيفتي — Smart Safety',
+    nameEn: 'Smart Safety Egypt',
+    website: 'https://smartsafety-eg.com/',
+    city: 'المعادي / القاهرة',
+    address: '3 شارع 291، اللاسلكي، المعادي',
+    focusAreas: [
+      'PPE صناعي',
+      'كشف غاز وإنذار حريق',
+      'حماية سقوط وتنفس',
+    ],
     categoryIds: ['safety'],
     defaultCategoryTitle: 'سلامة ومعدات وقاية',
   ),
@@ -514,7 +897,53 @@ const egyptStoreSuppliersCatalog = <EgyptStoreSupplier>[
     categoryIds: ['field'],
     defaultCategoryTitle: 'أدوات ميدانية ومسح',
   ),
-
+  EgyptStoreSupplier(
+    id: 'surveying_systems_egypt',
+    nameAr: 'سيرفيينج سيستمز — أجهزة مساحة',
+    nameEn: 'Surveying Systems',
+    website: 'https://surveying-systems.com/',
+    phone: '0233037389',
+    city: 'القاهرة',
+    address: 'المهندسين / مدينة نصر',
+    focusAreas: [
+      'أجهزة مساحة GPS وTotal Station',
+      'مسح هيدروغرافي',
+      'صيانة ودعم فني',
+    ],
+    categoryIds: ['field'],
+    defaultCategoryTitle: 'أدوات ميدانية ومسح',
+  ),
+  EgyptStoreSupplier(
+    id: 'zone_technologies_egypt',
+    nameAr: 'زون تكنولوجيز — Trimble مصر',
+    nameEn: 'Zone Technologies',
+    website: 'https://zoneegypt.com/',
+    phone: '02 25 200 210',
+    city: 'المعادي الجديدة / القاهرة',
+    focusAreas: [
+      'Trimble GNSS ومسح ثلاثي الأبعاد',
+      'محطات مساحة وتصوير',
+      'حلول GIS ميدانية',
+    ],
+    categoryIds: ['field'],
+    defaultCategoryTitle: 'أدوات ميدانية ومسح',
+  ),
+  EgyptStoreSupplier(
+    id: 'msi_survey_egypt',
+    nameAr: 'المصرية لأجهزة المساحة — MSI',
+    nameEn: 'MSI Surveying & Instruments',
+    website: 'https://msi-eg.com/',
+    email: 'Adelomar@msi-eg.com',
+    phone: '+20-109-755-0665',
+    city: 'مصر',
+    focusAreas: [
+      'GPS ومحطات مساحة',
+      'ماسحات ليزر ثلاثية الأبعاد',
+      'معايرة وصيانة أجهزة ميدانية',
+    ],
+    categoryIds: ['field'],
+    defaultCategoryTitle: 'أدوات ميدانية ومسح',
+  ),
   // ─── Computing ─────────────────────────────────────────
   EgyptStoreSupplier(
     id: 'itida_dir',
@@ -533,6 +962,49 @@ const egyptStoreSuppliersCatalog = <EgyptStoreSupplier>[
     website: 'https://mcit.gov.eg/',
     city: 'مصر',
     focusAreas: ['مبادرات رقمية'],
+    categoryIds: ['computing'],
+    defaultCategoryTitle: 'حوسبة وبرمجيات بحثية',
+  ),
+  EgyptStoreSupplier(
+    id: 'secc_egypt',
+    nameAr: 'مركز جدارة هندسة البرمجيات — SECC',
+    nameEn: 'SECC (ITIDA)',
+    website: 'https://itida.gov.eg/English/Programs/SECC-Offerings/Pages/default.aspx',
+    email: 'info@secc.org.eg',
+    city: 'مصر',
+    focusAreas: [
+      'تدريب واعتماد برمجي',
+      'CMMI وAgile وDevOps',
+      'رفع كفاءة فرق البحث والتطوير',
+    ],
+    categoryIds: ['computing'],
+    defaultCategoryTitle: 'حوسبة وبرمجيات بحثية',
+  ),
+  EgyptStoreSupplier(
+    id: 'btech_egypt',
+    nameAr: 'بي تك — B.TECH',
+    nameEn: 'B.TECH Egypt',
+    website: 'https://www.btech.com/',
+    city: 'مصر',
+    focusAreas: [
+      'حواسيب ومحطات عمل',
+      'ملحقات وعتاد بحثي',
+      'شاشات وتخزين',
+    ],
+    categoryIds: ['computing'],
+    defaultCategoryTitle: 'حوسبة وبرمجيات بحثية',
+  ),
+  EgyptStoreSupplier(
+    id: 'two_b_egypt',
+    nameAr: 'تو بي — 2B',
+    nameEn: '2B Egypt',
+    website: 'https://www.2b.com.eg/',
+    city: 'مصر',
+    focusAreas: [
+      'أجهزة حاسب ولابتوب',
+      'مكونات وأنظمة',
+      'عتاد لمشاريع هندسية وبحثية',
+    ],
     categoryIds: ['computing'],
     defaultCategoryTitle: 'حوسبة وبرمجيات بحثية',
   ),
@@ -801,7 +1273,37 @@ const egyptStoreSuppliersCatalog = <EgyptStoreSupplier>[
     categoryIds: ['office'],
     defaultCategoryTitle: 'مستلزمات كتابة وتوثيق البحث',
   ),
-
+  EgyptStoreSupplier(
+    id: 'kayan_print',
+    nameAr: 'كيان للطباعة والتجليد',
+    nameEn: 'Kayan Print',
+    website: 'https://www.kayanprint.store/',
+    email: 'kayanofprint@gmail.com',
+    phone: '01121499017',
+    whatsapp: '01121499017',
+    city: 'مصر',
+    focusAreas: [
+      'طباعة رسائل ماجستير ودكتوراه',
+      'تجليد غلاف صلب',
+      'طباعة أبحاث وعروض',
+    ],
+    categoryIds: ['office'],
+    defaultCategoryTitle: 'مستلزمات كتابة وتوثيق البحث',
+  ),
+  EgyptStoreSupplier(
+    id: 'gse_stationery',
+    nameAr: 'المؤسسة الدولية للورق — GSE',
+    nameEn: 'Global Stationery Enterprise',
+    website: 'https://www.gse-eg.com/',
+    city: 'القاهرة',
+    focusAreas: [
+      'ورق ومستلزمات مكتبية',
+      'توريدات قرطاسية للمؤسسات',
+      'مستلزمات توثيق وأرشفة',
+    ],
+    categoryIds: ['office'],
+    defaultCategoryTitle: 'مستلزمات كتابة وتوثيق البحث',
+  ),
 
   // ─── General ───────────────────────────────────────────
   EgyptStoreSupplier(
@@ -811,6 +1313,62 @@ const egyptStoreSuppliersCatalog = <EgyptStoreSupplier>[
     website: 'https://labsupplyegypt.com/',
     city: 'مصر',
     focusAreas: ['توريدات عامة للمعامل'],
+    categoryIds: ['general'],
+    defaultCategoryTitle: 'مستلزمات عامة',
+  ),
+  EgyptStoreSupplier(
+    id: 'amazon_egypt',
+    nameAr: 'أمازون مصر',
+    nameEn: 'Amazon.eg',
+    website: 'https://www.amazon.eg/',
+    city: 'مصر',
+    focusAreas: [
+      'مستلزمات عامة ومتنوعة',
+      'إلكترونيات وأدوات',
+      'توصيل سريع للباحثين',
+    ],
+    categoryIds: ['general'],
+    defaultCategoryTitle: 'مستلزمات عامة',
+  ),
+  EgyptStoreSupplier(
+    id: 'jumia_egypt',
+    nameAr: 'جوميا مصر',
+    nameEn: 'Jumia Egypt',
+    website: 'https://www.jumia.com.eg/',
+    city: 'مصر',
+    focusAreas: [
+      'سوق إلكتروني عام',
+      'مستلزمات مكتبية وتقنية',
+      'خيارات متعددة للباحث',
+    ],
+    categoryIds: ['general'],
+    defaultCategoryTitle: 'مستلزمات عامة',
+  ),
+  EgyptStoreSupplier(
+    id: 'noon_egypt',
+    nameAr: 'نون مصر',
+    nameEn: 'noon Egypt',
+    website: 'https://www.noon.com/egypt-en/',
+    city: 'مصر',
+    focusAreas: [
+      'مستلزمات عامة',
+      'إلكترونيات وأدوات منزلية/مكتبية',
+      'توصيل للمنازل والمكاتب',
+    ],
+    categoryIds: ['general'],
+    defaultCategoryTitle: 'مستلزمات عامة',
+  ),
+  EgyptStoreSupplier(
+    id: 'newvip_stationery',
+    nameAr: 'نيو في آي بي — مستلزمات عامة',
+    nameEn: 'NEW VIP Ltd.',
+    website: 'https://newvip.ltd/',
+    city: 'مصر',
+    focusAreas: [
+      'توريدات مكتبية ومؤسسية',
+      'مستلزمات عامة بالجملة',
+      'إدارة توريد للجامعات والمراكز',
+    ],
     categoryIds: ['general'],
     defaultCategoryTitle: 'مستلزمات عامة',
   ),

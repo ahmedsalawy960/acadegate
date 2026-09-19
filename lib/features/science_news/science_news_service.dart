@@ -333,7 +333,10 @@ class ScienceNewsService {
     List<ScienceNewsItem> items,
     String category,
   ) {
-    if (category == ScienceNewsCategory.all) return items;
+    if (category == ScienceNewsCategory.all ||
+        category == ScienceNewsCategory.forYou) {
+      return items;
+    }
     return items.where((item) => item.category == category).toList();
   }
 }

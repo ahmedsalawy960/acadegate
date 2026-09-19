@@ -1,15 +1,55 @@
 import '../store_categories.dart';
+import 'egypt_store_suppliers_catalog.dart';
 import 'woocommerce_store_api_client.dart';
 
 /// Maps WooCommerce category names / product text → AcadeGate store titles.
 ///
-/// Order matters: more specific specialty signals win before broad tokens
-/// like "acid", "device", or "glass".
+/// Keyword hints may refine placement **only within** the supplier's
+/// [EgyptStoreSupplier.categoryIds]. Cross-section dumping is blocked.
 String mapImportedProductCategory({
   required WooImportedProduct product,
   required String fallbackTitle,
   String? supplierId,
 }) {
+  final fallback = storeCategoryLegacyAliases[fallbackTitle.trim()] ??
+      fallbackTitle.trim();
+  final allowed = _allowedTitlesForSupplier(supplierId, fallback);
+  final mapped = _mapByKeywords(product);
+
+  if (allowed.isEmpty) {
+    return mapped.isNotEmpty ? mapped : fallback;
+  }
+  if (mapped.isNotEmpty && allowed.contains(mapped)) {
+    return mapped;
+  }
+  if (fallback.isNotEmpty && allowed.contains(fallback)) {
+    return fallback;
+  }
+  return allowed.first;
+}
+
+Set<String> _allowedTitlesForSupplier(String? supplierId, String fallbackTitle) {
+  final titles = <String>{};
+  if (fallbackTitle.trim().isNotEmpty) {
+    titles.add(fallbackTitle.trim());
+  }
+  final supplier = supplierId == null || supplierId.isEmpty
+      ? null
+      : egyptStoreSupplierById(supplierId);
+  if (supplier != null) {
+    for (final id in supplier.categoryIds) {
+      final title = storeCategoryById(id)?.title;
+      if (title != null && title.isNotEmpty) titles.add(title);
+    }
+    if (supplier.defaultCategoryTitle.trim().isNotEmpty) {
+      titles.add(supplier.defaultCategoryTitle.trim());
+    }
+  }
+  // Normalize via legacy aliases so old/new chemical titles both match.
+  return titles.map((t) => storeCategoryLegacyAliases[t] ?? t).toSet();
+}
+
+String _mapByKeywords(WooImportedProduct product) {
   final cats = product.categoryNames.join(' ').toLowerCase();
   final name = product.name.toLowerCase();
   final haystack = '$cats $name ${product.description}'.toLowerCase();
@@ -62,6 +102,10 @@ String mapImportedProductCategory({
       has('semi-auto chemistry') ||
       has('طبي') ||
       has('صيدل') ||
+      has('أسنان') ||
+      has('dental') ||
+      has('علاج طبيعي') ||
+      has('physiotherapy') ||
       (has('rapid test') && !has('veterinary'))) {
     return _titleById('medical');
   }
@@ -103,13 +147,14 @@ String mapImportedProductCategory({
     return _titleById('chemicals');
   }
 
-  // 6) Safety / PPE
+  // 6) Safety / PPE (use سلامة — not سلام — to avoid false Arabic matches)
   if (has('safety') ||
       has('ppe') ||
       has('glove') ||
       has('goggle') ||
       has('respirator') ||
-      has('سلام') ||
+      has('سلامة') ||
+      has('معدات وقاية') ||
       has('قفاز')) {
     return _titleById('safety');
   }
@@ -124,7 +169,18 @@ String mapImportedProductCategory({
     return _titleById('field');
   }
 
-  // 8) Engineering electronics (narrow + DIY/lab electronics)
+  // 8) Computing / research software & workstations
+  if (has('laptop') ||
+      has('workstation') ||
+      has('gpu') ||
+      has('software') ||
+      has('matlab') ||
+      has('حاسب') ||
+      has('برمج')) {
+    return _titleById('computing');
+  }
+
+  // 9) Engineering electronics (narrow + DIY/lab electronics)
   if (has('arduino') ||
       has('raspberry') ||
       has('esp32') ||
@@ -143,6 +199,10 @@ String mapImportedProductCategory({
       has('3d printer') ||
       has('jetson') ||
       has('robotic arm') ||
+      has('concrete') ||
+      has('geotech') ||
+      has('خرسانة') ||
+      has('تربة') ||
       has('هندس') ||
       has('إلكترون') ||
       inCats('relay') ||
@@ -151,7 +211,17 @@ String mapImportedProductCategory({
     return _titleById('engineering');
   }
 
-  // 9) Instruments / measurement devices
+  // 10) Physics / materials testing
+  if (has('instron') ||
+      has('materials testing') ||
+      has('hardness tester') ||
+      has('ndts') ||
+      has('اختبار مواد') ||
+      has('فيزياء')) {
+    return _titleById('physics_materials');
+  }
+
+  // 11) Instruments / measurement devices
   if (has('analyzer') ||
       has('centrifuge') ||
       has('spectrophotometer') ||
@@ -169,12 +239,12 @@ String mapImportedProductCategory({
     return _titleById('instruments');
   }
 
-  // 10) Books
+  // 12) Books
   if (has('book') || has('textbook') || has('كتاب') || has('مرجع')) {
     return _titleById('books');
   }
 
-  // 11) Research writing / documentation / thesis print
+  // 13) Research writing / documentation / thesis print
   if (has('stationery') ||
       has('notebook') ||
       has('binder') ||
@@ -194,10 +264,9 @@ String mapImportedProductCategory({
     return _titleById('office');
   }
 
-  // Prefer supplier default over dumping into unrelated sections.
-  return fallbackTitle;
+  return '';
 }
 
 String _titleById(String id) {
-  return storeCategoryById(id)?.title ?? 'مستلزمات عامة';
+  return storeCategoryById(id)?.title ?? '';
 }

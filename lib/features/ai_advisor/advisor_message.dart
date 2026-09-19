@@ -1,4 +1,5 @@
 import 'advisor_attachment.dart';
+import 'catalog_hit.dart';
 
 enum AdvisorMessageRole { user, assistant }
 
@@ -10,6 +11,7 @@ class AdvisorMessage {
   final bool usedCloudAi;
   final List<String> agentLabels;
   final List<AdvisorAttachment> attachments;
+  final CatalogSearchSnapshot catalog;
 
   const AdvisorMessage({
     required this.id,
@@ -19,6 +21,9 @@ class AdvisorMessage {
     this.usedCloudAi = false,
     this.agentLabels = const [],
     this.attachments = const [],
+    this.catalog = const CatalogSearchSnapshot(
+      intent: CatalogIntentSummary.empty,
+    ),
   });
 
   AdvisorMessage copyWith({
@@ -26,6 +31,7 @@ class AdvisorMessage {
     bool? usedCloudAi,
     List<String>? agentLabels,
     List<AdvisorAttachment>? attachments,
+    CatalogSearchSnapshot? catalog,
   }) {
     return AdvisorMessage(
       id: id,
@@ -35,6 +41,7 @@ class AdvisorMessage {
       usedCloudAi: usedCloudAi ?? this.usedCloudAi,
       agentLabels: agentLabels ?? this.agentLabels,
       attachments: attachments ?? this.attachments,
+      catalog: catalog ?? this.catalog,
     );
   }
 
@@ -46,6 +53,7 @@ class AdvisorMessage {
       'usedCloudAi': usedCloudAi,
       'agentLabels': agentLabels,
       'attachments': attachments.map((item) => item.toMap()).toList(),
+      'catalog': catalog.toMap(),
     };
   }
 
@@ -80,6 +88,11 @@ class AdvisorMessage {
               )
               .toList() ??
           const [],
+      catalog: CatalogSearchSnapshot.fromMap(
+        map['catalog'] is Map
+            ? Map<String, dynamic>.from(map['catalog'] as Map)
+            : null,
+      ),
     );
   }
 }

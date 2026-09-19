@@ -1,13 +1,19 @@
 import 'package:flutter/material.dart';
 
-import '../home/home_screen.dart';import 'research_journey_onboarding_screen.dart';
+import '../home/home_screen.dart';
+import 'research_journey_onboarding_screen.dart';
 import 'research_journey_service.dart';
 
 /// User portal entry: onboarding once, then home.
 class UserPortalShell extends StatefulWidget {
   final VoidCallback? onSwitchPortal;
+  final VoidCallback? onBecameProvider;
 
-  const UserPortalShell({super.key, this.onSwitchPortal});
+  const UserPortalShell({
+    super.key,
+    this.onSwitchPortal,
+    this.onBecameProvider,
+  });
 
   @override
   State<UserPortalShell> createState() => _UserPortalShellState();
@@ -45,6 +51,7 @@ class _UserPortalShellState extends State<UserPortalShell> {
     if (_onboardingDone != true) {
       return ResearchJourneyOnboardingScreen(
         onFinished: () => setState(() => _onboardingDone = true),
+        onBecameProvider: widget.onBecameProvider,
       );
     }
 

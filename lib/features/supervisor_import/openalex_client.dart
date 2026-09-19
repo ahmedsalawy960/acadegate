@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../academic_integrity/citation_http.dart';
 import 'import_models.dart';
+import 'openalex_author_quality.dart';
 import 'openalex_search_aliases.dart';
 
 class OpenAlexClient {
@@ -20,7 +21,18 @@ class OpenAlexClient {
 
     final queries = OpenAlexSearchAliases.institutionQueries(query);
     final merged = <String, OpenAlexInstitution>{};
-    final preferEgypt = OpenAlexSearchAliases.containsArabic(query);
+    final preferEgypt = OpenAlexSearchAliases.preferEgyptInstitutions(query);
+    final hint = OpenAlexSearchAliases.suggestedInstitutionEnglish(query);
+
+    // مسار مباشر بالمعرّف المعروف (مثال: جامعة الأزهر → I184834183).
+    final knownId = OpenAlexSearchAliases.knownInstitutionOpenAlexId(query);
+    if (knownId != null) {
+      final known = await _fetchInstitutionById(knownId);
+      if (known != null) {
+        // نتيجة واحدة مؤكدة — لا نخلطها مع نتائج بحث نصي خاطئة.
+        return [known];
+      }
+    }
 
     for (final searchTerm in queries) {
       final results = await _fetchInstitutions(
@@ -30,13 +42,17 @@ class OpenAlexClient {
       for (final institution in results) {
         merged[institution.id] = institution;
       }
-      if (merged.isNotEmpty && searchTerm != query.trim()) {
+      if (merged.isNotEmpty && hint != null && searchTerm == hint) {
         break;
       }
     }
 
     if (merged.isEmpty && preferEgypt) {
       for (final searchTerm in queries) {
+        // تجنّب إعادة إرسال العربية الخام إن وُجدت ترجمة.
+        if (OpenAlexSearchAliases.containsArabic(searchTerm) && hint != null) {
+          continue;
+        }
         final results = await _fetchInstitutions(searchTerm);
         for (final institution in results) {
           merged[institution.id] = institution;
@@ -46,8 +62,44 @@ class OpenAlexClient {
     }
 
     final list = merged.values.toList()
-      ..sort((a, b) => b.worksCount.compareTo(a.worksCount));
+      ..sort((a, b) {
+        final aBoost = _institutionRankBoost(a, hint);
+        final bBoost = _institutionRankBoost(b, hint);
+        if (aBoost != bBoost) return bBoost.compareTo(aBoost);
+        return b.worksCount.compareTo(a.worksCount);
+      });
     return list;
+  }
+
+  Future<OpenAlexInstitution?> _fetchInstitutionById(String openAlexId) async {
+    final id = openAlexId.startsWith('I')
+        ? openAlexId
+        : 'I${openAlexId.replaceFirst(RegExp(r'^https://openalex.org/'), '')}';
+    final clean = id.replaceFirst('https://openalex.org/', '');
+    final uri = Uri.parse('$_base/institutions/$clean');
+    try {
+      final data = await _getJson(uri);
+      return OpenAlexInstitution.fromMap(data);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  int _institutionRankBoost(OpenAlexInstitution institution, String? hint) {
+    var score = 0;
+    if ((institution.country ?? '').toUpperCase() == 'EG') score += 100;
+    if (hint != null && hint.isNotEmpty) {
+      final name = institution.name.toLowerCase();
+      final h = hint.toLowerCase();
+      if (name == h) {
+        score += 50;
+      } else if (name.contains('azhar') && h.contains('azhar')) {
+        score += 40;
+      } else if (name.contains(h) || h.contains(name)) {
+        score += 30;
+      }
+    }
+    return score;
   }
 
   Future<List<OpenAlexInstitution>> _fetchInstitutions(
@@ -146,8 +198,28 @@ class OpenAlexClient {
       }
     }
 
-    final list = merged.values.toList()
-      ..sort((a, b) => b.citedByCount.compareTo(a.citedByCount));
+    // استبعد الأسماء غير المطابقة (مثل نتائج عشوائية ضعيفة لا تشبه البحث).
+    var list = merged.values
+        .where(
+          (a) => OpenAlexSearchAliases.isNameRelevantEnough(trimmed, a.name),
+        )
+        .toList();
+
+    // إن صفّى الكل، أعد أفضل المتاحين حسب التقارب ثم الاستشهادات.
+    if (list.isEmpty) {
+      list = merged.values.toList();
+    }
+
+    list.sort((a, b) {
+      final ra = OpenAlexSearchAliases.nameRelevanceScore(trimmed, a.name);
+      final rb = OpenAlexSearchAliases.nameRelevanceScore(trimmed, b.name);
+      if (ra != rb) return rb.compareTo(ra);
+      final qa = OpenAlexAuthorQuality.evaluate(a).score;
+      final qb = OpenAlexAuthorQuality.evaluate(b).score;
+      if (qa != qb) return qb.compareTo(qa);
+      return b.citedByCount.compareTo(a.citedByCount);
+    });
+
     return enrichAuthors(list);
   }
 

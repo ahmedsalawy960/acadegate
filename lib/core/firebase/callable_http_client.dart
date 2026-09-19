@@ -177,7 +177,15 @@ class CallableHttpClient {
       return Map<String, dynamic>.from(result);
     }
 
-    if (decoded.containsKey('similarityPercent') || decoded.containsKey('scanId')) {
+    // Some callables / parsers may already unwrap; accept known payloads.
+    if (decoded.containsKey('similarityPercent') ||
+        decoded.containsKey('scanId') ||
+        decoded.containsKey('batchId') ||
+        decoded.containsKey('imported') ||
+        decoded.containsKey('ok') ||
+        decoded.containsKey('assets') ||
+        decoded.containsKey('remote') ||
+        decoded.containsKey('webSearchLinks')) {
       return decoded;
     }
 

@@ -205,6 +205,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get serviceWriting => 'خدمات الكتابة';
 
   @override
+  String get serviceThesisStudio => 'استوديو الرسالة';
+
+  @override
   String get servicePublish => 'AcadeGate — النشر';
 
   @override
@@ -412,6 +415,9 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get facultyFineArts => 'كلية الفنون الجميلة';
+
+  @override
+  String get facultyProfessionalStudies => 'دراسات عليا مهنية ودبلومات';
 
   @override
   String get storeChemical => 'متجر كيميائي';

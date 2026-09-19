@@ -1,10 +1,12 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
+import '../../core/locale/l10n_lookup.dart';
 import '../../core/locale/locale_extensions.dart';
 import '../research_journey/thesis_progress.dart';
 import '../research_journey/thesis_progress_activity.dart';
 import '../academic/faculty_categories.dart';
+import '../academic/academic_degrees.dart';
 import 'account_profile_screen.dart';
 import 'academic_profile.dart';
 import 'academic_profile_service.dart';
@@ -283,22 +285,22 @@ class _AcademicProfileScreenState extends State<AcademicProfileScreen> {
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
-                      initialValue: _degree,
+                      initialValue: academicDegreeOptions
+                              .any((d) => d.value == _degree)
+                          ? _degree
+                          : academicDegreeOptions.first.value,
                       decoration: InputDecoration(
                         labelText: context.t('الدرجة العلمية', 'Degree'),
                         border: const OutlineInputBorder(),
                       ),
                       items: [
-                        DropdownMenuItem(
-                          value: 'ماجستير',
-                          child: Text(
-                            context.t('ماجستير', "Master's"),
+                        for (final option in academicDegreeOptions)
+                          DropdownMenuItem(
+                            value: option.value,
+                            child: Text(
+                              context.t(option.labelAr, option.labelEn),
+                            ),
                           ),
-                        ),
-                        DropdownMenuItem(
-                          value: 'دكتوراه',
-                          child: Text(context.t('دكتوراه', 'PhD')),
-                        ),
                       ],
                       onChanged: (value) {
                         if (value != null) setState(() => _degree = value);
@@ -327,7 +329,9 @@ class _AcademicProfileScreenState extends State<AcademicProfileScreen> {
                         for (final faculty in facultyCategories)
                           DropdownMenuItem(
                             value: faculty.id,
-                            child: Text(faculty.titleAr),
+                            child: Text(
+                              L10nLookup.facultyTitleStatic(faculty.id),
+                            ),
                           ),
                       ],
                       onChanged: (value) {

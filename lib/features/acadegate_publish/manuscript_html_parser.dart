@@ -2,6 +2,7 @@ import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html_parser;
 
 import 'publish_models.dart';
+import 'table_grid.dart';
 
 /// Converts mammoth HTML output into structured manuscript blocks.
 class ManuscriptHtmlParser {
@@ -36,12 +37,15 @@ class ManuscriptHtmlParser {
               _addTextBlock(blocks, nextId(), ManuscriptBlockType.paragraph, text);
             }
           case 'table':
-            final rows = _parseTable(node);
-            if (rows.isNotEmpty) {
+            final grid = _parseTable(node);
+            if (grid.rows.isNotEmpty) {
               blocks.add(ManuscriptBlock(
                 id: nextId(),
                 type: ManuscriptBlockType.table,
-                rows: rows,
+                rows: grid.rows,
+                rowCellImages: grid.rowCellImages,
+                colSpans: grid.colSpans,
+                rowSpans: grid.rowSpans,
               ));
             }
           case 'img':
@@ -120,15 +124,23 @@ class ManuscriptHtmlParser {
     blocks.add(ManuscriptBlock(id: id, type: type, text: trimmed));
   }
 
-  static List<List<String>> _parseTable(dom.Element table) {
-    final rows = <List<String>>[];
+  static TableGridData _parseTable(dom.Element table) {
+    final sourceRows = <List<HtmlTableCell>>[];
     for (final tr in table.querySelectorAll('tr')) {
-      final cells = tr.children
-          .where((c) => c.localName == 'td' || c.localName == 'th')
-          .map((c) => c.text.trim())
-          .toList();
-      if (cells.isNotEmpty) rows.add(cells);
+      final cells = <HtmlTableCell>[];
+      for (final c in tr.children) {
+        final tag = c.localName?.toLowerCase() ?? '';
+        if (tag != 'td' && tag != 'th') continue;
+        final img = c.querySelector('img');
+        cells.add(HtmlTableCell(
+          text: c.text.trim(),
+          imageUrl: img?.attributes['src']?.trim() ?? '',
+          colSpan: int.tryParse(c.attributes['colspan'] ?? '') ?? 1,
+          rowSpan: int.tryParse(c.attributes['rowspan'] ?? '') ?? 1,
+        ));
+      }
+      if (cells.isNotEmpty) sourceRows.add(cells);
     }
-    return rows;
+    return TableGrid.fromHtmlRows(sourceRows);
   }
 }

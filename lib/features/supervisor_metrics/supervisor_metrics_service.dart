@@ -2,6 +2,7 @@ import '../academic/academic_models.dart';
 import '../../core/locale/l10n_lookup.dart';
 import '../supervisor_import/openalex_client.dart';
 import 'scimago_quartile_service.dart';
+import 'supervisor_identity.dart';
 import 'supervisor_metrics_models.dart';
 
 class SupervisorMetricsService {
@@ -67,12 +68,26 @@ class SupervisorMetricsService {
       await ScimagoQuartileService.instance.ensureLoaded();
       final topVenues = await _aggregateVenues(works);
       final scimagoMatches = topVenues.where((v) => v.fromScimago).length;
+      final identityTopics = SupervisorIdentity.mergeTopics(
+        SupervisorIdentity.topicsFromAuthor(authorRaw),
+        SupervisorIdentity.topicsFromWorks(works),
+      );
+      final collaborators = SupervisorIdentity.collaboratorsFromWorks(
+        works: works,
+        selfOpenAlexId: authorId,
+      );
+      final affiliations = SupervisorIdentity.affiliationsFromAuthor(authorRaw);
+      final authorWorks = SupervisorIdentity.worksFromOpenAlex(works);
 
       final metrics = SupervisorPublicationMetrics(
         worksCount: worksCount,
         citedByCount: citedByCount,
         hIndex: hIndex,
         topVenues: topVenues,
+        identityTopics: identityTopics,
+        collaborators: collaborators,
+        affiliations: affiliations,
+        works: authorWorks,
         fromOpenAlex: true,
         sourceNote: scimagoMatches > 0
             ? L10nLookup.openAlexScimagoNote(scimagoMatches)

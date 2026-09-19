@@ -119,11 +119,23 @@ class StoreProductSearchService {
         final store = data['storeName']?.toString() ?? '';
         final category = data['category']?.toString() ?? '';
         final brand = data['brand']?.toString() ?? '';
+        final description = data['description']?.toString() ?? '';
+        final grade = data['grade']?.toString() ?? '';
+        final sku = data['sku']?.toString() ?? '';
         final tags = (data['tags'] is List)
             ? (data['tags'] as List).map((e) => e.toString()).join(' ')
             : '';
-        final hay = '$name $store $category $brand $tags'.toLowerCase();
-        if (!hay.contains(needle)) continue;
+        final hay =
+            '$name $store $category $brand $description $grade $sku $tags'
+                .toLowerCase();
+        // دعم وصف طويل: تطابق كامل العبارة أو أي كلمة ≥ 3 أحرف
+        final tokens = needle
+            .split(RegExp(r'\s+'))
+            .where((t) => t.length >= 3)
+            .toList();
+        final matched = hay.contains(needle) ||
+            (tokens.isNotEmpty && tokens.any(hay.contains));
+        if (!matched) continue;
         hits.add(
           StoreSearchHit(
             name: name,

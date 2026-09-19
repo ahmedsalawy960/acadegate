@@ -1,4 +1,5 @@
 import '../../core/locale/l10n_lookup.dart';
+import 'supervisor_identity.dart';
 
 /// Journal tier estimate from OpenAlex metrics (not official Scimago).
 class JournalTier {
@@ -54,6 +55,10 @@ class SupervisorPublicationMetrics {
   final int citedByCount;
   final int hIndex;
   final List<VenuePublicationStat> topVenues;
+  final List<ResearchIdentityTopic> identityTopics;
+  final List<ResearchCollaborator> collaborators;
+  final List<ResearchAffiliation> affiliations;
+  final List<ResearchWork> works;
   final bool fromOpenAlex;
   final String sourceNote;
 
@@ -62,11 +67,19 @@ class SupervisorPublicationMetrics {
     this.citedByCount = 0,
     this.hIndex = 0,
     this.topVenues = const [],
+    this.identityTopics = const [],
+    this.collaborators = const [],
+    this.affiliations = const [],
+    this.works = const [],
     this.fromOpenAlex = false,
     this.sourceNote = '',
   });
 
-  bool get hasData => worksCount > 0 || citedByCount > 0;
+  bool get hasData =>
+      worksCount > 0 ||
+      citedByCount > 0 ||
+      identityTopics.isNotEmpty ||
+      works.isNotEmpty;
 
   int get highImpactVenueCount =>
       topVenues.where((v) => v.isHighImpact).length;

@@ -1,4 +1,5 @@
 import '../../core/locale/app_translate.dart';
+import '../../core/voice/readable_text.dart';
 import '../ai_advisor/gemini_advisor_client.dart';
 import '../profile/academic_profile_service.dart';
 import 'viva_committee.dart';
@@ -78,13 +79,15 @@ class VivaService {
         questionIndex: questionIndex,
         history: history,
       );
-      if (cloud != null) return cloud;
+      if (cloud != null) return ReadableText.forDisplay(cloud);
     }
-    return _local.askQuestion(
-      config: config,
-      member: member,
-      questionIndex: questionIndex,
-      history: history,
+    return ReadableText.forDisplay(
+      _local.askQuestion(
+        config: config,
+        member: member,
+        questionIndex: questionIndex,
+        history: history,
+      ),
     );
   }
 
@@ -92,11 +95,33 @@ class VivaService {
     required VivaSessionConfig config,
     required List<VivaMessage> history,
   }) async {
+    VivaReport report;
     if (isCloudEnabled) {
       final cloud = await _cloudReport(config: config, history: history);
-      if (cloud != null) return cloud;
+      report = cloud ?? _local.buildReport(config: config, history: history);
+    } else {
+      report = _local.buildReport(config: config, history: history);
     }
-    return _local.buildReport(config: config, history: history);
+    if (config.issues.isEmpty) return report;
+    final fromThesis = config.issues
+        .take(8)
+        .map(
+          (i) => appTr(
+            'من الرسالة [${i.kind}]: ${i.label}',
+            'From the thesis [${i.kind}]: ${i.label}',
+          ),
+        )
+        .where((line) => !report.weaknesses.contains(line))
+        .toList();
+    if (fromThesis.isEmpty) return report;
+    return VivaReport(
+      weaknesses: [...fromThesis, ...report.weaknesses],
+      methodologyGaps: report.methodologyGaps,
+      expectedQuestions: report.expectedQuestions,
+      preparationTips: report.preparationTips,
+      overallAssessment: report.overallAssessment,
+      fromCloudAi: report.fromCloudAi,
+    );
   }
 
   String introMessage(VivaSessionConfig? config) =>
@@ -108,7 +133,10 @@ class VivaService {
     required int questionIndex,
     required List<VivaMessage> history,
   }) async {
-    final transcript = _formatHistory(history);
+    final transcript = _formatHistory(
+      history,
+      supervisorFromThesis: config.supervisorFromThesis,
+    );
     final maxQ = config.resolvedQuestionCount;
     final styleGuide = VivaQuestionBanks.cloudStyleGuide(
       facultyCategoryId: config.facultyCategoryId,
@@ -118,20 +146,26 @@ class VivaService {
     );
     final system = appTr(
       'أنت ${member.displayName} (${member.displayRole}) في مناقشة رسالة ${config.degree}. '
-          'اطرح سؤالاً واحداً فقط، صعباً لكن عادلاً، بالعربية الأكاديمية. '
-          'يجب أن ينبع السؤال من واقع هذه الرسالة (العنوان، الملخص، DefenseContextFromThesis، ThesisExcerpt) '
-          'مع الإشارة صراحةً إلى نقطة محددة منها. '
-          'ممنوع الأسئلة العامة التي تصلح لأي رسالة. لا تكرر أسئلة سابقة. لا تقدم إجابة — السؤال فقط.\n\n$styleGuide',
+          'اطرح سؤالاً واحداً فقط بالعربية الأكاديمية. '
+          'إن وُجدت PreparedVivaQuestionsFromThesis فاستخدم السؤال رقم ${questionIndex + 1} (أو أقرب سؤال غير مكرر) مع الإبقاء على خصوصية الرسالة. '
+          'وإلا فناقش إحدى IssuesAndCommentsFromThesis مع اقتباس. '
+          'يجب أن يشير السؤال إلى نقطة من الرسالة. ممنوع الأسئلة العامة لأي رسالة. '
+          'ممنوع اختلاق اسم مشرف أو مناقش — استخدم الدور فقط. '
+          'اكتب الرموز بنص عادي مثل R² وليس LaTeX. لا تقدم إجابة — السؤال فقط.\n\n$styleGuide',
       'You are ${member.displayName} (${member.displayRole}) in a ${config.degree} thesis defense. '
-          'Ask exactly ONE challenging but fair question in clear academic English. '
-          'The question MUST come from THIS thesis materials (Title, Summary, DefenseContextFromThesis, ThesisExcerpt) '
-          'and explicitly reference a specific point from them. '
-          'Forbidden: generic questions that fit any thesis. Do not repeat prior questions. Do not answer — question only.\n\n$styleGuide',
+          'Ask exactly ONE question in clear academic English. '
+          'If PreparedVivaQuestionsFromThesis exists, use question ${questionIndex + 1} (or the nearest unused one) and keep the thesis-specific content. '
+          'Otherwise interrogate one IssuesAndCommentsFromThesis item with a quote. '
+          'The question MUST point to this thesis. Forbidden: generic questions. '
+          'Do not invent a supervisor or examiner personal name — use the role only. '
+          'Write symbols as plain text such as R², never LaTeX. Do not answer — question only.\n\n$styleGuide',
     );
     final user = '${config.aiContextBlock}\n\n'
         '${appTr(
-          'اصنع السؤال من محتوى الرسالة أعلاه فقط — اقتبس أو أعد صياغة نقطة محددة ثم اسأل عنها.',
-          'Build the question from the thesis materials above only — quote or paraphrase one specific point then interrogate it.',
+          'اصنع السؤال من محتوى الرسالة أعلاه فقط — إن وُجدت أسئلة مُعدّة فاستخدم السؤال رقم ${questionIndex + 1}. '
+              'وإلا فناقش ملاحظة/خطأ مقتبساً من IssuesAndCommentsFromThesis.',
+          'Build the question from the thesis materials above only — if prepared questions exist, use question ${questionIndex + 1}. '
+              'Otherwise interrogate a quoted issue from IssuesAndCommentsFromThesis.',
         )}\n\n'
         '${appTr('سجل المحاكاة', 'Simulation log')}:\n$transcript\n\n'
         '${appTr('رقم السؤال', 'Question number')}: ${questionIndex + 1} / $maxQ';
@@ -139,7 +173,7 @@ class VivaService {
     final result = await GeminiAdvisorClient.instance.generateResult(
       systemPrompt: system,
       userMessage: user,
-      maxOutputTokens: 512,
+      maxOutputTokens: 800,
     );
     final text = result.text?.trim();
     if (text == null || text.isEmpty) return null;
@@ -150,7 +184,10 @@ class VivaService {
     required VivaSessionConfig config,
     required List<VivaMessage> history,
   }) async {
-    final transcript = _formatHistory(history);
+    final transcript = _formatHistory(
+      history,
+      supervisorFromThesis: config.supervisorFromThesis,
+    );
     final system = appTr(
       'أنت خبير في تقييم مناقشات الرسائل العلمية. '
           'أنتج تقريراً منظماً بالعربية بالأقسام التالية فقط (كل قسم بنقاط):\n'
@@ -158,14 +195,16 @@ class VivaService {
           '2) فجوات منهجية\n'
           '3) أسئلة متوقعة في المناقشة الحقيقية\n'
           '4) نصائح التحضير\n'
-          '5) التقييم العام (فقرة قصيرة)',
+          '5) التقييم العام (فقرة قصيرة)\n'
+          '6) أخطاء وملاحظات من الرسالة (إن وُجدت IssuesAndCommentsFromThesis — اقتبس ولا تختلق)',
       'You are an expert in thesis defense assessment. '
           'Produce a structured report in English with only these sections (bullets each):\n'
           '1) Weaknesses\n'
           '2) Methodology gaps\n'
           '3) Likely questions in the real viva\n'
           '4) Preparation tips\n'
-          '5) Overall assessment (short paragraph)',
+          '5) Overall assessment (short paragraph)\n'
+          '6) Errors and comments from the thesis (if IssuesAndCommentsFromThesis exists — quote, do not invent)',
     );
     final user = '${config.aiContextBlock}\n\n'
         '${appTr('محادثة المحاكاة', 'Simulation dialogue')}:\n$transcript';
@@ -180,14 +219,20 @@ class VivaService {
     return _parseReportFromCloud(text);
   }
 
-  String _formatHistory(List<VivaMessage> history) {
+  String _formatHistory(
+    List<VivaMessage> history, {
+    String? supervisorFromThesis,
+  }) {
     final buffer = StringBuffer();
     for (final msg in history) {
       if (msg.role == VivaMessageRole.system) continue;
       final label = switch (msg.role) {
         VivaMessageRole.committee => () {
             final m = msg.memberId != null
-                ? VivaCommittee.byId(msg.memberId!).displayName
+                ? VivaCommittee.byId(
+                    msg.memberId!,
+                    supervisorFromThesis: supervisorFromThesis,
+                  ).displayName
                 : appTr('لجنة', 'Committee');
             return m;
           }(),
@@ -223,11 +268,16 @@ class VivaService {
     final gaps = section('فجوات منهجية', 'Methodology gaps');
     final expected = section('أسئلة متوقعة', 'Likely questions');
     final tips = section('نصائح التحضير', 'Preparation tips');
+    final extractedIssues = section('أخطاء وملاحظات', 'Errors and comments');
 
     return VivaReport(
-      weaknesses: weaknesses.isNotEmpty
-          ? weaknesses
-          : [text.split('\n').firstWhere((l) => l.trim().isNotEmpty, orElse: () => text)],
+      weaknesses: [
+        ...extractedIssues,
+        if (weaknesses.isNotEmpty)
+          ...weaknesses
+        else if (extractedIssues.isEmpty)
+          text.split('\n').firstWhere((l) => l.trim().isNotEmpty, orElse: () => text),
+      ],
       methodologyGaps: gaps.isNotEmpty
           ? gaps
           : [
@@ -260,6 +310,13 @@ class VivaService {
     );
   }
 
-  VivaCommitteeMember memberForQuestionIndex(int index) =>
-      VivaCommittee.members[index % VivaCommittee.members.length];
+  VivaCommitteeMember memberForQuestionIndex(
+    int index, {
+    String? supervisorFromThesis,
+  }) {
+    final members = VivaCommittee.lineup(
+      supervisorFromThesis: supervisorFromThesis,
+    );
+    return members[index % members.length];
+  }
 }

@@ -18,7 +18,8 @@ const SUPPLIERS = [
     whatsapp: "",
     city: "6 أكتوبر / الجيزة",
     woo: "https://piochem.com",
-    defaultCategory: "كيميائيات وكواشف",
+    defaultCategory: "مستلزمات ومواد كيميائية وكواشف",
+    categoryIds: ["chemicals"],
   },
   {
     id: "cornell_lab",
@@ -30,7 +31,8 @@ const SUPPLIERS = [
     whatsapp: "",
     city: "المعادي / القاهرة",
     woo: "https://cornelllab.com",
-    defaultCategory: "كيميائيات وكواشف",
+    defaultCategory: "مستلزمات ومواد كيميائية وكواشف",
+    categoryIds: ["chemicals", "consumables"],
   },
   {
     id: "labtronic",
@@ -43,6 +45,7 @@ const SUPPLIERS = [
     city: "مصر",
     woo: "https://labtronic-eg.com",
     defaultCategory: "طبي وصيدلي وسريري",
+    categoryIds: ["medical"],
   },
   {
     id: "omega_lab_equip",
@@ -54,7 +57,8 @@ const SUPPLIERS = [
     whatsapp: "01095069944",
     city: "مصر",
     woo: "https://ome-ga.com",
-    defaultCategory: "أجهزة وأدوات قياس",
+    defaultCategory: "طبي وصيدلي وسريري",
+    categoryIds: ["medical"],
   },
   {
     id: "lab_supply_group",
@@ -67,6 +71,7 @@ const SUPPLIERS = [
     city: "مصر",
     woo: "https://lab-supply.net",
     defaultCategory: "مستهلكات وأدوات مختبر",
+    categoryIds: ["consumables", "instruments"],
   },
   {
     id: "makers_electronics",
@@ -79,6 +84,7 @@ const SUPPLIERS = [
     city: "الإسكندرية",
     woo: "https://makerselectronics.com",
     defaultCategory: "هندسة وإلكترونيات",
+    categoryIds: ["engineering", "computing"],
   },
   {
     id: "am_electronics",
@@ -91,6 +97,7 @@ const SUPPLIERS = [
     city: "مصر",
     woo: "https://am-electronics.com",
     defaultCategory: "هندسة وإلكترونيات",
+    categoryIds: ["engineering"],
   },
   {
     id: "ekostra",
@@ -103,6 +110,7 @@ const SUPPLIERS = [
     city: "التجمع الأول / القاهرة",
     woo: "https://ekostra.com",
     defaultCategory: "هندسة وإلكترونيات",
+    categoryIds: ["engineering"],
   },
 ];
 
@@ -116,7 +124,8 @@ const CONTACT_ONLY = [
     phone: "",
     whatsapp: "",
     city: "فيصل / الجيزة",
-    defaultCategory: "كيميائيات وكواشف",
+    defaultCategory: "مستلزمات ومواد كيميائية وكواشف",
+    categoryIds: ["chemicals"],
   },
   {
     id: "lct_chemicals",
@@ -127,7 +136,8 @@ const CONTACT_ONLY = [
     phone: "+20227923295",
     whatsapp: "",
     city: "جاردن سيتي / القاهرة",
-    defaultCategory: "كيميائيات وكواشف",
+    defaultCategory: "مستلزمات ومواد كيميائية وكواشف",
+    categoryIds: ["chemicals"],
   },
   {
     id: "igtechnology",
@@ -204,7 +214,8 @@ const CONTACT_ONLY = [
     phone: "",
     whatsapp: "",
     city: "مصر",
-    defaultCategory: "كيميائيات وكواشف",
+    defaultCategory: "مستلزمات ومواد كيميائية وكواشف",
+    categoryIds: ["chemicals"],
   },
 ];
 
@@ -224,41 +235,96 @@ function stripHtml(raw) {
     .trim();
 }
 
-function mapCategory(name, categories, fallback) {
+/** Category id → Firestore title (must match Flutter store_categories.dart). */
+const CATEGORY_TITLES = {
+  chemicals: "مستلزمات ومواد كيميائية وكواشف",
+  biology: "بيولوجيا وتقنية حيوية",
+  medical: "طبي وصيدلي وسريري",
+  agriculture: "زراعة وبيطري",
+  engineering: "هندسة وإلكترونيات",
+  consumables: "مستهلكات وأدوات مختبر",
+  instruments: "أجهزة وأدوات قياس",
+  physics_materials: "فيزياء ومواد",
+  safety: "سلامة ومعدات وقاية",
+  field: "أدوات ميدانية ومسح",
+  computing: "حوسبة وبرمجيات بحثية",
+  books: "كتب ومراجع علمية",
+  humanities: "إنسانيات وتربية وبحث اجتماعي",
+  office: "مستلزمات كتابة وتوثيق البحث",
+  general: "مستلزمات عامة",
+};
+
+const LEGACY_CATEGORY_ALIASES = {
+  "كيميائيات وكواشف": "مستلزمات ومواد كيميائية وكواشف",
+};
+
+function normalizeCategoryTitle(title) {
+  const t = String(title || "").trim();
+  return LEGACY_CATEGORY_ALIASES[t] || t;
+}
+
+function allowedTitlesForSupplier(supplier) {
+  const titles = new Set();
+  const fallback = normalizeCategoryTitle(supplier.defaultCategory);
+  if (fallback) titles.add(fallback);
+  for (const id of supplier.categoryIds || []) {
+    const title = CATEGORY_TITLES[id];
+    if (title) titles.add(title);
+  }
+  return titles;
+}
+
+/** Keyword map, then clamp to supplier specialties (no cross-section dumping). */
+function mapCategory(name, categories, supplier) {
   const cats = (categories || []).join(" ").toLowerCase();
   const hay = `${cats} ${String(name || "").toLowerCase()}`;
+  const fallback = normalizeCategoryTitle(supplier.defaultCategory) || "مستلزمات عامة";
+  const allowed = allowedTitlesForSupplier(supplier);
+
+  let mapped = "";
   if (/veterinary|canine|feline|poultry|livestock|بيطر|دواجن|أعلاف|feed additive/.test(hay)) {
-    return "زراعة وبيطري";
+    mapped = CATEGORY_TITLES.agriculture;
+  } else if (/elisa kit|pcr|qpcr|cell culture|agarose|molecular biology|بيولوجيا|تقنية حيوية/.test(hay)) {
+    mapped = CATEGORY_TITLES.biology;
+  } else if (
+    /hematology|cbc|clinical chemistry|coagulation|human devices|rapid test|طبي|صيدل|dental|أسنان/.test(hay) &&
+    !/veterinary/.test(hay)
+  ) {
+    mapped = CATEGORY_TITLES.medical;
+  } else if (/glassware|volumetric flask|beaker|pipette tip|centrifuge tube|plasticware|زجاج|مستهلك/.test(hay)) {
+    mapped = CATEGORY_TITLES.consumables;
+  } else if (/solvent|hplc|reagent|chemical|مذيب|كاشف|كيمي|fisher chemical|thermo scientific/.test(hay)) {
+    mapped = CATEGORY_TITLES.chemicals;
+  } else if (/safety|ppe|glove|سلامة|قفاز/.test(hay)) {
+    mapped = CATEGORY_TITLES.safety;
+  } else if (/survey|gps|theodolite|مسح|ميدان/.test(hay)) {
+    mapped = CATEGORY_TITLES.field;
+  } else if (/laptop|workstation|gpu|software|matlab|حاسب|برمج/.test(hay)) {
+    mapped = CATEGORY_TITLES.computing;
+  } else if (/plc|oscilloscope|multimeter|arduino|raspberry|هندس|إلكترون/.test(hay)) {
+    mapped = CATEGORY_TITLES.engineering;
+  } else if (/instron|materials testing|hardness tester|اختبار مواد|فيزياء/.test(hay)) {
+    mapped = CATEGORY_TITLES.physics_materials;
+  } else if (/analyzer|centrifuge|spectrophotometer|microscope|ph meter|جهاز|قياس|devices|instrument/.test(hay)) {
+    mapped = CATEGORY_TITLES.instruments;
+  } else if (/book|textbook|كتاب|مرجع/.test(hay)) {
+    mapped = CATEGORY_TITLES.books;
   }
-  if (/elisa kit|pcr|qpcr|cell culture|agarose|molecular biology|بيولوجيا|تقنية حيوية/.test(hay)) {
-    return "بيولوجيا وتقنية حيوية";
-  }
-  if (/hematology|cbc|clinical chemistry|coagulation|human devices|rapid test|طبي|صيدل/.test(hay) && !/veterinary/.test(hay)) {
-    return "طبي وصيدلي وسريري";
-  }
-  if (/glassware|volumetric flask|beaker|pipette tip|centrifuge tube|plasticware|زجاج|مستهلك/.test(hay)) {
-    return "مستهلكات وأدوات مختبر";
-  }
-  if (/solvent|hplc|reagent|chemical|مذيب|كاشف|كيمي|fisher chemical|thermo scientific/.test(hay)) {
-    return "كيميائيات وكواشف";
-  }
-  if (/safety|ppe|glove|سلام|قفاز/.test(hay)) return "سلامة ومعدات وقاية";
-  if (/survey|gps|theodolite|مسح|ميدان/.test(hay)) return "أدوات ميدانية ومسح";
-  if (/plc|oscilloscope|multimeter|arduino|هندس|إلكترون/.test(hay)) return "هندسة وإلكترونيات";
-  if (/analyzer|centrifuge|spectrophotometer|microscope|ph meter|جهاز|قياس|devices|instrument/.test(hay)) {
-    return "أجهزة وأدوات قياس";
-  }
-  if (/book|textbook|كتاب|مرجع/.test(hay)) return "كتب ومراجع علمية";
-  return fallback || "مستلزمات عامة";
+
+  if (allowed.size === 0) return mapped || fallback;
+  if (mapped && allowed.has(mapped)) return mapped;
+  if (allowed.has(fallback)) return fallback;
+  return [...allowed][0] || fallback;
 }
 
 async function fetchWooProducts(baseUrl) {
   const root = String(baseUrl).replace(/\/+$/, "");
   const products = [];
   let page = 1;
-  let totalPages = 1;
-  while (page <= totalPages) {
-    const url = `${root}/wp-json/wc/store/v1/products?per_page=100&page=${page}`;
+  let totalPages = null;
+  const perPage = 100;
+  while (true) {
+    const url = `${root}/wp-json/wc/store/v1/products?per_page=${perPage}&page=${page}`;
     const res = await fetch(url, {
       headers: {
         "User-Agent": "AcadeGate/1.0 (store sync; +https://acadegate.app)",
@@ -268,9 +334,10 @@ async function fetchWooProducts(baseUrl) {
     if (!res.ok) {
       throw new Error(`WooCommerce HTTP ${res.status} for ${url}`);
     }
-    totalPages = Number(res.headers.get("x-wp-totalpages") || totalPages) || 1;
+    const headerPages = Number(res.headers.get("x-wp-totalpages") || 0);
+    if (headerPages > 0) totalPages = headerPages;
     const rows = await res.json();
-    if (!Array.isArray(rows)) break;
+    if (!Array.isArray(rows) || rows.length === 0) break;
     for (const row of rows) {
       const prices = row.prices || {};
       const minor = Number(prices.currency_minor_unit ?? 2);
@@ -294,6 +361,8 @@ async function fetchWooProducts(baseUrl) {
         inStock: row.is_in_stock !== false,
       });
     }
+    if (totalPages != null && page >= totalPages) break;
+    if (totalPages == null && rows.length < perPage) break;
     page += 1;
   }
   return products;
@@ -316,11 +385,15 @@ async function upsertSuppliers(db, list, productSyncEnabled) {
         whatsapp: s.whatsapp || "",
         city: s.city || "",
         contact: displayContact(s),
-        defaultCategoryTitle: s.defaultCategory,
+        defaultCategoryTitle: normalizeCategoryTitle(s.defaultCategory),
+        ...(Array.isArray(s.categoryIds) && s.categoryIds.length
+          ? { categoryIds: s.categoryIds }
+          : {}),
         productSyncEnabled: !!productSyncEnabled,
         ...(s.woo ? { wooCommerceBaseUrl: s.woo } : {}),
         importSource: "egypt_suppliers_catalog_2026",
-        isVerifiedSeller: true,
+        dataSource: "public_web_directory",
+        // Do not overwrite directoryStatus / claim flags on sync.
         updatedAt: FieldValue.serverTimestamp(),
         syncedAt: FieldValue.serverTimestamp(),
       },
@@ -328,6 +401,24 @@ async function upsertSuppliers(db, list, productSyncEnabled) {
     );
   }
   await batch.commit();
+
+  // Seed trust fields only when missing.
+  for (const s of list) {
+    const ref = db.collection("store_suppliers").doc(s.id);
+    const snap = await ref.get();
+    if (!snap.exists) continue;
+    const data = snap.data() || {};
+    if (!data.directoryStatus) {
+      await ref.set(
+        {
+          directoryStatus: "unverified",
+          isPartner: false,
+          isVerifiedSeller: false,
+        },
+        { merge: true },
+      );
+    }
+  }
 }
 
 async function upsertProducts(db, supplier, products, adminUid) {
@@ -343,7 +434,7 @@ async function upsertProducts(db, supplier, products, adminUid) {
     const batch = db.batch();
     slice.forEach((p, idx) => {
       const snap = snaps[idx];
-      const category = mapCategory(p.name, p.categories, supplier.defaultCategory);
+      const category = mapCategory(p.name, p.categories, supplier);
       const payload = {
         name: p.name,
         price: p.price,
@@ -365,8 +456,8 @@ async function upsertProducts(db, supplier, products, adminUid) {
         supplierId: supplier.id,
         importSource: `wc_${supplier.id}`,
         externalProductId: p.id,
-        isVerifiedSeller: true,
         isDirectoryListing: true,
+        dataSource: "public_web_directory",
         inStock: p.inStock,
         approvalStatus: "approved",
         syncedAt: FieldValue.serverTimestamp(),
@@ -375,6 +466,9 @@ async function upsertProducts(db, supplier, products, adminUid) {
       if (!snap.exists) {
         payload.createdBy = adminUid || "system_store_sync";
         payload.createdAt = FieldValue.serverTimestamp();
+        payload.directoryStatus = "unverified";
+        payload.isPartner = false;
+        payload.isVerifiedSeller = false;
         batch.set(refs[idx], payload);
         imported += 1;
       } else {
@@ -382,6 +476,7 @@ async function upsertProducts(db, supplier, products, adminUid) {
         if (existingSource && !String(existingSource).startsWith("wc_")) {
           return;
         }
+        // Preserve directoryStatus / partner flags set by admins or claims.
         batch.set(refs[idx], payload, { merge: true });
         updated += 1;
       }

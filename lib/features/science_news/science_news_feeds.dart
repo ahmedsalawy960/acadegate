@@ -23,6 +23,7 @@ class ScienceNewsCategory {
   ScienceNewsCategory._();
 
   static const all = 'all';
+  static const forYou = 'for_you';
   static const general = 'general';
   static const medicine = 'medicine';
   static const engineering = 'engineering';
@@ -38,6 +39,7 @@ class ScienceNewsCategory {
 
   static const orderedIds = <String>[
     all,
+    forYou,
     general,
     medicine,
     engineering,
@@ -56,6 +58,8 @@ class ScienceNewsCategory {
     switch (id) {
       case all:
         return appTr('الكل', 'All');
+      case forYou:
+        return appTr('موجزك', 'Your digest');
       case general:
         return appTr('عام', 'General');
       case medicine:

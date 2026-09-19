@@ -2,16 +2,23 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 import 'package:acadegate/core/widgets/app_site_footer.dart';
+import '../../core/config/feature_flags.dart';
 import '../../core/locale/l10n_lookup.dart';
 import '../../core/locale/locale_extensions.dart';
+import '../auth/auth_navigation.dart';
 import '../auth/language_switcher_button.dart';
+import '../auth/login_screen.dart';
 import '../auth/portal_switch_button.dart';
+import '../auth/provider_publish_gate.dart';
 import '../auth/user_account.dart';
 import '../auth/user_account_service.dart';
 import '../auth/user_role.dart';
-import '../auth/welcome_screen.dart';
+import '../moderation/approval_status.dart';
+import '../admin/admin_bugs_screen.dart';
+import '../admin/admin_kpi_screen.dart';
 import '../admin/admin_moderation_screen.dart';
 import '../admin/admin_unowned_lab_ops_screen.dart';
+import '../bugs/report_problem_sheet.dart';
 import '../academic_writing/expert_orders_screen.dart';
 import '../contributor/contributor_hub_screen.dart';
 import '../contributor/submit_lab_screen.dart';
@@ -19,7 +26,7 @@ import '../contributor/submit_supervisor_screen.dart';
 import '../messaging/conversations_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../profile/account_app_bar_avatar.dart';
-import '../profile/academic_profile_service.dart';
+import '../research_fund/industry_challenges_screen.dart';
 import '../research_fund/my_funded_ideas_screen.dart';
 import '../research_marketplace/publish_research_idea_screen.dart';
 import '../store/merchant_store_screen.dart';
@@ -56,14 +63,7 @@ class ProviderHomeScreen extends StatelessWidget {
 
     if (shouldLogout != true) return;
 
-    AcademicProfileService.instance.clearCache();
-    await FirebaseAuth.instance.signOut();
-    if (!context.mounted) return;
-
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (context) => const WelcomeScreen()),
-      (route) => false,
-    );
+    await AuthNavigation.signOutToWelcome(context);
   }
 
   @override
@@ -85,6 +85,44 @@ class ProviderHomeScreen extends StatelessWidget {
               onSwitchPortal: onSwitchPortal!,
               tooltip: l10n.switchToUserPortal,
             ),
+          if (isLoggedIn) const ReportProblemIconButton(portal: 'provider'),
+          StreamBuilder<UserAccount?>(
+            stream: UserAccountService.instance.watchCurrentAccount(),
+            builder: (context, snap) {
+              if (snap.data?.isAdmin != true) {
+                return const SizedBox.shrink();
+              }
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    tooltip: context.t('سجل المشاكل', 'Bugs'),
+                    icon: const Icon(Icons.bug_report),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const AdminBugsScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  IconButton(
+                    tooltip: context.t('مؤشرات الأداء', 'Weekly KPIs'),
+                    icon: const Icon(Icons.insights_outlined),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const AdminKpiScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              );
+            },
+          ),
           const NotificationIconButton(),
           IconButton(
             tooltip: l10n.messages,
@@ -153,6 +191,11 @@ class _ProviderBody extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       children: [
         _HeaderCard(account: account),
+        if (ProviderPublishGate.isProviderRole(account.role) &&
+            !ProviderPublishGate.isApproved(account)) ...[
+          const SizedBox(height: 12),
+          _ProviderApprovalBanner(account: account),
+        ],
         const SizedBox(height: 20),
         _sectionTitle(context.t('التواصل', 'Messaging')),
         _tile(
@@ -176,6 +219,28 @@ class _ProviderBody extends StatelessWidget {
             subtitle: l10n.contentModerationSub,
             color: const Color(0xFF1A237E),
             screen: const AdminModerationScreen(initialFilter: 'supervisors'),
+          ),
+          _tile(
+            context,
+            icon: Icons.insights_outlined,
+            title: context.t('مؤشرات الأداء الأسبوعية', 'Weekly KPIs'),
+            subtitle: context.t(
+              'مستخدمون · بحث · مطالبات · تواصل · احتفاظ · شركاء · CAC',
+              'Users · search · claims · contacts · retention · partners · CAC',
+            ),
+            color: const Color(0xFF4527A0),
+            screen: const AdminKpiScreen(),
+          ),
+          _tile(
+            context,
+            icon: Icons.bug_report_outlined,
+            title: context.t('سجل المشاكل والأخطاء', 'Bugs & errors log'),
+            subtitle: context.t(
+              'بلاغات المستخدمين ومقدمي الخدمة + أخطاء تلقائية',
+              'User/provider reports + automatic crashes',
+            ),
+            color: const Color(0xFFB71C1C),
+            screen: const AdminBugsScreen(),
           ),
           _tile(
             context,
@@ -261,6 +326,21 @@ class _ProviderBody extends StatelessWidget {
               color: const Color(0xFFE65100),
               screen: const MerchantStoreScreen(),
             ),
+          if (_showProduct(role) && AcadeGateFeatureFlags.showResearchFundOnHome)
+            _tile(
+              context,
+              icon: Icons.factory_outlined,
+              title: context.t(
+                'تحديات الصناعة بعربون',
+                'Industry challenges (escrow)',
+              ),
+              subtitle: context.t(
+                'انشر مشكلة صناعية واحبس العربون قبل أي بروتوكول',
+                'Post an industry problem and hold the deposit before any protocol',
+              ),
+              color: const Color(0xFFBF360C),
+              screen: const IndustryChallengesScreen(),
+            ),
           const SizedBox(height: 20),
         ],
         if (_hasPublish(role)) ...[
@@ -304,17 +384,18 @@ class _ProviderBody extends StatelessWidget {
               color: const Color(0xFFF57F17),
               screen: const PublishResearchIdeaScreen(),
             ),
-            _tile(
-              context,
-              icon: Icons.savings_outlined,
-              title: context.t('أفكاري الممولة', 'My funded ideas'),
-              subtitle: context.t(
-                'تمويلات أفكارك من صندوق البحث',
-                'Awards for your ideas from the research fund',
+            if (AcadeGateFeatureFlags.showResearchFundOnHome)
+              _tile(
+                context,
+                icon: Icons.savings_outlined,
+                title: context.t('أفكاري الممولة', 'My funded ideas'),
+                subtitle: context.t(
+                  'تمويلات أفكارك من صندوق البحث',
+                  'Awards for your ideas from the research fund',
+                ),
+                color: const Color(0xFFBF360C),
+                screen: const MyFundedIdeasScreen(),
               ),
-              color: const Color(0xFFBF360C),
-              screen: const MyFundedIdeasScreen(),
-            ),
           ],
           const SizedBox(height: 20),
         ],
@@ -344,8 +425,7 @@ class _ProviderBody extends StatelessWidget {
     );
   }
 
-  bool _showWriting(String role) =>
-      role == UserRole.admin || role == UserRole.supervisor;
+  bool _showWriting(String role) => UserRole.canReceiveWritingOrders(role);
 
   bool _showLabIncoming(String role) =>
       role == UserRole.labManager || role == UserRole.admin;
@@ -357,14 +437,10 @@ class _ProviderBody extends StatelessWidget {
       role == UserRole.merchant || role == UserRole.admin;
 
   bool _showLabSubmit(String role) =>
-      role == UserRole.labManager ||
-      role == UserRole.admin ||
-      role == UserRole.student;
+      role == UserRole.labManager || role == UserRole.admin;
 
   bool _showSupervisorSubmit(String role) =>
-      role == UserRole.supervisor ||
-      role == UserRole.admin ||
-      role == UserRole.student;
+      role == UserRole.supervisor || role == UserRole.admin;
 
   bool _showIdea(String role) =>
       role == UserRole.ideaPublisher ||
@@ -388,6 +464,131 @@ class _ProviderBody extends StatelessWidget {
       _showLabSubmit(role) ||
       _showSupervisorSubmit(role) ||
       _showIdea(role);
+}
+
+class _ProviderApprovalBanner extends StatefulWidget {
+  final UserAccount account;
+
+  const _ProviderApprovalBanner({required this.account});
+
+  @override
+  State<_ProviderApprovalBanner> createState() =>
+      _ProviderApprovalBannerState();
+}
+
+class _ProviderApprovalBannerState extends State<_ProviderApprovalBanner> {
+  bool _busy = false;
+
+  Future<void> _reapply() async {
+    setState(() => _busy = true);
+    try {
+      await UserAccountService.instance.reapplyProviderReview();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            context.t(
+              'أُعيد إرسال طلبك للمراجعة',
+              'Your application was re-submitted for review',
+            ),
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$e'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final rejected = ProviderPublishGate.isRejected(widget.account);
+    final color = rejected ? const Color(0xFFC62828) : const Color(0xFFEF6C00);
+    final title = rejected
+        ? context.t('الحساب مرفوض', 'Account rejected')
+        : context.t('بانتظار موافقة الإدارة', 'Pending admin approval');
+    final body = rejected
+        ? context.t(
+            ProviderPublishGate.blockMessageAr(widget.account),
+            ProviderPublishGate.blockMessageEn(widget.account),
+          )
+        : context.t(
+            'يمكنك تجهيز بياناتك، لكن النشر للعامة يبدأ بعد القبول. المحتوى المُرسل يبقى قيد المراجعة.',
+            'You can prepare your details, but public publishing starts after approval. Submitted content stays under review.',
+          );
+
+    return Card(
+      color: color.withValues(alpha: 0.08),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  rejected ? Icons.block : Icons.hourglass_top,
+                  color: color,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                    ),
+                  ),
+                ),
+                Chip(
+                  label: Text(
+                    ApprovalStatus.label(
+                      rejected
+                          ? ApprovalStatus.rejected
+                          : ApprovalStatus.pending,
+                    ),
+                    style: const TextStyle(fontSize: 11),
+                  ),
+                  visualDensity: VisualDensity.compact,
+                  backgroundColor: color.withValues(alpha: 0.12),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(body, style: TextStyle(height: 1.4, color: Colors.grey[800])),
+            if (rejected) ...[
+              const SizedBox(height: 10),
+              FilledButton.tonal(
+                onPressed: _busy ? null : _reapply,
+                child: _busy
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Text(
+                        context.t('إعادة تقديم الطلب', 'Re-apply for review'),
+                      ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _GuestProviderBody extends StatelessWidget {
@@ -474,9 +675,8 @@ class _GuestProviderBody extends StatelessWidget {
         content: Text(context.l10n.signInToContinue),
       ),
     );
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (context) => const WelcomeScreen()),
-      (route) => false,
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => const LoginScreen()),
     );
   }
 }

@@ -2,7 +2,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/locale/app_translate.dart';
 import '../academic/academic_models.dart';
+import '../analytics/kpi_analytics_service.dart';
 import '../moderation/content_delete_service.dart';
+import 'lab_operations.dart';
+import 'lab_training_service.dart';
 import '../notifications/admin_recipient_service.dart';
 import '../notifications/notification_service.dart';
 
@@ -35,6 +38,18 @@ class SmartLabsService {
   CollectionReference<Map<String, dynamic>> _bookings(String labId) =>
       _db.collection('labs').doc(labId).collection('bookings');
 
+  DocumentReference<Map<String, dynamic>> _dayLock({
+    required String labId,
+    required String equipmentId,
+    required String date,
+  }) {
+    return _db
+        .collection('labs')
+        .doc(labId)
+        .collection('slot_locks')
+        .doc(LabOperations.dayLockId(equipmentId: equipmentId, date: date));
+  }
+
   CollectionReference<Map<String, dynamic>> _ratings(String labId) =>
       _db.collection('labs').doc(labId).collection('ratings');
 
@@ -57,11 +72,11 @@ class SmartLabsService {
       if (endHour > 18) continue;
 
       final end = '${endHour.toString().padLeft(2, '0')}:00';
-      final isBooked = existingBookings.any(
-        (booking) =>
-            booking.isConfirmed &&
-            booking.equipmentId == equipment.id &&
-            booking.slotStart == start,
+      final isBooked = LabOperations.conflictsWithExisting(
+        existing: existingBookings,
+        equipmentId: equipment.id,
+        start: start,
+        end: end,
       );
 
       slots.add(TimeSlot(start: start, end: end, isBooked: isBooked));
@@ -236,37 +251,84 @@ class SmartLabsService {
     }
 
     final dateKey = formatDate(date);
-    final existing = await _bookings(lab.id!)
-        .where('date', isEqualTo: dateKey)
-        .where('equipmentId', isEqualTo: equipment.id)
-        .where('slotStart', isEqualTo: slotStart)
-        .where('status', isEqualTo: 'confirmed')
-        .get();
-
-    if (existing.docs.isNotEmpty) {
-      throw Exception(
-        appTr(
-          'هذا الموعد محجوز بالفعل — اختر وقتاً آخر',
-          'This slot is already booked — choose another time',
-        ),
+    final needsTraining = LabOperations.needsTrainingGate(
+      equipment: equipment,
+      nbsleLab: lab.isNbsleImport,
+    );
+    if (needsTraining) {
+      final trained = await LabTrainingService.instance.hasCompleted(
+        labId: lab.id!,
+        equipmentId: equipment.id,
       );
+      if (!trained) {
+        throw Exception(
+          appTr(
+            'سجّل تدريب الجهاز قبل تأكيد الحجز — الرزنامة لا تُغلق بدون بوابة تدريب',
+            'Record device training before confirming — the calendar stays closed without the training gate',
+          ),
+        );
+      }
     }
 
-    await _bookings(lab.id!).add({
-      'userId': user.uid,
-      'userName': userName,
-      'equipmentId': equipment.id,
-      'equipmentName': equipment.name,
-      'date': dateKey,
-      'slotStart': slotStart,
-      'slotEnd': slotEnd,
-      'status': 'confirmed',
-      'costEstimate': equipment.costPerSession,
-      'labOwnerId': lab.ownerId,
-      'labName': lab.name,
-      'needsOwnerRouting': lab.ownerId.trim().isEmpty,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
+    final bookingRef = _bookings(lab.id!).doc();
+    final lockRef = _dayLock(
+      labId: lab.id!,
+      equipmentId: equipment.id,
+      date: dateKey,
+    );
+    try {
+      await _db.runTransaction((tx) async {
+        final lockSnap = await tx.get(lockRef);
+        final intervals = LabOperations.readIntervals(lockSnap.data());
+        if (LabOperations.intervalsOverlap(
+          intervals,
+          start: slotStart,
+          end: slotEnd,
+        )) {
+          throw Exception(
+            appTr(
+              'هذا الموعد يتعارض مع حجز قائم على الجهاز — اختر وقتاً آخر',
+              'This time overlaps an existing booking on the device — choose another slot',
+            ),
+          );
+        }
+        tx.set(bookingRef, {
+          'userId': user.uid,
+          'userName': userName,
+          'equipmentId': equipment.id,
+          'equipmentName': equipment.name,
+          'date': dateKey,
+          'slotStart': slotStart,
+          'slotEnd': slotEnd,
+          'status': 'confirmed',
+          'costEstimate': equipment.costPerSession,
+          'labOwnerId': lab.ownerId,
+          'labName': lab.name,
+          'needsOwnerRouting': lab.ownerId.trim().isEmpty,
+          'trainingVerified': needsTraining,
+          'nbsleLab': lab.isNbsleImport,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+        tx.set(lockRef, {
+          'equipmentId': equipment.id,
+          'date': dateKey,
+          'intervals': LabOperations.writeIntervals([
+            ...intervals,
+            (start: slotStart, end: slotEnd, bookingId: bookingRef.id),
+          ]),
+        });
+      });
+    } on FirebaseException catch (error) {
+      if (error.code == 'already-exists') {
+        throw Exception(
+          appTr(
+            'هذا الموعد محجوز بالفعل — اختر وقتاً آخر',
+            'This slot is already booked — choose another time',
+          ),
+        );
+      }
+      rethrow;
+    }
 
     final bookingSummary =
         '$userName — ${equipment.name} @ ${lab.name} ($dateKey $slotStart)';
@@ -291,6 +353,12 @@ class SmartLabsService {
         contextType: 'lab',
       );
     }
+
+    // ignore: unawaited_futures
+    KpiAnalyticsService.instance.logContactRequest(
+      channel: 'lab_booking',
+      targetId: lab.id,
+    );
   }
 
   Future<void> cancelBooking({
@@ -318,7 +386,30 @@ class SmartLabsService {
       );
     }
 
-    await ref.update({'status': 'cancelled'});
+    final date = data['date']?.toString() ?? '';
+    final equipmentId = data['equipmentId']?.toString() ?? '';
+    if (date.isEmpty || equipmentId.isEmpty) {
+      await ref.update({'status': 'cancelled'});
+      return;
+    }
+
+    final lockRef = _dayLock(
+      labId: labId,
+      equipmentId: equipmentId,
+      date: date,
+    );
+    await _db.runTransaction((tx) async {
+      final lockSnap = await tx.get(lockRef);
+      final next = LabOperations.readIntervals(lockSnap.data())
+          .where((i) => i.bookingId != bookingId)
+          .toList();
+      tx.update(ref, {'status': 'cancelled'});
+      tx.set(lockRef, {
+        'equipmentId': equipmentId,
+        'date': date,
+        'intervals': LabOperations.writeIntervals(next),
+      });
+    });
   }
 
   Future<void> submitRating({
@@ -373,6 +464,8 @@ class SmartLabsService {
             'waitDays': e.waitDays,
             if (e.storeCategoryTitle.isNotEmpty)
               'storeCategoryTitle': e.storeCategoryTitle,
+            if (e.trainingRequired != null)
+              'trainingRequired': e.trainingRequired,
           },
         )
         .toList();

@@ -3,15 +3,19 @@ import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 
 import '../../core/locale/app_translate.dart';
+import 'academic_text.dart';
 import 'citation_formatter.dart';
+import 'citation_linker.dart';
+import 'citation_style_converter.dart';
 import 'docx_share.dart';
 import 'docx_scientific_extractor.dart';
 import 'manuscript_image_session_cache.dart';
 import 'journal_format_rules.dart';
 import 'manuscript_citation_helper.dart';
+import 'manuscript_document_parser.dart';
+import 'manuscript_upload_service.dart';
 import 'publish_models.dart';
 
 class _DocxEmbeddedImage {
@@ -34,37 +38,79 @@ class ManuscriptDocxExportService {
   static final ManuscriptDocxExportService instance =
       ManuscriptDocxExportService._();
 
-  Future<void> shareFormattedDocx({
+  /// Builds and shares the formatted DOCX.
+  /// Returns `(saved: false)` if the user cancelled the save dialog.
+  Future<({bool saved, int imageCount})> shareFormattedDocx({
     required PublishManuscript manuscript,
     required JournalFormatRules rules,
+    Uint8List? sourceDocxBytes,
   }) async {
-    final bytes = await buildDocx(manuscript: manuscript, rules: rules);
+    final bytes = await buildDocx(
+      manuscript: manuscript,
+      rules: rules,
+      sourceDocxBytes: sourceDocxBytes,
+    );
     final name = _safeFileName(manuscript.title, rules.journalName);
-    await shareDocxBytes(bytes: bytes, name: name);
+    final saved = await shareDocxBytes(bytes: bytes, name: name);
+    return (saved: saved, imageCount: countEmbeddedMedia(bytes));
   }
 
   Future<Uint8List> buildDocx({
     required PublishManuscript manuscript,
     required JournalFormatRules rules,
+    Uint8List? sourceDocxBytes,
   }) async {
     final embeddedImages = <_DocxEmbeddedImage>[];
     final bodyXml = StringBuffer();
     final style = rules.citationStyle;
+    manuscript = CitationStyleConverter.apply(
+      manuscript: manuscript,
+      style: style,
+    );
+    manuscript = manuscript.copyWith(
+      bodyBlocks: ManuscriptDocumentParser.hydratePersistedImageUris(
+        manuscript.bodyBlocks,
+      ),
+    );
+    final cleanTitle = AcademicText.stripTrailingAuthorFromTitle(
+      AcademicText.sanitize(manuscript.title.trim()),
+    );
 
-    if (manuscript.title.trim().isNotEmpty) {
+    if (cleanTitle.isNotEmpty) {
+      final titleText =
+          rules.titleUppercase ? cleanTitle.toUpperCase() : cleanTitle;
       bodyXml.write(_paragraph(
-        manuscript.title.trim(),
+        titleText,
         rules: rules,
         bold: true,
         fontHalfPoints: rules.titleFontHalfPoints,
-        align: 'center',
+        align: rules.titleAlign == 'left' ? 'left' : 'center',
         spacingAfter: 240,
       ));
     }
 
-    if (manuscript.abstractText.trim().isNotEmpty) {
+    final rawBlocks = manuscript.bodyBlocks.isNotEmpty
+        ? manuscript.bodyBlocks
+        : PublishManuscript.blocksFromLegacyBody(manuscript.body);
+    final bodyHasEnglishAbstract = rawBlocks.any(
+      (b) =>
+          b.type == ManuscriptBlockType.heading &&
+          JournalSectionLayout.isEnglishAbstractHeading(b.text),
+    );
+    final bodyHasArabicAbstract = rawBlocks.any(
+      (b) =>
+          b.type == ManuscriptBlockType.heading &&
+          JournalSectionLayout.isArabicAbstractHeading(b.text),
+    );
+
+    // Body is the source of truth. Never invent a second Abstract that
+    // swallows الملخص, and never label English text الملخص.
+    if (manuscript.abstractText.trim().isNotEmpty &&
+        !bodyHasEnglishAbstract &&
+        !bodyHasArabicAbstract) {
+      final abs = manuscript.abstractText.trim();
       bodyXml.write(_paragraph(
-        appTr('الملخص', 'Abstract'),
+        _abstractHeadingFor(abs),
         rules: rules,
         bold: true,
         fontHalfPoints: rules.headingFontHalfPoints,
@@ -73,27 +119,84 @@ class ManuscriptDocxExportService {
       ));
       bodyXml.write(_paragraph(
         _resolveBodyText(
-          text: manuscript.abstractText.trim(),
+          text: abs,
           manuscript: manuscript,
           style: style,
           rules: rules,
         ),
         rules: rules,
-        spacingAfter: 200,
+        spacingAfter: 80,
       ));
+      final maxWords = rules.abstractMaxWords;
+      if (maxWords != null) {
+        final words = abs.split(RegExp(r'\s+')).length;
+        if (words > maxWords) {
+          bodyXml.write(_paragraph(
+            appTr(
+              'ملاحظة: الملخص $words كلمة — حد المجلة $maxWords كلمة.',
+              'Note: abstract is $words words; journal limit is $maxWords.',
+            ),
+            rules: rules,
+            italic: true,
+            fontHalfPoints: rules.bodyFontHalfPoints - 2,
+            spacingAfter: 200,
+          ));
+        }
+      }
     }
 
-    final blocks = manuscript.bodyBlocks.isNotEmpty
-        ? manuscript.bodyBlocks
-        : PublishManuscript.blocksFromLegacyBody(manuscript.body);
+    if (rules.columnCount > 1) {
+      bodyXml.write(_continuousSectionBreak(rules, columns: 1));
+    }
 
+    final blocks = JournalSectionLayout.prepareExportBlocks(
+      blocks: rawBlocks,
+      sectionOrder: const [],
+      dropAbstractSection: false,
+    );
+
+    var headingNumber = 0;
+    var wideSection = false;
     for (final block in blocks) {
+      final blockText = AcademicText.sanitize(block.text.trim());
       if (block.type == ManuscriptBlockType.heading &&
-          block.text.trim() == manuscript.title.trim()) {
+          (blockText == cleanTitle ||
+              (cleanTitle.length > 20 && blockText.startsWith(cleanTitle)))) {
         continue;
       }
+      if (block.type == ManuscriptBlockType.paragraph &&
+          cleanTitle.length > 20 &&
+          blockText.startsWith(cleanTitle)) {
+        continue;
+      }
+
+      final needsWide = block.type == ManuscriptBlockType.table ||
+          block.type == ManuscriptBlockType.image;
+      if (rules.columnCount > 1 && needsWide && !wideSection) {
+        bodyXml.write(_continuousSectionBreak(rules, columns: 1));
+        wideSection = true;
+      } else if (rules.columnCount > 1 && !needsWide && wideSection) {
+        bodyXml.write(_continuousSectionBreak(rules, columns: 2));
+        wideSection = false;
+      }
+
+      final exportBlock = block.type == ManuscriptBlockType.heading
+          ? block.copyWith(
+              text: _formatHeadingText(
+                blockText,
+                rules: rules,
+                number: ++headingNumber,
+              ),
+            )
+          : block;
+      if (block.type == ManuscriptBlockType.heading &&
+          (JournalSectionLayout.isAbstractHeading(block.text) ||
+              JournalSectionLayout.isReferencesHeading(block.text) ||
+              JournalSectionLayout.isHeading(block.text, const ['Keywords']))) {
+        headingNumber--;
+      }
       bodyXml.write(await _blockXml(
-        block,
+        exportBlock,
         manuscript,
         rules,
         style,
@@ -101,9 +204,21 @@ class ManuscriptDocxExportService {
       ));
     }
 
+    if (rules.columnCount > 1 && wideSection) {
+      bodyXml.write(_continuousSectionBreak(rules, columns: 2));
+    }
+
+    if (sourceDocxBytes != null && sourceDocxBytes.isNotEmpty) {
+      await _appendUnclaimedSourceMedia(
+        sourceDocxBytes: sourceDocxBytes,
+        embeddedImages: embeddedImages,
+        bodyXml: bodyXml,
+        rules: rules,
+      );
+    }
+
     final bibRefs = ManuscriptCitationHelper.bibliographyReferences(
       manuscript,
-      citedOnly: true,
     );
     if (bibRefs.isNotEmpty) {
       bodyXml.write(_paragraph(
@@ -124,13 +239,13 @@ class ManuscriptDocxExportService {
       }
     }
 
-    bodyXml.write(_sectionProperties(rules));
+    bodyXml.write(_sectionProperties(rules, columns: rules.columnCount));
 
     final documentXml = _documentXml(bodyXml.toString());
     final stylesXml = _stylesXml(rules);
-    final contentTypesXml = _contentTypesXml(embeddedImages);
+    final contentTypesXml = _contentTypesXml(embeddedImages, rules);
     final rootRelsXml = _rootRelsXml();
-    final documentRelsXml = _documentRelsXml(embeddedImages);
+    final documentRelsXml = _documentRelsXml(embeddedImages, rules);
 
     final archive = Archive()
       ..addFile(ArchiveFile('[Content_Types].xml', contentTypesXml.length,
@@ -143,6 +258,19 @@ class ManuscriptDocxExportService {
           utf8.encode(stylesXml)))
       ..addFile(ArchiveFile('word/_rels/document.xml.rels',
           documentRelsXml.length, utf8.encode(documentRelsXml)));
+    if (rules.runningHeader) {
+      final headerXml = _headerXml(
+        rules,
+        runningTitle: cleanTitle,
+      );
+      archive.addFile(ArchiveFile(
+          'word/header1.xml', headerXml.length, utf8.encode(headerXml)));
+    }
+    if (rules.pageNumbers) {
+      final footerXml = _footerXml(rules);
+      archive.addFile(ArchiveFile(
+          'word/footer1.xml', footerXml.length, utf8.encode(footerXml)));
+    }
 
     for (final img in embeddedImages) {
       archive.addFile(ArchiveFile(
@@ -176,16 +304,23 @@ class ManuscriptDocxExportService {
           spacingBefore: 160,
           spacingAfter: 80,
         ),
-      ManuscriptBlockType.paragraph => _paragraph(
-          _resolveBodyText(
-            text: block.text,
-            manuscript: manuscript,
-            style: style,
+      ManuscriptBlockType.paragraph => () {
+          final front = DocxScientificExtractor.isFrontMatterAuthorText(block.text);
+          return _paragraph(
+            front
+                ? AcademicText.sanitize(CitationLinker.stripHints(block.text))
+                : _resolveBodyText(
+                    text: block.text,
+                    manuscript: manuscript,
+                    style: style,
+                    rules: rules,
+                  ),
             rules: rules,
-          ),
-          rules: rules,
-          spacingAfter: 80,
-        ),
+            align: front ? 'center' : '',
+            spacingAfter: 80,
+            firstLineIndent: !front,
+          );
+        }(),
       ManuscriptBlockType.equation => await _equationXml(
           block,
           rules,
@@ -209,7 +344,7 @@ class ManuscriptDocxExportService {
     final buffer = StringBuffer();
     final payload = await _loadImagePayload(block.imageUrl);
     if (payload != null) {
-      final relId = embeddedImages.length + 2;
+      final relId = embeddedImages.length + 10;
       final partName = 'media/export_img_$relId.${payload.ext}';
       embeddedImages.add(_DocxEmbeddedImage(
         relId: relId,
@@ -217,7 +352,16 @@ class ManuscriptDocxExportService {
         bytes: payload.bytes,
         contentType: payload.mime,
       ));
-      final size = _fitImageEmu(payload.bytes, maxWidthEmu: 5486400);
+      final size = (block.imageWidthEmu != null &&
+              block.imageHeightEmu != null &&
+              block.imageWidthEmu! > 0 &&
+              block.imageHeightEmu! > 0)
+          ? _fitEmuSize(
+              block.imageWidthEmu!,
+              block.imageHeightEmu!,
+              maxWidthEmu: 5486400,
+            )
+          : _fitImageEmu(payload.bytes, maxWidthEmu: 5486400);
       buffer.write(_inlineImageParagraph(
         relId: relId,
         rules: rules,
@@ -287,11 +431,15 @@ class ManuscriptDocxExportService {
   Future<({Uint8List bytes, String ext, String mime})?> _loadImagePayload(
     String? source,
   ) async {
-    final url = source?.trim() ?? '';
+    var url = source?.trim() ?? '';
     if (url.isEmpty) return null;
+
+    final cached = ManuscriptImageSessionCache.instance.resolve(url);
+    if (cached != null && cached != url) {
+      url = cached;
+    }
+
     if (url.startsWith('{{img:')) {
-      final cached = ManuscriptImageSessionCache.instance.resolve(url);
-      if (cached != null) return _loadImagePayload(cached);
       return null;
     }
     if (url.startsWith('data:')) {
@@ -310,14 +458,114 @@ class ManuscriptDocxExportService {
     }
     if (!url.startsWith('http')) return null;
     try {
-      final response = await http.get(Uri.parse(url));
-      if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
-        final bytes = response.bodyBytes;
+      final bytes =
+          await ManuscriptUploadService.instance.downloadBytesFromUrl(url);
+      if (bytes != null && bytes.isNotEmpty) {
         final ext = _imageExtension(bytes);
         return (bytes: bytes, ext: ext, mime: _mimeForExt(ext));
       }
     } catch (_) {}
     return null;
+  }
+
+  /// Copy rasters still sitting in the original DOCX zip when parse/export
+  /// missed them (namespaced blips, unused word/media, session-cache miss).
+  Future<void> _appendUnclaimedSourceMedia({
+    required Uint8List sourceDocxBytes,
+    required List<_DocxEmbeddedImage> embeddedImages,
+    required StringBuffer bodyXml,
+    required JournalFormatRules rules,
+  }) async {
+    Archive archive;
+    try {
+      archive = ZipDecoder().decodeBytes(sourceDocxBytes);
+    } catch (_) {
+      return;
+    }
+
+    final already = <String>{
+      for (final img in embeddedImages) _mediaFingerprint(img.bytes),
+    };
+    final minBytes = embeddedImages.isEmpty ? 32 : 2500;
+
+    final files = archive.files
+        .where((f) => f.isFile)
+        .where((f) {
+          final name = f.name.replaceAll('\\', '/').toLowerCase();
+          return name.startsWith('word/media/') &&
+              _isCopyableSourceMedia(name);
+        })
+        .toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
+
+    for (final file in files) {
+      var bytes = Uint8List.fromList(file.content as List<int>);
+      if (bytes.length < minBytes) continue;
+      var ext = file.name.split('.').last.toLowerCase();
+      if (ext == 'emz' || ext == 'wmz') {
+        try {
+          bytes = Uint8List.fromList(GZipDecoder().decodeBytes(bytes));
+          ext = ext == 'emz' ? 'emf' : 'wmf';
+        } catch (_) {
+          continue;
+        }
+      }
+      if (bytes.length < minBytes) continue;
+      final fingerprint = _mediaFingerprint(bytes);
+      if (!already.add(fingerprint)) continue;
+
+      final relId = embeddedImages.length + 10;
+      final partName = 'media/source_img_$relId.$ext';
+      embeddedImages.add(_DocxEmbeddedImage(
+        relId: relId,
+        partName: partName,
+        bytes: bytes,
+        contentType: _mimeForExt(ext),
+      ));
+      final size = _fitImageEmu(bytes, maxWidthEmu: 5486400);
+      bodyXml.write(_inlineImageParagraph(
+        relId: relId,
+        rules: rules,
+        widthEmu: size.$1,
+        heightEmu: size.$2,
+      ));
+    }
+  }
+
+  bool _isCopyableSourceMedia(String path) {
+    if (path.contains('/embeddings/') ||
+        path.contains('oleobject') ||
+        path.endsWith('.bin') ||
+        path.endsWith('.cdx') ||
+        path.endsWith('.cdxml') ||
+        path.endsWith('.mol')) {
+      return false;
+    }
+    return RegExp(
+      r'\.(png|jpe?g|gif|bmp|wdp|tiff?|emf|wmf|emz|wmz|webp|svg)$',
+    ).hasMatch(path);
+  }
+
+  String _mediaFingerprint(Uint8List bytes) {
+    final n = bytes.length;
+    final head = bytes.take(16).join(',');
+    final tail = n > 24 ? bytes.sublist(n - 8).join(',') : '';
+    return '$n|$head|$tail';
+  }
+
+  static int countEmbeddedMedia(Uint8List docxBytes) {
+    try {
+      return ZipDecoder()
+          .decodeBytes(docxBytes)
+          .files
+          .where((f) {
+            final name = f.name.replaceAll('\\', '/').toLowerCase();
+            return f.isFile && name.contains('word/media/');
+          })
+          .length;
+    } catch (_) {
+      return 0;
+    }
   }
 
   String _imageExtension(Uint8List bytes) {
@@ -339,6 +587,20 @@ class ManuscriptDocxExportService {
         bytes[1] == 0x49 &&
         bytes[2] == 0x46) {
       return 'gif';
+    }
+    if (bytes.length >= 4 &&
+        bytes[0] == 0x01 &&
+        bytes[1] == 0x00 &&
+        bytes[2] == 0x00 &&
+        bytes[3] == 0x00) {
+      return 'emf';
+    }
+    if (bytes.length >= 4 &&
+        bytes[0] == 0xD7 &&
+        bytes[1] == 0xCD &&
+        bytes[2] == 0xC6 &&
+        bytes[3] == 0x9A) {
+      return 'wmf';
     }
     return 'png';
   }
@@ -385,12 +647,17 @@ class ManuscriptDocxExportService {
       block.rowCellImages,
       rows,
     );
-    final colWidths = _tableColumnWidthsPct(rows, cellImages);
+    final colSpans = ManuscriptBlock.normalizedIntGrid(block.colSpans, rows);
+    final rowSpans = ManuscriptBlock.normalizedIntGrid(block.rowSpans, rows);
+    final colWidths = block.columnWidthsPct.length == rows.first.length
+        ? block.columnWidthsPct
+        : _tableColumnWidthsPct(rows, cellImages);
     final buffer = StringBuffer();
     buffer.write('<w:tbl>');
     buffer.write('''
 <w:tblPr>
   <w:tblW w:w="5000" w:type="pct"/>
+  <w:tblLayout w:type="fixed"/>
   <w:tblBorders>
     <w:top w:val="single" w:sz="4" w:space="0" w:color="000000"/>
     <w:left w:val="single" w:sz="4" w:space="0" w:color="000000"/>
@@ -400,23 +667,54 @@ class ManuscriptDocxExportService {
     <w:insideV w:val="single" w:sz="4" w:space="0" w:color="000000"/>
   </w:tblBorders>
 </w:tblPr>''');
+    buffer.write('<w:tblGrid>');
+    for (final w in colWidths) {
+      final twips = (w * 9360 / 5000).round().clamp(200, 9000);
+      buffer.write('<w:gridCol w:w="$twips"/>');
+    }
+    buffer.write('</w:tblGrid>');
     for (var r = 0; r < rows.length; r++) {
       buffer.write('<w:tr>');
       for (var c = 0; c < rows[r].length; c++) {
-        final colW = c < colWidths.length ? colWidths[c] : 500;
+        final colSpan = r < colSpans.length && c < colSpans[r].length
+            ? colSpans[r][c]
+            : 1;
+        if (colSpan == 0) continue;
+
+        final rowSpan = r < rowSpans.length && c < rowSpans[r].length
+            ? rowSpans[r][c]
+            : 1;
+        var colW = c < colWidths.length ? colWidths[c] : 500;
+        if (colSpan > 1) {
+          var spanW = 0;
+          for (var i = 0; i < colSpan && c + i < colWidths.length; i++) {
+            spanW += colWidths[c + i];
+          }
+          if (spanW > 0) colW = spanW;
+        }
+
+        final mergeXml = rowSpan == 0
+            ? '<w:vMerge/>'
+            : (rowSpan > 1 ? '<w:vMerge w:val="restart"/>' : '');
+        final spanXml =
+            colSpan > 1 ? '<w:gridSpan w:val="$colSpan"/>' : '';
+
         buffer.write('''
 <w:tc>
   <w:tcPr>
     <w:tcW w:w="$colW" w:type="pct"/>
+    $spanXml
+    $mergeXml
     <w:vAlign w:val="center"/>
   </w:tcPr>''');
         final imgUrl = r < cellImages.length && c < cellImages[r].length
             ? cellImages[r][c]
             : '';
-        if (imgUrl.isNotEmpty) {
+        var wroteParagraph = false;
+        if (imgUrl.isNotEmpty && rowSpan != 0) {
           final payload = await _loadImagePayload(imgUrl);
           if (payload != null) {
-            final relId = embeddedImages.length + 2;
+            final relId = embeddedImages.length + 10;
             final partName = 'media/export_img_$relId.${payload.ext}';
             embeddedImages.add(_DocxEmbeddedImage(
               relId: relId,
@@ -426,8 +724,8 @@ class ManuscriptDocxExportService {
             ));
             final size = _fitImageEmu(
               payload.bytes,
-              maxWidthEmu: (5486400 * colW / 5000).round().clamp(800000, 3200000),
-              maxHeightEmu: 1800000,
+              maxWidthEmu: (5486400 * colW / 5000).round().clamp(800000, 4800000),
+              maxHeightEmu: 3200000,
             );
             buffer.write(_inlineImageParagraph(
               relId: relId,
@@ -435,24 +733,25 @@ class ManuscriptDocxExportService {
               heightEmu: size.$2,
               widthEmu: size.$1,
             ));
+            wroteParagraph = true;
           }
         }
-        final cellText = DocxScientificExtractor.formatChemicalFormula(
-          rows[r][c].trim(),
-        );
-        if (cellText.isNotEmpty) {
+        final cellText = AcademicText.sanitize(rows[r][c].trim());
+        final formula = RegExp(r'[A-Z][a-z]?\d').hasMatch(cellText)
+            ? DocxScientificExtractor.formatChemicalFormula(cellText)
+            : cellText;
+        if (formula.isNotEmpty && rowSpan != 0) {
           buffer.write(_paragraph(
-            _resolveBodyText(
-              text: cellText,
-              manuscript: manuscript,
-              style: rules.citationStyle,
-              rules: rules,
-            ),
+            formula,
             rules: rules,
             bold: r == 0,
             spacingAfter: 0,
             inTable: true,
           ));
+          wroteParagraph = true;
+        }
+        if (!wroteParagraph) {
+          buffer.write('<w:p/>');
         }
         buffer.write('</w:tc>');
       }
@@ -482,7 +781,7 @@ class ManuscriptDocxExportService {
     } else {
       final payload = await _loadImagePayload(block.imageUrl);
       if (payload != null) {
-        final relId = embeddedImages.length + 2;
+        final relId = embeddedImages.length + 10;
         final partName = 'media/export_img_$relId.${payload.ext}';
         embeddedImages.add(_DocxEmbeddedImage(
           relId: relId,
@@ -564,11 +863,14 @@ class ManuscriptDocxExportService {
         fontHalfPoints: rules.bodyFontHalfPoints - 2,
       ));
     }
+    final hanging = CitationFormatter.isNumberedStyle(rules.citationStyle)
+        ? 360
+        : 720;
     return '''
 <w:p>
   <w:pPr>
     <w:spacing w:line="${rules.lineSpacingExactTwips}" w:lineRule="${rules.lineSpacingRule}" w:after="60"/>
-    <w:ind w:left="360" w:hanging="360"/>
+    <w:ind w:left="$hanging" w:hanging="$hanging"/>
   </w:pPr>
   $runs
 </w:p>''';
@@ -585,23 +887,30 @@ class ManuscriptDocxExportService {
     int spacingBefore = 0,
     int spacingAfter = 0,
     bool inTable = false,
+    bool firstLineIndent = false,
   }) {
     if (text.trim().isEmpty) return '';
     final alignXml = align.isNotEmpty ? '<w:jc w:val="$align"/>' : '';
     final justify = rules.justifyBody && align.isEmpty && !inTable
         ? '<w:jc w:val="both"/>'
         : alignXml;
-    final spacing = (spacingBefore > 0 || spacingAfter > 0)
-        ? '<w:spacing w:before="$spacingBefore" w:after="$spacingAfter" w:line="${rules.lineSpacingExactTwips}" w:lineRule="${rules.lineSpacingRule}"/>'
-        : '<w:spacing w:line="${rules.lineSpacingExactTwips}" w:lineRule="${rules.lineSpacingRule}"/>';
+    final spacing = inTable
+        ? '<w:spacing w:before="40" w:after="40" w:line="240" w:lineRule="auto"/>'
+        : (spacingBefore > 0 || spacingAfter > 0)
+            ? '<w:spacing w:before="$spacingBefore" w:after="$spacingAfter" w:line="${rules.lineSpacingExactTwips}" w:lineRule="${rules.lineSpacingRule}"/>'
+            : '<w:spacing w:line="${rules.lineSpacingExactTwips}" w:lineRule="${rules.lineSpacingRule}"/>';
+    final indent = firstLineIndent && rules.firstLineIndentTwips > 0
+        ? '<w:ind w:firstLine="${rules.firstLineIndentTwips}"/>'
+        : '';
 
     return '''
 <w:p>
   <w:pPr>
     $spacing
     $justify
+    $indent
   </w:pPr>
-  ${_run(
+  ${_citationRuns(
     text,
     rules: rules,
     bold: bold,
@@ -610,6 +919,70 @@ class ManuscriptDocxExportService {
     fontFamily: fontFamily,
   )}
 </w:p>''';
+  }
+
+  String _citationRuns(
+    String text, {
+    required JournalFormatRules rules,
+    bool bold = false,
+    bool italic = false,
+    int? fontHalfPoints,
+    String? fontFamily,
+  }) {
+    if (bold || italic) {
+      return _run(
+        text,
+        rules: rules,
+        bold: bold,
+        italic: italic,
+        fontHalfPoints: fontHalfPoints,
+        fontFamily: fontFamily,
+      );
+    }
+    final matches = RegExp(r'\[\d{1,3}(?:,\d{1,3})*\]').allMatches(text).toList();
+    if (matches.isEmpty) {
+      return _run(
+        text,
+        rules: rules,
+        fontHalfPoints: fontHalfPoints,
+        fontFamily: fontFamily,
+      );
+    }
+    final buffer = StringBuffer();
+    var i = 0;
+    for (final m in matches) {
+      if (m.start > i) {
+        buffer.write(
+          _run(
+            text.substring(i, m.start),
+            rules: rules,
+            fontHalfPoints: fontHalfPoints,
+            fontFamily: fontFamily,
+          ),
+        );
+      }
+      buffer.write(
+        _run(
+          m.group(0)!,
+          rules: rules,
+          bold: true,
+          fontHalfPoints: fontHalfPoints,
+          fontFamily: fontFamily,
+        ),
+      );
+      i = m.end;
+    }
+    if (i < text.length) {
+      buffer.write(
+        _run(
+          text.substring(i),
+          rules: rules,
+          fontHalfPoints: fontHalfPoints,
+          fontFamily: fontFamily,
+        ),
+      );
+    }
+    return buffer.toString();
   }
 
   String _run(
@@ -624,16 +997,17 @@ class ManuscriptDocxExportService {
     final size = fontHalfPoints ?? rules.bodyFontHalfPoints;
     final boldXml = bold ? '<w:b/>' : '';
     final italicXml = italic ? '<w:i/>' : '';
-    final escaped = _escapeXml(text);
+    final escaped = _escapeXml(AcademicText.sanitize(text));
     final preserve = text.startsWith(' ') || text.endsWith(' ')
         ? ' xml:space="preserve"'
         : '';
     return '''
 <w:r>
   <w:rPr>
-    <w:rFonts w:ascii="$font" w:hAnsi="$font" w:cs="$font"/>
+    <w:rFonts w:ascii="$font" w:hAnsi="$font" w:eastAsia="$font" w:cs="$font"/>
     <w:sz w:val="$size"/>
     <w:szCs w:val="$size"/>
+    <w:lang w:val="en-US" w:eastAsia="en-US" w:bidi="en-US"/>
     $boldXml
     $italicXml
   </w:rPr>
@@ -641,12 +1015,143 @@ class ManuscriptDocxExportService {
 </w:r>''';
   }
 
-  String _sectionProperties(JournalFormatRules rules) {
+  String _abstractHeadingFor(String text) {
+    final arabic = RegExp(r'[\u0600-\u06FF]').allMatches(text).length;
+    final latin = RegExp(r'[A-Za-z]').allMatches(text).length;
+    return arabic > latin ? 'الملخص' : 'Abstract';
+  }
+
+  String _formatHeadingText(
+    String raw, {
+    required JournalFormatRules rules,
+    required int number,
+  }) {
+    var text = AcademicText.westernDigits(raw.trim());
+    final isMajor = JournalSectionLayout.isHeading(text, const [
+          'Abstract',
+          'Introduction',
+          'Experimental',
+          'Methods',
+          'Results',
+          'Discussion',
+          'Conclusion',
+          'References',
+          'Keywords',
+          'الملخص',
+        ]) ||
+        JournalSectionLayout.isArabicAbstractHeading(text) ||
+        JournalSectionLayout.isHeading(text, const ['الكلمات المفتاحية']);
+    if (!isMajor) return text;
+    if (JournalSectionLayout.isAbstractHeading(text) ||
+        JournalSectionLayout.isReferencesHeading(text) ||
+        JournalSectionLayout.isHeading(text, const ['Keywords'])) {
+      return rules.headingUppercase ? text.toUpperCase() : text;
+    }
+    if (rules.headingUppercase) text = text.toUpperCase();
+    if (rules.headingNumbered && !RegExp(r'^\d+[.)]').hasMatch(text)) {
+      text = '$number. $text';
+    }
+    return text;
+  }
+
+  String _paperSizeXml(JournalFormatRules rules) {
+    if (rules.paperSize == 'letter') {
+      return '<w:pgSz w:w="12240" w:h="15840"/>';
+    }
+    return '<w:pgSz w:w="11906" w:h="16838"/>';
+  }
+
+  String _pageMarXml(JournalFormatRules rules) =>
+      '<w:pgMar w:top="${rules.marginTwips}" w:right="${rules.marginTwips}" w:bottom="${rules.marginTwips}" w:left="${rules.marginTwips}" w:header="720" w:footer="720" w:gutter="0"/>';
+
+  String _headerFooterRefs(JournalFormatRules rules) {
+    final parts = <String>[];
+    if (rules.runningHeader) {
+      parts.add('<w:headerReference w:type="default" r:id="rId2"/>');
+    }
+    if (rules.pageNumbers) {
+      parts.add('<w:footerReference w:type="default" r:id="rId3"/>');
+    }
+    return parts.join();
+  }
+
+  String _continuousSectionBreak(JournalFormatRules rules, {required int columns}) {
+    return '''
+<w:p>
+  <w:pPr>
+    <w:sectPr>
+      ${_headerFooterRefs(rules)}
+      ${_paperSizeXml(rules)}
+      ${_pageMarXml(rules)}
+      <w:cols w:num="$columns" w:space="720"/>
+      <w:type w:val="continuous"/>
+    </w:sectPr>
+  </w:pPr>
+</w:p>''';
+  }
+
+  String _sectionProperties(JournalFormatRules rules, {int columns = 1}) {
     return '''
 <w:sectPr>
-  <w:pgSz w:w="11906" w:h="16838"/>
-  <w:pgMar w:top="${rules.marginTwips}" w:right="${rules.marginTwips}" w:bottom="${rules.marginTwips}" w:left="${rules.marginTwips}" w:header="720" w:footer="720" w:gutter="0"/>
+  ${_headerFooterRefs(rules)}
+  ${_paperSizeXml(rules)}
+  ${_pageMarXml(rules)}
+  <w:cols w:num="$columns" w:space="720"/>
 </w:sectPr>''';
+  }
+
+  String _headerXml(JournalFormatRules rules, {String runningTitle = ''}) {
+    var label = runningTitle.trim().isNotEmpty
+        ? runningTitle.trim()
+        : (rules.journalName.trim().isNotEmpty
+            ? rules.journalName.trim()
+            : 'Manuscript');
+    final maxChars = rules.runningTitleMaxChars;
+    if (maxChars != null && maxChars > 0 && label.length > maxChars) {
+      label = label.substring(0, maxChars).trimRight();
+    }
+    if (rules.titleUppercase) label = label.toUpperCase();
+    final name = _escapeXml(label);
+    return '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:hdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:p>
+    <w:pPr>
+      <w:jc w:val="center"/>
+    </w:pPr>
+    <w:r>
+      <w:rPr>
+        <w:rFonts w:ascii="${rules.fontFamily}" w:hAnsi="${rules.fontFamily}"/>
+        <w:sz w:val="${rules.bodyFontHalfPoints - 4}"/>
+        <w:i/>
+      </w:rPr>
+      <w:t>$name</w:t>
+    </w:r>
+  </w:p>
+</w:hdr>''';
+  }
+
+  String _footerXml(JournalFormatRules rules) {
+    return '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:ftr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:p>
+    <w:pPr>
+      <w:jc w:val="center"/>
+    </w:pPr>
+    <w:r>
+      <w:rPr>
+        <w:rFonts w:ascii="${rules.fontFamily}" w:hAnsi="${rules.fontFamily}"/>
+        <w:sz w:val="${rules.bodyFontHalfPoints - 4}"/>
+      </w:rPr>
+      <w:fldChar w:fldCharType="begin"/>
+    </w:r>
+    <w:r>
+      <w:instrText xml:space="preserve"> PAGE </w:instrText>
+    </w:r>
+    <w:r>
+      <w:fldChar w:fldCharType="end"/>
+    </w:r>
+  </w:p>
+</w:ftr>''';
   }
 
   String _documentXml(String body) {
@@ -709,6 +1214,31 @@ class ManuscriptDocxExportService {
     return weights.map((w) => (w * 5000 / total).round()).toList();
   }
 
+  (int, int) _fitEmuSize(
+    int widthEmu,
+    int heightEmu, {
+    int maxWidthEmu = 5486400,
+    int maxHeightEmu = 4200000,
+  }) {
+    var wEmu = widthEmu;
+    var hEmu = heightEmu;
+    if (wEmu <= 0 || hEmu <= 0) {
+      return (maxWidthEmu, (maxWidthEmu * 3 / 4).round());
+    }
+    if (wEmu > maxWidthEmu) {
+      hEmu = (hEmu * maxWidthEmu / wEmu).round();
+      wEmu = maxWidthEmu;
+    }
+    if (hEmu > maxHeightEmu) {
+      wEmu = (wEmu * maxHeightEmu / hEmu).round();
+      hEmu = maxHeightEmu;
+    }
+    return (
+      wEmu.clamp(200000, maxWidthEmu),
+      hEmu.clamp(150000, maxHeightEmu),
+    );
+  }
+
   (int, int) _fitImageEmu(
     Uint8List bytes, {
     int maxWidthEmu = 5486400,
@@ -763,10 +1293,23 @@ class ManuscriptDocxExportService {
     return null;
   }
 
-  String _contentTypesXml(List<_DocxEmbeddedImage> images) {
+  String _contentTypesXml(
+    List<_DocxEmbeddedImage> images,
+    JournalFormatRules rules,
+  ) {
     final overrides = StringBuffer('''
   <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
   <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>''');
+    if (rules.runningHeader) {
+      overrides.writeln(
+        '  <Override PartName="/word/header1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml"/>',
+      );
+    }
+    if (rules.pageNumbers) {
+      overrides.writeln(
+        '  <Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/>',
+      );
+    }
 
     for (final img in images) {
       overrides.writeln(
@@ -795,11 +1338,24 @@ $overrides
 </Relationships>''';
   }
 
-  String _documentRelsXml(List<_DocxEmbeddedImage> images) {
+  String _documentRelsXml(
+    List<_DocxEmbeddedImage> images,
+    JournalFormatRules rules,
+  ) {
     final buffer = StringBuffer('''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
 ''');
+    if (rules.runningHeader) {
+      buffer.writeln(
+        '  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header1.xml"/>',
+      );
+    }
+    if (rules.pageNumbers) {
+      buffer.writeln(
+        '  <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/>',
+      );
+    }
     for (final img in images) {
       buffer.writeln(
         '  <Relationship Id="rId${img.relId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="${img.partName}"/>',
@@ -824,11 +1380,13 @@ $overrides
     required PublishCitationStyle style,
     required JournalFormatRules rules,
   }) {
-    return ManuscriptCitationHelper.resolvePlainText(
-      text: text,
-      manuscript: manuscript,
-      style: style,
-      applyNumberedInText: _usesNumberedInText(rules),
+    return AcademicText.sanitize(
+      ManuscriptCitationHelper.resolvePlainText(
+        text: text,
+        manuscript: manuscript,
+        style: style,
+        applyNumberedInText: _usesNumberedInText(rules),
+      ),
     );
   }
 

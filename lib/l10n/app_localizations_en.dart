@@ -206,6 +206,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get serviceWriting => 'Writing services';
 
   @override
+  String get serviceThesisStudio => 'Thesis Studio';
+
+  @override
   String get servicePublish => 'AcadeGate Publish';
 
   @override
@@ -415,6 +418,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get facultyFineArts => 'Faculty of Fine Arts';
+
+  @override
+  String get facultyProfessionalStudies =>
+      'Professional postgraduate & diplomas';
 
   @override
   String get storeChemical => 'Chemical store';

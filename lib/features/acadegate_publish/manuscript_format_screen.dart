@@ -4,11 +4,17 @@ import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
 import '../../core/locale/locale_extensions.dart';
 import 'citation_formatter.dart';
+import 'citation_style_picker.dart';
+import 'citation_style_shapes.dart';
+import 'journal_format_rules.dart';
 import 'journal_selection_screen.dart';
 import 'manuscript_citation_helper.dart';
-import 'manuscript_document_parser.dart';
+import 'manuscript_docx_export_service.dart';
+import 'manuscript_draft_chat_panel.dart';
 import 'manuscript_export_service.dart';
 import 'manuscript_preview.dart';
+import 'manuscript_upload_service.dart';
+import 'manuscript_reference_styler.dart';
 import 'publish_models.dart';
 import 'publish_services.dart';
 
@@ -26,8 +32,25 @@ class _ManuscriptFormatScreenState extends State<ManuscriptFormatScreen> {
 
   PublishManuscript? _manuscript;
   PublishCitationStyle _style = PublishCitationStyle.apa;
+  PublishCitationStyle? _styledFor;
+  int _lastRefCount = 0;
+  int _lastCiteCount = 0;
   bool _loading = true;
   bool _extracting = false;
+
+  int get _maxImportedNumber {
+    final refs = _manuscript?.references ?? const [];
+    var maxN = 0;
+    for (final r in refs) {
+      final n = r.importedNumber ??
+          PublishReference.numberFromImportedLine(r.rawText) ??
+          0;
+      if (n > maxN) maxN = n;
+    }
+    return maxN;
+  }
+
+  bool get _isStyledForCurrent => _styledFor == _style;
 
   @override
   void initState() {
@@ -36,13 +59,34 @@ class _ManuscriptFormatScreenState extends State<ManuscriptFormatScreen> {
   }
 
   Future<void> _load() async {
-    final m = await ManuscriptService.instance.getById(widget.manuscriptId);
-    if (!mounted) return;
-    setState(() {
-      _manuscript = m;
-      _style = m?.effectiveStyle ?? PublishCitationStyle.apa;
-      _loading = false;
-    });
+    try {
+      final m = await ManuscriptService.instance.getById(widget.manuscriptId);
+      if (!mounted) return;
+      if (m == null) {
+        setState(() => _loading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              context.t('المسودة غير موجودة', 'Draft not found'),
+            ),
+          ),
+        );
+        Navigator.pop(context);
+        return;
+      }
+      setState(() {
+        _manuscript = m;
+        _style = m.effectiveStyle;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$e'), backgroundColor: Colors.red),
+      );
+      Navigator.pop(context);
+    }
   }
 
   String get _bibliography {
@@ -51,7 +95,7 @@ class _ManuscriptFormatScreenState extends State<ManuscriptFormatScreen> {
     return CitationFormatter.formatBibliography(
       references: ManuscriptCitationHelper.bibliographyReferences(
         m,
-        citedOnly: true,
+        style: _style,
       ),
       style: _style,
     );
@@ -65,17 +109,106 @@ class _ManuscriptFormatScreenState extends State<ManuscriptFormatScreen> {
     );
   }
 
-  Future<void> _applyStyle(PublishCitationStyle style) async {
+  Future<void> _selectStyle(PublishCitationStyle style) async {
     setState(() => _style = style);
-    await ManuscriptService.instance.markFormatted(widget.manuscriptId, style);
+    if (_manuscript?.attachments.any((a) => a.isWord || a.isPdf) == true) {
+      await _restyleManuscript(style);
+    } else {
+      await ManuscriptService.instance.markFormatted(widget.manuscriptId, style);
+      final m = _manuscript;
+      if (m != null) {
+        await ManuscriptService.instance.save(m.copyWith(citationStyle: style));
+      }
+      if (!mounted) return;
+      setState(() => _styledFor = style);
+    }
+  }
+
+  Future<bool> _restyleManuscript(PublishCitationStyle style) async {
     final m = _manuscript;
-    if (m != null) {
-      await ManuscriptService.instance.save(m.copyWith(citationStyle: style));
+    if (m == null || _extracting) return false;
+
+    setState(() {
+      _style = style;
+      _extracting = true;
+    });
+    try {
+      final result = await ManuscriptReferenceStyler.restyle(
+        manuscript: m,
+        style: style,
+      );
+      await ManuscriptService.instance.save(result.manuscript);
+      await ManuscriptService.instance.markFormatted(
+        widget.manuscriptId,
+        style,
+      );
+      if (!mounted) return false;
+      setState(() {
+        _manuscript = result.manuscript;
+        _styledFor = style;
+        _lastRefCount = result.referenceCount;
+        _lastCiteCount = result.inTextCount;
+      });
+
+      final source = result.sourceName.isNotEmpty
+          ? result.sourceName
+          : context.t('المسودة', 'the draft');
+      if (result.referenceCount == 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(context.t(
+              'لم تُعثر على مراجع في $source — تأكد من وجود Introduction ثم قسم References',
+              'No references found in $source — ensure Introduction then a References section',
+            )),
+            duration: const Duration(seconds: 7),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(context.t(
+              result.fromFile
+                  ? 'قُرئ الملف الأصلي «$source»: ${result.referenceCount} مرجعاً. [n] في النص = نفس المرجع n في القائمة.'
+                  : 'لم يُقرأ ملف Word الأصلي — أوقف التطبيق وارفع الملف من جهازك ثم أعد التنسيق.',
+              result.fromFile
+                  ? 'Read the original file "$source": ${result.referenceCount} references. In-text [n] is bibliography item n.'
+                  : 'The original Word file was not read — quit the app, upload the original file, then format again.',
+            )),
+            duration: const Duration(seconds: 6),
+          ),
+        );
+      }
+      return true;
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$e')),
+        );
+      }
+      return false;
+    } finally {
+      if (mounted) setState(() => _extracting = false);
     }
   }
 
   Future<void> _continueToJournal() async {
-    await _applyStyle(_style);
+    final m = _manuscript;
+    if (m == null) return;
+    final hasSourceFile = m.attachments.any((a) => a.isWord || a.isPdf);
+    if (!_isStyledForCurrent) {
+      if (hasSourceFile) {
+        final ok = await _restyleManuscript(_style);
+        if (!ok || !mounted || !_isStyledForCurrent) return;
+      } else {
+        await ManuscriptService.instance.markFormatted(
+          widget.manuscriptId,
+          _style,
+        );
+        await ManuscriptService.instance.save(m.copyWith(citationStyle: _style));
+        if (!mounted) return;
+        setState(() => _styledFor = _style);
+      }
+    }
     if (!mounted) return;
     await Navigator.push(
       context,
@@ -101,64 +234,56 @@ class _ManuscriptFormatScreenState extends State<ManuscriptFormatScreen> {
     final m = _manuscript;
     if (m == null) return;
     try {
-      await ManuscriptExportService.instance
-          .shareWordHtml(m.copyWith(citationStyle: _style));
+      if (!_isStyledForCurrent) {
+        final hasSource = m.attachments.any((a) => a.isWord || a.isPdf);
+        if (hasSource) {
+          final ok = await _restyleManuscript(_style);
+          if (!ok) return;
+        } else {
+          setState(() => _styledFor = _style);
+        }
+      }
+      final current = _manuscript;
+      if (current == null) return;
+      final source = preferredSourceDocx(current.attachments);
+      final sourceBytes = source == null || current.id == null
+          ? null
+          : await ManuscriptUploadService.instance.downloadDocumentBytes(
+              url: source.url,
+              manuscriptId: current.id,
+              filename: source.name,
+            );
+      final export =
+          await ManuscriptDocxExportService.instance.shareFormattedDocx(
+        manuscript: current.copyWith(citationStyle: _style),
+        rules: JournalFormatRules.forStudentStyle(_style),
+        sourceDocxBytes: sourceBytes,
+      );
+      if (!mounted) return;
+      if (!export.saved) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(context.t(
+              'أُلغي حفظ ملف Word.',
+              'Word save was cancelled.',
+            )),
+          ),
+        );
+        return;
+      }
+      final n = export.imageCount;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.t(
+            n > 0 ? 'تم تصدير Word ($n صورة).' : 'تم تصدير Word.',
+            n > 0 ? 'Word exported ($n picture(s)).' : 'Word exported.',
+          )),
+        ),
+      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
       }
-    }
-  }
-
-  Future<void> _extractFromUploadedFile() async {
-    final m = _manuscript;
-    if (m == null || m.attachments.isEmpty || _extracting) return;
-
-    setState(() => _extracting = true);
-    try {
-      final attachment = m.attachments.last;
-      final parsed = await ManuscriptDocumentParser.parseFromUrl(
-        url: attachment.url,
-        filename: attachment.name,
-      );
-      var updated = await ManuscriptDocumentParser.applyParseResult(
-        manuscript: m,
-        parsed: parsed,
-        replaceReferences: true,
-      );
-      updated = updated.copyWith(citationStyle: _style);
-      await ManuscriptService.instance.save(updated);
-      if (!mounted) return;
-      setState(() => _manuscript = updated);
-
-      if (parsed.references.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.t(
-              'لم تُعثر على مراجع — تأكد من وجود قسم References أو [1] في الملف',
-              'No references found — ensure the file has a References section or IEEE [1] style',
-            )),
-            duration: const Duration(seconds: 6),
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.t(
-              'تم استيراد ${parsed.references.length} مرجعاً من ${attachment.name}',
-              'Imported ${parsed.references.length} references from ${attachment.name}',
-            )),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$e')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _extracting = false);
     }
   }
 
@@ -179,10 +304,18 @@ class _ManuscriptFormatScreenState extends State<ManuscriptFormatScreen> {
 
     return Scaffold(
       appBar: AcadeGateAppBar(
-        title: Text(context.t('تنسيق IEEE / APA', 'IEEE / APA formatting')),
+        title: Text(context.t('تنسيق المراجع', 'Reference formatting')),
         backgroundColor: _brand,
         foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            tooltip: context.t('اسأل المسودة', 'Ask the draft'),
+            icon: const Icon(Icons.chat_outlined),
+            onPressed: () => showManuscriptDraftChatSheet(
+              context: context,
+              manuscript: m,
+            ),
+          ),
           IconButton(
             tooltip: context.t('تصدير PDF', 'Export PDF'),
             icon: const Icon(Icons.picture_as_pdf_outlined),
@@ -198,17 +331,67 @@ class _ManuscriptFormatScreenState extends State<ManuscriptFormatScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: PublishCitationStyle.values.map((style) {
-              return ChoiceChip(
-                label: Text(CitationFormatter.styleLabel(style)),
-                selected: _style == style,
-                onSelected: (_) => _applyStyle(style),
-              );
-            }).toList(),
+          CitationStylePicker(
+            value: _style,
+            onChanged: _selectStyle,
+            enabled: !_extracting,
           ),
+          const SizedBox(height: 8),
+          Text(
+            context.t(
+              'رقم [n] في النص = نفس المرجع رقم n في القائمة أسفل الملف. IEEE يبقي [n]. APA يحذف الرقم ويكتب (المؤلف، السنة) لذلك المرجع نفسه. القائمة تبقى بنفس ترتيب الملف. اضغط «تنسيق المراجع الآن».',
+              'In-text [n] is the same work as bibliography item n at the bottom. IEEE keeps [n]. APA deletes the number and writes (Author, Year) for that same work. The list stays in file order. Tap “Format references now”.',
+            ),
+            style: TextStyle(fontSize: 13, color: Colors.grey[700], height: 1.4),
+          ),
+          const SizedBox(height: 12),
+          _StyleShapeCard(style: _style),
+          if (m.attachments.any((a) => a.isWord || a.isPdf)) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _extracting ? null : () => _restyleManuscript(_style),
+                style: FilledButton.styleFrom(
+                  backgroundColor: _brand,
+                  minimumSize: const Size.fromHeight(48),
+                ),
+                icon: _extracting
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.auto_fix_high),
+                label: Text(context.t(
+                  _isStyledForCurrent
+                      ? 'إعادة تنسيق المراجع (${CitationFormatter.styleLabel(_style)})'
+                      : 'تنسيق المراجع الآن (${CitationFormatter.styleLabel(_style)})',
+                  _isStyledForCurrent
+                      ? 'Re-format references (${CitationFormatter.styleLabel(_style)})'
+                      : 'Format references now (${CitationFormatter.styleLabel(_style)})',
+                )),
+              ),
+            ),
+          ],
+          if (_isStyledForCurrent && _lastRefCount > 0) ...[
+            const SizedBox(height: 12),
+            Card(
+              color: Colors.green.shade50,
+              child: ListTile(
+                leading: const Icon(Icons.check_circle, color: Colors.green),
+                title: Text(context.t(
+                  'تم تنسيق $_lastRefCount مرجعاً و$_lastCiteCount اقتباساً بنمط ${CitationFormatter.styleLabel(_style)}'
+                  '${_maxImportedNumber > 0 ? ' — أرقام القائمة 1–$_maxImportedNumber' : ''}',
+                  'Formatted $_lastRefCount references and $_lastCiteCount in-text citations as ${CitationFormatter.styleLabel(_style)}'
+                  '${_maxImportedNumber > 0 ? ' — list numbers 1–$_maxImportedNumber' : ''}',
+                )),
+              ),
+            ),
+          ],
           const SizedBox(height: 20),
           Text(
             context.t('معاينة البحث', 'Manuscript preview'),
@@ -262,42 +445,15 @@ class _ManuscriptFormatScreenState extends State<ManuscriptFormatScreen> {
                     const SizedBox(height: 6),
                     Text(
                       context.t(
-                        'رفع الملف لا يكفي وحده — يجب استخراج المراجع من الملف أولاً. '
-                        'أزرار APA/IEEE تُنسّق المراجع المستوردة فقط.',
-                        'Uploading alone is not enough — extract references from the file first. '
-                        'APA/IEEE buttons only format already-imported references.',
+                        m.attachments.any((a) => a.isWord || a.isPdf)
+                            ? 'اضغط «تنسيق المراجع الآن» ليقرأ التطبيق الملف من Introduction ويتعرّف على المراجع ثم ينسّقها.'
+                            : 'ارجع للمسودة وارفع PDF أو DOCX ثم اضغط تنسيق المراجع.',
+                        m.attachments.any((a) => a.isWord || a.isPdf)
+                            ? 'Tap “Format references now” so the app reads from Introduction, finds the references, and restyles them.'
+                            : 'Go back to the draft, upload a PDF or DOCX, then format references.',
                       ),
                       style: TextStyle(color: Colors.grey[800], fontSize: 13),
                     ),
-                    if (m.attachments.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton.tonalIcon(
-                          onPressed: _extracting ? null : _extractFromUploadedFile,
-                          icon: _extracting
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
-                                )
-                              : const Icon(Icons.auto_fix_high),
-                          label: Text(context.t(
-                            'استخراج المراجع من ${m.attachments.last.name}',
-                            'Extract references from ${m.attachments.last.name}',
-                          )),
-                        ),
-                      ),
-                    ] else ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        context.t(
-                          'ارجع للمسودة وارفع PDF أو DOCX',
-                          'Go back to the draft and upload a PDF or DOCX',
-                        ),
-                        style: TextStyle(color: Colors.grey[700], fontSize: 13),
-                      ),
-                    ],
                   ],
                 ),
               ),
@@ -309,15 +465,28 @@ class _ManuscriptFormatScreenState extends State<ManuscriptFormatScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: CitationFormatter.buildBibliographyEntries(
-                    references: m.references,
+                    references: ManuscriptCitationHelper.bibliographyReferences(
+                      m,
+                      style: _style,
+                    ),
                     style: _style,
                   ).map((entry) {
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 10),
-                      child: SelectableText.rich(
-                        CitationFormatter.buildBibliographyInlineSpan(
-                          entry: entry,
-                          baseStyle: const TextStyle(height: 1.6, fontSize: 13),
+                      child: Directionality(
+                        textDirection: TextDirection.ltr,
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: SelectableText.rich(
+                            CitationFormatter.buildBibliographyInlineSpan(
+                              entry: entry,
+                              baseStyle: const TextStyle(
+                                height: 1.6,
+                                fontSize: 13,
+                              ),
+                            ),
+                            textAlign: TextAlign.left,
+                          ),
                         ),
                       ),
                     );
@@ -361,6 +530,56 @@ class _ManuscriptFormatScreenState extends State<ManuscriptFormatScreen> {
               context.t('التالي: اختيار المجلة', 'Next: choose journal'),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StyleShapeCard extends StatelessWidget {
+  final PublishCitationStyle style;
+
+  const _StyleShapeCard({required this.style});
+
+  @override
+  Widget build(BuildContext context) {
+    final shape = CitationStyleShapes.of(style);
+    return Card(
+      color: const Color(0xFFF3E5F5),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              context.t(
+                'شكل المرجع المعتمد: ${CitationFormatter.styleLabel(style)}',
+                'Required ${CitationFormatter.styleLabel(style)} shape',
+              ),
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              context.t(
+                'داخل النص: ${shape.inTextDescriptionAr} — مثال ${shape.inTextExample}',
+                'In text: ${shape.inTextDescriptionEn} — e.g. ${shape.inTextExample}',
+              ),
+              style: TextStyle(fontSize: 13, color: Colors.grey[800], height: 1.4),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              context.t('شكل قائمة المراجع', 'Bibliography shape'),
+              style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+            ),
+            const SizedBox(height: 4),
+            Directionality(
+              textDirection: TextDirection.ltr,
+              child: SelectableText(
+                shape.bibliographyExample,
+                style: const TextStyle(fontSize: 12.5, height: 1.45),
+              ),
+            ),
+          ],
         ),
       ),
     );

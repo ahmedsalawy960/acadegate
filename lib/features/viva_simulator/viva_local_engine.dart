@@ -31,11 +31,28 @@ class VivaLocalEngine {
     required int questionIndex,
     required List<VivaMessage> history,
   }) {
+    final prepared = _preparedQuestion(config, questionIndex);
+    if (prepared != null) return prepared;
+
     final grounded = _thesisGroundedQuestion(
       config: config,
       questionIndex: questionIndex,
     );
     if (grounded != null) return grounded;
+
+    final hasThesisText = config.extractedQuestions.isNotEmpty ||
+        config.issues.isNotEmpty ||
+        (config.thesisExcerpt != null &&
+            config.thesisExcerpt!.trim().isNotEmpty) ||
+        (config.defenseContext != null &&
+            config.defenseContext!.trim().isNotEmpty) ||
+        config.thesisSummary.trim().length >= 40;
+    if (hasThesisText) {
+      return appTr(
+        'من عنوان رسالتك «${config.thesisTitle}»: ما أقوى دليل في نتائجك، وما حدود تعميمه؟',
+        'From your thesis title «${config.thesisTitle}»: what is the strongest evidence in your findings, and what limits generalization?',
+      );
+    }
 
     final bank = VivaQuestionBanks.forMember(
       memberId: member.id,
@@ -80,6 +97,29 @@ class VivaLocalEngine {
       return followUps[questionIndex % followUps.length];
     }
     return text;
+  }
+
+    String? _preparedQuestion(VivaSessionConfig config, int questionIndex) {
+    final qs = config.extractedQuestions
+        .map((q) => q.trim())
+        .where((q) => q.length >= 12)
+        .toList();
+    final issues = config.issues;
+    if (qs.isEmpty && issues.isEmpty) return null;
+
+    String fromIssue(VivaThesisIssue issue) => appTr(
+          'ملاحظة من رسالتك [${issue.kind}]: ${issue.label}\nكيف ترد على هذا الاعتراض أمام اللجنة؟',
+          'Note from your thesis [${issue.kind}]: ${issue.label}\nHow would you answer this objection before the committee?',
+        );
+
+    if (qs.isNotEmpty && issues.isNotEmpty) {
+      final cycle = qs.length + issues.length;
+      final slot = questionIndex % cycle;
+      if (slot < qs.length) return qs[slot];
+      return fromIssue(issues[slot - qs.length]);
+    }
+    if (qs.isNotEmpty) return qs[questionIndex % qs.length];
+    return fromIssue(issues[questionIndex % issues.length]);
   }
 
   /// أسئلة مبنية على مقتطفات من الملخص / سياق المناقشة / مقتطف PDF.
@@ -164,6 +204,17 @@ class VivaLocalEngine {
         : answers.map((a) => a.length).reduce((a, b) => a + b) ~/ answers.length;
 
     final weaknesses = <String>[
+      ...config.issues.take(8).map(
+            (i) => appTr(
+              'من الرسالة [${i.kind}]: ${i.label}',
+              'From the thesis [${i.kind}]: ${i.label}',
+            ),
+          ),
+      if (config.citationHealth?.hasSerious == true)
+        appTr(
+          'سجل الاستشهاد: ${config.citationHealth!.headline}. جهّز رداً على كل مرجع مسحوب أو عليه تعبير قلق.',
+          'Citation registry: ${config.citationHealth!.headline}. Prepare a response for every retracted or flagged reference.',
+        ),
       if (avgAnswerLen < 80)
         appTr(
           'إجاباتك كانت مختصرة جداً — في المناقشة الحقيقية يتوقع المناقشون تفصيلاً وربطاً بالمراجع.',
@@ -199,9 +250,11 @@ class VivaLocalEngine {
     ];
 
     final expectedQuestions = <String>[
+      ...config.extractedQuestions.take(6),
       ...List.generate(
         3,
-        (i) => _thesisGroundedQuestion(config: config, questionIndex: i),
+        (i) => _preparedQuestion(config, i) ??
+            _thesisGroundedQuestion(config: config, questionIndex: i),
       ).whereType<String>(),
       appTr(
         'ما الجديد في دراستك عن «${config.thesisTitle}» مقارنة بأحدث الأبحاث؟',
@@ -211,15 +264,16 @@ class VivaLocalEngine {
         'كيف تساهم نتائجك في تطوير المعرفة في ${config.specialization}؟',
         'How do your findings advance knowledge in ${config.specialization}?',
       ),
-      ...VivaQuestionBanks.forMember(
-        memberId: 'external',
-        facultyCategoryId: config.facultyCategoryId,
-      ).take(2).map((pair) {
-        return appTr(pair[0], pair[1])
-            .replaceAll('{title}', config.thesisTitle)
-            .replaceAll('{methodology}', config.methodology)
-            .replaceAll('{specialization}', config.specialization);
-      }),
+      if (config.extractedQuestions.isEmpty && config.issues.isEmpty)
+        ...VivaQuestionBanks.forMember(
+          memberId: 'external',
+          facultyCategoryId: config.facultyCategoryId,
+        ).take(2).map((pair) {
+          return appTr(pair[0], pair[1])
+              .replaceAll('{title}', config.thesisTitle)
+              .replaceAll('{methodology}', config.methodology)
+              .replaceAll('{specialization}', config.specialization);
+        }),
     ];
 
     final tips = <String>[
@@ -241,10 +295,17 @@ class VivaLocalEngine {
           'تدرّب على الإجابة دون قراءة — استخدم نقاطاً فقط.',
           'Practice answering without reading — use bullet prompts only.',
         ),
-      if (config.defenseContext != null || config.thesisExcerpt != null)
+      if (config.defenseContext != null ||
+          config.thesisExcerpt != null ||
+          config.extractedQuestions.isNotEmpty)
         appTr(
-          'أسئلة المحاكاة مبنية على مقتطفات من رسالتك — راجع تلك المقاطع قبل المناقشة الفعلية.',
-          'Simulation questions are grounded in excerpts from your thesis — review those passages before the real viva.',
+          'أسئلة المحاكاة مبنية على نص رسالتك وملاحظاتها — راجع المقاطع المقتبسة قبل المناقشة الفعلية.',
+          'Simulation questions are grounded in your thesis text and comments — review the quoted passages before the real viva.',
+        ),
+      if (config.citationHealth != null && config.citationHealth!.checked > 0)
+        appTr(
+          'راجع تقرير صحة الاستشهاد قبل المناقشة — اللجنة قد تسأل عن أي سحب أو تصحيح في المراجع.',
+          'Review the citation health report before the viva — the committee may ask about any retraction or correction.',
         ),
     ];
 

@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../core/locale/app_translate.dart';
+import '../academic/academic_models.dart';
 import '../auth/user_account_service.dart';
 import '../moderation/approval_status.dart';
 import 'csv_lab_parser.dart';
@@ -201,6 +202,40 @@ class LabImportService {
     return null;
   }
 
+  /// كل مختبرات Firestore لكشف التواصل (يتطلب صلاحية قراءة admin/قواعد).
+  Future<List<AcademicLab>> fetchLabsForContactDirectory({
+    int maxDocs = 8000,
+  }) async {
+    final out = <AcademicLab>[];
+    QueryDocumentSnapshot<Map<String, dynamic>>? cursor;
+    const pageSize = 200;
+
+    while (out.length < maxDocs) {
+      Query<Map<String, dynamic>> page = _db.collection('labs').limit(pageSize);
+      if (cursor != null) {
+        page = page.startAfterDocument(cursor);
+      }
+      final snap = await page.get();
+      if (snap.docs.isEmpty) break;
+
+      for (final doc in snap.docs) {
+        final lab = AcademicLab.fromMap(
+          doc.data(),
+          id: doc.id,
+          lightweight: false,
+        );
+        if (lab.name.trim().isEmpty) continue;
+        out.add(lab);
+        if (out.length >= maxDocs) break;
+      }
+
+      cursor = snap.docs.last;
+      if (snap.docs.length < pageSize) break;
+    }
+
+    return out;
+  }
+
   String _dedupeKey(CsvLabRow row) {
     final externalId = row.externalId.trim();
     final source = row.importSource.trim().toLowerCase();
@@ -258,6 +293,18 @@ class LabImportService {
     }
     if (existing['approvalStatus'] != null) {
       merged['approvalStatus'] = existing['approvalStatus'];
+    }
+    if (existing['directoryStatus'] != null) {
+      merged['directoryStatus'] = existing['directoryStatus'];
+    }
+    if (existing['lastVerifiedIso'] != null) {
+      merged['lastVerifiedIso'] = existing['lastVerifiedIso'];
+    }
+    if (existing['claimedAt'] != null) {
+      merged['claimedAt'] = existing['claimedAt'];
+    }
+    if (existing['claimedByName'] != null) {
+      merged['claimedByName'] = existing['claimedByName'];
     }
     if (existing['createdAt'] != null) {
       merged['createdAt'] = existing['createdAt'];

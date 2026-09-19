@@ -11,6 +11,7 @@ import '../community/community_data.dart';
 import '../community/community_room_screen.dart';
 import '../data_analysis/statistical_assumptions_screen.dart';
 import '../methodology_integrity/methodology_integrity_screen.dart';
+import '../thesis_studio/thesis_studio_screen.dart';
 import 'home_search_utils.dart';
 
 class HomeSearchSubService {
@@ -142,6 +143,28 @@ List<HomeSearchSubService> buildHomeSearchSubServices(
         'تصميم',
       ],
       screen: const MethodologyIntegrityScreen(),
+    ),
+    HomeSearchSubService(
+      title: context.t('استوديو الرسالة', 'Thesis Studio'),
+      subtitle: context.t(
+        'مسودة فصول من دراسات DOI مؤكدة',
+        'Chapter draft from DOI-confirmed studies',
+      ),
+      parentSection: l10n.serviceThesisStudio,
+      icon: Icons.menu_book_rounded,
+      color: const Color(0xFF1A237E),
+      keywords: const [
+        'thesis',
+        'dissertation',
+        'رسالة',
+        'ماجستير',
+        'دكتوراه',
+        'مسودة',
+        'فصول',
+        'studio',
+        'أطروحة',
+      ],
+      screen: const ThesisStudioScreen(),
     ),
     HomeSearchSubService(
       title: context.t('مركز سلامة أكاديمية', 'Academic integrity hub'),

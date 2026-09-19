@@ -258,10 +258,73 @@ function scoreGuideText(text) {
   return score;
 }
 
-function extractRulesHeuristic(pageText, sourceUrl) {
+function mergeExtractedRules(heuristic, ai) {
+  if (!heuristic || heuristic.found !== true) return ai && ai.found === true ? ai : heuristic || ai || null;
+  if (!ai || ai.found !== true) return heuristic;
+  const out = { ...heuristic };
+  for (const [key, value] of Object.entries(ai)) {
+    if (value === null || value === undefined || value === "") continue;
+    if (Array.isArray(value) && value.length === 0) continue;
+    if (key === "keyRequirements" && Array.isArray(value)) {
+      out.keyRequirements = [...new Set([...(out.keyRequirements || []), ...value])];
+      continue;
+    }
+    out[key] = value;
+  }
+  out.found = true;
+  return out;
+}
+
+function isDistinctiveExtract(rules) {
+  if (!rules || rules.found !== true) return false;
+  let n = 0;
+  if (rules.citationStyle) n++;
+  if (rules.lineSpacing != null) n++;
+  if (rules.bodyFontSizePt != null) n++;
+  if (rules.columns != null) n++;
+  if (rules.firstLineIndentCm != null) n++;
+  if (rules.abstractMaxWords != null) n++;
+  if (rules.headingNumbered === true) n++;
+  if (String(rules.referenceExample || "").trim().length >= 20) n++;
+  if (String(rules.inTextExample || "").trim().length >= 4) n++;
+  return n >= 2;
+}
+
+function looksLikeReferenceSample(raw) {
+  const t = String(raw || "").trim();
+  if (t.length < 40) return false;
+  if (!/\b(?:19|20)\d{2}\b/.test(t)) return false;
+  return /[A-Z][A-Za-z\-]{2,}/.test(t);
+}
+
+function extractReferenceExample(text) {
+  const labeled = String(text || "").match(
+    /(?:example|e\.g\.|for example|as follows|شكل\s*المرجع|مثال)[:\s]+([^\n]{40,280})/i,
+  );
+  if (labeled && looksLikeReferenceSample(labeled[1])) return labeled[1].trim();
+  const numbered = String(text || "").match(
+    /(?:^|\n)\s*((?:\[\d+\]|\d+\.)\s+[A-Z][A-Za-z\-]+[^\n]{30,240})/,
+  );
+  if (numbered && looksLikeReferenceSample(numbered[1])) return numbered[1].trim();
+  const acs = String(text || "").match(
+    /(?:^|\n)\s*([A-Z][A-Za-z\-]+,\s*[A-Z]\.;[^\n]{30,240})/,
+  );
+  if (acs && looksLikeReferenceSample(acs[1])) return acs[1].trim();
+  return null;
+}
+
+function extractInTextExample(text) {
+  const labeled = String(text || "").match(
+    /(?:in[\s-]?text|cit(?:e|ation)|اقتباس)[^.\n]{0,80}(superscript numbers?|\[\d+\]|\([A-Z][A-Za-z\-]+[^)]{0,40}(?:19|20)\d{2}\))/i,
+  );
+  return labeled ? labeled[1].trim() : null;
+}
+
+function extractRulesHeuristic(pageText, sourceUrl, options = {}) {
   const text = String(pageText || "");
   const lower = text.toLowerCase();
-  if (scoreGuideText(text) < 6) return null;
+  const minScore = options.minScore == null ? 6 : options.minScore;
+  if (minScore > 0 && scoreGuideText(text) < minScore) return null;
 
   const rules = {
     found: false,
@@ -289,19 +352,21 @@ function extractRulesHeuristic(pageText, sourceUrl) {
     rules.found = true;
   }
 
-  const fontPt = text.match(/(\d{1,2})[\s-]?point/i);
+  const fontPt = text.match(/(?:font|typeface|text)[^.\d]{0,40}(\d{1,2})[\s-]?point/i) ||
+    text.match(/(\d{1,2})[\s-]?point[^.]{0,30}(?:font|typeface)/i);
   if (fontPt) {
-    rules.bodyFontSizePt = Number(fontPt[1]);
-    rules.keyRequirements.push(`${fontPt[1]}-point font`);
-    rules.found = true;
+    const pt = Number(fontPt[1]);
+    if (pt >= 8 && pt <= 16) {
+      rules.bodyFontSizePt = pt;
+      rules.keyRequirements.push(`${pt}-point font`);
+      rules.found = true;
+    }
   }
 
-  if (/times new roman/i.test(text)) {
+  if (/(?:font|typeface)[^.]{0,40}times new roman|times new roman[^.]{0,40}(?:font|typeface)/i.test(text)) {
     rules.fontFamily = "Times New Roman";
-    rules.found = true;
-  } else if (/arial/i.test(text)) {
+  } else if (/(?:font|typeface)[^.]{0,30}\barial\b/i.test(text)) {
     rules.fontFamily = "Arial";
-    rules.found = true;
   }
 
   const abstractMax =
@@ -320,7 +385,6 @@ function extractRulesHeuristic(pageText, sourceUrl) {
     text.match(/(\$\s*300)/);
   if (apc) {
     rules.articleProcessingCharge = apc[1].replace(/\s+/g, "");
-    rules.found = true;
   }
 
   if (/microsoft word|\.docx?|openoffice|rtf/i.test(text)) {
@@ -329,7 +393,6 @@ function extractRulesHeuristic(pageText, sourceUrl) {
     if (/rtf/i.test(text)) formats.push("RTF");
     if (/openoffice/i.test(text)) formats.push("OpenOffice");
     rules.acceptedFileFormats = formats;
-    rules.found = true;
   }
 
   const sections = [];
@@ -341,26 +404,77 @@ function extractRulesHeuristic(pageText, sourceUrl) {
   }
   if (sections.length >= 3) {
     rules.sectionOrder = sections;
-    rules.found = true;
   }
 
-  if (/without\s+\[\s*\]|without\s+square\s+brackets|listed\s+as\s+1\./i.test(text)) {
+  if (/\bacs\b|american chemical society|superscript numbers/i.test(text)) {
+    rules.citationStyle = "acs";
+    rules.keyRequirements.push("ACS citation style");
+    rules.found = true;
+  } else if (/without\s+\[\s*\]|without\s+square\s+brackets|listed\s+as\s+1\./i.test(text)) {
     rules.citationStyle = "vancouver";
     rules.referenceListPlainNumber = true;
     rules.keyRequirements.push("References as 1., 2., 3. without brackets");
     rules.found = true;
-  } else if (lower.includes("reference") && /\[\s*\d+\s*\]/.test(text)) {
+  } else if (/(?:in-?text|cit(?:e|ation|ations)|references?)[^.]{0,80}(?:numbered|\[\s*\d+\s*\]|vancouver)|numbered\s+(?:in-?text\s+)?references?|vancouver\s+style/i.test(text)) {
     rules.citationStyle = "vancouver";
     rules.found = true;
-  } else if (/\bieee\b/i.test(text)) {
+  } else if (/\bieee\s+(?:style|citation|format)\b/i.test(text)) {
     rules.citationStyle = "ieee";
     rules.found = true;
-  } else if (/\bapa\b/i.test(text)) {
+  } else if (/\bapa\s+(?:style|format|citation)|american psychological association/i.test(text)) {
     rules.citationStyle = "apa";
+    rules.found = true;
+  } else if (/\bharvard\s+(?:style|referencing|citation)\b/i.test(text)) {
+    rules.citationStyle = "harvard";
+    rules.found = true;
+  } else if (/\bchicago\s+(?:style|manual|citation)\b/i.test(text)) {
+    rules.citationStyle = "chicago";
     rules.found = true;
   }
 
-  return rules.found ? rules : null;
+  const refExample = extractReferenceExample(text);
+  if (refExample) {
+    rules.referenceExample = refExample;
+    rules.keyRequirements.push(`Reference sample: ${refExample}`);
+    rules.found = true;
+  }
+  const inTextExample = extractInTextExample(text);
+  if (inTextExample) {
+    rules.inTextExample = inTextExample;
+    rules.keyRequirements.push(`In-text sample: ${inTextExample}`);
+    rules.found = true;
+  }
+
+  if (/two[\s-]?column|double[\s-]?column|2[\s-]?column/i.test(text)) {
+    rules.columns = 2;
+    rules.keyRequirements.push("Two-column layout");
+    rules.found = true;
+  } else if (/single[\s-]?column/i.test(text)) {
+    rules.columns = 1;
+  }
+  if (/\ba4\b/i.test(text) && /paper|page size|format/i.test(text)) {
+    rules.paperSize = "a4";
+  } else if (/letter[\s-]?size|8\.5\s*[×x]\s*11/i.test(text)) {
+    rules.paperSize = "letter";
+  }
+  if (/first[\s-]?line indent/i.test(text)) {
+    rules.firstLineIndentCm = 1.27;
+    rules.found = true;
+  }
+  if (/numbered headings/i.test(text)) {
+    rules.headingNumbered = true;
+    rules.found = true;
+  }
+  if (/uppercase headings|headings in capital/i.test(text)) {
+    rules.headingUppercase = true;
+  }
+  if (/running head|running title/i.test(text)) {
+    rules.runningHeader = true;
+    rules.found = true;
+  }
+  rules.pageNumbers = /page numbers?/i.test(text) ? true : undefined;
+
+  return isDistinctiveExtract(rules) ? rules : null;
 }
 
 async function callGemini({ apiKey, model, body }) {
@@ -626,13 +740,25 @@ Return ONLY valid JSON (no markdown):
   "confidence": "high" | "medium" | "low",
   "citationStyle": "ieee" | "apa" | "vancouver" | "acs" | "chicago" | "harvard" | "other",
   "fontFamily": string or null,
+  "titleFontSizePt": number or null,
+  "headingFontSizePt": number or null,
   "bodyFontSizePt": number or null,
   "lineSpacing": number or null,
   "lineSpacingLabel": "single" | "double" | "1.5" | null,
   "marginCm": number or null,
   "justifyText": boolean or null,
+  "columns": 1 | 2 | null,
+  "paperSize": "a4" | "letter" | null,
+  "firstLineIndentCm": number or null,
+  "headingNumbered": boolean or null,
+  "headingUppercase": boolean or null,
+  "titleAlign": "center" | "left" | null,
+  "pageNumbers": boolean or null,
+  "runningHeader": boolean or null,
   "referencesHeading": string or null,
   "referenceListPlainNumber": boolean or null,
+  "referenceExample": string or null,
+  "inTextExample": string or null,
   "abstractMaxWords": number or null,
   "sectionOrder": string[],
   "acceptedFileFormats": string[],
@@ -644,17 +770,22 @@ Return ONLY valid JSON (no markdown):
 
 Rules:
 - Set found=false if the text does not contain manuscript formatting instructions.
+- Extract EVERY layout rule stated: columns, paper size, first-line indent, heading numbering/case, title alignment, page numbers, running header, title/heading/body font sizes.
+- citationStyle must be the style THIS journal requires (acs, ieee, apa, vancouver, harvard, chicago). ACS/chemistry journals typically use superscript numbers in text.
+- Copy the guide's SAMPLE bibliography line into referenceExample exactly as printed.
+- Copy the guide's SAMPLE in-text citation into inTextExample exactly as printed.
+- excerpt must quote the actual citation/font/spacing sentence from the source (max 350 chars).
+- Do not invent Times New Roman, double spacing, or APA unless the guide says so.
 - If text says "single-spaced" set lineSpacing=1 and lineSpacingLabel="single".
 - If text says "double-spaced" set lineSpacing=2 and lineSpacingLabel="double".
 - Capture section order (Title, Abstract, Introduction, etc.) in sectionOrder.
 - Capture fees (APC) in articleProcessingCharge if mentioned.
-- excerpt must be a short quote from the source (max 350 chars).
 - Do not invent rules not present in the text.
 
 TEXT:
 ${pageText.slice(0, MAX_TEXT_FOR_AI)}`;
 
-  const models = ["gemini-2.0-flash-lite", "gemini-2.0-flash"];
+  const models = ["gemini-2.5-flash-lite", "gemini-2.5-flash"];
   let lastError = "gemini_failed";
   let quotaHit = false;
 
@@ -693,13 +824,25 @@ const RULES_JSON_FIELDS = `{
   "confidence": "high" | "medium" | "low",
   "citationStyle": "ieee" | "apa" | "vancouver" | "acs" | "chicago" | "harvard" | "other",
   "fontFamily": string or null,
+  "titleFontSizePt": number or null,
+  "headingFontSizePt": number or null,
   "bodyFontSizePt": number or null,
   "lineSpacing": number or null,
   "lineSpacingLabel": "single" | "double" | "1.5" | null,
   "marginCm": number or null,
   "justifyText": boolean or null,
+  "columns": 1 | 2 | null,
+  "paperSize": "a4" | "letter" | null,
+  "firstLineIndentCm": number or null,
+  "headingNumbered": boolean or null,
+  "headingUppercase": boolean or null,
+  "titleAlign": "center" | "left" | null,
+  "pageNumbers": boolean or null,
+  "runningHeader": boolean or null,
   "referencesHeading": string or null,
   "referenceListPlainNumber": boolean or null,
+  "referenceExample": string or null,
+  "inTextExample": string or null,
   "abstractMaxWords": number or null,
   "sectionOrder": string[],
   "acceptedFileFormats": string[],
@@ -742,12 +885,13 @@ ${RULES_JSON_FIELDS}
 Rules:
 - guidelinesUrl = the URL of the guidelines page you read.
 - Set found=false only if no author guidelines exist online for this journal.
+- Extract EVERY layout rule stated: columns, paper size, first-line indent, heading numbering/case, title alignment, page numbers, running header, font sizes, section order.
 - If text says "single-spaced" set lineSpacing=1 and lineSpacingLabel="single".
 - If text says "double-spaced" set lineSpacing=2 and lineSpacingLabel="double".
 - excerpt must quote the source (max 350 chars).
 - Do not invent rules not present in the guidelines.`;
 
-  const models = ["gemini-2.0-flash"];
+  const models = ["gemini-2.5-flash"];
   let lastError = "google_search_grounding_failed";
 
   for (const model of models) {
@@ -810,50 +954,42 @@ async function runExtraction(data, apiKey) {
     );
   }
 
-  if (pastedText.length >= 80) {
+  if (pastedText.length >= 15) {
     const heuristic = extractRulesHeuristic(
       pastedText,
       manualUrl || "pasted_by_user",
+      { minScore: 0 },
     );
-    if (heuristic) {
+    let ai = null;
+    if (pastedText.length >= 80) {
+      ai = await extractRulesWithGemini({
+        apiKey,
+        journalName,
+        publisher,
+        sourceUrl: manualUrl || "pasted_by_user",
+        pageText: pastedText,
+      });
+    }
+    const merged = mergeExtractedRules(heuristic, ai && !ai.error ? ai.rules : null);
+    if (merged && merged.found === true) {
       return {
         success: true,
         sourceUrl: manualUrl || "pasted_by_user",
-        sourceType: "pasted_text_heuristic",
-        model: "heuristic",
-        rules: heuristic,
+        sourceType: ai && !ai.error ? "pasted_text" : "pasted_text_heuristic",
+        model: (ai && ai.model) || "heuristic",
+        rules: merged,
         attemptedUrls: manualUrl ? [manualUrl] : [],
         fetchLog: [],
       };
     }
-    const ai = await extractRulesWithGemini({
-      apiKey,
-      journalName,
-      publisher,
-      sourceUrl: manualUrl || "pasted_by_user",
-      pageText: pastedText,
-    });
-    if (ai.error) {
-      return {
-        success: false,
-        reason: "ai_parse_failed",
-        message: ai.error,
-        attemptedUrls: manualUrl ? [manualUrl] : [],
-        fetchLog: [],
-      };
-    }
-    const rules = ai.rules || {};
-    if (rules.found === true) {
-      return {
-        success: true,
-        sourceUrl: manualUrl || "pasted_by_user",
-        sourceType: "pasted_text",
-        model: ai.model,
-        rules,
-        attemptedUrls: manualUrl ? [manualUrl] : [],
-        fetchLog: [],
-      };
-    }
+    return {
+      success: false,
+      reason: "paste_unparsed",
+      message:
+        "لم يُستخرج من النص الملصوق تعليمات تنسيق واضحة. الصق فقرات الدليل ثم أعد التطبيق.",
+      attemptedUrls: manualUrl ? [manualUrl] : [],
+      fetchLog: [],
+    };
   }
 
   const { candidates, attempted } = await resolveGuidePages({
@@ -897,18 +1033,13 @@ async function runExtraction(data, apiKey) {
 
   fetchedPages.sort((a, b) => b.score - a.score);
 
+  let bestHeuristic = null;
+  let bestHeuristicUrl = "";
   for (const page of fetchedPages) {
     const heuristic = extractRulesHeuristic(page.text, page.url);
-    if (heuristic) {
-      return {
-        success: true,
-        sourceUrl: page.url,
-        sourceType: `${page.source}_heuristic`,
-        model: "heuristic",
-        rules: heuristic,
-        attemptedUrls: attempted,
-        fetchLog,
-      };
+    if (heuristic && !bestHeuristic) {
+      bestHeuristic = heuristic;
+      bestHeuristicUrl = page.url;
     }
   }
 
@@ -922,29 +1053,31 @@ async function runExtraction(data, apiKey) {
       pageText: best.text,
     });
     if (ai.quotaHit) quotaHit = true;
-    if (ai.error && !ai.quotaHit) {
+    const pageHeuristic = extractRulesHeuristic(best.text, best.url) || bestHeuristic;
+    const merged = mergeExtractedRules(pageHeuristic, ai.error ? null : ai.rules);
+    if (merged && isDistinctiveExtract(merged)) {
       return {
-        success: false,
-        reason: "ai_parse_failed",
-        message: ai.error,
+        success: true,
+        sourceUrl: best.url,
+        sourceType: best.source,
+        model: (ai && ai.model) || "heuristic",
+        rules: merged,
         attemptedUrls: attempted,
         fetchLog,
       };
     }
-    if (!ai.error) {
-      const rules = ai.rules || {};
-      if (rules.found === true) {
-        return {
-          success: true,
-          sourceUrl: best.url,
-          sourceType: best.source,
-          model: ai.model,
-          rules,
-          attemptedUrls: attempted,
-          fetchLog,
-        };
-      }
-    }
+  }
+
+  if (bestHeuristic && isDistinctiveExtract(bestHeuristic)) {
+    return {
+      success: true,
+      sourceUrl: bestHeuristicUrl,
+      sourceType: "page_heuristic",
+      model: "heuristic",
+      rules: bestHeuristic,
+      attemptedUrls: attempted,
+      fetchLog,
+    };
   }
 
   const manualFailed = manualUrl && fetchLog.some((f) => f.source === "manual" && !f.fetched);

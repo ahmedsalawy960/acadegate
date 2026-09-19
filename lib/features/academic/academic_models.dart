@@ -47,6 +47,9 @@ class AcademicSupervisor {
   final String importSource;
   /// بيانات تجريبية للعرض عند غياب مشرفين حقيقيين في قاعدة البيانات.
   final bool isDemo;
+  /// Directory trust: unverified | claimed | managed_verified
+  final String directoryStatus;
+  final String lastManagedIso;
 
   const AcademicSupervisor({
     this.id,
@@ -73,6 +76,8 @@ class AcademicSupervisor {
     this.researchGateUrl = '',
     this.importSource = '',
     this.isDemo = false,
+    this.directoryStatus = 'unverified',
+    this.lastManagedIso = '',
   });
 
   /// ملف مستورد من OpenAlex/CSV — ليس حساباً حقيقياً للمشرف بعد.
@@ -81,9 +86,15 @@ class AcademicSupervisor {
       importSource == 'csv' ||
       (importSource.isEmpty && openAlexId.isNotEmpty);
 
-  /// مشرف مسجّل فعلياً ويمكن مراسلته مباشرة داخل التطبيق.
-  bool get hasMessagingAccount =>
-      ownerId.isNotEmpty && !isImportedListing;
+  /// مشرف مرتبط بحساب ويمكن مراسلته مباشرة داخل التطبيق.
+  bool get hasMessagingAccount => ownerId.isNotEmpty;
+
+  /// ملف بلا مالك ويمكن المطالبة به (مستورد أو قديم).
+  bool get isClaimable =>
+      !isDemo &&
+      id != null &&
+      id!.isNotEmpty &&
+      ownerId.trim().isEmpty;
 
   bool get hasPublicationIds =>
       openAlexId.isNotEmpty || orcid.isNotEmpty;
@@ -125,6 +136,13 @@ class AcademicSupervisor {
       researchGateUrl: map['researchGateUrl']?.toString() ?? '',
       importSource: map['importSource']?.toString() ?? '',
       isDemo: map['isDemo'] as bool? ?? false,
+      directoryStatus: () {
+        final raw = map['directoryStatus']?.toString() ?? '';
+        if (raw.isNotEmpty) return raw;
+        final owner = map['ownerId']?.toString() ?? '';
+        return owner.trim().isEmpty ? 'unverified' : 'claimed';
+      }(),
+      lastManagedIso: map['lastManagedIso']?.toString() ?? '',
     );
   }
 }
@@ -137,6 +155,8 @@ class AcademicResearchIdea {
   final List<String> tags;
   final String budget;
   final String category;
+  /// `masters` | `phd` | `both` | empty (legacy / unspecified).
+  final String degreeLevel;
   final String status;
   final int votesCount;
   final int proposalsCount;
@@ -149,6 +169,11 @@ class AcademicResearchIdea {
   final String fundAwardId;
   final double? fundedAmount;
   final String fundedCurrency;
+  final String importSource;
+  final String externalId;
+  final String sourceUrl;
+  final String seedSource;
+  final double? feasibilityScore;
 
   const AcademicResearchIdea({
     this.id,
@@ -158,6 +183,7 @@ class AcademicResearchIdea {
     this.tags = const [],
     this.budget = '',
     this.category = '',
+    this.degreeLevel = '',
     this.status = 'open',
     this.votesCount = 0,
     this.proposalsCount = 0,
@@ -170,6 +196,11 @@ class AcademicResearchIdea {
     this.fundAwardId = '',
     this.fundedAmount,
     this.fundedCurrency = '',
+    this.importSource = '',
+    this.externalId = '',
+    this.sourceUrl = '',
+    this.seedSource = '',
+    this.feasibilityScore,
   });
 
   bool get isOpen => status.toLowerCase() == 'open';
@@ -178,6 +209,10 @@ class AcademicResearchIdea {
   bool get isAvailableForClaim => isOpen && !isClaimed;
   bool get isFromFirebase => id != null && id!.isNotEmpty;
   bool get isPubliclyVisible => ApprovalStatus.isPublic(approvalStatus);
+  bool get isSyncedImport =>
+      importSource == 'openalex' ||
+      importSource == 'science_rss' ||
+      importSource.startsWith('sync_');
 
   factory AcademicResearchIdea.fromMap(
     Map<String, dynamic> map, {
@@ -191,6 +226,7 @@ class AcademicResearchIdea {
       tags: parseStringList(map['tags']),
       budget: map['budget']?.toString() ?? '',
       category: map['category']?.toString() ?? '',
+      degreeLevel: map['degreeLevel']?.toString() ?? '',
       status: map['status']?.toString() ?? 'open',
       votesCount: _parseInt(map['votesCount']),
       proposalsCount: _parseInt(map['proposalsCount']),
@@ -206,6 +242,13 @@ class AcademicResearchIdea {
           ? (map['fundedAmount'] as num).toDouble()
           : double.tryParse(map['fundedAmount']?.toString() ?? ''),
       fundedCurrency: map['fundedCurrency']?.toString() ?? '',
+      importSource: map['importSource']?.toString() ?? '',
+      externalId: map['externalId']?.toString() ?? '',
+      sourceUrl: map['sourceUrl']?.toString() ?? '',
+      seedSource: map['seedSource']?.toString() ?? '',
+      feasibilityScore: map['feasibilityScore'] is num
+          ? (map['feasibilityScore'] as num).toDouble()
+          : double.tryParse(map['feasibilityScore']?.toString() ?? ''),
     );
   }
 }
@@ -275,6 +318,8 @@ class LabEquipment {
   final int durationMinutes;
   final int waitDays;
   final String storeCategoryTitle;
+  /// `true`/`false` from the lab record; `null` means infer at booking time.
+  final bool? trainingRequired;
 
   const LabEquipment({
     required this.id,
@@ -284,9 +329,16 @@ class LabEquipment {
     this.durationMinutes = 120,
     this.waitDays = 3,
     this.storeCategoryTitle = '',
+    this.trainingRequired,
   });
 
   factory LabEquipment.fromMap(Map<String, dynamic> map, {String? id}) {
+    bool? training;
+    if (map.containsKey('trainingRequired') ||
+        map.containsKey('requiresTraining')) {
+      final raw = map['trainingRequired'] ?? map['requiresTraining'];
+      if (raw is bool) training = raw;
+    }
     return LabEquipment(
       id: id ?? map['id']?.toString() ?? map['code']?.toString() ?? 'device',
       name: map['name']?.toString() ?? appTr('جهاز', 'Device'),
@@ -295,6 +347,7 @@ class LabEquipment {
       durationMinutes: _parseInt(map['durationMinutes'], fallback: 120),
       waitDays: _parseInt(map['waitDays'], fallback: 3),
       storeCategoryTitle: map['storeCategoryTitle']?.toString() ?? '',
+      trainingRequired: training,
     );
   }
 }
@@ -520,8 +573,15 @@ class AcademicLab {
   final String importSource;
   final String sourceUrl;
   final String nbsleLabId;
+  /// Directory trust: unverified | contacted | verified | claimed | managed_verified
+  final String directoryStatus;
+  final String lastVerifiedIso;
+  /// Last time the managed owner arranged profile data (YYYY-MM-DD).
+  final String lastManagedIso;
   /// Device count when [equipmentList] was not fully parsed (list views).
   final int equipmentCountHint;
+  /// Device names kept even in lightweight list rows so search finds HPLC etc.
+  final List<String> equipmentNameHints;
 
   const AcademicLab({
     this.id,
@@ -551,7 +611,11 @@ class AcademicLab {
     this.importSource = '',
     this.sourceUrl = '',
     this.nbsleLabId = '',
+    this.directoryStatus = 'unverified',
+    this.lastVerifiedIso = '',
+    this.lastManagedIso = '',
     this.equipmentCountHint = 0,
+    this.equipmentNameHints = const [],
   });
 
   bool get isFromFirebase => id != null && id!.isNotEmpty;
@@ -564,6 +628,12 @@ class AcademicLab {
       importSource == 'nbsle' || nbsleLabId.trim().isNotEmpty;
   int get deviceCount =>
       equipmentList.isNotEmpty ? equipmentList.length : equipmentCountHint;
+
+  String get resolvedDirectoryStatus {
+    if (directoryStatus.trim().isNotEmpty) return directoryStatus;
+    if (!isUnowned) return 'claimed';
+    return 'unverified';
+  }
 
   bool get hasLabContact {
     if (contactEmail.contains('@') || contactPhone.trim().length >= 8) {
@@ -675,10 +745,16 @@ class AcademicLab {
     List<LabEquipment> parsedEquipment = const [];
     List<SampleAnalysisService> parsedServices = const [];
     var equipmentCountHint = 0;
+    var equipmentNameHints = const <String>[];
 
     final rawEquipmentList = map['equipmentList'];
     if (rawEquipmentList is List) {
       equipmentCountHint = rawEquipmentList.length;
+      equipmentNameHints = rawEquipmentList
+          .whereType<Map>()
+          .map((item) => item['name']?.toString() ?? '')
+          .where((name) => name.trim().isNotEmpty)
+          .toList();
       if (!lightweight) {
         parsedEquipment = rawEquipmentList
             .whereType<Map>()
@@ -758,7 +834,16 @@ class AcademicLab {
       sourceUrl: map['sourceUrl']?.toString() ?? '',
       nbsleLabId:
           (map['nbsleLabId'] ?? map['externalId'])?.toString() ?? '',
+      directoryStatus: () {
+        final raw = map['directoryStatus']?.toString() ?? '';
+        if (raw.isNotEmpty) return raw;
+        final owner = map['ownerId']?.toString() ?? '';
+        return owner.trim().isEmpty ? 'unverified' : 'claimed';
+      }(),
+      lastVerifiedIso: map['lastVerifiedIso']?.toString() ?? '',
+      lastManagedIso: map['lastManagedIso']?.toString() ?? '',
       equipmentCountHint: equipmentCountHint,
+      equipmentNameHints: equipmentNameHints,
     );
   }
 }

@@ -109,6 +109,7 @@ class AiAdvisorService {
       createdAt: DateTime.now(),
       usedCloudAi: result.usedCloudAi,
       agentLabels: result.agentLabels,
+      catalog: result.catalog,
     );
   }
 }

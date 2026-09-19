@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../core/locale/locale_service.dart';
-import 'welcome_screen.dart';
 
 /// First screen before sign-in: pick Arabic or English (bilingual UI).
 class LanguageSelectionScreen extends StatelessWidget {
@@ -8,15 +7,12 @@ class LanguageSelectionScreen extends StatelessWidget {
 
   Future<void> _select(BuildContext context, Locale locale) async {
     await LocaleService.instance.setLocale(locale);
+    // ListenableBuilder في main يعيد بناء `_AppRoot` → WelcomeScreen.
+    // لا نستبدل الجذر بشاشة يتيمة (كان يسبب تعطل الدخول بعد الخروج على الويب).
     if (!context.mounted) return;
     if (Navigator.canPop(context)) {
       Navigator.pop(context);
-      return;
     }
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => const WelcomeScreen()),
-    );
   }
 
   @override

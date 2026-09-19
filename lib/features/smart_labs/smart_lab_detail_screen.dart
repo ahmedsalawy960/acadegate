@@ -2,6 +2,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../core/directory/claim_profile_sheet.dart';
+import '../../core/directory/directory_trust_service.dart';
+import '../../core/directory/directory_trust_status.dart';
 import '../../core/locale/app_translate.dart';
 import '../../core/locale/l10n_lookup.dart';
 import '../../core/locale/locale_extensions.dart';
@@ -9,15 +12,16 @@ import '../academic/academic_models.dart';
 import '../analysis_labs/request_sample_analysis_screen.dart';
 import '../auth/user_account_service.dart';
 import '../auth/user_role.dart';
-import '../lab_import/lab_claim_service.dart';
 import '../lab_import/nbsle_contact_enrichment_service.dart';
 import '../moderation/content_delete_service.dart';
 import '../moderation/delete_content_button.dart';
 import '../profile/academic_profile_service.dart';
+import '../store/catalog_disclaimer.dart';
 import '../store/product_list_screen.dart';
 import '../store/store_categories.dart';
 import 'book_equipment_screen.dart';
 import 'lab_contacts_panel.dart';
+import 'managed_lab_profile_screen.dart';
 import 'smart_labs_service.dart';
 
 class SmartLabDetailScreen extends StatefulWidget {
@@ -33,7 +37,6 @@ class _SmartLabDetailScreenState extends State<SmartLabDetailScreen> {
   final _commentController = TextEditingController();
   int _selectedRating = 5;
   bool _isSubmittingRating = false;
-  bool _isClaiming = false;
   bool _enrichingContacts = false;
   late AcademicLab _lab;
   late List<LabEquipment> _equipment;
@@ -70,6 +73,8 @@ class _SmartLabDetailScreenState extends State<SmartLabDetailScreen> {
         importSource: lab.importSource,
         sourceUrl: lab.sourceUrl,
         nbsleLabId: lab.nbsleLabId,
+        directoryStatus: lab.directoryStatus,
+        lastVerifiedIso: lab.lastVerifiedIso,
         equipmentCountHint: lab.equipmentCountHint,
       );
 
@@ -224,25 +229,15 @@ class _SmartLabDetailScreenState extends State<SmartLabDetailScreen> {
     );
   }
 
-  Future<void> _claimLab() async {
-    setState(() => _isClaiming = true);
-    try {
-      await LabClaimService.instance.claimLab(_effectiveLab);
-      if (!mounted) return;
-      final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
-      setState(() => _ownerId = uid);
-      _showMessage(
-        context.t(
-          'تم ربط المختبر بحسابك — الطلبات الجديدة ستصلك',
-          'Lab linked to your account — new requests will reach you',
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      _showMessage('$e', isError: true);
-    } finally {
-      if (mounted) setState(() => _isClaiming = false);
-    }
+  Future<void> _openClaimProfile() async {
+    final id = lab.id;
+    if (id == null || id.isEmpty) return;
+    await showClaimProfileSheet(
+      context,
+      targetType: 'lab',
+      targetId: id,
+      targetName: lab.name,
+    );
   }
 
   Future<void> _openSourceUrl() async {
@@ -363,6 +358,83 @@ class _SmartLabDetailScreenState extends State<SmartLabDetailScreen> {
               color: Colors.purple[900],
             ),
           ),
+          const SizedBox(height: 8),
+          DirectoryTrustChip(
+            status: DirectoryTrustStatus.resolve(
+              directoryStatus: lab.directoryStatus,
+              ownerId: _ownerId,
+            ),
+            lastManagedLabel: lab.lastManagedIso,
+          ),
+          if (lab.isFromFirebase && (lab.id ?? '').isNotEmpty)
+            CatalogReportLink(
+              targetType: 'lab',
+              supplierId: lab.id,
+              storeName: lab.name,
+              sourceUrl: lab.sourceUrl,
+              emphasizeFakeLab: true,
+            ),
+          StreamBuilder(
+            stream: UserAccountService.instance.watchCurrentAccount(),
+            builder: (context, snap) {
+              final account = snap.data;
+              final uid = account?.uid ??
+                  FirebaseAuth.instance.currentUser?.uid ??
+                  '';
+              final isOwner =
+                  uid.isNotEmpty && uid == _ownerId.trim() && _ownerId.trim().isNotEmpty;
+              final status = DirectoryTrustStatus.resolve(
+                directoryStatus: lab.directoryStatus,
+                ownerId: _ownerId,
+              );
+              final canManage = DirectoryTrustStatus.canManageListing(
+                status,
+                isOwner: isOwner,
+              );
+              if (!canManage || lab.id == null || lab.id!.isEmpty) {
+                return const SizedBox.shrink();
+              }
+              return Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: FilledButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              ManagedLabProfileScreen(labId: lab.id!),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.edit_note),
+                    label: Text(
+                      context.t(
+                        'ترتيب بيانات الملف',
+                        'Arrange profile data',
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+          if (lab.sourceUrl.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              [
+                context.t('المصدر', 'Source'),
+                ': ${lab.sourceUrl}',
+                if (lab.lastVerifiedIso.isNotEmpty)
+                  ' · ${context.t('مراجعة', 'Reviewed')} ${lab.lastVerifiedIso}',
+              ].join(),
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[700],
+                height: 1.35,
+              ),
+            ),
+          ],
           const SizedBox(height: 6),
           Row(
             children: [
@@ -399,6 +471,99 @@ class _SmartLabDetailScreenState extends State<SmartLabDetailScreen> {
           ],
           if (_ownerId.trim().isEmpty && lab.isFromFirebase) ...[
             const SizedBox(height: 12),
+            StreamBuilder(
+              stream: UserAccountService.instance.watchCurrentAccount(),
+              builder: (context, snap) {
+                if (snap.data?.isAdmin != true) {
+                  return const SizedBox.shrink();
+                }
+                return Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: PopupMenuButton<String>(
+                    tooltip: context.t('حالة الدليل', 'Directory status'),
+                    onSelected: (s) async {
+                      final id = lab.id;
+                      if (id == null || id.isEmpty) return;
+                      final messenger = ScaffoldMessenger.of(context);
+                      try {
+                        await DirectoryTrustService.instance.setLabStatus(
+                          labId: id,
+                          status: s,
+                        );
+                        if (!mounted) return;
+                        setState(() {
+                          _lab = AcademicLab(
+                            id: lab.id,
+                            name: lab.name,
+                            location: lab.location,
+                            equipment: lab.equipment,
+                            tags: lab.tags,
+                            city: lab.city,
+                            university: lab.university,
+                            ratingAvg: lab.ratingAvg,
+                            ratingsCount: lab.ratingsCount,
+                            defaultWaitDays: lab.defaultWaitDays,
+                            equipmentList: lab.equipmentList,
+                            ownerId: _ownerId,
+                            approvalStatus: lab.approvalStatus,
+                            labType: lab.labType,
+                            category: lab.category,
+                            facultyId: lab.facultyId,
+                            facultyNameAr: lab.facultyNameAr,
+                            description: lab.description,
+                            acceptsExternalSamples: lab.acceptsExternalSamples,
+                            contactEmail: lab.contactEmail,
+                            contactPhone: lab.contactPhone,
+                            contactName: lab.contactName,
+                            contacts: lab.contacts,
+                            sampleServices: lab.sampleServices,
+                            importSource: lab.importSource,
+                            sourceUrl: lab.sourceUrl,
+                            nbsleLabId: lab.nbsleLabId,
+                            directoryStatus: s,
+                            lastVerifiedIso: DateTime.now()
+                                .toUtc()
+                                .toIso8601String()
+                                .split('T')
+                                .first,
+                            lastManagedIso: lab.lastManagedIso,
+                            equipmentCountHint: lab.equipmentCountHint,
+                            equipmentNameHints: lab.equipmentNameHints,
+                          );
+                        });
+                      } catch (e) {
+                        messenger.showSnackBar(
+                          SnackBar(content: Text('$e')),
+                        );
+                      }
+                    },
+                    itemBuilder: (_) => DirectoryTrustStatus.all
+                        .map(
+                          (s) => PopupMenuItem(
+                            value: s,
+                            child: Text(
+                              DirectoryTrustStatus.label(
+                                s,
+                                isAr: Localizations.localeOf(context)
+                                        .languageCode ==
+                                    'ar',
+                              ),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    child: Chip(
+                      avatar: const Icon(Icons.admin_panel_settings_outlined,
+                          size: 16),
+                      label: Text(
+                        context.t('تعيين حالة الدليل', 'Set directory status'),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 12),
             Material(
               color: Colors.orange.shade50,
               borderRadius: BorderRadius.circular(10),
@@ -420,8 +585,8 @@ class _SmartLabDetailScreenState extends State<SmartLabDetailScreen> {
                     const SizedBox(height: 4),
                     Text(
                       context.t(
-                        'الحجز وطلب التحليل يصلان لمديري المنصة حتى يطالب مدير المعمل المختبر.',
-                        'Bookings and sample requests go to platform admins until a lab manager claims this lab.',
+                        'أرسل إثبات التمثيل عبر «مطالبة هذا الملف». بعد المراجعة يصبح الملف «موثّق ومُدار» ويمكنك ترتيب البيانات.',
+                        'Submit representation proof via “Claim this profile”. After review it becomes Managed Verified and you can arrange the listing.',
                       ),
                       style: TextStyle(height: 1.35, color: Colors.orange[900]),
                     ),
@@ -433,23 +598,26 @@ class _SmartLabDetailScreenState extends State<SmartLabDetailScreen> {
                         final role = snap.data?.role ?? '';
                         final canClaim = role == UserRole.labManager ||
                             role == UserRole.admin;
-                        if (!canClaim) return const SizedBox.shrink();
+                        if (!canClaim) {
+                          return Text(
+                            context.t(
+                              'للمطالبة سجّل حساباً بدور «مسؤول مختبر»، ثم اضغط «مطالبة هذا الملف».',
+                              'To claim, register with the Lab manager role, then tap “Claim this profile”.',
+                            ),
+                            style: TextStyle(
+                              height: 1.35,
+                              color: Colors.brown[900],
+                              fontSize: 13,
+                            ),
+                          );
+                        }
                         return FilledButton.icon(
-                          onPressed: _isClaiming ? null : _claimLab,
-                          icon: _isClaiming
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : const Icon(Icons.handshake_outlined),
+                          onPressed: _openClaimProfile,
+                          icon: const Icon(Icons.badge_outlined),
                           label: Text(
                             context.t(
-                              'مطالبة هذا المختبر',
-                              'Claim this lab',
+                              'مطالبة هذا الملف',
+                              'Claim this profile',
                             ),
                           ),
                           style: FilledButton.styleFrom(
@@ -790,6 +958,11 @@ class _SmartLabDetailScreenState extends State<SmartLabDetailScreen> {
                     'Wait ${equipment.waitDays} days',
                   ),
                 ),
+                if (lab.isNbsleImport)
+                  _meta(
+                    Icons.school_outlined,
+                    context.t('تدريب قبل الحجز', 'Training before booking'),
+                  ),
               ],
             ),
             if (equipment.storeCategoryTitle.isNotEmpty) ...[
@@ -838,7 +1011,16 @@ class _SmartLabDetailScreenState extends State<SmartLabDetailScreen> {
                   foregroundColor: Colors.white,
                 ),
                 icon: const Icon(Icons.event_available),
-                label: Text(context.t('حجز فوري', 'Instant booking')),
+                label: Text(
+                  context.t(
+                    lab.isNbsleImport
+                        ? 'حجز بقاعدة تدريب'
+                        : 'حجز الجهاز',
+                    lab.isNbsleImport
+                        ? 'Book with training gate'
+                        : 'Book device',
+                  ),
+                ),
               ),
             ),
           ],

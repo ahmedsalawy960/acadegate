@@ -30,6 +30,8 @@ class ModerationStats {
   final int pendingProducts;
   final int pendingIdeas;
   final int pendingCommunityPosts;
+  final int pendingWritingServices;
+  final int pendingProviderApplications;
   final int totalUsers;
   final Map<String, int> usersByRole;
 
@@ -39,6 +41,8 @@ class ModerationStats {
     this.pendingProducts = 0,
     this.pendingIdeas = 0,
     this.pendingCommunityPosts = 0,
+    this.pendingWritingServices = 0,
+    this.pendingProviderApplications = 0,
     this.totalUsers = 0,
     this.usersByRole = const {},
   });
@@ -48,7 +52,9 @@ class ModerationStats {
       pendingLabs +
       pendingProducts +
       pendingIdeas +
-      pendingCommunityPosts;
+      pendingCommunityPosts +
+      pendingWritingServices +
+      pendingProviderApplications;
 }
 
 class ModerationService {
@@ -59,11 +65,13 @@ class ModerationService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   static const collections = [
+    'provider_applications',
     'supervisors',
     'labs',
     'product',
     'research_ideas',
     'community_posts',
+    'writing_services',
   ];
 
   Stream<List<PendingItem>> watchPendingItems() {
@@ -140,6 +148,11 @@ class ModerationService {
                 pending.where((i) => i.collection == 'research_ideas').length,
             pendingCommunityPosts:
                 pending.where((i) => i.collection == 'community_posts').length,
+            pendingWritingServices:
+                pending.where((i) => i.collection == 'writing_services').length,
+            pendingProviderApplications: pending
+                .where((i) => i.collection == 'provider_applications')
+                .length,
             totalUsers: users.length,
             usersByRole: roleCounts,
           ),
@@ -195,6 +208,11 @@ class ModerationService {
 
   String _titleFor(String collection, Map<String, dynamic> data) {
     return switch (collection) {
+      'provider_applications' =>
+        data['displayName']?.toString() ??
+            data['name']?.toString() ??
+            data['email']?.toString() ??
+            L10nLookup.item,
       'supervisors' =>
         data['name']?.toString() ?? L10nLookup.supervisor,
       'labs' => data['name']?.toString() ?? L10nLookup.lab,
@@ -203,12 +221,19 @@ class ModerationService {
         data['title']?.toString() ?? L10nLookup.researchIdea,
       'community_posts' =>
         data['title']?.toString() ?? L10nLookup.communityPost,
+      'writing_services' =>
+        data['title']?.toString() ??
+            data['displayName']?.toString() ??
+            data['name']?.toString() ??
+            L10nLookup.writingExperts,
       _ => L10nLookup.item,
     };
   }
 
   String _subtitleFor(String collection, Map<String, dynamic> data) {
     return switch (collection) {
+      'provider_applications' =>
+        '${data['role'] ?? ''} • ${data['email'] ?? ''}',
       'supervisors' =>
         '${data['university'] ?? ''} • ${data['speciality'] ?? ''}',
       'labs' => data['location']?.toString() ?? '',
@@ -219,6 +244,8 @@ class ModerationService {
       'research_ideas' => data['provider']?.toString() ?? '',
       'community_posts' =>
         '${data['roomId'] ?? ''} • ${data['type'] ?? ''}',
+      'writing_services' =>
+        '${data['specialty'] ?? data['category'] ?? ''} • ${data['ownerName'] ?? ''}',
       _ => '',
     };
   }
@@ -229,6 +256,14 @@ class ModerationService {
   List<MapEntry<String, String>> detailFields(PendingItem item) {
     final data = item.data;
     return switch (item.collection) {
+      'provider_applications' => [
+        MapEntry(L10nLookup.moderationDetailField('name'),
+            data['displayName']?.toString() ?? data['name']?.toString() ?? ''),
+        MapEntry('الدور / Role', data['role']?.toString() ?? ''),
+        MapEntry(L10nLookup.moderationDetailField('contact'),
+            data['email']?.toString() ?? ''),
+        MapEntry('UID', data['ownerId']?.toString() ?? item.id),
+      ],
       'supervisors' => [
         MapEntry(L10nLookup.moderationDetailField('name'),
             data['name']?.toString() ?? ''),
@@ -362,6 +397,19 @@ class ModerationService {
     }
 
     await _db.collection(collection).doc(id).update(updates);
+
+    if (collection == 'provider_applications') {
+      final snap = await _db.collection(collection).doc(id).get();
+      final ownerId = snap.data()?['ownerId']?.toString() ?? id;
+      await _db.collection('users').doc(ownerId).set(
+        {
+          'providerApprovalStatus': ApprovalStatus.approved,
+          'providerRejectionReason': FieldValue.delete(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+    }
   }
 
   Future<void> reject(String collection, String id, {String? reason}) async {
@@ -370,5 +418,18 @@ class ModerationService {
       'rejectionReason': reason ?? '',
       'reviewedAt': FieldValue.serverTimestamp(),
     });
+
+    if (collection == 'provider_applications') {
+      final snap = await _db.collection(collection).doc(id).get();
+      final ownerId = snap.data()?['ownerId']?.toString() ?? id;
+      await _db.collection('users').doc(ownerId).set(
+        {
+          'providerApprovalStatus': ApprovalStatus.rejected,
+          'providerRejectionReason': (reason ?? '').trim(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+    }
   }
 }

@@ -19,6 +19,7 @@ enum AcademicQueryGoal {
   researchQuestion,
   summarize,
   supervisor,
+  catalog,
   thesisWriting,
   literatureReview,
   citations,
@@ -46,6 +47,27 @@ class AcademicQueryParser {
   }
 
   static AcademicQueryGoal _detectGoal(String lower, String subject) {
+    if (_any(lower, [
+          'مختبر',
+          'معمل',
+          'جهاز',
+          'hplc',
+          'gc-ms',
+          'nmr',
+          'pcr',
+          'حجز',
+        ]) &&
+        (_any(lower, ['مشرف', 'supervisor']) ||
+            _any(lower, [
+              'مختبر',
+              'معمل',
+              'جهاز',
+              'hplc',
+              'حجز',
+            ]))) {
+      return AcademicQueryGoal.catalog;
+    }
+
     if (_any(lower, [
       'مشرف',
       'الأنسب',
@@ -116,7 +138,16 @@ class AcademicQueryParser {
       return AcademicQueryGoal.literatureReview;
     }
 
-    if (_any(lower, ['مرجع', 'مراجع', 'توثيق', 'apa', 'ieee', 'chicago'])) {
+    if (_any(lower, [
+      'مرجع',
+      'مراجع',
+      'توثيق',
+      'apa',
+      'ieee',
+      'chicago',
+      'doi',
+      'bibliography',
+    ])) {
       return AcademicQueryGoal.citations;
     }
 

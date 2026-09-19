@@ -1,13 +1,16 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/locale/locale_extensions.dart';
+import '../academic_integrity/bibliography_harvest.dart';
+import '../academic_integrity/citation_check_screen.dart';
 import 'citation_formatter.dart';
+import 'citation_style_picker.dart';
 import 'manuscript_body_editor.dart';
 import 'manuscript_citation_helper.dart';
 import 'manuscript_document_parser.dart';
+import 'manuscript_draft_chat_panel.dart';
 import 'manuscript_export_service.dart';
 import 'manuscript_format_screen.dart';
 import 'manuscript_preview.dart';
@@ -41,7 +44,10 @@ class _ManuscriptEditorScreenState extends State<ManuscriptEditorScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
+    _tabController.addListener(() {
+      if (mounted) setState(() {});
+    });
     _load();
   }
 
@@ -54,18 +60,34 @@ class _ManuscriptEditorScreenState extends State<ManuscriptEditorScreen>
   }
 
   Future<void> _load() async {
-    final m = await ManuscriptService.instance.getById(widget.manuscriptId);
-    if (!mounted) return;
-    if (m == null) {
+    try {
+      final m = await ManuscriptService.instance.getById(widget.manuscriptId);
+      if (!mounted) return;
+      if (m == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              context.t('المسودة غير موجودة', 'Draft not found'),
+            ),
+          ),
+        );
+        Navigator.pop(context);
+        return;
+      }
+      _titleCtrl.text = m.title;
+      _abstractCtrl.text = m.abstractText;
+      setState(() {
+        _manuscript = m;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$e'), backgroundColor: Colors.red),
+      );
       Navigator.pop(context);
-      return;
     }
-    _titleCtrl.text = m.title;
-    _abstractCtrl.text = m.abstractText;
-    setState(() {
-      _manuscript = m;
-      _loading = false;
-    });
   }
 
   PublishManuscript _buildDraft() {
@@ -155,6 +177,30 @@ class _ManuscriptEditorScreenState extends State<ManuscriptEditorScreen>
     await _save(quiet: true);
   }
 
+  void _openCitationHealth(PublishManuscript m) {
+    final bibliography = BibliographyHarvest.fromLines(
+      m.references.map((r) {
+        if (r.rawText.trim().length >= 12) return r.rawText;
+        final doi = r.doi.trim();
+        return [
+          if (r.importedNumber != null) '[${r.importedNumber}]',
+          r.title,
+          if (r.year.isNotEmpty) r.year,
+          if (doi.isNotEmpty) doi,
+        ].join(' ');
+      }),
+    );
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CitationCheckScreen(
+          initialBibliography: bibliography,
+          autoRun: bibliography.trim().length >= 24,
+        ),
+      ),
+    );
+  }
+
   Future<void> _uploadFullDocument() async {
     if (_uploading) return;
     setState(() => _uploading = true);
@@ -175,18 +221,28 @@ class _ManuscriptEditorScreenState extends State<ManuscriptEditorScreen>
       );
 
       setState(() => _manuscript = manuscript);
-      await ManuscriptService.instance.save(_buildDraft().copyWith(
-        attachments: manuscript.attachments,
-      ));
-
+      final parsed = await ManuscriptDocumentParser.parseFile(
+        bytes: result.bytes,
+        filename: result.name,
+        allowCloud: !result.name.toLowerCase().endsWith('.docx'),
+      );
+      final extracted = await ManuscriptDocumentParser.applyParseResult(
+        manuscript: manuscript,
+        parsed: parsed,
+        replaceReferences: true,
+        replaceBody: true,
+      );
+      await ManuscriptService.instance.save(extracted);
       if (mounted) {
+        setState(() => _manuscript = extracted);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(context.t(
-              'تم رفع الملف — اضغط «استخراج المراجع والنص من الملف»',
-              'File uploaded — tap "Extract references & text from file"',
+              'قُرئ «${result.name}» من الجهاز: ${extracted.references.length} مرجعاً في آخر الملف',
+              'Read "${result.name}" on this device: ${extracted.references.length} references from the file end',
             )),
-            duration: const Duration(seconds: 5),
+            duration: const Duration(seconds: 8),
+            action: _askDraftSnackAction(),
           ),
         );
       }
@@ -315,6 +371,7 @@ class _ManuscriptEditorScreenState extends State<ManuscriptEditorScreen>
       final parsed = await ManuscriptDocumentParser.parseFromUrl(
         url: attachment.url,
         filename: attachment.name,
+        manuscriptId: widget.manuscriptId,
       );
       final manuscript = await ManuscriptDocumentParser.applyParseResult(
         manuscript: _manuscript!,
@@ -337,19 +394,13 @@ class _ManuscriptEditorScreenState extends State<ManuscriptEditorScreen>
 
       if (!mounted) return;
 
-      final isWindows =
-          !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
-      if (isWindows) {
-        setState(() {
-          _manuscript = _manuscript!.copyWith(
-            references: draft.references,
-            bodyBlocks: draft.bodyBlocks,
-            title: draft.title,
-          );
-        });
-      } else {
-        await _load();
-      }
+      setState(() {
+        _manuscript = _manuscript!.copyWith(
+          references: draft.references,
+          bodyBlocks: draft.bodyBlocks,
+          title: draft.title,
+        );
+      });
 
       if (!mounted) return;
 
@@ -408,16 +459,17 @@ class _ManuscriptEditorScreenState extends State<ManuscriptEditorScreen>
             ' — Warning: equations were not extracted as math blocks',
           );
         }
-        if (isWindows && (images + tableCellImages) > 0) {
+        if ((images + tableCellImages) > 0) {
           msg += context.t(
-            ' — الصور محفوظة محلياً؛ صدّر Word الآن قبل إغلاق التطبيق',
-            ' — Images kept locally; export Word now before closing the app',
+            ' — الصور محفوظة في هذه الجلسة؛ صدّر Word قبل إغلاق التطبيق',
+            ' — Pictures are kept in this session; export Word before closing the app',
           );
         }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(msg),
             duration: Duration(seconds: tableCellImages == 0 ? 10 : 6),
+            action: _askDraftSnackAction(),
           ),
         );
       }
@@ -433,6 +485,13 @@ class _ManuscriptEditorScreenState extends State<ManuscriptEditorScreen>
       }
       if (mounted) setState(() => _uploading = false);
     }
+  }
+
+  SnackBarAction _askDraftSnackAction() {
+    return SnackBarAction(
+      label: context.t('اسأل المسودة', 'Ask draft'),
+      onPressed: () => _tabController.animateTo(2),
+    );
   }
 
   Future<void> _goToFormat() async {
@@ -513,12 +572,14 @@ class _ManuscriptEditorScreenState extends State<ManuscriptEditorScreen>
         foregroundColor: Colors.white,
         bottom: TabBar(
           controller: _tabController,
+          isScrollable: true,
           indicatorColor: Colors.white,
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white70,
           tabs: [
             Tab(text: context.t('تحرير', 'Edit')),
             Tab(text: context.t('معاينة', 'Preview')),
+            Tab(text: context.t('اسأل المسودة', 'Ask draft')),
           ],
         ),
         actions: [
@@ -555,9 +616,10 @@ class _ManuscriptEditorScreenState extends State<ManuscriptEditorScreen>
         children: [
           _editTab(context, m, isSubmitted),
           _previewTab(context, m),
+          ManuscriptDraftChatPanel(manuscript: m, brand: _brand),
         ],
       ),
-      bottomNavigationBar: isSubmitted
+      bottomNavigationBar: isSubmitted || _tabController.index == 2
           ? null
           : SafeArea(
               child: Padding(
@@ -613,35 +675,30 @@ class _ManuscriptEditorScreenState extends State<ManuscriptEditorScreen>
             border: const OutlineInputBorder(),
           ),
         ),
-        const SizedBox(height: 16),
-        Text(
-          context.t('نمط الاقتباس', 'Citation style'),
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 6),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: PublishCitationStyle.values.map((style) {
-            final selected = m.effectiveStyle == style;
-            return ChoiceChip(
-              label: Text(CitationFormatter.styleLabel(style)),
-              selected: selected,
-              onSelected: isSubmitted
-                  ? null
-                  : (_) => _onStyleChanged(style),
-            );
-          }).toList(),
-        ),
-        Padding(
-          padding: const EdgeInsets.only(top: 6),
-          child: Text(
-            context.t(
-              'يُنسَّق به الاقتباسات في النص وقائمة المراجع في النهاية',
-              'Formats in-text citations and the end bibliography',
+        if (m.bodyBlocks.isNotEmpty || m.abstractText.trim().isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Card(
+            color: _brand.withValues(alpha: 0.08),
+            child: ListTile(
+              leading: Icon(Icons.chat_outlined, color: _brand),
+              title: Text(context.t(
+                'اسأل هذه المسودة',
+                'Ask this draft',
+              )),
+              subtitle: Text(context.t(
+                'هل الملخص يطابق النتائج؟ أين جدول 3؟ — الإجابة من ملفك المرفوع.',
+                'Does the abstract match the results? Where is Table 3? — answers come from your uploaded file.',
+              )),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _tabController.animateTo(2),
             ),
-            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
           ),
+        ],
+        const SizedBox(height: 16),
+        CitationStylePicker(
+          value: m.effectiveStyle,
+          enabled: !isSubmitted,
+          onChanged: _onStyleChanged,
         ),
         if (m.attachments.isNotEmpty && m.references.isEmpty)
           Card(
@@ -665,11 +722,14 @@ class _ManuscriptEditorScreenState extends State<ManuscriptEditorScreen>
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
         const SizedBox(height: 8),
-        ManuscriptBodyEditor(
-          manuscript: m,
-          readOnly: isSubmitted,
-          onBlocksChanged: _onBlocksChanged,
-          onReferenceAdded: isSubmitted ? null : _onReferenceAdded,
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: ManuscriptBodyEditor(
+            manuscript: m,
+            readOnly: isSubmitted,
+            onBlocksChanged: _onBlocksChanged,
+            onReferenceAdded: isSubmitted ? null : _onReferenceAdded,
+          ),
         ),
         const SizedBox(height: 20),
         Row(
@@ -760,6 +820,14 @@ class _ManuscriptEditorScreenState extends State<ManuscriptEditorScreen>
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
             const Spacer(),
+            if (m.references.isNotEmpty)
+              TextButton.icon(
+                onPressed: () => _openCitationHealth(m),
+                icon: const Icon(Icons.health_and_safety_outlined),
+                label: Text(
+                  context.t('صحة الاستشهاد', 'Citation health'),
+                ),
+              ),
             if (!isSubmitted)
               TextButton.icon(
                 onPressed: _addReference,
@@ -797,7 +865,7 @@ class _ManuscriptEditorScreenState extends State<ManuscriptEditorScreen>
             final entryFormatted = CitationFormatter.buildBibliographyEntry(
               reference: ref,
               style: m.effectiveStyle,
-              index: i + 1,
+              index: ref.importedNumber ?? (i + 1),
             );
             return Card(
               child: Padding(
@@ -851,9 +919,11 @@ class _ManuscriptEditorScreenState extends State<ManuscriptEditorScreen>
   }
 
   Widget _previewTab(BuildContext context, PublishManuscript m) {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
         Text(
           m.title.trim().isEmpty ? context.t('بدون عنوان', 'Untitled') : m.title,
           style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
@@ -868,7 +938,7 @@ class _ManuscriptEditorScreenState extends State<ManuscriptEditorScreen>
         ],
         const Divider(height: 24),
         ManuscriptPreview(manuscript: m),
-        if (ManuscriptCitationHelper.bibliographyReferences(m, citedOnly: true)
+        if (ManuscriptCitationHelper.bibliographyReferences(m)
             .isNotEmpty) ...[
           const Divider(height: 24),
           Text(
@@ -878,8 +948,8 @@ class _ManuscriptEditorScreenState extends State<ManuscriptEditorScreen>
           const SizedBox(height: 4),
           Text(
             context.t(
-              'مولَّدة تلقائياً من الاقتباسات المدرجة في النص',
-              'Auto-generated from in-text citations',
+              'نفس ترتيب قائمة المراجع في الملف المستورد — الاقتباسات في النص تُطابق هذه القائمة',
+              'Same order as the imported bibliography — in-text cites map to this list',
             ),
             style: TextStyle(fontSize: 12, color: Colors.grey[600]),
           ),
@@ -887,7 +957,6 @@ class _ManuscriptEditorScreenState extends State<ManuscriptEditorScreen>
           ...CitationFormatter.buildBibliographyEntries(
             references: ManuscriptCitationHelper.bibliographyReferences(
               m,
-              citedOnly: true,
             ),
             style: m.effectiveStyle,
           ).map(
@@ -916,6 +985,7 @@ class _ManuscriptEditorScreenState extends State<ManuscriptEditorScreen>
           ),
         ],
       ],
+      ),
     );
   }
 }

@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 
-Future<void> shareDocxBytesPlatform({
+Future<bool> shareDocxBytesPlatform({
   required Uint8List bytes,
   required String name,
 }) {

@@ -84,6 +84,13 @@ class ThesisProgressTemplates {
         titleEn: 'Data collection / lab',
       ),
       _auto(
+        id: 'thesis_studio',
+        activity: ThesisActivityId.thesisStudio,
+        titleAr: 'استوديو الرسالة',
+        titleEn: 'Thesis Studio',
+        kind: ThesisItemKind.chapter,
+      ),
+      _auto(
         id: 'ch1',
         activity: ThesisActivityId.chapterWriting,
         titleAr: 'كتابة الفصول',

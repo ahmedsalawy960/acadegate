@@ -55,17 +55,25 @@ class LabClaimService {
       final ownerId = data['ownerId']?.toString() ?? '';
       if (ownerId.isNotEmpty) {
         if (ownerId == user.uid) return;
-        throw Exception(
-          appTr(
-            'هذا المختبر مربوط بمالك بالفعل',
-            'This lab is already claimed',
-          ),
-        );
+        final ownerSnap =
+            await tx.get(_db.collection('users').doc(ownerId));
+        if (ownerSnap.exists) {
+          throw Exception(
+            appTr(
+              'هذا المختبر مربوط بمالك بالفعل',
+              'This lab is already claimed',
+            ),
+          );
+        }
       }
       tx.update(ref, {
         'ownerId': user.uid,
         'claimedByName': claimerName,
         'claimedAt': FieldValue.serverTimestamp(),
+        'directoryStatus': 'claimed',
+        'lastReviewedAt': FieldValue.serverTimestamp(),
+        'lastVerifiedIso':
+            DateTime.now().toUtc().toIso8601String().split('T').first,
       });
     });
 

@@ -7,6 +7,9 @@ import '../auth/auth_guard.dart';
 import '../messaging/chat_screen.dart';
 import '../messaging/conversations_screen.dart';
 import '../messaging/messaging_service.dart';
+import '../research_fund/industry_challenge_detail_screen.dart';
+import '../research_fund/industry_challenge_models.dart';
+import '../research_fund/industry_challenges_screen.dart';
 import '../research_fund/my_funded_ideas_screen.dart';
 import '../research_marketplace/research_idea_marketplace_detail_screen.dart';
 import '../research_marketplace/research_marketplace_service.dart';
@@ -30,6 +33,13 @@ class NotificationsScreen extends StatelessWidget {
         n.type == 'message' || n.contextType == 'conversation';
     if (isMessage) {
       await _openMessageConversation(context, n.contextId);
+      return;
+    }
+
+    final isChallenge = n.contextType == 'industry_challenge' ||
+        n.type.startsWith('industry_challenge');
+    if (isChallenge) {
+      await _openIndustryChallenge(context, n.contextId);
       return;
     }
 
@@ -59,6 +69,45 @@ class NotificationsScreen extends StatelessWidget {
         context,
         MaterialPageRoute(
           builder: (_) => ResearchIdeaMarketplaceDetailScreen(idea: idea),
+        ),
+      );
+    } catch (_) {
+      if (!context.mounted) return;
+      Navigator.pop(context);
+    }
+  }
+
+  Future<void> _openIndustryChallenge(
+    BuildContext context,
+    String challengeId,
+  ) async {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final challenge =
+          await IndustryChallengeService.instance.getChallengeById(challengeId);
+      if (!context.mounted) return;
+      Navigator.pop(context);
+      if (challenge == null) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const IndustryChallengesScreen(),
+          ),
+        );
+        return;
+      }
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => IndustryChallengeDetailScreen(
+            challengeId: challengeId,
+            initial: challenge,
+          ),
         ),
       );
     } catch (_) {

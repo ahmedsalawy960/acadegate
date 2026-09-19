@@ -1,2 +1,4 @@
+# Allow link previews (WhatsApp, Telegram, Facebook).
+# Search indexing is still discouraged via X-Robots-Tag / meta noindex.
 User-agent: *
-Disallow: /
+Allow: /

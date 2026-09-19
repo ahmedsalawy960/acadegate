@@ -1,4 +1,6 @@
 import '../../core/locale/app_translate.dart';
+import '../acadegate_publish/manuscript_draft_chat_service.dart';
+import '../acadegate_publish/publish_services.dart';
 import '../profile/academic_profile_service.dart';
 import 'advisor_agent.dart';
 import 'advisor_agent_registry.dart';
@@ -6,7 +8,11 @@ import 'advisor_attachment.dart';
 import 'advisor_branding.dart';
 import 'advisor_message.dart';
 import 'advisor_router.dart';
+import 'catalog_hit.dart';
+import 'catalog_search_service.dart';
 import 'gemini_advisor_client.dart';
+import 'grounded_reference_service.dart';
+import 'grounded_work.dart';
 import 'local_advisor_engine.dart';
 
 class AdvisorOrchestratorResult {
@@ -14,12 +20,16 @@ class AdvisorOrchestratorResult {
   final List<String> agentLabels;
   final bool usedCloudAi;
   final String? cloudError;
+  final CatalogSearchSnapshot catalog;
 
   const AdvisorOrchestratorResult({
     required this.content,
     required this.agentLabels,
     this.usedCloudAi = false,
     this.cloudError,
+    this.catalog = const CatalogSearchSnapshot(
+      intent: CatalogIntentSummary.empty,
+    ),
   });
 }
 
@@ -46,6 +56,60 @@ class AdvisorOrchestrator {
         .map((id) => AdvisorAgentRegistry.instance.byId(id).displayShortLabel)
         .toList();
 
+    final catalog = plan.primary == AdvisorAgentId.catalogExecute
+        ? await CatalogSearchService.instance.search(routeText)
+        : const CatalogSearchSnapshot(intent: CatalogIntentSummary.empty);
+
+    if (plan.primary == AdvisorAgentId.catalogExecute) {
+      return AdvisorOrchestratorResult(
+        content: CatalogSearchService.instance.localReply(catalog),
+        agentLabels: labels,
+        catalog: catalog,
+      );
+    }
+
+    if (attachments.isEmpty &&
+        ManuscriptDraftChatService.looksLikeDraftQuestion(routeText)) {
+      final draft = await ManuscriptService.instance.latestWithContent();
+      if (draft != null) {
+        final reply = await ManuscriptDraftChatService.instance.ask(
+          manuscript: draft,
+          question: routeText,
+        );
+        return AdvisorOrchestratorResult(
+          content: reply.text,
+          agentLabels: [
+            appTr('اسأل المسودة', 'Ask draft'),
+            ...labels,
+          ],
+        );
+      }
+      return AdvisorOrchestratorResult(
+        content: appTr(
+          'هذا السؤال عن مسودتك. ارفع PDF أو Word من **نشر → المسودة** ثم اسأل '
+          '«هل الملخص يطابق النتائج؟» أو «أين جدول 3؟» — الإجابة تكون من ملفك أنت.',
+          'That question is about your draft. Upload a PDF or Word file from **Publish → Draft**, then ask '
+          '"Does the abstract match the results?" or "Where is Table 3?" — answers come from your file.',
+        ),
+        agentLabels: [appTr('اسأل المسودة', 'Ask draft')],
+      );
+    }
+
+    if (plan.primary == AdvisorAgentId.citations) {
+      final grounded = GroundedReferenceService.instance;
+      if (GroundedReferenceService.looksLikeBibliographyPaste(routeText)) {
+        return AdvisorOrchestratorResult(
+          content: await grounded.verifyPastedBibliography(routeText),
+          agentLabels: labels,
+        );
+      }
+      final refs = await grounded.searchTopic(routeText);
+      return AdvisorOrchestratorResult(
+        content: grounded.replyForCitations(refs, message: routeText),
+        agentLabels: labels,
+      );
+    }
+
     if (attachments.isNotEmpty && !GeminiAdvisorClient.canAnalyzeAttachments) {
       final content = GeminiAdvisorClient.needsSignInForCloudAi
           ? appTr(
@@ -67,15 +131,32 @@ class AdvisorOrchestrator {
     }
 
     if (GeminiAdvisorClient.isAvailable) {
+      GroundedReferenceBundle? literatureRefs;
+      final wantsGroundedRefs =
+          plan.allAgents.contains(AdvisorAgentId.literatureReview) ||
+              plan.allAgents.contains(AdvisorAgentId.citations);
+      if (wantsGroundedRefs) {
+        literatureRefs =
+            await GroundedReferenceService.instance.searchTopic(message);
+      }
       final cloud = await _askCloud(
         message: message,
         plan: plan,
         history: history,
         attachments: attachments,
+        literatureRefs: literatureRefs,
       );
       if (cloud.isSuccess) {
+        var content = await GroundedReferenceService.instance.enforceVerifiedDois(
+          cloud.text!,
+          known: literatureRefs,
+        );
+        if (literatureRefs != null) {
+          content =
+              '$content\n\n${GroundedReferenceService.instance.bibliographySection(literatureRefs)}';
+        }
         return AdvisorOrchestratorResult(
-          content: cloud.text!,
+          content: content,
           agentLabels: labels,
           usedCloudAi: true,
         );
@@ -141,6 +222,7 @@ class AdvisorOrchestrator {
     required AdvisorRoutePlan plan,
     required List<AdvisorMessage> history,
     required List<GeminiInlinePart> attachments,
+    GroundedReferenceBundle? literatureRefs,
   }) async {
     final profile = await AcademicProfileService.instance.loadProfile();
     final profileSummary = profile == null
@@ -159,6 +241,12 @@ class AdvisorOrchestrator {
 
     if (plan.primary == AdvisorAgentId.supervisorMatch) {
       extraContext = await LocalAdvisorEngine.instance.supervisorHint(message);
+    }
+    if (literatureRefs != null) {
+      extraContext = [
+        extraContext,
+        GroundedReferenceService.instance.promptBlock(literatureRefs),
+      ].where((s) => s.trim().isNotEmpty).join('\n\n');
     }
 
     final systemPrompt = AdvisorAgentRegistry.instance.cloudSystemPrompt(

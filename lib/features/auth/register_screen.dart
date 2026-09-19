@@ -4,17 +4,19 @@ import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 import '../../core/locale/l10n_lookup.dart';
 import '../../core/locale/locale_extensions.dart';
 import '../academic/faculty_categories.dart';
+import '../academic/academic_degrees.dart';
 import '../profile/academic_profile.dart';
 import '../profile/academic_profile_service.dart';
 import '../research_journey/thesis_progress.dart';
 import '../research_journey/thesis_progress_activity.dart';
 import 'email_auth_gate.dart';
-import 'email_verification_screen.dart';
 import 'portal_service.dart';
 import 'portal_type.dart';
 import 'user_account_service.dart';
 import 'user_role.dart';
 import 'language_switcher_button.dart';
+import '../legal/privacy_policy_screen.dart';
+import '../legal/terms_of_service_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -37,6 +39,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String? _facultyCategory;
   bool _isLoading = false;
   bool _obscurePassword = true;
+  bool _acceptedLegal = false;
 
   bool get _needsAcademicProfile =>
       _selectedRole == UserRole.student ||
@@ -85,6 +88,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Future<void> _handleRegister() async {
     if (!_formKey.currentState!.validate()) return;
+    if (!_acceptedLegal) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            context.t(
+              'يجب الموافقة على شروط الاستخدام وسياسة الخصوصية',
+              'You must accept the Terms of Service and Privacy Policy',
+            ),
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
 
     setState(() => _isLoading = true);
 
@@ -129,21 +146,35 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
 
       if (!mounted) return;
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(
-          builder: (_) => EmailVerificationScreen(
-            initialSendFailed: sendFailed,
-            initialSendErrorCode: sendErrorCode,
+      if (sendFailed) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              sendErrorCode ??
+                  context.t(
+                    'تعذّر إرسال رابط التأكيد. يمكنك إعادة الإرسال من الشاشة التالية.',
+                    'Could not send the verification link. You can resend from the next screen.',
+                  ),
+            ),
+            behavior: SnackBarBehavior.floating,
           ),
-        ),
-        (route) => false,
-      );
+        );
+      }
+      // Keep `_AppRoot` as navigator root; StreamBuilder shows verification.
+      Navigator.of(context).popUntil((route) => route.isFirst);
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
       final l10n = context.l10n;
       String message = l10n.authErrorRegisterFailed;
       if (e.code == 'email-already-in-use') {
-        message = l10n.authErrorEmailInUse;
+        message = context.t(
+          'هذا البريد ما زال مسجّلاً في Firebase Authentication '
+          '(مثلاً عبر Google أو حذف غير مكتمل). '
+          'استخدم «تسجيل الدخول» بنفس الطريقة السابقة، أو احذف المستخدم من Authentication ثم أنشئ الحساب من جديد.',
+          'This email is still registered in Firebase Authentication '
+          '(e.g. Google sign-in or incomplete delete). '
+          'Use Login with the same method, or delete the user from Authentication then register again.',
+        );
       } else if (e.code == 'weak-password') {
         message = l10n.authErrorWeakPassword;
       } else if (e.code == 'invalid-email') {
@@ -296,7 +327,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  initialValue: _degree,
+                  initialValue: academicDegreeOptions
+                          .any((d) => d.value == _degree)
+                      ? _degree
+                      : academicDegreeOptions.first.value,
                   decoration: InputDecoration(
                     labelText: context.t('الدرجة العلمية', 'Degree'),
                     border: OutlineInputBorder(
@@ -304,14 +338,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ),
                   items: [
-                    DropdownMenuItem(
-                      value: 'ماجستير',
-                      child: Text(context.t('ماجستير', "Master's")),
-                    ),
-                    DropdownMenuItem(
-                      value: 'دكتوراه',
-                      child: Text(context.t('دكتوراه', 'PhD')),
-                    ),
+                    for (final option in academicDegreeOptions)
+                      DropdownMenuItem(
+                        value: option.value,
+                        child: Text(
+                          context.t(option.labelAr, option.labelEn),
+                        ),
+                      ),
                   ],
                   onChanged: (value) {
                     if (value != null) setState(() => _degree = value);
@@ -330,7 +363,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     for (final faculty in facultyCategories)
                       DropdownMenuItem(
                         value: faculty.id,
-                        child: Text(faculty.titleAr),
+                        child: Text(L10nLookup.facultyTitleStatic(faculty.id)),
                       ),
                   ],
                   onChanged: (value) {
@@ -374,7 +407,59 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       : null,
                 ),
               ],
-              const SizedBox(height: 28),
+              const SizedBox(height: 20),
+              CheckboxListTile(
+                value: _acceptedLegal,
+                onChanged: (v) => setState(() => _acceptedLegal = v == true),
+                controlAffinity: ListTileControlAffinity.leading,
+                contentPadding: EdgeInsets.zero,
+                title: Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      context.t('أوافق على ', 'I agree to the '),
+                      style: const TextStyle(fontSize: 13.5, height: 1.4),
+                    ),
+                    InkWell(
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const TermsOfServiceScreen(),
+                        ),
+                      ),
+                      child: Text(
+                        context.t('شروط الاستخدام', 'Terms of Service'),
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          color: Color(0xFF1A237E),
+                          fontWeight: FontWeight.w700,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      context.t(' و', ' and '),
+                      style: const TextStyle(fontSize: 13.5),
+                    ),
+                    InkWell(
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const PrivacyPolicyScreen(),
+                        ),
+                      ),
+                      child: Text(
+                        context.t('سياسة الخصوصية', 'Privacy Policy'),
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          color: Color(0xFF1A237E),
+                          fontWeight: FontWeight.w700,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
                 height: 52,

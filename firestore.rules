@@ -103,6 +103,10 @@ service cloud.firestore {
         'smart_match',
         'fund_award',
         'proposal',
+        'privacy_request',
+        'catalog_report',
+        'supplier_claim',
+        'profile_claim',
       ];
     }
 
@@ -119,9 +123,10 @@ service cloud.firestore {
           && request.resource.data.body.size() <= 500;
     }
 
-    // ─── إعدادات التطبيق (Console / Admin SDK فقط) ───────
+    // ─── إعدادات التطبيق (الكتابة من Console / Admin SDK فقط) ─
     match /config/{docId} {
-      allow read: if isAdmin();
+      // قراءة للمستخدمين المسجّلين (للتحقق من allowBootstrap أثناء التطوير).
+      allow read: if isSignedIn();
       allow write: if false;
     }
 
@@ -129,6 +134,12 @@ service cloud.firestore {
     match /app_meta/{docId} {
       allow read: if isAdmin();
       allow write: if isAdmin();
+    }
+
+    // ─── خام مزامنة الأفكار البحثية (Admin SDK فقط للكتابة) ─
+    match /idea_ingest_raw/{docId} {
+      allow read: if isAdmin();
+      allow write: if false;
     }
 
     // ─── أسرار الغرف البحثية (كلمة المرور — لا قراءة من العميل) ─
@@ -143,11 +154,158 @@ service cloud.firestore {
                   || isAdmin()
                   || (isSignedIn() && resource.data.role == 'admin');
       allow create: if isOwner(userId)
-                    && request.resource.data.role != 'admin';
+                    && request.resource.data.role != 'admin'
+                    && request.resource.data.get('subscription', 'free') == 'free'
+                    && !('quotaGeminiDaily' in request.resource.data)
+                    && !('quotaScholarDaily' in request.resource.data)
+                    && (!('providerApprovalStatus' in request.resource.data)
+                        || request.resource.data.providerApprovalStatus == 'pending');
       allow update: if isAdmin()
                     || (isOwner(userId)
-                        && request.resource.data.role == resource.data.role);
-      allow delete: if false;
+                        && request.resource.data.role == resource.data.role
+                        && request.resource.data.get('subscription', 'free')
+                            == resource.data.get('subscription', 'free')
+                        && request.resource.data.get('subscriptionExpiresAt', null)
+                            == resource.data.get('subscriptionExpiresAt', null)
+                        && request.resource.data.get('quotaGeminiDaily', null)
+                            == resource.data.get('quotaGeminiDaily', null)
+                        && request.resource.data.get('quotaScholarDaily', null)
+                            == resource.data.get('quotaScholarDaily', null)
+                        && (
+                          // Cannot self-approve; may re-apply to pending after reject.
+                          !('providerApprovalStatus' in request.resource.data
+                              .diff(resource.data).affectedKeys())
+                          || (request.resource.data.providerApprovalStatus == 'pending'
+                              && resource.data.get('providerApprovalStatus', 'pending')
+                                  in ['pending', 'rejected'])
+                        ))
+                    // المستخدم يفعّل دور مقدم خدمة (تاجر/مختبر/…) دون ترقية إلى admin
+                    || (isOwner(userId)
+                        && resource.data.role != 'admin'
+                        && request.resource.data.role in [
+                          'student', 'supervisor', 'merchant',
+                          'lab_manager', 'idea_publisher', 'writer'
+                        ]
+                        && request.resource.data.get('subscription', 'free')
+                            == resource.data.get('subscription', 'free')
+                        && request.resource.data.get('subscriptionExpiresAt', null)
+                            == resource.data.get('subscriptionExpiresAt', null)
+                        && request.resource.data.get('quotaGeminiDaily', null)
+                            == resource.data.get('quotaGeminiDaily', null)
+                        && request.resource.data.get('quotaScholarDaily', null)
+                            == resource.data.get('quotaScholarDaily', null)
+                        && request.resource.data.diff(resource.data)
+                            .affectedKeys().hasOnly(['role', 'activePortal']))
+                    // تطوير فقط: ترقية ذاتية عند allowBootstrap.
+                    // الإنتاج: أبقِ config/app.allowBootstrap = false وعيّن admin من Console.
+                    || (isOwner(userId)
+                        && resource.data.role != 'admin'
+                        && request.resource.data.role == 'admin'
+                        && request.resource.data.get('subscription', 'free')
+                            == resource.data.get('subscription', 'free')
+                        && request.resource.data.get('subscriptionExpiresAt', null)
+                            == resource.data.get('subscriptionExpiresAt', null)
+                        && request.resource.data.get('quotaGeminiDaily', null)
+                            == resource.data.get('quotaGeminiDaily', null)
+                        && request.resource.data.get('quotaScholarDaily', null)
+                            == resource.data.get('quotaScholarDaily', null)
+                        && exists(/databases/$(database)/documents/config/app)
+                        && get(/databases/$(database)/documents/config/app).data.allowBootstrap == true);
+      allow delete: if isAdmin();
+
+      match /device_trainings/{trainingId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    // ─── مؤشرات أداء أسبوعية ─────────────────────────────
+    match /kpi_events/{eventId} {
+      allow read: if isAdmin();
+      allow create: if isSignedIn()
+                    && request.resource.data.keys().hasAll(['type', 'weekId', 'createdAt'])
+                    && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    match /kpi_weekly/{weekId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // ─── سجل مشاكل وأخطاء المستخدمين/مقدمي الخدمة ───────
+    match /bug_reports/{docId} {
+      allow read: if isAdmin()
+                  || (isSignedIn() && resource.data.uid == request.auth.uid);
+      allow create: if
+        // Signed-in user/provider/auto while logged in
+        (isSignedIn()
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.keys().hasAll([
+            'source', 'status', 'severity', 'category', 'message', 'createdAt'
+          ])
+          && request.resource.data.status == 'open'
+          && request.resource.data.message is string
+          && request.resource.data.message.size() > 0
+          && request.resource.data.message.size() <= 4000)
+        // Auto crash before login
+        || (!isSignedIn()
+          && request.resource.data.uid == ''
+          && request.resource.data.source in ['auto_flutter', 'auto_platform']
+          && request.resource.data.status == 'open'
+          && request.resource.data.message is string
+          && request.resource.data.message.size() > 0
+          && request.resource.data.message.size() <= 4000);
+      allow update, delete: if isAdmin();
+    }
+
+    // ─── سجل نشاط الدخول والحركات (للإدارة) ───────────────
+    match /admin_activity/{eventId} {
+      allow read: if isAdmin();
+      allow create: if isSignedIn()
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.keys().hasAll([
+                      'type', 'titleAr', 'titleEn', 'uid', 'createdAt'
+                    ]);
+      // Logout may be written after sign-out with previous uid in payload —
+      // also allow create when uid matches auth OR when type is logout and
+      // caller was that uid (auth already null). For logout we write BEFORE
+      // signOut so uid still matches.
+      allow update, delete: if isAdmin();
+    }
+
+    // ─── طلبات تسجيل مقدمي الخدمة (تاجر/مختبر/…) ────────
+    match /provider_applications/{appId} {
+      allow read: if isAdmin()
+                  || (isSignedIn() && request.auth.uid == appId);
+      allow create: if isSignedIn()
+                    && request.auth.uid == appId
+                    && request.resource.data.ownerId == request.auth.uid
+                    && request.resource.data.approvalStatus == 'pending'
+                    && request.resource.data.role in [
+                      'merchant', 'lab_manager', 'supervisor',
+                      'writer', 'idea_publisher'
+                    ];
+      allow update: if isAdmin()
+                    || (isSignedIn()
+                        && request.auth.uid == appId
+                        && request.resource.data.ownerId == request.auth.uid
+                        && request.resource.data.approvalStatus == 'pending'
+                        && request.resource.data.role in [
+                          'merchant', 'lab_manager', 'supervisor',
+                          'writer', 'idea_publisher'
+                        ]);
+      allow delete: if isAdmin();
+    }
+
+    // ─── حصة الاستخدام اليومية (تكتبها Cloud Functions فقط) ──
+    match /usage/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow write: if false;
+
+      match /daily/{day} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow write: if false;
+      }
     }
 
     // ─── ملف الطالب الأكاديمي ─────────────────────────────
@@ -157,6 +315,11 @@ service cloud.firestore {
 
     // ─── تقدم الرسالة (فصول، موافقات، مواعيد) ─────────────
     match /thesis_progress/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // ─── مسودة استوديو الرسالة (Thesis Studio) ─────────────
+    match /thesis_studio_drafts/{userId} {
       allow read, write: if isOwner(userId);
     }
 
@@ -191,6 +354,103 @@ service cloud.firestore {
     match /research_fund/{docId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
+    }
+
+    // ─── صندوق Fund — تحديات صناعة بعربون ────────────────
+    function industryChallengeOwner() {
+      return isSignedIn() && resource.data.companyId == request.auth.uid;
+    }
+
+    function industryChallengeHoldDeposit() {
+      return industryChallengeOwner()
+             && resource.data.paymentStatus == 'pending_payment'
+             && resource.data.status == 'open'
+             && request.resource.data.paymentStatus == 'paid_held'
+             && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['paymentStatus', 'depositHeldAt']);
+    }
+
+    function industryChallengeAward() {
+      return industryChallengeOwner()
+             && resource.data.paymentStatus == 'paid_held'
+             && resource.data.status == 'open'
+             && request.resource.data.status == 'awarded'
+             && request.resource.data.paymentStatus == 'paid_held'
+             && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['status', 'awardedProtocolId', 'awardedResearcherId', 'awardedAt']);
+    }
+
+    function industryChallengeRelease() {
+      return industryChallengeOwner()
+             && resource.data.paymentStatus == 'paid_held'
+             && resource.data.status == 'awarded'
+             && request.resource.data.paymentStatus == 'released'
+             && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['paymentStatus', 'releasedAt']);
+    }
+
+    function industryChallengeRefund() {
+      return industryChallengeOwner()
+             && resource.data.paymentStatus == 'paid_held'
+             && request.resource.data.paymentStatus == 'refunded'
+             && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['paymentStatus', 'refundedAt', 'status']);
+    }
+
+    function industryChallengeProtocolBump() {
+      return isSignedIn()
+             && resource.data.status == 'open'
+             && resource.data.paymentStatus == 'paid_held'
+             && isCounterBump('protocolsCount');
+    }
+
+    match /industry_challenges/{challengeId} {
+      allow read: if isSignedIn();
+      allow create: if (isMerchant() || isAdmin())
+                    && request.resource.data.companyId == request.auth.uid
+                    && request.resource.data.status == 'open'
+                    && request.resource.data.paymentStatus == 'pending_payment'
+                    && request.resource.data.title is string
+                    && request.resource.data.budgetAmount is number
+                    && request.resource.data.budgetAmount > 0;
+      allow update: if isAdmin()
+                    || industryChallengeHoldDeposit()
+                    || industryChallengeAward()
+                    || industryChallengeRelease()
+                    || industryChallengeRefund()
+                    || industryChallengeProtocolBump();
+      allow delete: if isAdmin()
+                    || (industryChallengeOwner()
+                        && resource.data.paymentStatus == 'pending_payment'
+                        && resource.data.protocolsCount == 0);
+    }
+
+    match /industry_challenge_protocols/{protocolId} {
+      allow read: if isSignedIn() && (
+        isAdmin()
+        || resource.data.researcherId == request.auth.uid
+        || get(/databases/$(database)/documents/industry_challenges/$(resource.data.challengeId)).data.companyId
+           == request.auth.uid
+      );
+      allow create: if isSignedIn()
+                    && request.resource.data.researcherId == request.auth.uid
+                    && request.resource.data.status == 'submitted'
+                    && request.resource.data.challengeId is string
+                    && get(/databases/$(database)/documents/industry_challenges/$(request.resource.data.challengeId)).data.status
+                       == 'open'
+                    && get(/databases/$(database)/documents/industry_challenges/$(request.resource.data.challengeId)).data.paymentStatus
+                       == 'paid_held'
+                    && get(/databases/$(database)/documents/industry_challenges/$(request.resource.data.challengeId)).data.companyId
+                       != request.auth.uid;
+      allow update: if isAdmin()
+                    || (isSignedIn()
+                        && get(/databases/$(database)/documents/industry_challenges/$(resource.data.challengeId)).data.companyId
+                           == request.auth.uid
+                        && resource.data.status == 'submitted'
+                        && request.resource.data.status == 'accepted'
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                            .hasOnly(['status', 'acceptedAt']));
+      allow delete: if isAdmin();
     }
 
     // ─── صندوق Fund — تمويلات ────────────────────────────
@@ -245,20 +505,164 @@ service cloud.firestore {
       allow create: if isAdmin()
                     || (isMerchant()
                         && request.resource.data.createdBy == request.auth.uid
-                        && isPendingCreate());
+                        && request.resource.data.approvalStatus in ['pending', 'approved']);
+      // المالك يحدّث كتالوجه ودليله حتى بعد الاعتماد (البيتا تعتمد المنتجات فوراً).
+      // لا يغيّر approvalStatus ولا createdBy.
       allow update: if isAdmin()
                     || (isSignedIn()
                         && resource.data.createdBy == request.auth.uid
-                        && approvalUnchanged()
-                        && resource.data.approvalStatus in ['pending', 'rejected']);
+                        && request.resource.data.createdBy == resource.data.createdBy
+                        && approvalUnchanged());
       allow delete: if isAdmin()
                     || (isSignedIn() && resource.data.createdBy == request.auth.uid);
+    }
+
+    // ─── مطالبات الملفات (Claim Profile) ───────────────────
+    match /profile_claims/{claimId} {
+      allow read: if isSignedIn()
+                  && (resource.data.claimantUid == request.auth.uid || isAdmin());
+      allow create: if isSignedIn()
+                    && request.resource.data.claimantUid == request.auth.uid
+                    && request.resource.data.targetType in ['supplier', 'lab', 'supervisor']
+                    && request.resource.data.targetId is string
+                    && request.resource.data.targetId.size() > 0
+                    && request.resource.data.targetId.size() <= 120
+                    && request.resource.data.status == 'pending_review'
+                    && request.resource.data.evidence is map
+                    && request.resource.data.evidence.legalName is string
+                    && request.resource.data.evidence.legalName.size() >= 3
+                    && request.resource.data.evidence.legalName.size() <= 200
+                    && request.resource.data.evidence.officialEmail is string
+                    && request.resource.data.evidence.officialEmail.size() >= 5
+                    && request.resource.data.evidence.officialEmail.size() <= 200
+                    && request.resource.data.evidence.jobTitle is string
+                    && request.resource.data.evidence.jobTitle.size() >= 2
+                    && request.resource.data.evidence.jobTitle.size() <= 120
+                    && request.resource.data.evidence.proofUrl is string
+                    && request.resource.data.evidence.proofUrl.size() >= 12
+                    && request.resource.data.evidence.proofUrl.size() <= 2000;
+      allow update, delete: if isAdmin();
+    }
+
+    function isManagedSupplierOwner() {
+      return isSignedIn()
+          && resource.data.claimedByUid == request.auth.uid
+          && resource.data.directoryStatus in ['managed_verified', 'claimed']
+          && request.resource.data.claimedByUid == resource.data.claimedByUid
+          && request.resource.data.directoryStatus == resource.data.directoryStatus
+          && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly([
+                'nameAr', 'nameEn', 'name', 'email', 'phone', 'whatsapp',
+                'city', 'address', 'website', 'about', 'description',
+                'focusAreas', 'lastManagedAt', 'lastManagedIso', 'updatedAt',
+                'contact',
+              ]);
+    }
+
+    function isManagedLabOwner() {
+      return isSignedIn()
+          && resource.data.ownerId == request.auth.uid
+          && resource.data.directoryStatus in ['managed_verified', 'claimed']
+          && request.resource.data.ownerId == resource.data.ownerId
+          && request.resource.data.directoryStatus == resource.data.directoryStatus
+          && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly([
+                'name', 'description', 'location', 'city', 'contactEmail',
+                'contactPhone', 'contactName', 'contacts', 'servicesNote',
+                'sampleServices', 'equipmentList', 'equipment', 'tags',
+                'lastManagedAt', 'lastManagedIso', 'updatedAt', 'sourceUrl',
+              ]);
+    }
+
+    function isLabClaimByManager() {
+      return isSignedIn()
+          && (userDoc().data.role == 'lab_manager' || isAdmin())
+          && (!('ownerId' in resource.data) || resource.data.ownerId == '')
+          && request.resource.data.ownerId == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly([
+                'ownerId', 'claimedAt', 'claimedByName',
+                'directoryStatus', 'lastReviewedAt', 'lastVerifiedIso',
+              ])
+          && request.resource.data.directoryStatus == 'claimed';
+    }
+
+    function isSupplierClaimByMerchant() {
+      return isSignedIn()
+          && (userDoc().data.role == 'merchant' || isAdmin())
+          && (!('claimedByUid' in resource.data)
+              || resource.data.claimedByUid == ''
+              || resource.data.claimedByUid == request.auth.uid)
+          && request.resource.data.claimedByUid == request.auth.uid
+          && request.resource.data.directoryStatus == 'claimed'
+          && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly([
+                'directoryStatus', 'claimedByUid', 'claimedByName', 'claimedAt',
+                'lastReviewedAt', 'lastVerifiedIso', 'isPartner',
+                'isVerifiedSeller', 'updatedAt',
+              ]);
     }
 
     // ─── دليل موردي المتجر الأكاديمي ───────────────────────
     match /store_suppliers/{docId} {
       allow read: if true;
-      allow create, update, delete: if isAdmin();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin()
+                    || isSupplierClaimByMerchant()
+                    || isManagedSupplierOwner();
+    }
+
+    // ─── أسرار تشفير الأصول المعرفية (بائع فقط) ───────────
+    match /knowledge_asset_secrets/{productId} {
+      allow create: if isSignedIn()
+                    && request.resource.data.sellerId == request.auth.uid;
+      allow read, update, delete: if isSignedIn()
+                                  && resource.data.sellerId == request.auth.uid;
+    }
+
+    // ─── تراخيص الأصول المعرفية (إنشاء عبر Cloud Functions) ─
+    match /product_licenses/{licenseId} {
+      allow read: if isSignedIn()
+                  && (resource.data.buyerId == request.auth.uid
+                      || resource.data.sellerId == request.auth.uid
+                      || isAdmin());
+      allow create: if false;
+      allow update: if isSignedIn()
+                    && resource.data.buyerId == request.auth.uid
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                        .hasOnly(['accessCount', 'lastAccessedAt']);
+      allow delete: if isAdmin();
+    }
+
+    function isManagedSupervisorOwner() {
+      return isSignedIn()
+          && resource.data.ownerId == request.auth.uid
+          && resource.data.directoryStatus in ['managed_verified', 'claimed']
+          && request.resource.data.ownerId == resource.data.ownerId
+          && request.resource.data.directoryStatus == resource.data.directoryStatus
+          && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly([
+                'name', 'bio', 'university', 'speciality', 'faculty', 'category',
+                'tags', 'methodologies', 'universityEmail', 'orcid', 'photoUrl',
+                'scholarUrl', 'researchGateUrl', 'isAvailable',
+                'lastManagedAt', 'lastManagedIso', 'updatedAt',
+              ]);
+    }
+
+    function isSupervisorClaim() {
+      return isSignedIn()
+          && (userDoc().data.role == 'supervisor'
+              || userDoc().data.role == 'student'
+              || isAdmin())
+          && (!('ownerId' in resource.data) || resource.data.ownerId == '')
+          && request.resource.data.ownerId == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly([
+                'ownerId', 'claimedAt', 'claimedByName', 'isAvailable',
+                'directoryStatus', 'lastVerifiedIso', 'lastReviewedAt',
+              ])
+          && (!('directoryStatus' in request.resource.data)
+              || request.resource.data.directoryStatus == 'claimed');
     }
 
     // ─── المشرفون ───────────────────────────────────────────
@@ -271,21 +675,14 @@ service cloud.firestore {
                         && request.resource.data.ownerId == request.auth.uid
                         && isPendingCreate());
       allow update: if isAdmin()
+                    || isSupervisorClaim()
+                    || isManagedSupervisorOwner()
                     || (isSignedIn()
                         && resource.data.ownerId == request.auth.uid
                         && approvalUnchanged()
                         && resource.data.approvalStatus in ['pending', 'rejected']);
       allow delete: if isAdmin()
                     || (isSignedIn() && resource.data.ownerId == request.auth.uid);
-    }
-
-    function isLabClaimByManager() {
-      return isSignedIn()
-          && (userDoc().data.role == 'lab_manager' || isAdmin())
-          && (!('ownerId' in resource.data) || resource.data.ownerId == '')
-          && request.resource.data.ownerId == request.auth.uid
-          && request.resource.data.diff(resource.data).affectedKeys()
-              .hasOnly(['ownerId', 'claimedAt', 'claimedByName']);
     }
 
     // ─── المختبرات ─────────────────────────────────────────
@@ -301,6 +698,7 @@ service cloud.firestore {
 
       allow update: if isAdmin()
                     || isLabClaimByManager()
+                    || isManagedLabOwner()
                     || (isSignedIn()
                         && resource.data.ownerId == request.auth.uid
                         && approvalUnchanged()
@@ -327,6 +725,12 @@ service cloud.firestore {
                           || get(/databases/$(database)/documents/labs/$(labId)).data.ownerId
                               == request.auth.uid
                           || isAdmin());
+        allow delete: if false;
+      }
+
+      match /slot_locks/{lockId} {
+        allow read: if isSignedIn();
+        allow create, update: if isSignedIn();
         allow delete: if false;
       }
 
@@ -644,6 +1048,17 @@ service cloud.firestore {
       }
     }
 
+    // ─── الصفحة الرئيسية (أقسام + إعلانات) ───────────────
+    // قراءة عامة (ضيوف أيضاً) — الكتابة للمدير فقط.
+    match /home_sections/{docId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+    match /promo_banners/{docId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
     // ─── أخبار علمية ─────────────────────────────────────
     match /science_news/{docId} {
       allow read: if isApprovedContent()
@@ -675,7 +1090,7 @@ service cloud.firestore {
       allow update: if isSignedIn()
                     && request.auth.uid in resource.data.participantIds
                     && request.resource.data.diff(resource.data).affectedKeys()
-                        .hasOnly(['lastMessage', 'updatedAt']);
+                        .hasOnly(['lastMessage', 'updatedAt', 'hiddenFor']);
 
       match /messages/{messageId} {
         allow read: if isSignedIn()
@@ -784,6 +1199,265 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    // ─── أسئلة وأجوبة المنتج ─────────────────────────────
+    match /product/{productId}/qa/{qaId} {
+      // Readable when parent product is public (or owner/admin).
+      allow read: if get(/databases/$(database)/documents/product/$(productId)).data.approvalStatus == 'approved'
+                  || (isSignedIn() && get(/databases/$(database)/documents/product/$(productId)).data.createdBy == request.auth.uid)
+                  || isAdmin();
+      allow create: if isSignedIn()
+                    && request.resource.data.askerId == request.auth.uid
+                    && request.resource.data.question is string
+                    && request.resource.data.question.size() >= 5
+                    && request.resource.data.question.size() <= 500
+                    && request.resource.data.answer == '';
+      allow update: if isSignedIn()
+                    && (isAdmin()
+                        || get(/databases/$(database)/documents/product/$(productId)).data.createdBy == request.auth.uid)
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                        .hasOnly(['answer', 'answererId', 'answeredAt'])
+                    && request.resource.data.answererId == request.auth.uid
+                    && request.resource.data.answer is string
+                    && request.resource.data.answer.size() >= 1
+                    && request.resource.data.answer.size() <= 2000;
+      allow delete: if isAdmin()
+                    || (isSignedIn() && resource.data.askerId == request.auth.uid);
+    }
+
+    // ─── طلبات عرض السعر (RFQ) ───────────────────────────
+    match /store_rfqs/{rfqId} {
+      allow read: if isSignedIn()
+                  && (resource.data.buyerId == request.auth.uid
+                      || resource.data.sellerId == request.auth.uid
+                      || isAdmin());
+      allow create: if isSignedIn()
+                    && request.resource.data.buyerId == request.auth.uid
+                    && request.resource.data.productName is string
+                    && request.resource.data.productName.size() > 0
+                    && request.resource.data.productName.size() <= 300
+                    && request.resource.data.details is string
+                    && request.resource.data.details.size() >= 10
+                    && request.resource.data.details.size() <= 4000
+                    && request.resource.data.status == 'open'
+                    && request.resource.data.sellerId is string
+                    && (
+                      !('productId' in request.resource.data)
+                      || request.resource.data.productId == null
+                      || !(request.resource.data.productId is string)
+                      || request.resource.data.productId.size() == 0
+                      || (
+                        exists(/databases/$(database)/documents/product/$(request.resource.data.productId))
+                        && request.resource.data.sellerId
+                            == get(/databases/$(database)/documents/product/$(request.resource.data.productId)).data.createdBy
+                      )
+                    );
+      allow update: if isAdmin()
+                    || (isSignedIn()
+                        && resource.data.sellerId == request.auth.uid
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                            .hasOnly(['status', 'sellerNote'])
+                        && request.resource.data.status in ['open', 'quoted', 'closed']);
+      allow delete: if isAdmin();
+    }
+
+    // طلبات توافق مخصص / تصنيع رقمي للمتجر
+    match /store_custom_fit_jobs/{jobId} {
+      allow read: if isSignedIn()
+                  && (resource.data.buyerId == request.auth.uid
+                      || (resource.data.preferredSellerId is string
+                          && resource.data.preferredSellerId == request.auth.uid)
+                      || isAdmin());
+      allow create: if isSignedIn()
+                    && request.resource.data.buyerId == request.auth.uid
+                    && request.resource.data.title is string
+                    && request.resource.data.title.size() > 0
+                    && request.resource.data.title.size() <= 300
+                    && request.resource.data.specsText is string
+                    && request.resource.data.specsText.size() >= 0
+                    && request.resource.data.specsText.size() <= 8000
+                    && request.resource.data.status is string
+                    && request.resource.data.status in ['open', 'quoted_requested'];
+      allow update: if isAdmin()
+                    || (isSignedIn()
+                        && resource.data.buyerId == request.auth.uid
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                            .hasOnly([
+                              'status',
+                              'rfqId',
+                              'updatedAt',
+                              'preferredSellerId',
+                              'cadAssets',
+                            ])
+                        && request.resource.data.status in
+                            ['open', 'quoted_requested', 'closed', 'fulfilled']);
+      allow delete: if isAdmin();
+    }
+
+    // ─── شراكات بحثية (تمويل مشترك لسلة متجر) ─────────────
+    match /store_research_partnerships/{pid} {
+      allow read: if isSignedIn()
+                  && (resource.data.status == 'open'
+                      || resource.data.hostId == request.auth.uid
+                      || request.auth.uid in resource.data.participantIds
+                      || isAdmin());
+      allow create: if isSignedIn()
+                    && request.resource.data.hostId == request.auth.uid
+                    && request.resource.data.title is string
+                    && request.resource.data.title.size() >= 5
+                    && request.resource.data.title.size() <= 300
+                    && request.resource.data.rightsText is string
+                    && request.resource.data.rightsText.size() >= 20
+                    && request.resource.data.rightsText.size() <= 4000
+                    && request.resource.data.hostReceiverNote is string
+                    && request.resource.data.hostReceiverNote.size() >= 8
+                    && request.resource.data.hostReceiverNote.size() <= 2000
+                    && request.resource.data.goalAmount is number
+                    && request.resource.data.goalAmount > 0
+                    && request.resource.data.sharePrice is number
+                    && request.resource.data.sharePrice > 0
+                    && request.resource.data.minShares is int
+                    && request.resource.data.minShares >= 1
+                    && request.resource.data.raisedAmount is number
+                    && request.resource.data.raisedAmount >= 0
+                    && request.resource.data.status in ['open', 'funded']
+                    && request.resource.data.participantIds is list
+                    && request.auth.uid in request.resource.data.participantIds
+                    && request.resource.data.items is list
+                    && request.resource.data.items.size() >= 1
+                    && request.resource.data.items.size() <= 40;
+      allow update: if isAdmin()
+                    || (isSignedIn()
+                        && resource.data.hostId == request.auth.uid
+                        && request.resource.data.hostId == resource.data.hostId
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                            .hasOnly([
+                              'raisedAmount',
+                              'status',
+                              'fundedAt',
+                              'orderedAt',
+                              'storeOrderIds',
+                              'updatedAt',
+                              'participantIds',
+                            ])
+                        && request.resource.data.status in
+                            ['open', 'funded', 'ordered', 'cancelled', 'expired'])
+                    || (isSignedIn()
+                        && resource.data.status == 'open'
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                            .hasOnly(['participantIds'])
+                        && request.auth.uid in request.resource.data.participantIds);
+      allow delete: if isAdmin();
+
+      match /contributions/{cid} {
+        allow read: if isSignedIn()
+                    && (get(/databases/$(database)/documents/store_research_partnerships/$(pid)).data.hostId
+                            == request.auth.uid
+                        || request.auth.uid in get(/databases/$(database)/documents/store_research_partnerships/$(pid)).data.participantIds
+                        || resource.data.userId == request.auth.uid
+                        || isAdmin());
+        allow create: if isSignedIn()
+                      && request.resource.data.userId == request.auth.uid
+                      && cid == request.auth.uid
+                      && request.resource.data.shares is int
+                      && request.resource.data.shares >= 1
+                      && request.resource.data.amount is number
+                      && request.resource.data.amount > 0
+                      && request.resource.data.paymentStatus in
+                          ['pending_payment', 'paid_held']
+                      && request.resource.data.paymentMethod == 'manual';
+        allow update: if isAdmin()
+                      || (isSignedIn()
+                          && get(/databases/$(database)/documents/store_research_partnerships/$(pid)).data.hostId
+                              == request.auth.uid
+                          && request.resource.data.diff(resource.data).affectedKeys()
+                              .hasOnly(['paymentStatus', 'confirmedAt'])
+                          && request.resource.data.paymentStatus == 'paid_held');
+        allow delete: if isAdmin();
+      }
+
+      match /messages/{mid} {
+        allow read: if isSignedIn()
+                    && (get(/databases/$(database)/documents/store_research_partnerships/$(pid)).data.hostId
+                            == request.auth.uid
+                        || request.auth.uid in get(/databases/$(database)/documents/store_research_partnerships/$(pid)).data.participantIds
+                        || isAdmin());
+        allow create: if isSignedIn()
+                      && request.resource.data.senderId == request.auth.uid
+                      && request.resource.data.text is string
+                      && request.resource.data.text.size() >= 1
+                      && request.resource.data.text.size() <= 2000
+                      && (get(/databases/$(database)/documents/store_research_partnerships/$(pid)).data.hostId
+                              == request.auth.uid
+                          || request.auth.uid in get(/databases/$(database)/documents/store_research_partnerships/$(pid)).data.participantIds);
+        allow update, delete: if isAdmin();
+      }
+    }
+
+    // ─── اهتمام / تقديم برامج مهنية ───────────────────────
+    match /professional_program_interests/{docId} {
+      allow read: if isSignedIn()
+                  && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn()
+                    && request.resource.data.userId == request.auth.uid
+                    && request.resource.data.institutionId is string
+                    && request.resource.data.institutionId.size() > 0
+                    && request.resource.data.institutionId.size() <= 80
+                    && request.resource.data.programAbbr is string
+                    && request.resource.data.programAbbr.size() > 0
+                    && request.resource.data.programAbbr.size() <= 40
+                    && request.resource.data.fullName is string
+                    && request.resource.data.fullName.size() >= 2
+                    && request.resource.data.fullName.size() <= 120
+                    && request.resource.data.phone is string
+                    && request.resource.data.phone.size() >= 6
+                    && request.resource.data.phone.size() <= 40
+                    && request.resource.data.notes is string
+                    && request.resource.data.notes.size() <= 2000;
+      allow update, delete: if isAdmin();
+    }
+
+    // ─── طلبات حقوق الخصوصية ─────────────────────────────
+    match /privacy_requests/{docId} {
+      allow read: if isSignedIn()
+                  && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn()
+                    && request.resource.data.userId == request.auth.uid
+                    && request.resource.data.type is string
+                    && request.resource.data.type in [
+                      'access', 'rectification', 'erasure',
+                      'restriction', 'objection', 'other'
+                    ]
+                    && request.resource.data.message is string
+                    && request.resource.data.message.size() >= 10
+                    && request.resource.data.message.size() <= 4000
+                    && request.resource.data.status == 'open'
+                    && request.resource.data.email is string
+                    && request.resource.data.email.size() <= 200
+                    && request.resource.data.locale is string
+                    && request.resource.data.locale.size() <= 8;
+      allow update, delete: if isAdmin();
+    }
+
+    // ─── بلاغات أخطاء الكتالوج / الدليل ───────────────────
+    match /catalog_reports/{docId} {
+      allow read: if isSignedIn()
+                  && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn()
+                    && request.resource.data.userId == request.auth.uid
+                    && request.resource.data.targetType is string
+                    && request.resource.data.targetType in [
+                      'product', 'supplier', 'listing', 'lab', 'supervisor'
+                    ]
+                    && request.resource.data.reason is string
+                    && request.resource.data.reason.size() > 0
+                    && request.resource.data.reason.size() <= 40
+                    && request.resource.data.details is string
+                    && request.resource.data.details.size() >= 10
+                    && request.resource.data.details.size() <= 4000
+                    && request.resource.data.status == 'open';
+      allow update, delete: if isAdmin();
+    }
+
     // ─── طلبات المتجر (ضمان) ─────────────────────────────
     match /store_orders/{orderId} {
       allow read: if isSignedIn()
@@ -795,7 +1469,12 @@ service cloud.firestore {
                     && request.resource.data.productId is string
                     && exists(/databases/$(database)/documents/product/$(request.resource.data.productId))
                     && request.resource.data.price == get(/databases/$(database)/documents/product/$(request.resource.data.productId)).data.price
-                    && request.resource.data.amount == request.resource.data.price;
+                    && request.resource.data.amount == request.resource.data.price
+                    && request.resource.data.sellerId
+                        == get(/databases/$(database)/documents/product/$(request.resource.data.productId)).data.createdBy
+                    && request.resource.data.status == 'pending'
+                    && request.resource.data.paymentStatus == 'pending_payment'
+                    && request.resource.data.paymentMethod in ['paymob', 'manual'];
       // paymentStatus: Paymob webhook / Admin SDK, or seller confirming manual transfer.
       allow update: if isAdmin()
                     || (isSignedIn() && resource.data.buyerId == request.auth.uid
@@ -806,6 +1485,9 @@ service cloud.firestore {
                     || (isSignedIn() && resource.data.sellerId == request.auth.uid
                         && request.resource.data.diff(resource.data).affectedKeys()
                             .hasOnly(['status'])
+                        && request.resource.data.status in [
+                          'pending', 'processing', 'shipped', 'delivered', 'cancelled'
+                        ]
                         && request.resource.data.paymentStatus == resource.data.paymentStatus)
                     || (isSignedIn()
                         && resource.data.sellerId == request.auth.uid

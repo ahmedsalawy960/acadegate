@@ -22,6 +22,7 @@ class _PublishResearchIdeaScreenState extends State<PublishResearchIdeaScreen> {
   final _budgetController = TextEditingController();
   final _tagsController = TextEditingController();
   String? _categoryId;
+  String _degreeLevel = 'both';
   bool _isSaving = false;
 
   @override
@@ -53,6 +54,7 @@ class _PublishResearchIdeaScreenState extends State<PublishResearchIdeaScreen> {
         budget: _budgetController.text.trim(),
         tags: tags,
         category: _categoryId ?? '',
+        degreeLevel: _degreeLevel,
       );
 
       if (!mounted) return;
@@ -117,6 +119,34 @@ class _PublishResearchIdeaScreenState extends State<PublishResearchIdeaScreen> {
                 validator: (v) => (v == null || v.isEmpty)
                     ? context.t('مطلوب', 'Required')
                     : null,
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                initialValue: _degreeLevel,
+                decoration: InputDecoration(
+                  labelText: context.t('مستوى الدرجة', 'Degree level'),
+                  border: const OutlineInputBorder(),
+                ),
+                items: [
+                  DropdownMenuItem(
+                    value: 'masters',
+                    child: Text(context.t('ماجستير', 'Master\'s')),
+                  ),
+                  DropdownMenuItem(
+                    value: 'phd',
+                    child: Text(context.t('دكتوراه', 'PhD')),
+                  ),
+                  DropdownMenuItem(
+                    value: 'both',
+                    child: Text(context.t(
+                      'ماجستير أو دكتوراه',
+                      'Master\'s or PhD',
+                    )),
+                  ),
+                ],
+                onChanged: (v) {
+                  if (v != null) setState(() => _degreeLevel = v);
+                },
               ),
               const SizedBox(height: 12),
               TextFormField(

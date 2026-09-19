@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
 import '../../core/locale/locale_extensions.dart';
-import '../auth/user_account_service.dart';
+import '../admin/admin_access_gate.dart';
 import '../academic/academic_models.dart';
 import 'research_fund_models.dart';
 
@@ -257,22 +257,12 @@ class _AdminFundConfigScreenState extends State<AdminFundConfigScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder(
-      stream: UserAccountService.instance.watchCurrentAccount(),
-      builder: (context, accountSnap) {
-        if (accountSnap.data?.isAdmin != true) {
-          return Scaffold(
-            appBar: AcadeGateAppBar(
-              title: Text(context.t('إعدادات الصندوق', 'Fund settings')),
-              backgroundColor: _brand,
-              foregroundColor: Colors.white,
-            ),
-            body: Center(
-              child: Text(context.t('مدير النظام فقط', 'Admin only')),
-            ),
-          );
-        }
+    return AdminAccessGate(
+      child: _buildAdminBody(context),
+    );
+  }
 
+  Widget _buildAdminBody(BuildContext context) {
         if (_loading) {
           return Scaffold(
             appBar: AcadeGateAppBar(
@@ -482,7 +472,5 @@ class _AdminFundConfigScreenState extends State<AdminFundConfigScreen> {
             ],
           ),
         );
-      },
-    );
   }
 }

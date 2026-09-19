@@ -4,7 +4,7 @@
 import 'dart:html' as html;
 import 'dart:typed_data';
 
-Future<void> shareDocxBytesPlatform({
+Future<bool> shareDocxBytesPlatform({
   required Uint8List bytes,
   required String name,
 }) async {
@@ -15,4 +15,5 @@ Future<void> shareDocxBytesPlatform({
     ..click();
   html.Url.revokeObjectUrl(url);
   anchor.remove();
+  return true;
 }

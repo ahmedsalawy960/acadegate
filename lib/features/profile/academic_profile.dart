@@ -65,6 +65,18 @@ class AcademicProfile {
         .toList();
   }
 
+  /// Tokens from the research point only — never university, city, or faculty.
+  List<String> get topicKeywords {
+    final raw = [specialization, researchInterest, ...skills].join(' ');
+    return raw
+        .toLowerCase()
+        .split(RegExp(r'[\s,،.؛;]+'))
+        .map((word) => word.trim())
+        .where((word) => word.length >= 3)
+        .toSet()
+        .toList();
+  }
+
   Map<String, dynamic> toMap() {
     return {
       'fullName': fullName,

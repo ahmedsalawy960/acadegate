@@ -46,6 +46,8 @@ class LocalProfileStore {
     await prefs.remove(_onboardingDoneKey);
     await prefs.remove(_journeyStageKey);
     await prefs.remove(_thesisProgressKey);
+    // Do NOT clear thesis studio draft here — it is account-scoped in
+    // ThesisStudioStorage (local + Firestore) and must survive logout/login.
   }
 
   Future<void> clearAllSessionData() async {

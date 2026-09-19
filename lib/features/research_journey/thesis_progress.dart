@@ -358,6 +358,9 @@ class ThesisProgressService {
       progress = await _initialProgress();
     }
 
+    // Merge newly added template milestones (e.g. Thesis Studio) into saved plans.
+    progress = _ensureTemplateItems(progress);
+
     if (sync) {
       progress = await _engine.syncFromApp(progress);
       await _persist(progress, remote: false);
@@ -366,6 +369,25 @@ class ThesisProgressService {
     }
 
     return progress;
+  }
+
+  ThesisProgress _ensureTemplateItems(ThesisProgress progress) {
+    final templateId = progress.templateId.isEmpty
+        ? ThesisProgressTemplates.masterStandard
+        : progress.templateId;
+    final template = ThesisProgressTemplates.build(templateId);
+    final templateIds = {for (final item in template) item.id};
+    // Only keep user-added customs not already defined by the template
+    // (PhD extras use isCustom but belong to the template).
+    final customOnly = progress.items
+        .where((item) => item.isCustom && !templateIds.contains(item.id))
+        .toList();
+    final merged = ThesisProgressTemplates.mergeSavedState(
+      template: template,
+      saved: progress.items,
+      customOnly: customOnly,
+    );
+    return progress.copyWith(templateId: templateId, items: merged);
   }
 
 

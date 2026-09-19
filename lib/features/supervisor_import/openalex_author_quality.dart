@@ -108,6 +108,9 @@ class OpenAlexAuthorQuality {
     if (score >= 45) {
       return appTr('ملف متوسط — راجع يدوياً', 'Moderate — review manually');
     }
-    return appTr('ملف ضعيف — تحقق قبل الاستيراد', 'Weak — verify before import');
+    return appTr(
+      'بيانات OpenAlex محدودة — راجع قبل الاستيراد',
+      'Limited OpenAlex data — review before import',
+    );
   }
 }

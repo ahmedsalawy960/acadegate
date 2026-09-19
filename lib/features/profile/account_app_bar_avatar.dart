@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/locale/locale_extensions.dart';
+import '../../core/widgets/safe_network_avatar.dart';
 import '../auth/user_account_service.dart';
 import 'account_profile_screen.dart';
 
@@ -42,21 +43,17 @@ class AccountAppBarAvatar extends StatelessWidget {
                   ),
                 );
               },
-              child: CircleAvatar(
+              child: SafeNetworkAvatar(
+                imageUrl: photoUrl,
                 radius: 16,
-                backgroundColor: Colors.white.withValues(alpha: 0.2),
-                backgroundImage:
-                    photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
-                child: photoUrl.isEmpty
-                    ? Text(
-                        initial.toUpperCase(),
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      )
-                    : null,
+                fallback: Text(
+                  initial.toUpperCase(),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
               ),
             ),
           ),

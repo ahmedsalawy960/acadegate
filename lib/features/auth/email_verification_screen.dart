@@ -3,11 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
 import '../../core/locale/locale_extensions.dart';
-import '../profile/academic_profile_service.dart';
+import 'auth_navigation.dart';
 import 'email_auth_gate.dart';
 import 'language_switcher_button.dart';
-import 'portal_gateway.dart';
-import 'welcome_screen.dart';
 
 /// Blocks the app until the signed-in email/password user verifies email.
 class EmailVerificationScreen extends StatefulWidget {
@@ -88,10 +86,8 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
       final ok = await EmailAuthGate.reloadAndCheckVerified();
       if (!mounted) return;
       if (ok) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const PortalGateway()),
-          (_) => false,
-        );
+        // Keep `_AppRoot`; userChanges after reload shows PortalGateway.
+        Navigator.of(context).popUntil((route) => route.isFirst);
         return;
       }
       setState(() {
@@ -147,14 +143,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
   }
 
   Future<void> _signOut() async {
-    AcademicProfileService.instance.clearCache();
-    await FirebaseAuth.instance.signOut();
-    if (!mounted) return;
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (_) => const WelcomeScreen()),
-      (_) => false,
-    );
+    await AuthNavigation.signOutToWelcome(context);
   }
 
   @override

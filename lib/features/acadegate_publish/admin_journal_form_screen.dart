@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
 import '../../core/locale/locale_extensions.dart';
-import '../auth/user_account_service.dart';
+import '../admin/admin_access_gate.dart';
 import 'publish_models.dart';
 import 'publish_services.dart';
 
@@ -82,26 +82,8 @@ class _AdminJournalFormScreenState extends State<AdminJournalFormScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder(
-      stream: UserAccountService.instance.watchCurrentAccount(),
-      builder: (context, snapshot) {
-        if (snapshot.data?.isAdmin != true) {
-          return Scaffold(
-            appBar: AcadeGateAppBar(
-              title: Text(context.t('إضافة مجلة', 'Add journal')),
-              backgroundColor: _brand,
-              foregroundColor: Colors.white,
-            ),
-            body: Center(
-              child: Text(context.t(
-                'متاح لمدير النظام فقط',
-                'Admin only',
-              )),
-            ),
-          );
-        }
-
-        return Scaffold(
+    return AdminAccessGate(
+      child: Scaffold(
           appBar: AcadeGateAppBar(
             title: Text(context.t('إضافة مجلة', 'Add journal')),
             backgroundColor: _brand,
@@ -187,8 +169,7 @@ class _AdminJournalFormScreenState extends State<AdminJournalFormScreen> {
               ),
             ],
           ),
-        );
-      },
+        ),
     );
   }
 }

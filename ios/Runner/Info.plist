@@ -67,9 +67,9 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>AcadeGate uses the microphone for oral answers in the viva simulator.</string>
+	<string>AcadeGate uses the microphone so you can speak to the academic advisor and for oral viva practice.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>AcadeGate converts your spoken answers to text during viva practice.</string>
+	<string>AcadeGate converts your speech to text in the advisor and during viva practice.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>AcadeGate uses the camera to attach photos to advisor messages and uploads.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

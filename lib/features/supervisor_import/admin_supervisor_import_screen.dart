@@ -1,13 +1,13 @@
 import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 import 'package:flutter/services.dart';
 
 import '../academic/faculty_categories.dart';
 import '../auth/user_account_service.dart';
+import '../admin/admin_access_gate.dart';
 import '../admin/admin_moderation_screen.dart';
 import '../../core/locale/l10n_lookup.dart';
 import '../../core/locale/locale_extensions.dart';
@@ -18,6 +18,8 @@ import 'openalex_client.dart';
 import 'openalex_author_preview_card.dart';
 import 'openalex_faculty_mapper.dart';
 import 'openalex_search_aliases.dart';
+import 'multi_source_import_tab.dart';
+import 'supervisor_bulk_seed_service.dart';
 import 'supervisor_import_service.dart';
 
 class AdminSupervisorImportScreen extends StatefulWidget {
@@ -31,12 +33,11 @@ class AdminSupervisorImportScreen extends StatefulWidget {
 class _AdminSupervisorImportScreenState extends State<AdminSupervisorImportScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
-  bool _claimingAdmin = false;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -107,7 +108,8 @@ class _AdminSupervisorImportScreenState extends State<AdminSupervisorImportScree
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return AdminAccessGate(
+      child: Scaffold(
       appBar: AcadeGateAppBar(
         title: Text(context.t('استيراد المشرفين', 'Import supervisors')),
         backgroundColor: const Color(0xFF1A237E),
@@ -117,9 +119,13 @@ class _AdminSupervisorImportScreenState extends State<AdminSupervisorImportScree
           indicatorColor: Colors.amber,
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white70,
-          tabs: const [
-            Tab(icon: Icon(Icons.table_chart_outlined), text: 'CSV / Excel'),
-            Tab(icon: Icon(Icons.travel_explore), text: 'OpenAlex'),
+          tabs: [
+            Tab(icon: const Icon(Icons.table_chart_outlined), text: 'CSV / Excel'),
+            const Tab(icon: Icon(Icons.travel_explore), text: 'OpenAlex'),
+            Tab(
+              icon: const Icon(Icons.hub_outlined),
+              text: context.t('مصادر متعددة', 'All sources'),
+            ),
           ],
         ),
         actions: [
@@ -133,124 +139,17 @@ class _AdminSupervisorImportScreenState extends State<AdminSupervisorImportScree
       body: StreamBuilder(
         stream: UserAccountService.instance.watchCurrentAccount(),
         builder: (context, snapshot) {
-          final account = snapshot.data;
-          final isAdmin = account?.isAdmin == true;
-
-          return Column(
+          final isAdmin = snapshot.data?.isAdmin == true;
+          return TabBarView(
+            controller: _tabController,
             children: [
-              if (!isAdmin && kDebugMode)
-                _AdminAccessBanner(
-                  claiming: _claimingAdmin,
-                  onClaimAdmin: () async {
-                    setState(() => _claimingAdmin = true);
-                    final messenger = ScaffoldMessenger.of(context);
-                    final successMsg = context.t(
-                      'تم تفعيل صلاحية المدير',
-                      'Admin access enabled',
-                    );
-                    final failMsg = context.t(
-                      'فعّل allowBootstrap في Firebase: config/app',
-                      'Enable allowBootstrap in Firebase: config/app',
-                    );
-                    try {
-                      final ok = await UserAccountService.instance
-                          .tryClaimDevAdmin();
-                      if (!mounted) return;
-                      if (ok) {
-                        messenger.showSnackBar(
-                          SnackBar(
-                            content: Text(successMsg),
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
-                      } else {
-                        messenger.showSnackBar(
-                          SnackBar(
-                            content: Text(failMsg),
-                            backgroundColor: Colors.orange,
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
-                      }
-                    } finally {
-                      if (mounted) setState(() => _claimingAdmin = false);
-                    }
-                  },
-                ),
-              Expanded(
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _CsvImportTab(isAdmin: isAdmin),
-                    _OpenAlexImportTab(isAdmin: isAdmin),
-                  ],
-                ),
-              ),
+              _CsvImportTab(isAdmin: isAdmin),
+              _OpenAlexImportTab(isAdmin: isAdmin),
+              MultiSourceImportTab(isAdmin: isAdmin),
             ],
           );
         },
       ),
-    );
-  }
-}
-
-class _AdminAccessBanner extends StatelessWidget {
-  final bool claiming;
-  final VoidCallback onClaimAdmin;
-
-  const _AdminAccessBanner({
-    required this.claiming,
-    required this.onClaimAdmin,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.all(12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.orange.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.orange.withValues(alpha: 0.35)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            context.t(
-              'لوحة الإدارة تظهر فقط لحساب «مدير».',
-              'The admin panel is only visible to admin accounts.',
-            ),
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            context.t(
-              'عيّن دور admin من Firebase Console للمستخدم المناسب. '
-              'زر التطوير أدناه يتحقق فقط من صلاحيتك الحالية.',
-              'Assign the admin role in Firebase Console for the right user. '
-              'The dev button below only checks your current permissions.',
-            ),
-            style: const TextStyle(fontSize: 12, height: 1.4),
-          ),
-          const SizedBox(height: 8),
-          FilledButton.icon(
-            onPressed: claiming ? null : onClaimAdmin,
-            icon: claiming
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.admin_panel_settings_outlined, size: 18),
-            label: Text(context.t('تفعيل مدير (تطوير)', 'Enable admin (dev)')),
-            style: FilledButton.styleFrom(
-              backgroundColor: Colors.orange[800],
-              foregroundColor: Colors.white,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -535,6 +434,9 @@ class _OpenAlexImportTabState extends State<_OpenAlexImportTab> {
   bool _searchingProfessor = false;
   bool _loadingAuthors = false;
   bool _importing = false;
+  bool _bulkSeeding = false;
+  bool _autoApprove = true;
+  String? _bulkProgress;
   bool _limitToSelectedUniversity = true;
   bool _directProfessorSearch = false;
   String? _universitySearchHint;
@@ -658,6 +560,91 @@ class _OpenAlexImportTabState extends State<_OpenAlexImportTab> {
     }
   }
 
+  Future<void> _fillAllFaculties() async {
+    if (!widget.isAdmin || _bulkSeeding || _importing) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(
+          context.t(
+            'تعبئة كل الكليات من OpenAlex؟',
+            'Fill all faculties from OpenAlex?',
+          ),
+        ),
+        content: Text(
+          context.t(
+            'يجلب باحثين حقيقيين من حوالي 8 جامعات مصرية عبر OpenAlex، '
+            'ويوزّعهم على كليات AcadeGate (هدف ~28 لكل كلية). '
+            '${_autoApprove ? "سيُنشر مباشرة (موافقة تلقائية)." : "سيُرسل للمراجعة."}\n'
+            'قد يستغرق عدة دقائق.',
+            'Fetches real researchers from ~8 Egyptian universities via OpenAlex '
+            'and maps them to AcadeGate faculties (~28 per faculty). '
+            '${_autoApprove ? "Will publish immediately (auto-approve)." : "Will send for review."}\n'
+            'May take several minutes.',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(context.t('إلغاء', 'Cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(context.t('ابدأ التعبئة', 'Start fill')),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() {
+      _bulkSeeding = true;
+      _bulkProgress = context.t('جاري البدء…', 'Starting…');
+    });
+
+    try {
+      final result = await SupervisorBulkSeedService.instance.fillAllFaculties(
+        autoApprove: _autoApprove,
+        onProgress: (p) {
+          if (!mounted) return;
+          setState(() {
+            _bulkProgress = context.t(
+              '${p.stage} · جامعات ${p.universitiesDone}/${p.universitiesTotal} · مختار ${p.imported}',
+              '${p.stage} · unis ${p.universitiesDone}/${p.universitiesTotal} · selected ${p.imported}',
+            );
+          });
+        },
+      );
+      if (!mounted) return;
+      final facultySummary = result.byFaculty.entries
+          .where((e) => e.value > 0)
+          .map((e) => '${e.key}:${e.value}')
+          .join(' · ');
+      _showMessage(
+        context.t(
+          'تعبئة: استورد ${result.imported} · تخطي ${result.skipped}'
+          '${facultySummary.isNotEmpty ? '\n$facultySummary' : ''}'
+          '${result.errors.isNotEmpty ? '\nأخطاء: ${result.errors.take(2).join("; ")}' : ''}',
+          'Fill: imported ${result.imported} · skipped ${result.skipped}'
+          '${facultySummary.isNotEmpty ? '\n$facultySummary' : ''}'
+          '${result.errors.isNotEmpty ? '\nErrors: ${result.errors.take(2).join("; ")}' : ''}',
+        ),
+        isError: result.imported == 0,
+      );
+    } catch (error) {
+      if (!mounted) return;
+      _showMessage('$error', isError: true);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _bulkSeeding = false;
+          _bulkProgress = null;
+        });
+      }
+    }
+  }
+
   Future<void> _importSelected() async {
     final selected = _authors
         .where((author) => _selectedAuthorIds.contains(author.id))
@@ -670,17 +657,23 @@ class _OpenAlexImportTabState extends State<_OpenAlexImportTab> {
           await SupervisorImportService.instance.importOpenAlexAuthors(
         authors: selected,
         institutionName: _selectedInstitution?.name,
-        autoApprove: false,
+        autoApprove: widget.isAdmin && _autoApprove,
       );
       if (!mounted) return;
       _showMessage(
         context.t(
-          'تم إرسال ${result.imported} ملفاً للمراجعة الإدارية'
-          '${result.skipped > 0 ? ' — تخطي ${result.skipped}' : ''}. '
-          'راجعها من شاشة اعتماد المشرفين.',
-          'Submitted ${result.imported} profile(s) for admin review'
-          '${result.skipped > 0 ? ' — skipped ${result.skipped}' : ''}. '
-          'Review them in supervisor moderation.',
+          _autoApprove
+              ? 'تم استيراد ${result.imported} مشرفاً ونشرهم'
+                  '${result.skipped > 0 ? ' — تخطي ${result.skipped}' : ''}.'
+              : 'تم إرسال ${result.imported} ملفاً للمراجعة الإدارية'
+                  '${result.skipped > 0 ? ' — تخطي ${result.skipped}' : ''}. '
+                  'راجعها من شاشة اعتماد المشرفين.',
+          _autoApprove
+              ? 'Imported and published ${result.imported} supervisor(s)'
+                  '${result.skipped > 0 ? ' — skipped ${result.skipped}' : ''}.'
+              : 'Submitted ${result.imported} profile(s) for admin review'
+                  '${result.skipped > 0 ? ' — skipped ${result.skipped}' : ''}. '
+                  'Review them in supervisor moderation.',
         ),
       );
       setState(() => _selectedAuthorIds.clear());
@@ -762,12 +755,81 @@ class _OpenAlexImportTabState extends State<_OpenAlexImportTab> {
       children: [
         _infoCard(
           context.t(
-            'الطريقة الأسهل: ابحث عن الجامعة → حمّل كل الباحثين → صفِّ حسب الكلية → اختر الكل → استورد. '
-            'لا يلزم كتابة اسم كل دكتور. البحث باسم شخص معيّن اختياري في الأسفل.',
-            'Easiest path: search university → load all researchers → filter by faculty → select all → import. '
-            'You do not need each doctor\'s name. Person search is optional below.',
+            'ابحث باسم الجامعة عربي أو إنجليزي بأي حالة أحرف (جامعة الأزهر / al-azhar / CAIRO) → '
+            'حمّل الباحثين → صفِّ الكلية → اختر الكل → استورد. '
+            'لا تكتب الكلية في خانة الجامعة. البحث باسم شخص معيّن اختياري في الأسفل.',
+            'Search university in Arabic or English, any letter case (جامعة الأزهر / al-azhar / CAIRO) → '
+            'load researchers → filter faculty → select all → import. '
+            'Do not put the faculty in the university field. Person search is optional below.',
           ),
         ),
+        if (widget.isAdmin) ...[
+          const SizedBox(height: 12),
+          Card(
+            color: const Color(0xFFE8EAF6),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    context.t(
+                      'تعبئة تلقائية لكل الكليات',
+                      'Auto-fill all faculties',
+                    ),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF1A237E),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    context.t(
+                      'يجلب مشرفين حقيقيين من OpenAlex لجامعات مصر الأولوية ويوزّعهم على كل كلية. '
+                      'لا اختلاق أسماء.',
+                      'Pulls real supervisors from OpenAlex for priority Egyptian universities '
+                      'and maps them across faculties. No invented names.',
+                    ),
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade800),
+                  ),
+                  const SizedBox(height: 8),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(
+                      context.t('موافقة تلقائية عند الاستيراد', 'Auto-approve on import'),
+                    ),
+                    value: _autoApprove,
+                    onChanged: (v) => setState(() => _autoApprove = v),
+                  ),
+                  if (_bulkProgress != null) ...[
+                    Text(_bulkProgress!, style: const TextStyle(fontSize: 12)),
+                    const SizedBox(height: 8),
+                  ],
+                  FilledButton.icon(
+                    onPressed: _bulkSeeding || _importing ? null : _fillAllFaculties,
+                    icon: _bulkSeeding
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.auto_awesome),
+                    label: Text(
+                      context.t(
+                        'املأ كل الكليات الآن',
+                        'Fill all faculties now',
+                      ),
+                    ),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF1A237E),
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
         const SizedBox(height: 16),
         Text(
           context.t('1) الجامعة', '1) University'),
@@ -783,8 +845,8 @@ class _OpenAlexImportTabState extends State<_OpenAlexImportTab> {
                 decoration: InputDecoration(
                   labelText: context.t('اسم الجامعة', 'University name'),
                   hintText: context.t(
-                    'جامعة القاهرة، Cairo University...',
-                    'جامعة القاهرة، Cairo University...',
+                    'عربي أو إنجليزي بأي حالة: جامعة الأزهر / al-azhar / CAIRO...',
+                    'Arabic or English any case: جامعة الأزهر / al-azhar / CAIRO...',
                   ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),

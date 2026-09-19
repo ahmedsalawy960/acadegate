@@ -2,11 +2,19 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../core/locale/app_translate.dart';
 import '../academic/academic_content_service.dart';
+import '../academic/academic_degrees.dart';
 import '../academic/academic_models.dart';
 import '../academic_writing/writing_models.dart';
+import '../ai_advisor/grounded_reference_service.dart';
+import '../ai_advisor/grounded_work.dart';
 import '../matchmaking/smart_matchmaking_engine.dart';
+import '../supervisor_import/multi_source_supervisor_service.dart';
 import '../profile/academic_profile.dart';
+import '../research_fund/industry_challenge_models.dart';
+import '../lab_import/nbsle_university_cities.dart';
 import '../store/store_categories.dart';
+import 'research_goal.dart';
+import 'research_path_ai_service.dart';
 import 'research_supply_chain_models.dart';
 
 class ResearchSupplyChainEngine {
@@ -17,19 +25,36 @@ class ResearchSupplyChainEngine {
 
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  static const _ideaLimit = 5;
-  static const _supervisorLimit = 5;
-  static const _labLimit = 5;
-  static const _productLimit = 8;
+  static const _ideaLimit = 6;
+  static const _supervisorLimit = 8;
+  static const _labLocalLimit = 8;
+  static const _labOtherLimit = 6;
+  static const _productLocalLimit = 10;
+  static const _productOtherLimit = 6;
   static const _writerLimit = 4;
+  static const _literatureTarget = 15;
 
   Future<ResearchSupplyBundle> buildBundle({
     required String topic,
     AcademicProfile? profile,
   }) async {
     final trimmed = topic.trim();
-    final effectiveProfile = _effectiveProfile(profile, trimmed);
-    final keywords = _richKeywords(effectiveProfile, trimmed);
+    var goal = ResearchGoalParser.parse(
+      trimmed,
+      profileDegree: profile?.degree,
+    );
+    goal = await ResearchPathAiService.instance.briefGoal(goal);
+    final effectiveProfile = _effectiveProfile(profile, trimmed, goal);
+    final keywords = _richKeywords(
+      effectiveProfile,
+      [
+        goal.fieldEn,
+        goal.field,
+        ...goal.searchQueries,
+        ...goal.matchKeywords,
+        ...goal.methods,
+      ].join(' '),
+    );
 
     final content = await AcademicContentService.instance.fetchAll(
       includeLabs: true,
@@ -37,48 +62,107 @@ class ResearchSupplyChainEngine {
 
     // Prefer faculty-scoped labs (larger pool) then merge with cached browse.
     final facultyId = effectiveProfile.resolvedFacultyCategory;
-    final facultyLabs = facultyId == null || facultyId.isEmpty
-        ? const <AcademicLab>[]
-        : await AcademicContentService.instance.searchLabs(
+    final researcherCity = effectiveProfile.city.trim();
+    final topicQuery = goal.fieldEn.isNotEmpty
+        ? goal.fieldEn
+        : (goal.field.length >= 3 ? goal.field : trimmed);
+
+    final cityLabsFuture = researcherCity.isEmpty
+        ? Future.value(const <AcademicLab>[])
+        : AcademicContentService.instance.searchLabs(
+            city: researcherCity,
             facultyId: facultyId,
-            university: effectiveProfile.university.trim().isEmpty
-                ? null
-                : effectiveProfile.university,
-            limit: 100,
+            query: topicQuery,
+            limit: 250,
           );
+    final nationLabsFuture = AcademicContentService.instance.searchLabs(
+      facultyId: facultyId,
+      query: topicQuery,
+      limit: 250,
+    );
+
+    final cityLabs = await cityLabsFuture;
+    final nationLabs = await nationLabsFuture;
 
     final labsById = <String, AcademicLab>{};
-    for (final lab in [...facultyLabs, ...content.labs]) {
+    for (final lab in [...cityLabs, ...nationLabs, ...content.labs]) {
       final key = lab.id ?? '${lab.name}|${lab.university}|${lab.city}';
       labsById.putIfAbsent(key, () => lab);
     }
     final labsPool = labsById.values.toList();
 
-    final preferredCategories = _inferStoreCategories(keywords);
-    final products = await _fetchProducts(preferredCategories);
-    final experts = await _fetchWritingExperts();
+    final topicTokens = ResearchGoalParser.relevanceTokens(goal);
+    final preferredCategories = _inferStoreCategories(topicTokens);
+    final productsFuture = _fetchProducts(
+      preferredCategories,
+      researcherCity: researcherCity,
+    );
+    final expertsFuture = _fetchWritingExperts();
+    final literatureFuture = _loadLiterature(goal);
+    final challengesFuture =
+        IndustryChallengeService.instance.getRecentChallenges();
+
+    final products = await productsFuture;
+    final experts = await expertsFuture;
+    final literature = await literatureFuture;
+    final challenges = await challengesFuture;
 
     final ideaMatches = SmartMatchmakingEngine.matchResearchIdeas(
       effectiveProfile,
       content.ideas,
       limit: _ideaLimit,
+      softFallback: false,
+      requireTokens: topicTokens,
     );
+    List<AcademicSupervisor> liveSupervisors = const [];
+    try {
+      final hits = await MultiSourceSupervisorService.instance.search(
+        topic: goal.fieldEn.isNotEmpty ? goal.fieldEn : goal.field,
+        university: effectiveProfile.university,
+        limit: 16,
+      );
+      liveSupervisors = hits.map((h) => h.toAcademicSupervisor()).toList();
+    } catch (_) {}
+    final catalogKeys = {
+      for (final s in content.supervisors)
+        if (s.orcid.isNotEmpty)
+          'orcid:${s.orcid.toLowerCase()}'
+        else
+          'name:${s.name.toLowerCase()}',
+    };
+    final extraSupervisors = liveSupervisors.where((s) {
+      final key = s.orcid.isNotEmpty
+          ? 'orcid:${s.orcid.toLowerCase()}'
+          : 'name:${s.name.toLowerCase()}';
+      return !catalogKeys.contains(key);
+    });
     final supervisorMatches = SmartMatchmakingEngine.matchSupervisors(
       effectiveProfile,
-      content.supervisors,
+      [...content.supervisors, ...extraSupervisors],
       limit: _supervisorLimit,
+      softFallback: false,
+      requireTokens: topicTokens,
+      restrictFaculty: false,
     );
     final labMatches = SmartMatchmakingEngine.matchLabs(
       effectiveProfile,
       labsPool,
-      limit: _labLimit,
+      limit: _labLocalLimit + _labOtherLimit,
+      softFallback: false,
+      requireTokens: topicTokens,
+      restrictFaculty: false,
+      cityFirst: true,
+      localLimit: _labLocalLimit,
+      otherLimit: _labOtherLimit,
     );
 
     final productMatches = _matchProducts(
-      keywords,
+      topicTokens,
       products,
       preferredCategories: preferredCategories,
-      limit: _productLimit,
+      researcherCity: researcherCity,
+      localLimit: _productLocalLimit,
+      otherLimit: _productOtherLimit,
     );
 
     final writingMatches = _matchWritingExperts(
@@ -110,10 +194,12 @@ class ResearchSupplyChainEngine {
       products: productMatches,
       experts: writingMatches,
       storeCategories: preferredCategories,
+      literatureCount: literature.length,
     );
+    final fundingFits = _matchFunding(goal, keywords, challenges);
 
     return ResearchSupplyBundle(
-      topic: trimmed,
+      topic: goal.field.isNotEmpty ? goal.field : trimmed,
       ideas: ideaMatches,
       supervisors: supervisorMatches,
       labs: labMatches,
@@ -123,39 +209,172 @@ class ResearchSupplyChainEngine {
       writingExperts: writingMatches,
       overallScore: overall,
       chainSummary: summary,
+      goal: goal,
+      degreePlan: DegreePlanEngine.build(goal),
+      literature: literature,
+      institutionalNotes: DegreePlanEngine.institutionalNotes(goal),
+      fundingFits: fundingFits,
     );
   }
 
-  AcademicProfile _effectiveProfile(AcademicProfile? profile, String topic) {
+  Future<List<GroundedWork>> _loadLiterature(ResearchGoal goal) async {
+    final refs = GroundedReferenceService.instance;
+    final merged = <String, GroundedWork>{};
+    final tokens = ResearchGoalParser.relevanceTokens(goal)
+        .where((t) => RegExp(r'^[a-zA-Z0-9\-]{3,}$').hasMatch(t))
+        .toList();
+    final queries = <String>[
+      if (goal.fieldEn.length >= 4) goal.fieldEn,
+      ...goal.searchQueries,
+      if (goal.methods.isNotEmpty) goal.methods.take(3).join(' '),
+    ];
+    if (queries.isEmpty && goal.field.length >= 4) {
+      queries.add(goal.field);
+    }
+
+    Future<void> ingest(String query) async {
+      if (query.trim().length < 4) return;
+      try {
+        final bundle = await refs.searchTopic(
+          query,
+          limit: 20,
+          byRelevance: true,
+          mustMatchTokens: tokens,
+        );
+        for (final work in bundle.works) {
+          if (!ResearchGoalParser.titleMatchesTopic(work.title, tokens) &&
+              tokens.isNotEmpty) {
+            continue;
+          }
+          merged.putIfAbsent(work.doi.toLowerCase(), () => work);
+        }
+      } catch (_) {}
+    }
+
+    for (final query in queries.take(4)) {
+      await ingest(query);
+      if (merged.length >= _literatureTarget) break;
+    }
+
+    final works = merged.values.toList()
+      ..sort((a, b) => (b.year ?? 0).compareTo(a.year ?? 0));
+    return works.take(20).toList();
+  }
+
+  List<FundingFit> _matchFunding(
+    ResearchGoal goal,
+    List<String> keywords,
+    List<IndustryChallenge> challenges,
+  ) {
+    final fits = <FundingFit>[];
+    final scored = <({IndustryChallenge challenge, int score})>[];
+    for (final challenge in challenges) {
+      if (!challenge.isOpen) continue;
+      final text = [
+        challenge.title,
+        challenge.problem,
+        challenge.acceptanceCriteria,
+        challenge.companyName,
+      ].join(' ').toLowerCase();
+      var score = 0;
+      for (final kw in keywords) {
+        if (kw.length >= 3 && text.contains(kw)) score += 12;
+      }
+      if (score > 0) scored.add((challenge: challenge, score: score));
+    }
+    scored.sort((a, b) => b.score.compareTo(a.score));
+    for (final row in scored.take(4)) {
+      fits.add(
+        FundingFit(
+          title: row.challenge.title,
+          kind: 'industry_challenge',
+          why: appTr(
+            'تحدٍ صناعي بعربون — ${row.challenge.companyName}',
+            'Industry challenge with escrow — ${row.challenge.companyName}',
+          ),
+          challengeId: row.challenge.id,
+          budget: row.challenge.budgetAmount,
+          currency: row.challenge.currency,
+        ),
+      );
+    }
+    fits.add(
+      FundingFit(
+        title: appTr('صندوق تمويل البحث', 'Research fund'),
+        kind: 'research_fund',
+        why: appTr(
+          'إن فُعّل الصندوق يمكن ترشيح فكرة مؤهلة بعد التصويت — بلا اختراع ممول.',
+          'If the fund is enabled, an eligible idea can be nominated after votes — no invented funder.',
+        ),
+      ),
+    );
+    if (goal.institution != InstitutionTarget.unspecified) {
+      fits.add(
+        FundingFit(
+          title: goal.institutionLabel,
+          kind: 'institutional',
+          why: appTr(
+            'مذكرة الأثر تُبنى من حقلك فقط. لا تُسمَّى جهة خارج المنصة ما لم تظهر هنا.',
+            'The impact brief is built from your field only. No external organization is named unless it appears here.',
+          ),
+        ),
+      );
+    }
+    return fits;
+  }
+
+  AcademicProfile _effectiveProfile(
+    AcademicProfile? profile,
+    String topic,
+    ResearchGoal goal,
+  ) {
     if (profile != null && profile.isComplete) {
-      final mergedInterest = topic.isEmpty
+      final field = goal.field.isNotEmpty ? goal.field : topic;
+      final mergedInterest = field.isEmpty
           ? profile.researchInterest
-          : '$topic ${profile.researchInterest}'.trim();
-      final mergedSpec = topic.isEmpty
+          : '$field ${profile.researchInterest}'.trim();
+      final mergedSpec = field.isEmpty
           ? profile.specialization
-          : '${profile.specialization} $topic'.trim();
+          : '${profile.specialization} $field'.trim();
       return profile.copyWith(
         researchInterest: mergedInterest,
         specialization: mergedSpec,
+        degree: goal.track == ResearchDegreeTrack.unspecified
+            ? profile.degree
+            : goal.profileDegreeValue(),
+        skills: {
+          ...profile.skills,
+          ...goal.matchKeywords,
+          ...goal.methods,
+          if (goal.fieldEn.isNotEmpty) goal.fieldEn,
+        }.toList(),
       );
     }
 
     return AcademicProfile(
       fullName: profile?.fullName ?? '',
       university: profile?.university ?? '',
-      degree: profile?.degree ?? appTr('ماجستير', 'Master\'s'),
+      degree: profile?.degree.isNotEmpty == true
+          ? profile!.degree
+          : goal.profileDegreeValue(),
       facultyCategory: profile?.facultyCategory ?? '',
-      specialization: topic.isNotEmpty
-          ? topic
-          : (profile?.specialization ?? ''),
-      researchInterest: topic.isNotEmpty
-          ? topic
-          : (profile?.researchInterest ?? ''),
+      specialization: [
+        if (goal.fieldEn.isNotEmpty) goal.fieldEn,
+        if (goal.field.isNotEmpty) goal.field else topic,
+      ].join(' '),
+      researchInterest: goal.fieldEn.isNotEmpty
+          ? goal.fieldEn
+          : (goal.field.isNotEmpty ? goal.field : topic),
       methodology: profile?.methodology ?? appTr('كمي', 'Quantitative'),
       preferredLanguage:
           profile?.preferredLanguage ?? appTr('العربية', 'Arabic'),
       city: profile?.city ?? '',
-      skills: profile?.skills ?? const [],
+      skills: {
+        ...?profile?.skills,
+        ...goal.matchKeywords,
+        ...goal.methods,
+        if (goal.fieldEn.isNotEmpty) goal.fieldEn,
+      }.toList(),
     );
   }
 
@@ -171,24 +390,45 @@ class ResearchSupplyChainEngine {
     return tokens.toList();
   }
 
-  List<StoreCategory> _inferStoreCategories(List<String> keywords) {
+  static bool _hayHasKey(String haystack, String key) {
+    if (key.isEmpty) return false;
+    if (RegExp(r'[\u0600-\u06FF]').hasMatch(key)) {
+      return haystack.contains(key);
+    }
+    if (key.length <= 3) {
+      return RegExp(
+        '(^|[^a-z0-9])${RegExp.escape(key)}([^a-z0-9]|\$)',
+        caseSensitive: false,
+      ).hasMatch(haystack);
+    }
+    return haystack.contains(key);
+  }
+
+  /// Public for tests: category ids inferred from the research point only.
+  static List<String> inferStoreCategoryIds(Iterable<String> keywords) {
     const rules = <String, String>{
       'كيم': 'chemicals',
       'chem': 'chemicals',
+      'analytic': 'chemicals',
       'كاشف': 'chemicals',
       'reagent': 'chemicals',
+      'chromat': 'chemicals',
+      'titr': 'chemicals',
+      'oil': 'chemicals',
+      'refin': 'chemicals',
+      'adsorp': 'chemicals',
       'بيول': 'biology',
       'حيو': 'biology',
       'dna': 'biology',
       'pcr': 'biology',
       'nano': 'biology',
       'طبي': 'medical',
-      'med': 'medical',
+      'medical': 'medical',
       'صيدل': 'medical',
       'أسنان': 'medical',
       'clinic': 'medical',
       'هند': 'engineering',
-      'eng': 'engineering',
+      'engineer': 'engineering',
       'إلكتر': 'engineering',
       'circuit': 'engineering',
       'فيزي': 'physics_materials',
@@ -201,11 +441,13 @@ class ResearchSupplyChainEngine {
       'برمج': 'computing',
       'بيانات': 'computing',
       'machine': 'computing',
-      'ai': 'computing',
+      'artificial': 'computing',
       'مستهلك': 'consumables',
       'جهاز': 'instruments',
       'قياس': 'instruments',
       'spectr': 'instruments',
+      'hplc': 'instruments',
+      'gc-ms': 'instruments',
       'سلام': 'safety',
       'ميدان': 'field',
       'مسح': 'field',
@@ -220,19 +462,17 @@ class ResearchSupplyChainEngine {
     final haystack = keywords.join(' ').toLowerCase();
     final found = <String>{};
     for (final entry in rules.entries) {
-      if (haystack.contains(entry.key)) {
+      if (_hayHasKey(haystack, entry.key)) {
         found.add(entry.value);
       }
     }
 
-    // Cross-cutting supplies that help most experimental paths.
     if (found.any((id) =>
         id == 'chemicals' ||
         id == 'biology' ||
         id == 'medical' ||
         id == 'physics_materials' ||
-        id == 'agriculture' ||
-        id == 'engineering')) {
+        id == 'agriculture')) {
       found.add('consumables');
       found.add('instruments');
       found.add('safety');
@@ -241,10 +481,11 @@ class ResearchSupplyChainEngine {
       found.add('books');
       found.add('office');
     }
-    if (found.isEmpty) {
-      found.addAll(['general', 'books', 'office', 'consumables']);
-    }
+    return found.toList();
+  }
 
+  List<StoreCategory> _inferStoreCategories(List<String> keywords) {
+    final found = inferStoreCategoryIds(keywords);
     final categories = <StoreCategory>[];
     for (final id in found) {
       final cat = storeCategoryById(id);
@@ -254,8 +495,9 @@ class ResearchSupplyChainEngine {
   }
 
   Future<List<Map<String, dynamic>>> _fetchProducts(
-    List<StoreCategory> preferredCategories,
-  ) async {
+    List<StoreCategory> preferredCategories, {
+    String researcherCity = '',
+  }) async {
     final byId = <String, Map<String, dynamic>>{};
 
     Future<void> ingest(QuerySnapshot<Map<String, dynamic>> snap) async {
@@ -275,23 +517,24 @@ class ResearchSupplyChainEngine {
             _db
                 .collection('product')
                 .where('category', isEqualTo: title)
-                .limit(40)
+                .limit(50)
                 .get(),
           );
         }
       }
-      // Broad sample so soft matches still work when category tags are messy.
-      queries.add(_db.collection('product').limit(120).get());
+      for (final alias in NbsleUniversityCities.cityQueryValues(researcherCity)) {
+        queries.add(
+          _db.collection('product').where('city', isEqualTo: alias).limit(50).get(),
+        );
+      }
+      if (queries.isEmpty) return const [];
 
       final snaps = await Future.wait(queries);
       for (final snap in snaps) {
         await ingest(snap);
       }
     } catch (_) {
-      try {
-        final snap = await _db.collection('product').limit(120).get();
-        await ingest(snap);
-      } catch (_) {}
+      return const [];
     }
 
     return byId.values.toList();
@@ -313,7 +556,9 @@ class ResearchSupplyChainEngine {
     List<String> keywords,
     List<Map<String, dynamic>> products, {
     required List<StoreCategory> preferredCategories,
-    int limit = 8,
+    String researcherCity = '',
+    int localLimit = 10,
+    int otherLimit = 6,
   }) {
     if (products.isEmpty) return const [];
 
@@ -327,27 +572,31 @@ class ResearchSupplyChainEngine {
       final rawCategory = data['category']?.toString() ?? '';
       final normalized =
           storeCategoryByTitle(rawCategory)?.title ?? rawCategory;
-      final text = [
+      final city = data['city']?.toString() ?? '';
+      final storeName = data['storeName']?.toString() ?? '';
+      final topicText = [
         data['name'],
         data['description'],
-        rawCategory,
-        normalized,
-        data['storeName'],
         data['tags'],
-      ].join(' ').toLowerCase();
+      ].join(' ');
+      final hits = SmartMatchmakingEngine.topicHitCount(topicText, keywords);
 
       var score = 0;
       final reasons = <String>[];
-      for (final kw in keywords) {
-        if (kw.length >= 3 && text.contains(kw)) {
-          score += 12;
+      if (hits > 0) {
+        score += (hits * 18).clamp(0, 72);
+        final matchedKw = SmartMatchmakingEngine.meaningfulTokens(keywords)
+            .where((kw) => topicText.toLowerCase().contains(kw))
+            .take(2);
+        for (final kw in matchedKw) {
           reasons.add(appTr('يتوافق مع «$kw»', 'Matches "$kw"'));
         }
       }
 
-      if (preferredTitles.contains(rawCategory) ||
-          preferredTitles.contains(normalized)) {
-        score += 22;
+      if (hits > 0 &&
+          (preferredTitles.contains(rawCategory) ||
+              preferredTitles.contains(normalized))) {
+        score += 16;
         reasons.add(
           appTr(
             'من قسم مناسب لبحثك',
@@ -356,12 +605,10 @@ class ResearchSupplyChainEngine {
         );
       }
 
-      // Soft boost for always-useful lab supplies.
-      if (normalized.contains('مستهلك') ||
-          normalized.contains('أجهزة') ||
-          normalized.contains('سلامة') ||
-          normalized.contains('كتب')) {
-        score += 6;
+      final local = NbsleUniversityCities.isSameCity(city, researcherCity);
+      if (hits > 0 && local) {
+        score += 10;
+        reasons.add(appTr('متوفر في مدينتك', 'Available in your city'));
       }
 
       return SupplyChainProduct(
@@ -373,65 +620,23 @@ class ResearchSupplyChainEngine {
         createdBy: data['createdBy']?.toString(),
         score: score.clamp(0, 100),
         reasons: reasons.toSet().take(2).toList(),
+        city: city,
+        storeName: storeName,
       );
     }).toList()
       ..sort((a, b) => b.score.compareTo(a.score));
 
-    final matched = scored.where((p) => p.score > 0).take(limit).toList();
-    if (matched.isNotEmpty) return matched;
-
-    // Prefer products already in preferred sections over arbitrary catalogue.
-    final inPreferred = scored
-        .where(
-          (p) =>
-              preferredTitles.contains(p.category) ||
-              preferredCategories.any(
-                (c) =>
-                    p.category == c.title ||
-                    storeCategoryQueryTitles(c).contains(p.category),
-              ),
-        )
-        .take(limit)
-        .map(
-          (p) => SupplyChainProduct(
-            id: p.id,
-            name: p.name,
-            price: p.price,
-            category: p.category,
-            imageUrl: p.imageUrl,
-            createdBy: p.createdBy,
-            score: 24,
-            reasons: [
-              appTr(
-                'من قسم قد يفيد مسار بحثك',
-                'From a section that may help your research path',
-              ),
-            ],
-          ),
-        )
-        .toList();
-    if (inPreferred.isNotEmpty) return inPreferred;
-
-    return scored
-        .take(limit)
-        .map(
-          (p) => SupplyChainProduct(
-            id: p.id,
-            name: p.name,
-            price: p.price,
-            category: p.category,
-            imageUrl: p.imageUrl,
-            createdBy: p.createdBy,
-            score: 15,
-            reasons: [
-              appTr(
-                'خيار عام من المتجر الأكاديمي',
-                'General option from the academic store',
-              ),
-            ],
-          ),
-        )
-        .toList();
+    final matched = scored.where((p) => p.score > 0).toList();
+    if (researcherCity.trim().isEmpty) {
+      return matched.take(localLimit + otherLimit).toList();
+    }
+    final local = matched
+        .where((p) => NbsleUniversityCities.isSameCity(p.city, researcherCity))
+        .take(localLimit);
+    final other = matched
+        .where((p) => !NbsleUniversityCities.isSameCity(p.city, researcherCity))
+        .take(otherLimit);
+    return [...local, ...other];
   }
 
   List<MatchResult<WritingExpert>> _matchWritingExperts(
@@ -529,15 +734,9 @@ class ResearchSupplyChainEngine {
     return 'أوراق';
   }
 
-  bool _isPhdDegree(String degree) {
-    final d = degree.toLowerCase();
-    return d.contains('دكتوراه') || d.contains('phd') || d.contains('doctorate');
-  }
+  bool _isPhdDegree(String degree) => isDoctoralDegree(degree);
 
-  bool _isMastersDegree(String degree) {
-    final d = degree.toLowerCase();
-    return d.contains('ماجستير') || d.contains('master');
-  }
+  bool _isMastersDegree(String degree) => isMastersLevelDegree(degree);
 
   bool _isQuantitativeMethodology(String methodology) {
     final m = methodology.toLowerCase();
@@ -551,12 +750,18 @@ class ResearchSupplyChainEngine {
     List<SupplyChainProduct> products = const [],
     List<MatchResult<WritingExpert>> experts = const [],
     List<StoreCategory> storeCategories = const [],
+    int literatureCount = 0,
   }) {
     final lines = <String>[];
     if (ideas.isNotEmpty) {
       lines.add(appTr(
         '💡 ${ideas.length} أفكار بحثية مقترحة (أفضلها: ${ideas.first.item.title})',
         '💡 ${ideas.length} research ideas (top: ${ideas.first.item.title})',
+      ));
+    } else {
+      lines.add(appTr(
+        '💡 لا فكرة في الكتالوج تشارك كلمات نقطة بحثك — لن نعرض أفكاراً من كلية أخرى.',
+        '💡 No catalog idea shares your topic words — off-faculty ideas are not shown.',
       ));
     }
     if (supervisors.isNotEmpty) {
@@ -570,6 +775,11 @@ class ResearchSupplyChainEngine {
         '🔬 ${labs.length} مختبرات (أفضلها: ${labs.first.item.name})',
         '🔬 ${labs.length} labs (top: ${labs.first.item.name})',
       ));
+    } else {
+      lines.add(appTr(
+        '🔬 لا مختبر يشارك اسمه أو أجهزته كلمات موضوعك — أفضل قائمة فارغة من توافق 100% بلا صلة.',
+        '🔬 No lab name or equipment shares your topic words — an empty list is better than a 100% mismatch.',
+      ));
     }
     if (storeCategories.isNotEmpty) {
       lines.add(appTr(
@@ -582,11 +792,22 @@ class ResearchSupplyChainEngine {
         '📦 ${products.length} منتج/ات مقترحة',
         '📦 ${products.length} suggested product(s)',
       ));
+    } else {
+      lines.add(appTr(
+        '📦 لا مادة في المتجر يظهر اسمها في نقطة بحثك — لن نملأ القائمة بإلكترونيات عامة.',
+        '📦 No store item name appears in your topic — the list is not filled with generic electronics.',
+      ));
     }
     if (experts.isNotEmpty) {
       lines.add(appTr(
         '✍️ ${experts.length} خدمات كتابة (أفضلها: ${experts.first.item.name})',
         '✍️ ${experts.length} writing services (top: ${experts.first.item.name})',
+      ));
+    }
+    if (literatureCount > 0) {
+      lines.add(appTr(
+        '📚 $literatureCount دراسة مؤكدة DOI من OpenAlex/Crossref/Semantic Scholar',
+        '📚 $literatureCount DOI-confirmed studies from OpenAlex/Crossref/Semantic Scholar',
       ));
     }
     return lines;

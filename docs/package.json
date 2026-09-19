@@ -3,10 +3,20 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "generate": "node generate-brochure.mjs"
+    "generate": "node generate-brochure.mjs",
+    "pitch:suppliers": "node generate-pitch-suppliers-pptx.mjs",
+    "pitch:suppliers:docx": "node generate-pitch-suppliers.mjs",
+    "soybean:pptx": "node generate-soybean-refining-pptx.mjs"
   },
   "dependencies": {
     "html-to-docx": "^1.8.0",
+    "pptxgenjs": "^4.0.1",
     "puppeteer": "^24.2.0"
-  }
+  },
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
 }

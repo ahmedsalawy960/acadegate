@@ -2,12 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 import '../../core/locale/locale_extensions.dart';
 import '../academic/academic_content_service.dart';
+import '../academic/academic_degrees.dart';
 import '../academic/academic_models.dart';
 import '../academic/faculty_categories.dart';
 import '../academic/supervisor_profile_screen.dart';
 import '../profile/academic_profile.dart';
 import '../profile/academic_profile_screen.dart';
 import '../profile/academic_profile_service.dart';
+import '../guides/section_guide_catalog.dart';
+import '../guides/section_guide_screen.dart';
+import '../research_supply_chain/research_supply_chain_screen.dart';
 import '../smart_labs/smart_lab_detail_screen.dart';
 import 'smart_matchmaking_engine.dart';
 
@@ -34,6 +38,13 @@ class _MatchmakingScreenState extends State<MatchmakingScreen> {
   List<MatchResult<AcademicSupervisor>> _supervisorMatches = [];
   List<MatchResult<AcademicResearchIdea>> _ideaMatches = [];
   List<MatchResult<AcademicLab>> _labMatches = [];
+  final _goalController = TextEditingController();
+
+  @override
+  void dispose() {
+    _goalController.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -96,6 +107,80 @@ class _MatchmakingScreenState extends State<MatchmakingScreen> {
     }
   }
 
+  void _openGoalEngine() {
+    final goal = _goalController.text.trim();
+    if (goal.length < 8) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.t(
+            'اكتب هدفك أوضح: مثلاً أريد ماجستير في الكيمياء التحليلية',
+            'Write a clearer goal: e.g. I want a master’s in analytical chemistry',
+          )),
+        ),
+      );
+      return;
+    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ResearchSupplyChainScreen(initialGoal: goal),
+      ),
+    );
+  }
+
+  Widget _goalComposer() {
+    return Card(
+      color: const Color(0xFF1A237E).withValues(alpha: 0.06),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              context.t(
+                'محرّك الهدف: ماجستير / دكتوراه',
+                'Goal engine: master’s / PhD',
+              ),
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              context.t(
+                'اكتب ما تريد دراسته. نختار المشرفين والمختبرات والأفكار والمواد، ونبني خطة فصلية ودراسات مؤكدة وأثر تمويل إن وُجد.',
+                'Write what you want to study. We pick supervisors, labs, ideas, and materials, then a semester plan, confirmed studies, and funding fit if it exists.',
+              ),
+              style: TextStyle(fontSize: 12, color: Colors.grey[700], height: 1.4),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _goalController,
+              maxLines: 3,
+              decoration: InputDecoration(
+                hintText: context.t(
+                  'أريد ماجستير في … لتطوير مصنع / وزارة / مؤسسة',
+                  'I want a master’s in … to improve a factory / ministry / institution',
+                ),
+                border: const OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 8),
+            FilledButton.icon(
+              onPressed: _openGoalEngine,
+              icon: const Icon(Icons.auto_awesome),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF1A237E),
+              ),
+              label: Text(context.t(
+                'ابنِ الخطة الكاملة',
+                'Build the full plan',
+              )),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _openProfileEditor() async {
     final saved = await Navigator.push<bool>(
       context,
@@ -121,6 +206,9 @@ class _MatchmakingScreenState extends State<MatchmakingScreen> {
         backgroundColor: const Color(0xFF1A237E),
         foregroundColor: Colors.white,
         actions: [
+          const SectionGuideAppBarButton(
+            guideId: SectionGuideCatalog.matchmaking,
+          ),
           IconButton(
             tooltip: context.t('تعديل الملف الأكاديمي', 'Edit academic profile'),
             onPressed: _openProfileEditor,
@@ -139,12 +227,16 @@ class _MatchmakingScreenState extends State<MatchmakingScreen> {
   Widget _buildEmptyProfileState() {
     final journey = widget.supervisorJourney;
 
-    return Padding(
+    return ListView(
       padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.auto_awesome, size: 72, color: Colors.grey[400]),
+      children: [
+        const SectionGuideBanner(
+          guideId: SectionGuideCatalog.matchmaking,
+        ),
+        const SizedBox(height: 16),
+        _goalComposer(),
+        const SizedBox(height: 24),
+        Icon(Icons.auto_awesome, size: 72, color: Colors.grey[400]),
           const SizedBox(height: 16),
           Text(
             journey
@@ -194,7 +286,6 @@ class _MatchmakingScreenState extends State<MatchmakingScreen> {
             ),
           ),
         ],
-      ),
     );
   }
 
@@ -215,6 +306,12 @@ class _MatchmakingScreenState extends State<MatchmakingScreen> {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          const SectionGuideBanner(
+            guideId: SectionGuideCatalog.matchmaking,
+          ),
+          const SizedBox(height: 12),
+          _goalComposer(),
+          const SizedBox(height: 16),
           if (journey) ...[
             _JourneySteps(),
             const SizedBox(height: 12),
@@ -638,11 +735,12 @@ class _ProfileSummaryCard extends StatelessWidget {
 }
 
 String _profileDegreeLabel(BuildContext context, String degree) {
-  return switch (degree) {
-    'ماجستير' => context.t('ماجستير', "Master's"),
-    'دكتوراه' => context.t('دكتوراه', 'PhD'),
-    _ => degree,
-  };
+  for (final option in academicDegreeOptions) {
+    if (option.value == degree) {
+      return context.t(option.labelAr, option.labelEn);
+    }
+  }
+  return degree;
 }
 
 class _DemoDataBanner extends StatelessWidget {

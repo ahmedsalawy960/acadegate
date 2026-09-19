@@ -1,11 +1,18 @@
+import 'dart:ui' show PlatformDispatcher;
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_web_plugins/url_strategy.dart';
 import 'core/locale/locale_service.dart';
+import 'core/video/register_video_player_desktop.dart';
 import 'core/widgets/beta_shell.dart';
 import 'core/notifications/push_notification_bootstrap.dart';
 import 'firebase_options.dart';
+import 'features/bugs/bug_report_service.dart';
+import 'features/auth/auth_web_deep_link.dart';
 import 'features/auth/email_auth_gate.dart';
 import 'features/auth/email_verification_screen.dart';
 import 'features/auth/language_selection_screen.dart';
@@ -15,9 +22,35 @@ import 'l10n/app_localizations.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  registerVideoPlayerDesktop();
+  if (kIsWeb) {
+    usePathUrlStrategy();
+  }
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await PushNotificationBootstrap.init();
   await LocaleService.instance.init();
+
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    // ignore: unawaited_futures
+    BugReportService.instance.logAutoError(
+      source: BugReportService.sourceAutoFlutter,
+      message: details.exceptionAsString(),
+      stack: details.stack?.toString(),
+      severity: 'critical',
+    );
+  };
+  PlatformDispatcher.instance.onError = (error, stack) {
+    // ignore: unawaited_futures
+    BugReportService.instance.logAutoError(
+      source: BugReportService.sourceAutoPlatform,
+      message: '$error',
+      stack: stack.toString(),
+      severity: 'critical',
+    );
+    return false;
+  };
+
   runApp(const AcadeGateApp());
 }
 
@@ -31,8 +64,14 @@ class AcadeGateApp extends StatelessWidget {
       builder: (context, _) {
         final locale = LocaleService.instance.locale ?? const Locale('ar');
         final textDirection = LocaleService.instance.textDirection;
+        // On web, `home` is only applied to the initial route. Crossing
+        // language-pick → ready must remount MaterialApp or the language
+        // screen stays until a full page refresh.
+        final appPhase =
+            LocaleService.instance.hasChosenLocale ? 'ready' : 'pick-locale';
 
         return MaterialApp(
+          key: ValueKey(appPhase),
           debugShowCheckedModeBanner: false,
           title: 'AcadeGate',
           locale: locale,
@@ -45,8 +84,32 @@ class AcadeGateApp extends StatelessWidget {
           ],
           theme: ThemeData(
             useMaterial3: true,
-            colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1A237E)),
+            visualDensity: VisualDensity.standard,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: const Color(0xFF1A237E),
+            ).copyWith(
+              surface: Colors.white,
+              surfaceTint: Colors.transparent,
+            ),
             scaffoldBackgroundColor: const Color(0xFFF5F5F5),
+            canvasColor: const Color(0xFFF5F5F5),
+            cardTheme: const CardThemeData(
+              color: Colors.white,
+              surfaceTintColor: Colors.transparent,
+              shadowColor: Color(0x1A000000),
+            ),
+            appBarTheme: const AppBarTheme(
+              surfaceTintColor: Colors.transparent,
+              scrolledUnderElevation: 0,
+            ),
+            dialogTheme: const DialogThemeData(
+              backgroundColor: Colors.white,
+              surfaceTintColor: Colors.transparent,
+            ),
+            bottomSheetTheme: const BottomSheetThemeData(
+              backgroundColor: Colors.white,
+              surfaceTintColor: Colors.transparent,
+            ),
           ),
           builder: (context, child) {
             return Directionality(
@@ -66,30 +129,31 @@ class _AppRoot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!LocaleService.instance.hasChosenLocale) {
-      return const LanguageSelectionScreen();
-    }
+    return ListenableBuilder(
+      listenable: LocaleService.instance,
+      builder: (context, _) {
+        if (!LocaleService.instance.hasChosenLocale) {
+          return const LanguageSelectionScreen();
+        }
 
-    // userChanges rebuilds after emailVerified flips (reload).
-    return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.userChanges(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(color: Color(0xFF1A237E)),
-            ),
-          );
-        }
-        final user = snapshot.data;
-        if (user == null) {
-          return const WelcomeScreen();
-        }
-        if (EmailAuthGate.requiresVerification(user)) {
-          return const EmailVerificationScreen();
-        }
-        return const PortalGateway();
+        // userChanges rebuilds after emailVerified flips (reload).
+        return StreamBuilder<User?>(
+          stream: FirebaseAuth.instance.userChanges(),
+          builder: (context, snapshot) {
+            final user = snapshot.data ?? FirebaseAuth.instance.currentUser;
+            if (user == null) {
+              return WelcomeScreen(
+                initialAuthAction: AuthWebDeepLink.actionFromUri(),
+              );
+            }
+            if (EmailAuthGate.requiresVerification(user)) {
+              return const EmailVerificationScreen();
+            }
+            return const PortalGateway();
+          },
+        );
       },
     );
   }
 }
+

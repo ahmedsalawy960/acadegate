@@ -11,6 +11,63 @@ service firebase.storage {
                    && request.resource.contentType.matches('image/.*');
     }
 
+    match /uploads/{userId}/claims/{allPaths=**} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null
+                   && request.auth.uid == userId
+                   && request.resource.size < 15 * 1024 * 1024
+                   && (request.resource.contentType.matches('image/.*')
+                       || request.resource.contentType == 'application/pdf');
+    }
+
+    // صور منتجات المتجر — قراءة عامة للعرض في الكتالوج
+    match /uploads/{userId}/products/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && request.auth.uid == userId
+                   && request.resource.size < 40 * 1024 * 1024
+                   && (request.resource.contentType.matches('image/.*')
+                       || request.resource.contentType == 'video/mp4');
+    }
+
+    // أصول معرفية مشفّرة — البائع أو حامل ترخيص نشط فقط
+    match /knowledge_assets/{sellerId}/{productId}/{fileName} {
+      allow write: if request.auth != null
+                   && request.auth.uid == sellerId
+                   && request.resource.size < 40 * 1024 * 1024
+                   && (request.resource.contentType.matches('application/pdf')
+                       || request.resource.contentType.matches('application/zip')
+                       || request.resource.contentType.matches('application/octet-stream')
+                       || request.resource.contentType.matches('application/msword')
+                       || request.resource.contentType.matches('application/vnd.openxmlformats-officedocument.*')
+                       || request.resource.contentType.matches('image/.*')
+                       || request.resource.contentType.matches('video/.*')
+                       || request.resource.contentType.matches('audio/.*')
+                       || request.resource.contentType.matches('text/.*'));
+      allow read: if request.auth != null && (
+        request.auth.uid == sellerId
+        || (
+          firestore.exists(
+            /databases/(default)/documents/product_licenses/$(request.auth.uid + '_' + productId)
+          )
+          && firestore.get(
+            /databases/(default)/documents/product_licenses/$(request.auth.uid + '_' + productId)
+          ).data.status == 'active'
+          && (
+            !('expiresAt' in firestore.get(
+              /databases/(default)/documents/product_licenses/$(request.auth.uid + '_' + productId)
+            ).data)
+            || firestore.get(
+              /databases/(default)/documents/product_licenses/$(request.auth.uid + '_' + productId)
+            ).data.expiresAt == null
+            || firestore.get(
+              /databases/(default)/documents/product_licenses/$(request.auth.uid + '_' + productId)
+            ).data.expiresAt > request.time
+          )
+        )
+      );
+    }
+
     match /uploads/{userId}/advisor/{allPaths=**} {
       allow read: if request.auth != null && request.auth.uid == userId;
       allow write: if request.auth != null
@@ -27,6 +84,27 @@ service firebase.storage {
                    && request.auth.uid == userId
                    && request.resource.size < 40 * 1024 * 1024
                    && request.resource.contentType == 'application/pdf';
+    }
+
+    // فصول المنهجية (PDF) — فحص سلامة المنهجية
+    match /uploads/{userId}/methodology/{allPaths=**} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null
+                   && request.auth.uid == userId
+                   && request.resource.size < 40 * 1024 * 1024
+                   && request.resource.contentType == 'application/pdf';
+    }
+
+    // ملفات CAD (STEP/STL) من PartWork / ty\e — للتوافق المخصص
+    match /uploads/{userId}/cad/{allPaths=**} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null
+                   && request.auth.uid == userId
+                   && request.resource.size < 40 * 1024 * 1024
+                   && (request.resource.contentType == 'application/step'
+                       || request.resource.contentType == 'model/stl'
+                       || request.resource.contentType == 'application/sla'
+                       || request.resource.contentType == 'application/octet-stream');
     }
 
     match /publish/{userId}/{manuscriptId}/{fileName} {

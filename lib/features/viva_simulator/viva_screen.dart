@@ -2,8 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
 import '../../core/locale/locale_extensions.dart';
+import '../../core/voice/readable_text.dart';
 import '../../core/locale/l10n_lookup.dart';
 import '../academic/faculty_categories.dart';
+import '../academic/academic_degrees.dart';
+import '../academic_integrity/citation_check_screen.dart';
+import '../academic_integrity/citation_check_service.dart';
+import '../academic_integrity/citation_health.dart';
+import '../academic_integrity/citation_health_service.dart';
 import '../ai_advisor/advisor_branding.dart';
 import '../ai_advisor/gemini_advisor_client.dart';
 import '../auth/login_screen.dart';
@@ -50,6 +56,13 @@ class _VivaSimulatorScreenState extends State<VivaSimulatorScreen> {
   String? _pdfFileName;
   String? _thesisExcerpt;
   String? _defenseContext;
+  List<String> _extractedQuestions = [];
+  List<VivaThesisIssue> _issues = [];
+  String? _supervisorFromThesis;
+  List<String> _supervisorsFromThesis = [];
+  String? _bibliographyText;
+  CitationHealthSnapshot? _citationHealth;
+  bool _checkingCitations = false;
   String? _sessionId;
   DateTime? _sessionCreatedAt;
   final List<VivaMessage> _messages = [];
@@ -147,7 +160,16 @@ class _VivaSimulatorScreenState extends State<VivaSimulatorScreen> {
         questionCount: _questionCount,
         answerMode: _answerMode,
         facultyCategoryId: _facultyCategoryId,
+        extractedQuestions: _extractedQuestions,
+        issues: _issues,
+        supervisorFromThesis: _supervisorFromThesis,
+        supervisorsFromThesis: _supervisorsFromThesis,
+        bibliographyText: _bibliographyText,
+        citationHealth: _citationHealth,
       );
+
+  List<VivaCommitteeMember> get _committee =>
+      VivaCommittee.lineup(supervisorFromThesis: _supervisorFromThesis);
 
   int get _maxQuestions => _config.resolvedQuestionCount;
 
@@ -181,8 +203,8 @@ class _VivaSimulatorScreenState extends State<VivaSimulatorScreen> {
             title: Text(ctx.t('تسجيل الدخول مطلوب', 'Sign-in required')),
             content: Text(
               ctx.t(
-                'رفع PDF واستخراج بيانات الرسالة يعمل عبر الذكاء السحابي بعد تسجيل الدخول — بدون مفتاح محلي.',
-                'PDF upload and thesis extraction uses cloud AI after you sign in — no local API key needed.',
+                'رفع PDF أو Word واستخراج بيانات الرسالة يعمل عبر الذكاء السحابي بعد تسجيل الدخول — بدون مفتاح محلي.',
+                'PDF or Word upload and thesis extraction uses cloud AI after you sign in — no local API key needed.',
               ),
             ),
             actions: [
@@ -212,8 +234,8 @@ class _VivaSimulatorScreenState extends State<VivaSimulatorScreen> {
           SnackBar(
             content: Text(
               context.t(
-                'رفع PDF واستخراج البيانات غير متاح حالياً',
-                'PDF upload and extraction is unavailable right now',
+                'رفع الملف واستخراج البيانات غير متاح حالياً',
+                'File upload and extraction is unavailable right now',
               ),
             ),
           ),
@@ -223,18 +245,25 @@ class _VivaSimulatorScreenState extends State<VivaSimulatorScreen> {
     }
 
     try {
-      final picked = await _pdfService.pickPdf();
+      final picked = await _pdfService.pickThesisFile();
       if (picked == null || !mounted) return;
 
       setState(() => _extractingPdf = true);
-      final extracted = await _pdfService.extractFromPdf(
+      final extracted = await _pdfService.extractFromThesis(
         bytes: picked.bytes,
         fileName: picked.name,
       );
       if (!mounted) return;
 
-      _titleController.text = extracted.title;
-      _summaryController.text = extracted.summary;
+      if (extracted.title.trim().length >= 5) {
+        _titleController.text = extracted.title.trim();
+      }
+      if (extracted.summary.trim().length >= 40) {
+        _summaryController.text = extracted.summary.trim();
+      } else if (_summaryController.text.trim().length < 40 &&
+          (extracted.excerpt?.trim().length ?? 0) >= 40) {
+        _summaryController.text = extracted.excerpt!.trim();
+      }
       if (extracted.specialization != null) {
         _specializationController.text = extracted.specialization!;
       }
@@ -252,18 +281,50 @@ class _VivaSimulatorScreenState extends State<VivaSimulatorScreen> {
         _pdfFileName = extracted.fileName;
         _thesisExcerpt = extracted.excerpt;
         _defenseContext = extracted.defenseContext;
+        _extractedQuestions = extracted.extractedQuestions;
+        _issues = extracted.issues;
+        _supervisorFromThesis = extracted.supervisorFromThesis;
+        _supervisorsFromThesis = extracted.supervisorsFromThesis;
+        _bibliographyText = extracted.bibliographyText;
+        _citationHealth = null;
         _extractingPdf = false;
+        final needed = extracted.extractedQuestions.length +
+            (extracted.issues.length > 4 ? 4 : extracted.issues.length);
+        if (needed > _questionCount) {
+          _questionCount = VivaSessionConfig.questionCountOptions.firstWhere(
+            (o) => o >= needed.clamp(6, 15),
+            orElse: () => 15,
+          );
+        }
       });
+      final qn = extracted.extractedQuestions.length;
+      final inCount = extracted.issues.length;
+      final supervisors = extracted.supervisorsFromThesis.isNotEmpty
+          ? extracted.supervisorsFromThesis
+          : [
+              if (extracted.supervisorFromThesis != null)
+                extracted.supervisorFromThesis!,
+            ];
+      final supervisorNote = supervisors.isNotEmpty
+          ? context.t(
+              ' — المشرفون من الرسالة: ${supervisors.join('؛ ')}',
+              ' — supervisors from thesis: ${supervisors.join('; ')}',
+            )
+          : context.t(
+              ' — لم يُطبع اسم مشرف واضح على الغلاف',
+              ' — no printed supervisor name on the cover',
+            );
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             context.t(
-              'تم استخراج بيانات الرسالة — الأسئلة ستُبنى من محتوى رسالتك',
-              'Thesis extracted — questions will be grounded in your thesis content',
+              'تم استخراج $qn سؤالاً و$inCount ملاحظة من رسالتك$supervisorNote',
+              'Extracted $qn questions and $inCount comments from your thesis$supervisorNote',
             ),
           ),
         ),
       );
+      await _runCitationHealth(extracted.bibliographyText);
     } catch (e) {
       if (!mounted) return;
       setState(() => _extractingPdf = false);
@@ -283,17 +344,91 @@ class _VivaSimulatorScreenState extends State<VivaSimulatorScreen> {
       _pdfFileName = null;
       _thesisExcerpt = null;
       _defenseContext = null;
+      _extractedQuestions = [];
+      _issues = [];
+      _supervisorFromThesis = null;
+      _supervisorsFromThesis = [];
+      _bibliographyText = null;
+      _citationHealth = null;
     });
   }
 
+  Future<void> _runCitationHealth(String? bibliography) async {
+    final text = bibliography?.trim() ?? '';
+    if (text.length < 24) return;
+    setState(() => _checkingCitations = true);
+    try {
+      final report = await CitationCheckService.instance.checkReferences(text);
+      if (!mounted) return;
+      final snapshot = CitationHealthService.instance.snapshot(report);
+      final alerts = CitationHealthService.instance.alerts(report);
+      final extraIssues = alerts
+          .map(
+            (a) => VivaThesisIssue(
+              kind: a.kind == 'error' ? 'error' : 'citation',
+              quote: a.quote,
+              comment: a.comment,
+            ),
+          )
+          .toList();
+          final extraQuestions = alerts.map((a) => a.question).take(6).toList();
+      setState(() {
+        _citationHealth = snapshot;
+        _checkingCitations = false;
+        if (extraIssues.isNotEmpty) {
+          final seen = _issues.map((i) => i.label.toLowerCase()).toSet();
+          for (final issue in extraIssues) {
+            if (seen.add(issue.label.toLowerCase())) {
+              _issues = [..._issues, issue];
+            }
+          }
+        }
+        if (extraQuestions.isNotEmpty) {
+          final seenQ = _extractedQuestions.map((q) => q.toLowerCase()).toSet();
+          for (final q in extraQuestions) {
+            if (seenQ.add(q.toLowerCase())) {
+              _extractedQuestions = [..._extractedQuestions, q];
+            }
+          }
+        }
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _checkingCitations = false);
+    }
+  }
+
+  void _ensureStartFields() {
+    if (_titleController.text.trim().length < 5) {
+      final fallback = _pdfFileName
+              ?.replaceAll(RegExp(r'\.(pdf|docx)$', caseSensitive: false), '')
+              .trim() ??
+          '';
+      _titleController.text = fallback.length >= 5
+          ? fallback
+          : context.t('محاكاة مناقشة', 'Viva simulation');
+    }
+    if (_summaryController.text.trim().length < 40) {
+      final fromMaterial = (_defenseContext ?? _thesisExcerpt ?? '').trim();
+      if (fromMaterial.length >= 40) {
+        _summaryController.text = fromMaterial.length > 800
+            ? fromMaterial.substring(0, 800)
+            : fromMaterial;
+      } else if (_extractedQuestions.isNotEmpty) {
+        _summaryController.text = _extractedQuestions.take(3).join(' ');
+      }
+    }
+  }
+
   Future<void> _startSession() async {
+    _ensureStartFields();
     if (!_config.isValid) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             context.t(
-              'أدخل عنواناً (5 أحرف على الأقل) وملخصاً (40 حرفاً على الأقل)',
-              'Enter a title (min 5 chars) and summary (min 40 chars)',
+              'ارفع الرسالة أو أدخل العنوان والملخص لبدء المحاكاة بالأسئلة المستخرجة',
+              'Upload the thesis or enter a title and summary to start with the extracted questions',
             ),
           ),
         ),
@@ -324,7 +459,10 @@ class _VivaSimulatorScreenState extends State<VivaSimulatorScreen> {
 
   Future<void> _askNextQuestion() async {
     await _stt.stopListening();
-    final member = _service.memberForQuestionIndex(_questionIndex);
+    final member = _service.memberForQuestionIndex(
+      _questionIndex,
+      supervisorFromThesis: _supervisorFromThesis,
+    );
     final question = await _service.generateQuestion(
       config: _config,
       member: member,
@@ -409,6 +547,12 @@ class _VivaSimulatorScreenState extends State<VivaSimulatorScreen> {
     _pdfFileName = session.config.pdfFileName;
     _thesisExcerpt = session.config.thesisExcerpt;
     _defenseContext = session.config.defenseContext;
+    _extractedQuestions = List.of(session.config.extractedQuestions);
+    _issues = List.of(session.config.issues);
+    _supervisorFromThesis = session.config.supervisorFromThesis;
+    _supervisorsFromThesis = List.of(session.config.supervisorsFromThesis);
+    _bibliographyText = session.config.bibliographyText;
+    _citationHealth = session.config.citationHealth;
     setState(() {
       _sessionId = session.id;
       _sessionCreatedAt = session.createdAt;
@@ -557,14 +701,14 @@ class _VivaSimulatorScreenState extends State<VivaSimulatorScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  context.t('رفع رسالة PDF (حتى 40 ميجا)', 'Upload thesis PDF (up to 40 MB)'),
+                  context.t('رفع الرسالة PDF أو Word (حتى 40 ميجا)', 'Upload thesis PDF or Word (up to 40 MB)'),
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   context.t(
-                    'يستخرج العنوان والملخص والمنهجية ونقاط المناقشة من نص الرسالة (يتطلب Gemini)',
-                    'Extracts title, summary, methodology, and defense points from your thesis text (requires Gemini)',
+                    'يستخرج أسئلة مناقشة وأخطاء/ملاحظات من نص الرسالة — بدون اختلاق أسماء مشرفين (يفضّل ملف Word)',
+                    'Extracts viva questions and errors/comments from your thesis — no invented supervisor names (Word works best)',
                   ),
                   style: TextStyle(fontSize: 13, color: Colors.grey[600]),
                 ),
@@ -572,7 +716,14 @@ class _VivaSimulatorScreenState extends State<VivaSimulatorScreen> {
                 if (_pdfFileName != null)
                   ListTile(
                     contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.picture_as_pdf, color: Colors.red),
+                    leading: Icon(
+                      (_pdfFileName ?? '').toLowerCase().endsWith('.docx')
+                          ? Icons.description
+                          : Icons.picture_as_pdf,
+                      color: (_pdfFileName ?? '').toLowerCase().endsWith('.docx')
+                          ? _brand
+                          : Colors.red,
+                    ),
                     title: Text(_pdfFileName!, maxLines: 1, overflow: TextOverflow.ellipsis),
                     trailing: IconButton(
                       icon: const Icon(Icons.close),
@@ -594,14 +745,22 @@ class _VivaSimulatorScreenState extends State<VivaSimulatorScreen> {
                       : const Icon(Icons.upload_file),
                   label: Text(
                     _extractingPdf
-                        ? context.t('جاري تحليل PDF...', 'Analyzing PDF...')
-                        : context.t('اختر ملف PDF', 'Choose PDF file'),
+                        ? context.t('جاري تحليل الرسالة...', 'Analyzing thesis...')
+                        : context.t('اختر ملف PDF أو Word', 'Choose PDF or Word file'),
                   ),
                 ),
               ],
             ),
           ),
         ),
+        if (_extractedQuestions.isNotEmpty ||
+            _issues.isNotEmpty ||
+            _checkingCitations ||
+            _citationHealth != null ||
+            (_bibliographyText?.trim().isNotEmpty ?? false)) ...[
+          const SizedBox(height: 12),
+          _buildExtractionPreview(),
+        ],
         const SizedBox(height: 20),
         Text(
           context.t('بيانات الرسالة', 'Thesis details'),
@@ -647,20 +806,19 @@ class _VivaSimulatorScreenState extends State<VivaSimulatorScreen> {
         const SizedBox(height: 12),
         DropdownButtonFormField<String>(
           key: ValueKey(_degree),
-          initialValue: _degree,
+          initialValue: academicDegreeOptions.any((d) => d.value == _degree)
+              ? _degree
+              : academicDegreeOptions.first.value,
           decoration: InputDecoration(
             labelText: context.t('الدرجة', 'Degree'),
             border: const OutlineInputBorder(),
           ),
           items: [
-            DropdownMenuItem(
-              value: 'ماجستير',
-              child: Text(context.t('ماجستير', "Master's")),
-            ),
-            DropdownMenuItem(
-              value: 'دكتوراه',
-              child: Text(context.t('دكتوراه', 'PhD')),
-            ),
+            for (final option in academicDegreeOptions)
+              DropdownMenuItem(
+                value: option.value,
+                child: Text(context.t(option.labelAr, option.labelEn)),
+              ),
           ],
           onChanged: (v) => setState(() => _degree = v ?? _degree),
         ),
@@ -817,6 +975,256 @@ class _VivaSimulatorScreenState extends State<VivaSimulatorScreen> {
     );
   }
 
+  Widget _buildExtractionPreview() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              context.t(
+                'من رسالتك: أسئلة وملاحظات للمناقشة',
+                'From your thesis: viva questions and comments',
+              ),
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 6),
+            if (_titleController.text.trim().isNotEmpty)
+              Text(
+                context.t(
+                  'العنوان: ${_titleController.text.trim()}',
+                  'Title: ${_titleController.text.trim()}',
+                ),
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+            const SizedBox(height: 4),
+            Text(
+              _supervisorsFromThesis.isNotEmpty
+                  ? context.t(
+                      'المشرفون (من الرسالة): ${_supervisorsFromThesis.join('؛ ')}',
+                      'Supervisors (from thesis): ${_supervisorsFromThesis.join('; ')}',
+                    )
+                  : (_supervisorFromThesis != null
+                      ? context.t(
+                          'المشرف (مطبوع على الرسالة): $_supervisorFromThesis',
+                          'Supervisor (printed on thesis): $_supervisorFromThesis',
+                        )
+                      : context.t(
+                          'لم يُستخرج اسم مشرف من الغلاف — اللجنة بأدوار فقط دون أسماء مختلقة.',
+                          'No supervisor name found on the cover — committee uses roles only, no invented names.',
+                        )),
+              style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+            ),
+            if (_extractedQuestions.isNotEmpty)
+              ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                title: Text(
+                  context.t(
+                    'أسئلة مستخرجة (${_extractedQuestions.length})',
+                    'Extracted questions (${_extractedQuestions.length})',
+                  ),
+                ),
+                children: [
+                  for (var i = 0; i < _extractedQuestions.length; i++)
+                    ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      leading: CircleAvatar(
+                        radius: 12,
+                        backgroundColor: _brand.withValues(alpha: 0.12),
+                        child: Text(
+                          '${i + 1}',
+                          style: const TextStyle(fontSize: 11, color: _brand),
+                        ),
+                      ),
+                      title: Text(
+                        _extractedQuestions[i],
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                    ),
+                ],
+              ),
+            if (_checkingCitations ||
+                _citationHealth != null ||
+                (_bibliographyText?.trim().isNotEmpty ?? false))
+              _citationHealthTile(),
+            if (_issues.isNotEmpty)
+              ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                title: Text(
+                  context.t(
+                    'أخطاء وملاحظات (${_issues.length})',
+                    'Errors and comments (${_issues.length})',
+                  ),
+                ),
+                children: [
+                  for (final issue in _issues)
+                    ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(
+                        switch (issue.kind.toLowerCase()) {
+                          'error' => Icons.error_outline,
+                          'gap' => Icons.help_outline,
+                          'inconsistency' => Icons.compare_arrows,
+                          'citation' => Icons.menu_book_outlined,
+                          _ => Icons.comment_outlined,
+                        },
+                        color: switch (issue.kind.toLowerCase()) {
+                          'error' => Colors.red[700],
+                          'gap' => Colors.orange[800],
+                          'inconsistency' => Colors.purple[700],
+                          'citation' => Colors.indigo[800],
+                          _ => _brand,
+                        },
+                      ),
+                      title: Text(
+                        issue.kindLabel,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      subtitle: Text(
+                        issue.label,
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                    ),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _citationHealthTile() {
+    final health = _citationHealth;
+    final tone = health != null && health.hasSerious
+        ? Colors.red[800]!
+        : _brand;
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            leading: _checkingCitations
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Icon(Icons.health_and_safety_outlined, color: tone),
+            title: Text(
+              _checkingCitations
+                  ? context.t(
+                      'جاري فحص سجل الاستشهاد…',
+                      'Checking the citation registry…',
+                    )
+                  : (health?.headline ??
+                      ((_bibliographyText?.trim().isNotEmpty ?? false)
+                          ? context.t(
+                              'قائمة مراجع جاهزة للفحص',
+                              'Bibliography ready to check',
+                            )
+                          : context.t(
+                              'الصق المراجع إن لم تُستخرج من الملف',
+                              'Paste the reference list if it was not extracted',
+                            ))),
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: tone,
+              ),
+            ),
+            subtitle: health != null
+                ? Text(
+                    context.t(
+                      'درجة المراجع ${health.integrityScore}% — السجل لا يخترع DOI',
+                      'Reference score ${health.integrityScore}% — registry does not invent DOIs',
+                    ),
+                    style: const TextStyle(fontSize: 12),
+                  )
+                : Text(
+                    context.t(
+                      'افتح التقرير لفحص السحب والتصحيح في Crossref/OpenAlex',
+                      'Open the report to check retraction and correction in Crossref/OpenAlex',
+                    ),
+                    style: const TextStyle(fontSize: 12),
+                  ),
+          ),
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: TextButton.icon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => CitationCheckScreen(
+                      initialBibliography: _bibliographyText,
+                      autoRun: (_bibliographyText?.trim().length ?? 0) >= 24,
+                    ),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.open_in_new, size: 18),
+              label: Text(
+                context.t('فتح تقرير صحة الاستشهاد', 'Open citation health report'),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _citationHealthReportCard() {
+    final health = _citationHealth!;
+    return Card(
+      color: (health.hasSerious ? Colors.red : _brand).withValues(alpha: 0.08),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              context.t('صحة الاستشهاد', 'Citation health'),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const SizedBox(height: 8),
+            Text(health.headline, style: const TextStyle(height: 1.45)),
+            if (health.seriousTitles.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              for (final title in health.seriousTitles)
+                Text('• $title', style: const TextStyle(fontSize: 13, height: 1.4)),
+            ],
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => CitationCheckScreen(
+                      initialBibliography: _bibliographyText,
+                      autoRun: (_bibliographyText?.trim().length ?? 0) >= 24,
+                    ),
+                  ),
+                );
+              },
+              child: Text(
+                context.t('عرض التقرير الكامل', 'View full report'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _heroCard() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -852,12 +1260,12 @@ class _VivaSimulatorScreenState extends State<VivaSimulatorScreen> {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: VivaCommittee.members
+            children: _committee
                 .map(
                   (m) => Chip(
                     avatar: Icon(m.icon, size: 16, color: m.color),
                     label: Text(
-                      m.displayRole,
+                      m.displayName,
                       style: const TextStyle(fontSize: 11),
                     ),
                     backgroundColor: Colors.white,
@@ -997,11 +1405,15 @@ class _VivaSimulatorScreenState extends State<VivaSimulatorScreen> {
               final msg = _messages[index];
               return _MessageBubble(
                 message: msg,
+                supervisorFromThesis: _supervisorFromThesis,
                 onSpeak: msg.role == VivaMessageRole.committee
                     ? () {
                         final member = msg.memberId != null
-                            ? VivaCommittee.byId(msg.memberId!)
-                            : VivaCommittee.members.first;
+                            ? VivaCommittee.byId(
+                                msg.memberId!,
+                                supervisorFromThesis: _supervisorFromThesis,
+                              )
+                            : _committee.first;
                         _tts.speakCommitteeQuestion(
                           member: member,
                           question: msg.content,
@@ -1229,6 +1641,7 @@ class _VivaSimulatorScreenState extends State<VivaSimulatorScreen> {
           ),
         ),
         const SizedBox(height: 16),
+        if (_citationHealth != null) _citationHealthReportCard(),
         _reportSection(
           context.t('نقاط الضعف', 'Weaknesses'),
           Icons.warning_amber_outlined,
@@ -1445,8 +1858,13 @@ class _SessionsDrawer extends StatelessWidget {
 class _MessageBubble extends StatelessWidget {
   final VivaMessage message;
   final VoidCallback? onSpeak;
+  final String? supervisorFromThesis;
 
-  const _MessageBubble({required this.message, this.onSpeak});
+  const _MessageBubble({
+    required this.message,
+    this.onSpeak,
+    this.supervisorFromThesis,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1471,7 +1889,10 @@ class _MessageBubble extends StatelessWidget {
     final isStudent = message.role == VivaMessageRole.student;
     VivaCommitteeMember? member;
     if (!isStudent && message.memberId != null) {
-      member = VivaCommittee.byId(message.memberId!);
+      member = VivaCommittee.byId(
+        message.memberId!,
+        supervisorFromThesis: supervisorFromThesis,
+      );
     }
 
     return Align(
@@ -1533,7 +1954,7 @@ class _MessageBubble extends StatelessWidget {
                 ],
               ),
               child: Text(
-                message.content,
+                ReadableText.forDisplay(message.content),
                 style: TextStyle(
                   color: isStudent ? Colors.white : Colors.black87,
                   height: 1.5,

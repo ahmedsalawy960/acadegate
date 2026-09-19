@@ -5,18 +5,23 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
-import 'package:acadegate/core/widgets/app_site_footer.dart';
+import 'package:acadegate/core/widgets/arrow_scroll_view.dart';
 import '../academic/academic_content_service.dart';
 import '../academic/faculty_categories.dart';
 import '../academic/academic_models.dart';
+import '../academic/professional_studies_hub_screen.dart';
+import '../auth/auth_navigation.dart';
 import '../auth/language_switcher_button.dart';
 import '../auth/portal_switch_button.dart';
-import '../auth/welcome_screen.dart';
+import '../../core/config/feature_flags.dart';
 import '../../core/locale/l10n_lookup.dart';
 import '../../core/locale/locale_extensions.dart';
 import '../../core/layout/responsive_layout.dart';
 import '../../l10n/app_localizations.dart';
+import '../admin/admin_bugs_screen.dart';
+import '../admin/admin_kpi_screen.dart';
 import '../admin/admin_moderation_screen.dart';
+import '../bugs/report_problem_sheet.dart';
 import '../auth/user_account_service.dart';
 import '../academic_integrity/academic_integrity_hub_screen.dart';
 import '../academic_writing/writing_hub_screen.dart';
@@ -32,8 +37,8 @@ import '../moderation/moderation_service.dart';
 import '../messaging/conversations_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../profile/account_app_bar_avatar.dart';
-import '../profile/academic_profile_service.dart';
 import '../research_supply_chain/research_supply_chain_screen.dart';
+import '../thesis_studio/thesis_studio_screen.dart';
 import '../research_marketplace/research_idea_marketplace_detail_screen.dart';
 import '../research_marketplace/research_marketplace_screen.dart';
 import '../science_news/science_news_screen.dart';
@@ -43,14 +48,15 @@ import '../store/product_detail_screen.dart';
 import '../supervisor_metrics/supervisor_publication_panel.dart';
 import '../store/product_list_screen.dart';
 import '../store/store_categories.dart';
-import '../store/store_categories_screen.dart';
+import '../store/store_hub_screen.dart';
 import '../academic/supervisor_profile_screen.dart';
+import '../guides/section_guide_catalog.dart';
+import '../guides/section_guide_screen.dart';
 import '../moderation/delete_content_button.dart';
 import '../acadegate_publish/publish_hub_screen.dart';
 import '../research_fund/research_fund_screen.dart';
 import '../matchmaking/smart_match_alert_service.dart';
 import '../analysis_labs/sample_analysis_sla_alert_service.dart';
-import '../research_journey/thesis_progress_home_card.dart';
 import '../academic_writing/writing_expert_detail_screen.dart';
 import '../academic_writing/writing_categories.dart';
 import '../community/community_post_detail_screen.dart';
@@ -59,6 +65,10 @@ import '../community/research_room_navigator.dart';
 import 'home_search_catalog.dart';
 import 'home_search_extras.dart';
 import 'home_search_utils.dart';
+import 'home_feed_models.dart';
+import 'home_feed_seed.dart';
+import 'home_feed_service.dart';
+import 'home_feed_view.dart';
 import 'dashboard_card.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -135,12 +145,14 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Map<String, dynamic>> _allServices(
     BuildContext context,
     AppLocalizations l10n,
-  ) => [
+  ) {
+    final services = <Map<String, dynamic>>[
     {
+      "id": "supervisors",
       "title": l10n.serviceSupervisors,
       "icon": Icons.people_alt_rounded,
       "imageUrl": HomeServiceImages.supervisors,
-      "assetFallback": "assets/images/supervisors_card.png",
+      "assetFallback": "assets/images/weekly/services/svc_supervisors_w1.png",
       "color": Colors.blue,
       "tags": [
         "كلية", "جامعة", "أساتذة", "دكتور", "مشرفين", "مشرف",
@@ -149,11 +161,12 @@ class _HomeScreenState extends State<HomeScreen> {
       "screen": const FacultiesScreen(),
     },
     {
+      "id": "matchmaking",
       "title": l10n.smartMatchmaking,
       "icon": Icons.auto_awesome,
       "color": const Color(0xFF283593),
       "imageUrl": HomeServiceImages.matchmaking,
-      "assetFallback": "assets/images/supervisors_card.png",
+      "assetFallback": "assets/images/weekly/services/svc_matchmaking_w1.png",
       "tags": [
         "مطابقة", "ذكية", "مشرف", "توافق", "ملف", "اقتراح", "منهجية", "تخصص",
         "matchmaking", "smart", "supervisor", "match", "profile", "fit", "recommend",
@@ -161,11 +174,12 @@ class _HomeScreenState extends State<HomeScreen> {
       "screen": const MatchmakingScreen(),
     },
     {
+      "id": "ideas",
       "title": l10n.serviceIdeas,
       "icon": Icons.lightbulb_rounded,
       "color": Colors.orange,
       "imageUrl": HomeServiceImages.ideas,
-      "assetFallback": "assets/images/ideas.jpg",
+      "assetFallback": "assets/images/weekly/services/svc_ideas_w1.png",
       "tags": [
         "بحث", "أفكار", "مقترح", "مشاريع", "طاقة", "مرور", "دراسة",
         "research", "ideas", "proposal", "projects", "energy", "traffic", "study",
@@ -173,11 +187,12 @@ class _HomeScreenState extends State<HomeScreen> {
       "screen": const ResearchMarketplaceScreen(),
     },
     {
+      "id": "research_path",
       "title": l10n.serviceResearchPath,
       "icon": Icons.account_tree_rounded,
       "color": const Color(0xFF006064),
       "imageUrl": HomeServiceImages.researchPath,
-      "assetFallback": "assets/images/ideas.jpg",
+      "assetFallback": "assets/images/weekly/services/svc_research_path_w1.png",
       "tags": [
         "حزمة", "مسار", "بحث", "ذكاء", "مشرف", "مختبر", "متجر", "كتابة", "ai",
         "bundle", "path", "research", "intelligence", "supervisor", "lab", "store", "writing",
@@ -185,11 +200,12 @@ class _HomeScreenState extends State<HomeScreen> {
       "screen": const ResearchSupplyChainScreen(),
     },
     {
+      "id": "labs",
       "title": l10n.serviceLabs,
       "icon": Icons.science_rounded,
       "color": Colors.purple,
       "imageUrl": HomeServiceImages.labs,
-      "assetFallback": "assets/images/labs.jpg",
+      "assetFallback": "assets/images/weekly/services/svc_labs_w1.png",
       "tags": [
         "مختبر", "مختبرات", "معمل", "أجهزة", "نانو", "تحليل", "عينات", "مركز بحوث", "كيمياء", "طب",
         "lab", "labs", "equipment", "nano", "analysis", "samples", "research center", "chemistry", "medicine",
@@ -197,23 +213,25 @@ class _HomeScreenState extends State<HomeScreen> {
       "screen": const SmartLabsScreen(),
     },
     {
+      "id": "store",
       "title": l10n.serviceStore,
       "icon": Icons.shopping_cart_rounded,
       "color": Colors.green,
       "imageUrl": HomeServiceImages.shop,
-      "assetFallback": "assets/images/shop.jpg",
+      "assetFallback": "assets/images/weekly/services/svc_store_w1.png",
       "tags": [
         "متجر", "شراء", "بيع", "أدوات", "مجهر", "أنابيب", "أجهزة", "سعر",
         "store", "buy", "sell", "tools", "microscope", "tubes", "equipment", "price",
       ],
-      "screen": const StoreCategoriesScreen(),
+      "screen": const StoreHubScreen(),
     },
     {
+      "id": "community",
       "title": l10n.serviceCommunity,
       "icon": Icons.forum_rounded,
       "color": const Color(0xFF00695C),
       "imageUrl": HomeServiceImages.community,
-      "assetFallback": "assets/images/ideas.jpg",
+      "assetFallback": "assets/images/weekly/services/svc_community_w1.png",
       "tags": [
         "مجتمع", "نقاش", "سؤال", "مجموعة", "دراسة", "مناقشة", "أكاديمي", "غرفة",
         "community", "discussion", "question", "group", "study", "academic", "room",
@@ -221,11 +239,12 @@ class _HomeScreenState extends State<HomeScreen> {
       "screen": const CommunityHubScreen(),
     },
     {
+      "id": "ai",
       "title": l10n.serviceAiAdvisor,
       "icon": Icons.psychology_alt_rounded,
       "color": const Color(0xFF4527A0),
       "imageUrl": HomeServiceImages.aiAdvisor,
-      "assetFallback": "assets/images/supervisors_card.png",
+      "assetFallback": "assets/images/weekly/services/svc_ai_w1.png",
       "tags": [
         "مساعد", "ذكي", "ai", "عناوين", "سؤال بحثي", "تلخيص", "مشرف", "رسالة",
         "مناقشة", "لجنة", "محاكاة", "viva", "defense",
@@ -237,11 +256,12 @@ class _HomeScreenState extends State<HomeScreen> {
       "screen": const AiAdvisorScreen(),
     },
     {
+      "id": "writing",
       "title": l10n.serviceWriting,
       "icon": Icons.edit_note_rounded,
       "color": const Color(0xFF5D4037),
       "imageUrl": HomeServiceImages.writingServices,
-      "assetFallback": "assets/images/ideas.jpg",
+      "assetFallback": "assets/images/weekly/services/svc_writing_w1.png",
       "tags": [
         "كتابة", "رسالة", "بحث", "إحصاء", "SPSS", "ماجستير", "دكتوراه", "تحرير", "مراجعة أدبيات", "حجز",
         "writing", "thesis", "research", "statistics", "master", "phd", "editing", "literature review", "book",
@@ -249,11 +269,26 @@ class _HomeScreenState extends State<HomeScreen> {
       "screen": const WritingHubScreen(),
     },
     {
+      "id": "thesis_studio",
+      "title": l10n.serviceThesisStudio,
+      "icon": Icons.menu_book_rounded,
+      "color": const Color(0xFF1A237E),
+      "imageUrl": HomeServiceImages.thesisStudio,
+      "assetFallback": "assets/images/weekly/services/svc_thesis_w1.png",
+      "tags": [
+        "رسالة", "ماجستير", "دكتوراه", "مسودة", "فصول", "ملخص", "أطروحة",
+        "thesis", "dissertation", "draft", "chapters", "abstract", "studio",
+        "كتابة رسالة", "استوديو",
+      ],
+      "screen": const ThesisStudioScreen(),
+    },
+    {
+      "id": "integrity",
       "title": context.t('نزاهة أكاديمية', 'Academic integrity'),
       "icon": Icons.balance_rounded,
       "color": const Color(0xFF1B5E20),
       "imageUrl": HomeServiceImages.integrity,
-      "assetFallback": "assets/images/ideas.jpg",
+      "assetFallback": "assets/images/weekly/services/svc_integrity_w1.png",
       "tags": [
         "نزاهة", "أصالة", "تشابه", "انتحال", "مراجع", "منهجية", "copyleaks", "فاحص",
         "أمانة", "عدل", "ethics", "honesty", "justice",
@@ -262,40 +297,49 @@ class _HomeScreenState extends State<HomeScreen> {
       "screen": const AcademicIntegrityHubScreen(),
     },
     {
+      "id": "publish",
       "title": l10n.servicePublish,
       "icon": Icons.publish_rounded,
       "color": const Color(0xFF4A148C),
       "imageUrl": HomeServiceImages.publish,
-      "assetFallback": "assets/images/ideas.jpg",
+      "assetFallback": "assets/images/weekly/services/svc_publish_w1.png",
       "tags": [
         "نشر", "مجلة", "IEEE", "APA", "مسودة", "manuscript", "publish", "journal", "citation",
       ],
       "screen": const PublishHubScreen(),
     },
     {
+      "id": "fund",
       "title": l10n.serviceFund,
       "icon": Icons.volunteer_activism_rounded,
       "color": const Color(0xFFBF360C),
       "imageUrl": HomeServiceImages.researchFund,
-      "assetFallback": "assets/images/ideas.jpg",
+      "assetFallback": "assets/images/weekly/services/svc_fund_w1.png",
       "tags": [
         "تمويل", "صندوق", "fund", "university", "جامعة", "تصويت", "vote", "أفكار",
+        "تحدي", "صناعة", "عربون", "ضمان", "industry", "challenge", "escrow",
       ],
       "screen": const ResearchFundScreen(),
     },
     {
+      "id": "news",
       "title": l10n.serviceNews,
       "icon": Icons.newspaper_rounded,
       "color": const Color(0xFF0D47A1),
       "imageUrl": HomeServiceImages.scienceNews,
-      "assetFallback": "assets/images/ideas.jpg",
+      "assetFallback": "assets/images/weekly/services/svc_news_w1.png",
       "tags": [
         "أخبار", "علم", "بحث", "اكتشاف", "nature", "دراسة", "منشور", "إنجاز",
         "news", "science", "research", "discovery", "study", "publication", "achievement",
       ],
       "screen": const ScienceNewsScreen(),
     },
-  ];
+    ];
+    if (!AcadeGateFeatureFlags.showResearchFundOnHome) {
+      services.removeWhere((e) => e['id'] == 'fund');
+    }
+    return services;
+  }
 
   // 2. بيانات الكليات للبحث
   List<Map<String, dynamic>> _allFaculties(AppLocalizations l10n) =>
@@ -335,14 +379,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (shouldLogout != true) return;
 
-    AcademicProfileService.instance.clearCache();
-    await FirebaseAuth.instance.signOut();
-    if (!context.mounted) return;
-
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (context) => const WelcomeScreen()),
-      (route) => false,
-    );
+    await AuthNavigation.signOutToWelcome(context);
   }
 
   @override
@@ -398,22 +435,53 @@ class _HomeScreenState extends State<HomeScreen> {
               onSwitchPortal: widget.onSwitchPortal!,
               tooltip: l10n.switchToProviderPortal,
             ),
+          if (FirebaseAuth.instance.currentUser != null)
+            const ReportProblemIconButton(portal: 'user'),
           StreamBuilder(
             stream: UserAccountService.instance.watchCurrentAccount(),
             builder: (context, snapshot) {
               final account = snapshot.data;
               if (account?.isAdmin != true) return const SizedBox.shrink();
-              return IconButton(
-                tooltip: l10n.contentReview,
-                icon: const Icon(Icons.admin_panel_settings_outlined),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const AdminModerationScreen(),
-                    ),
-                  );
-                },
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    tooltip: context.t('سجل المشاكل', 'Bugs'),
+                    icon: const Icon(Icons.bug_report),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const AdminBugsScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  IconButton(
+                    tooltip: context.t('مؤشرات الأداء', 'Weekly KPIs'),
+                    icon: const Icon(Icons.insights_outlined),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const AdminKpiScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  IconButton(
+                    tooltip: l10n.contentReview,
+                    icon: const Icon(Icons.admin_panel_settings_outlined),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const AdminModerationScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                ],
               );
             },
           ),
@@ -502,23 +570,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 onChanged: _onSearchChanged,
               ),
             ),
-            if (!isSearching) ...[
-              const SizedBox(height: 16),
-              const ThesisProgressHomeCard(),
-            ],
-            const SizedBox(height: 24),
-
-            // عنوان يتغير حسب حالة البحث (حرفان على الأقل)
-            Text(
-              isSearching
-                  ? L10nLookup.searchResultsFor(_searchQuery)
-                  : L10nLookup.availableServices,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF1A237E),
-              ),
-            ),
             if (_searchQuery.trim().isNotEmpty && !isSearching)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
@@ -527,51 +578,38 @@ class _HomeScreenState extends State<HomeScreen> {
                   style: TextStyle(color: Colors.grey[600], fontSize: 13),
                 ),
               ),
-            const SizedBox(height: 16),
+            if (isSearching) ...[
+              const SizedBox(height: 16),
+              Text(
+                L10nLookup.searchResultsFor(_searchQuery),
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1A237E),
+                ),
+              ),
+            ],
+            const SizedBox(height: 12),
 
             // عرض المحتوى بناءً على حالة البحث
             Expanded(
               child: !isSearching
-                  ? Builder(
-                      builder: (context) {
-                        final columns =
-                            ResponsiveLayout.homeGridColumns(context);
-                        final extent =
-                            ResponsiveLayout.homeCardExtent(context);
-                        return CustomScrollView(
-                          slivers: [
-                            SliverGrid(
-                              gridDelegate:
-                                  SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: columns,
-                                crossAxisSpacing: 12,
-                                mainAxisSpacing: 12,
-                                mainAxisExtent: extent,
-                              ),
-                              delegate: SliverChildBuilderDelegate(
-                                (context, index) {
-                                  final item = allServices[index];
-                                  return DashboardCard(
-                                    title: item["title"],
-                                    imageUrl: item["imageUrl"],
-                                    assetFallback: item["assetFallback"],
-                                    icon: item["icon"],
-                                    color: item["color"],
-                                    onTap: () => Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => item["screen"],
-                                      ),
-                                    ),
-                                  );
-                                },
-                                childCount: allServices.length,
-                              ),
+                  ? StreamBuilder(
+                      stream: HomeFeedService.instance.watchFeed(),
+                      builder: (context, feedSnap) {
+                        final feed = feedSnap.data;
+                        if (feed == null) {
+                          return HomeFeedView(
+                            services: allServices,
+                            feed: HomeFeedSnapshot(
+                              sections: HomeFeedSeed.defaultSections(),
+                              banners: HomeFeedSeed.defaultBanners(),
                             ),
-                            const SliverToBoxAdapter(
-                              child: AppSiteFooter(),
-                            ),
-                          ],
+                          );
+                        }
+                        return HomeFeedView(
+                          services: allServices,
+                          feed: feed,
                         );
                       },
                     )
@@ -683,7 +721,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               );
                             }
 
-                            return ListView(
+                            return ArrowOverlayScroller(
+                              builder: (context, controller) => ListView(
+                              controller: controller,
                               children: [
                                 if (filteredServices.isNotEmpty) ...[
                                   _searchSectionTitle(L10nLookup.sectionsAndServices),
@@ -774,10 +814,17 @@ class _HomeScreenState extends State<HomeScreen> {
                                         onTap: () => Navigator.push(
                                           context,
                                           MaterialPageRoute(
-                                            builder: (context) =>
-                                                SupervisorsListScreen(
-                                                  category: faculty["category"],
-                                                ),
+                                            builder: (context) {
+                                              final category =
+                                                  faculty["category"].toString();
+                                              if (category ==
+                                                  'ProfessionalStudies') {
+                                                return const ProfessionalStudiesHubScreen();
+                                              }
+                                              return SupervisorsListScreen(
+                                                category: category,
+                                              );
+                                            },
                                           ),
                                         ),
                                       ),
@@ -1144,6 +1191,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   }),
                                 ],
                               ],
+                            ),
                             );
                               },
                             );
@@ -1185,6 +1233,9 @@ class FacultiesScreen extends StatelessWidget {
         backgroundColor: const Color(0xFF1A237E),
         foregroundColor: Colors.white,
         actions: [
+          const SectionGuideAppBarButton(
+            guideId: SectionGuideCatalog.supervisors,
+          ),
           StreamBuilder(
             stream: UserAccountService.instance.watchCurrentAccount(),
             builder: (context, accountSnapshot) {
@@ -1290,6 +1341,10 @@ class FacultiesScreen extends StatelessWidget {
               return ListView(
             padding: const EdgeInsets.all(16),
             children: [
+              const SectionGuideBanner(
+                guideId: SectionGuideCatalog.supervisors,
+              ),
+              const SizedBox(height: 12),
               const SmartMatchPromoBanner(),
               StreamBuilder(
                 stream: UserAccountService.instance.watchCurrentAccount(),
@@ -1360,10 +1415,13 @@ class FacultiesScreen extends StatelessWidget {
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => SupervisorsListScreen(
-                        category: faculty.id,
-                        facultyTitle: L10nLookup.facultyTitleStatic(faculty.id),
-                      ),
+                      builder: (context) => faculty.id == 'ProfessionalStudies'
+                          ? const ProfessionalStudiesHubScreen()
+                          : SupervisorsListScreen(
+                              category: faculty.id,
+                              facultyTitle:
+                                  L10nLookup.facultyTitleStatic(faculty.id),
+                            ),
                     ),
                   ),
                 );
@@ -1495,6 +1553,9 @@ class SupervisorsListScreen extends StatelessWidget {
         backgroundColor: const Color(0xFF1A237E),
         foregroundColor: Colors.white,
         actions: [
+          const SectionGuideAppBarButton(
+            guideId: SectionGuideCatalog.supervisors,
+          ),
           StreamBuilder(
             stream: UserAccountService.instance.watchCurrentAccount(),
             builder: (context, snapshot) {
@@ -1567,14 +1628,31 @@ class SupervisorsListScreen extends StatelessWidget {
               final supervisors = snapshot.data ?? [];
 
               if (supervisors.isEmpty) {
-                return Center(child: Text(L10nLookup.noSupervisorsInCategory));
+                return ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    const SectionGuideBanner(
+                      guideId: SectionGuideCatalog.supervisors,
+                    ),
+                    const SizedBox(height: 24),
+                    Center(child: Text(L10nLookup.noSupervisorsInCategory)),
+                  ],
+                );
               }
 
               return ListView.builder(
                 padding: const EdgeInsets.all(16),
-                itemCount: supervisors.length,
+                itemCount: supervisors.length + 1,
                 itemBuilder: (context, index) {
-                  final supervisor = supervisors[index];
+                  if (index == 0) {
+                    return const Padding(
+                      padding: EdgeInsets.only(bottom: 12),
+                      child: SectionGuideBanner(
+                        guideId: SectionGuideCatalog.supervisors,
+                      ),
+                    );
+                  }
+                  final supervisor = supervisors[index - 1];
                   return SupervisorListCard(supervisor: supervisor);
                 },
               );

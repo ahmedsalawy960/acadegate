@@ -4,8 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 import '../../core/locale/locale_extensions.dart';
 import '../../core/widgets/acadegate_logo.dart';
-import 'email_auth_gate.dart';
-import 'email_verification_screen.dart';
+import 'auth_navigation.dart';
 import 'google_auth_service.dart';
 import 'auth_password_reset_service.dart';
 import 'user_account_service.dart';
@@ -28,24 +27,16 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _resetLoading = false;
   bool _obscurePassword = true;
 
-  Future<void> _navigateHome() async {
+  Future<void> _navigateHome({String method = 'email'}) async {
     if (!mounted) return;
-    final user = FirebaseAuth.instance.currentUser;
-    if (EmailAuthGate.requiresVerification(user)) {
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const EmailVerificationScreen()),
-        (route) => false,
-      );
-      return;
-    }
-    Navigator.of(context).popUntil((route) => route.isFirst);
+    AuthNavigation.goAfterSignIn(context, method: method);
   }
 
   Future<void> _handleGoogleSignIn() async {
     setState(() => _googleLoading = true);
     try {
       final user = await GoogleAuthService.instance.signInWithGoogle();
-      if (user != null) await _navigateHome();
+      if (user != null) await _navigateHome(method: 'google');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -169,15 +160,20 @@ class _LoginScreenState extends State<LoginScreen> {
           title: Text(context.t('تم إرسال الطلب', 'Request sent')),
           content: Text(
             context.t(
-              'إذا كان $email مسجّلاً في AcadeGate، ستصلك رسالة خلال دقائق.\n\n'
+              'طلب إعادة التعيين قُبل.\n\n'
+              'يصل البريد فقط إذا كان $email لا يزال موجوداً في Authentication.\n'
+              'بعد حذف الحساب من التطبيق يجب «إنشاء حساب» من جديد أولاً — '
+              'إعادة التعيين لا تنشئ حساباً محذوفاً.\n\n'
               '• المرسل: ${AuthPasswordResetService.resetEmailSender}\n'
               '• تحقق من Spam / Promotions\n'
-              '• إن سجّلت بـ Google، جرّب زر Google أيضاً',
-              'If $email is registered in AcadeGate, you should receive an email '
-              'within a few minutes.\n\n'
+              '• إن سجّلت بـ Google: استخدم زر Google أو أنشئ كلمة مرور بعد استلام الرابط',
+              'Reset request accepted.\n\n'
+              'Email is only delivered if $email still exists in Authentication.\n'
+              'After an admin deleted the account, use "Create account" first — '
+              'reset does not recreate a deleted account.\n\n'
               '• Sender: ${AuthPasswordResetService.resetEmailSender}\n'
               '• Check Spam / Promotions\n'
-              '• If you signed up with Google, try the Google button too',
+              '• If you use Google: use the Google button, or set a password via the link',
             ),
           ),
           actions: [
@@ -262,9 +258,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   String _loginErrorMessage(BuildContext context, FirebaseAuthException e) {
     final l10n = context.l10n;
-    final email = _emailController.text.trim().toLowerCase();
-    final looksLikeGmail =
-        email.endsWith('@gmail.com') || email.endsWith('@googlemail.com');
 
     switch (e.code) {
       case 'user-not-found':
@@ -274,23 +267,19 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       case 'wrong-password':
         return context.t(
-          'كلمة المرور غير صحيحة. جرّب «نسيت كلمة المرور؟»',
-          'Incorrect password. Try "Forgot password?"',
+          'كلمة المرور غير صحيحة. جرّب «نسيت كلمة المرور؟» أو أنشئ حساباً إن كان قد حُذف.',
+          'Incorrect password. Try "Forgot password?" or register again if the account was deleted.',
         );
       case 'invalid-credential':
-        if (looksLikeGmail) {
-          return context.t(
-            'إذا سجّلت سابقاً بـ Google، استخدم زر «Google» وليس كلمة المرور. '
-            'أو أنشئ كلمة مرور عبر «نسيت كلمة المرور؟»',
-            'If you signed up with Google, use the Google button instead of a password. '
-            'Or set a password via "Forgot password?"',
-          );
-        }
         return context.t(
-          'بيانات الدخول غير صحيحة. '
-          'إن كنت سجّلت بـ Google أو Facebook استخدم نفس الطريقة.',
-          'Invalid sign-in details. '
-          'If you registered with Google or Facebook, use the same method.',
+          'تعذّر الدخول بهذا البريد وكلمة المرور.\n'
+          '• إن حُذف الحساب: سجّل حساباً جديداً من «إنشاء حساب» (وليس الدخول)\n'
+          '• إن سجّلت بـ Google: استخدم زر Google\n'
+          '• إن لديك كلمة مرور: تحقق منها أو «نسيت كلمة المرور؟»',
+          'Could not sign in with this email and password.\n'
+          '• If the account was deleted: create a new account (do not use Login)\n'
+          '• If you signed up with Google: use the Google button\n'
+          '• If you have a password: check it or use "Forgot password?"',
         );
       case 'invalid-email':
         return l10n.authErrorInvalidEmail;

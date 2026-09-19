@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
+import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/locale/app_translate.dart';
@@ -39,12 +40,34 @@ class AdvisorAttachmentService {
     if (file == null) return null;
 
     final bytes = await file.readAsBytes();
-    return _pendingFromBytes(
+    final pending = _pendingFromBytes(
       bytes: bytes,
       name: file.name,
       mimeType: _mimeFromName(file.name, fallback: 'image/jpeg'),
       isImage: true,
     );
+    return normalizeImageForGemini(pending);
+  }
+
+  /// التقاط صورة بالكاميرا لفحص خطوة التركيب / الواقع المعزّز المبسط.
+  Future<PendingAdvisorAttachment?> pickFromCamera() async {
+    final file = await _imagePicker.pickImage(
+      source: ImageSource.camera,
+      maxWidth: 2048,
+      maxHeight: 2048,
+      imageQuality: 88,
+      preferredCameraDevice: CameraDevice.rear,
+    );
+    if (file == null) return null;
+
+    final bytes = await file.readAsBytes();
+    final pending = _pendingFromBytes(
+      bytes: bytes,
+      name: file.name.isNotEmpty ? file.name : 'camera_step.jpg',
+      mimeType: _mimeFromName(file.name, fallback: 'image/jpeg'),
+      isImage: true,
+    );
+    return normalizeImageForGemini(pending);
   }
 
   Future<PendingAdvisorAttachment?> pickFile() async {
@@ -70,15 +93,113 @@ class AdvisorAttachmentService {
     if (bytes == null || bytes.isEmpty) return null;
 
     final mime = _mimeFromName(file.name, fallback: 'application/octet-stream');
-    return _pendingFromBytes(
+    final pending = _pendingFromBytes(
       bytes: bytes,
       name: file.name,
       mimeType: mime,
       isImage: mime.startsWith('image/'),
     );
+    if (!pending.isImage) return pending;
+    return normalizeImageForGemini(pending);
   }
 
-  PendingAdvisorAttachment? _pendingFromBytes({
+  /// يحوّل WebP/GIF وغيرها إلى JPEG — Gemini على السحابة يفشل أحياناً مع WebP من أمازون.
+  PendingAdvisorAttachment normalizeImageForGemini(
+    PendingAdvisorAttachment item,
+  ) {
+    if (!item.isImage || item.bytes.isEmpty) return item;
+    final lowerMime = item.mimeType.toLowerCase();
+    final lowerName = item.name.toLowerCase();
+    final alreadyJpeg =
+        lowerMime.contains('jpeg') || lowerMime.contains('jpg');
+    final looksWebp = lowerMime.contains('webp') || lowerName.endsWith('.webp');
+    final looksGif = lowerMime.contains('gif') || lowerName.endsWith('.gif');
+    // JPEG الصغير الواضح نتركه؛ الباقي نعيد ترميزه لضمان توافق Gemini.
+    if (alreadyJpeg && !looksWebp && item.bytes.length < 2 * 1024 * 1024) {
+      return item;
+    }
+
+    try {
+      final decoded = img.decodeImage(Uint8List.fromList(item.bytes));
+      if (decoded == null) {
+        if (looksWebp || looksGif) {
+          throw Exception(appTr(
+            'تعذر تحويل الصورة (WebP/GIF). احفظها كـ JPG أو PNG ثم أعد الرفع.',
+            'Could not convert this image (WebP/GIF). Save as JPG/PNG and re-upload.',
+          ));
+        }
+        return item;
+      }
+      final resized = decoded.width > 1600 || decoded.height > 1600
+          ? img.copyResize(
+              decoded,
+              width: decoded.width >= decoded.height ? 1600 : null,
+              height: decoded.height > decoded.width ? 1600 : null,
+            )
+          : decoded;
+      final jpg = img.encodeJpg(resized, quality: 88);
+      final base = item.name.replaceAll(RegExp(r'\.[^.]+$'), '');
+      return PendingAdvisorAttachment(
+        name: '${base.isEmpty ? 'diagram' : base}.jpg',
+        mimeType: 'image/jpeg',
+        bytes: jpg,
+        isImage: true,
+      );
+    } catch (e) {
+      if (e is Exception) rethrow;
+      return item;
+    }
+  }
+
+  /// يرفع الصورة إلى Storage ويرسل المسار لـ Gemini (أفضل من base64 الكبير على Windows).
+  Future<List<GeminiInlinePart>> prepareGeminiParts(
+    List<PendingAdvisorAttachment> pending, {
+    String conversationId = 'custom_fit',
+    bool preferStorage = true,
+  }) async {
+    if (pending.isEmpty) return const [];
+
+    final normalized = <PendingAdvisorAttachment>[];
+    for (final item in pending) {
+      normalized.add(
+        item.isImage ? normalizeImageForGemini(item) : item,
+      );
+    }
+
+    final user = FirebaseAuth.instance.currentUser;
+    final useStorage = preferStorage && user != null;
+    if (!useStorage) {
+      return toGeminiParts(normalized);
+    }
+
+    try {
+      final parts = <GeminiInlinePart>[];
+      for (final item in normalized) {
+        final safeName = item.name.replaceAll(RegExp(r'[^\w.\-]+'), '_');
+        final path =
+            'uploads/${user.uid}/advisor/$conversationId/${DateTime.now().millisecondsSinceEpoch}_$safeName';
+        final ref = _storage.ref().child(path);
+        await ref.putData(
+          Uint8List.fromList(item.bytes),
+          SettableMetadata(contentType: item.mimeType),
+        );
+        parts.add(
+          GeminiInlinePart(
+            mimeType: item.mimeType,
+            base64Data: '',
+            fileName: item.name,
+            storagePath: path,
+          ),
+        );
+      }
+      return parts;
+    } catch (_) {
+      // إن فشل الرفع نرسل الصورة مباشرة (base64)
+      return toGeminiParts(normalized);
+    }
+  }
+
+  PendingAdvisorAttachment _pendingFromBytes({
     required List<int> bytes,
     required String name,
     required String mimeType,

@@ -58,6 +58,7 @@ class WooCommerceStoreApiClient {
   static const _userAgent =
       'AcadeGate/1.0 (academic supplier directory; +https://acadegate.app)';
 
+  /// Pulls every product page from the public Store API (full catalog).
   Future<List<WooImportedProduct>> fetchAllProducts({
     required String baseUrl,
     required String supplierId,
@@ -78,7 +79,7 @@ class WooCommerceStoreApiClient {
     var page = 1;
     var totalPages = 1;
 
-    while (page <= totalPages) {
+    while (true) {
       if (shouldCancel?.call() == true) {
         throw StateError('cancelled');
       }
@@ -99,7 +100,7 @@ class WooCommerceStoreApiClient {
               'Accept': 'application/json',
             },
           )
-          .timeout(const Duration(seconds: 60));
+          .timeout(const Duration(seconds: 90));
 
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw StateError(
@@ -108,8 +109,10 @@ class WooCommerceStoreApiClient {
       }
 
       final totalHeader = response.headers['x-wp-totalpages'];
-      totalPages = int.tryParse(totalHeader ?? '') ?? totalPages;
-      if (totalPages < 1) totalPages = 1;
+      final parsedTotal = int.tryParse(totalHeader ?? '');
+      if (parsedTotal != null && parsedTotal > 0) {
+        totalPages = parsedTotal;
+      }
 
       final decoded = jsonDecode(
         utf8.decode(response.bodyBytes, allowMalformed: true),
@@ -117,6 +120,7 @@ class WooCommerceStoreApiClient {
       if (decoded is! List) {
         throw StateError('Unexpected WooCommerce payload for $supplierId');
       }
+      if (decoded.isEmpty) break;
 
       for (final item in decoded) {
         if (item is! Map) continue;
@@ -130,13 +134,20 @@ class WooCommerceStoreApiClient {
         WooFetchProgress(
           supplierId: supplierId,
           page: page,
-          totalPages: totalPages,
+          totalPages: totalPages < page ? page : totalPages,
           productsSoFar: products.length,
         ),
       );
 
+      // Prefer header total; if missing, keep going until an empty page.
+      if (parsedTotal != null) {
+        if (page >= totalPages) break;
+      } else if (decoded.length < perPage) {
+        break;
+      }
+
       page++;
-      if (page <= totalPages && delayBetweenPages > Duration.zero) {
+      if (delayBetweenPages > Duration.zero) {
         await Future<void>.delayed(delayBetweenPages);
       }
     }

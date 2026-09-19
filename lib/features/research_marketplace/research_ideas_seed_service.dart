@@ -74,6 +74,7 @@ class ResearchIdeasSeedService {
           'budget': idea.budget,
           'tags': idea.tags,
           'category': idea.category,
+          'degreeLevel': 'both',
           'status': 'open',
           'approvalStatus': canAutoApprove
               ? ApprovalStatus.approved

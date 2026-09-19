@@ -5,6 +5,7 @@ import '../academic/faculty_categories.dart';
 import '../../core/locale/l10n_lookup.dart';
 import '../moderation/approval_status.dart';
 import 'import_models.dart';
+import 'multi_source_supervisor_service.dart';
 import 'openalex_faculty_mapper.dart';
 import 'openalex_search_aliases.dart';
 
@@ -41,6 +42,42 @@ class SupervisorImportService {
         )
         .toList();
     return _importMaps(maps, autoApprove: autoApprove);
+  }
+
+  Future<SupervisorImportResult> importSourceHits({
+    required List<SupervisorSourceHit> hits,
+    bool autoApprove = false,
+  }) {
+    return _importMaps(
+      hits.map(_mapFromSourceHit).toList(),
+      autoApprove: autoApprove,
+    );
+  }
+
+  Map<String, dynamic> _mapFromSourceHit(SupervisorSourceHit hit) {
+    return {
+      'name': hit.name,
+      'university': hit.institution,
+      'speciality': hit.speciality.isNotEmpty
+          ? hit.speciality
+          : (hit.tags.isNotEmpty ? hit.tags.first : 'Academic research'),
+      'bio': hit.toAcademicSupervisor().bio,
+      'faculty': '',
+      'category': '',
+      'tags': hit.tags,
+      'methodologies': L10nLookup.defaultMethodologies,
+      'isAvailable': false,
+      if (hit.orcid != null) 'orcid': hit.orcid,
+      if (hit.openAlexId != null) 'openAlexId': hit.openAlexId,
+      if (hit.officialPageUrl.isNotEmpty) 'scholarUrl': hit.officialPageUrl,
+      'worksCount': hit.worksCount,
+      'citedByCount': hit.citedByCount,
+      'hIndex': hit.hIndex,
+      'importSource': hit.sources.isEmpty
+          ? 'multi'
+          : hit.sources.map((s) => s.toLowerCase().replaceAll(' ', '_')).join('+'),
+      'verificationStatus': 'imported_unverified',
+    };
   }
 
   Map<String, dynamic> _mapFromCsv(CsvSupervisorRow row) {

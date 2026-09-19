@@ -1,5 +1,7 @@
 import '../../core/locale/app_translate.dart';
 
+import 'citation_health_service.dart';
+
 import 'citation_models.dart';
 
 import 'citation_parser.dart';
@@ -34,43 +36,36 @@ class CitationCheckService {
 
 
 
-  Future<CitationCheckReport> checkReferences(String rawBibliography) async {
+  static const maxReferences = 150;
 
+  Future<CitationCheckReport> checkReferences(
+    String rawBibliography, {
+    void Function(int done, int total)? onProgress,
+  }) async {
     final citations = _parser.parse(rawBibliography);
-
     if (citations.isEmpty) {
-
       throw Exception(appTr(
-
         'لم يُعثر على مراجع — الصق قائمة المراجع أو نصاً يحتوي DOI',
-
         'No references found — paste a bibliography or text containing DOIs',
-
       ));
-
     }
 
-
-
     final items = <CitationCheckItem>[];
-
     var verified = 0;
-
     var partial = 0;
-
     var notFound = 0;
-
     var invalid = 0;
-
     var errors = 0;
+    final toCheck = citations.take(maxReferences).toList();
 
-
-
-    for (final citation in citations.take(40)) {
+    for (var i = 0; i < toCheck.length; i++) {
+      final citation = toCheck[i];
+      onProgress?.call(i, toCheck.length);
 
       try {
 
-        final match = await _validateCitation(citation);
+        var match = await _validateCitation(citation);
+        match = await CitationHealthService.instance.enrich(match);
 
         items.add(CitationCheckItem(citation: citation, match: match));
 
@@ -132,28 +127,19 @@ class CitationCheckService {
 
 
 
-      await Future<void>.delayed(const Duration(milliseconds: 300));
-
+      await Future<void>.delayed(const Duration(milliseconds: 220));
     }
 
-
-
+    onProgress?.call(toCheck.length, toCheck.length);
     return CitationCheckReport(
-
       items: items,
-
       verifiedCount: verified,
-
       partialCount: partial,
-
       notFoundCount: notFound,
-
       invalidCount: invalid,
-
       errorCount: errors,
-
+      parsedCount: citations.length,
     );
-
   }
 
 
@@ -696,40 +682,5 @@ class CitationCheckService {
 
 
 
-extension _CitationMatchCopy on CitationMatch {
-
-  CitationMatch copyWith({
-
-    String? note,
-
-    String? scholarSearchUrl,
-
-  }) {
-
-    return CitationMatch(
-
-      status: status,
-
-      source: source,
-
-      matchedTitle: matchedTitle,
-
-      matchedAuthors: matchedAuthors,
-
-      year: year,
-
-      doi: doi,
-
-      url: url,
-
-      note: note ?? this.note,
-
-      scholarSearchUrl: scholarSearchUrl ?? this.scholarSearchUrl,
-
-    );
-
-  }
-
-}
 
 

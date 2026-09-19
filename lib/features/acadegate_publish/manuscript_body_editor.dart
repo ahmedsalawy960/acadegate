@@ -53,6 +53,15 @@ class _ManuscriptBodyEditorState extends State<ManuscriptBodyEditor> {
 
   void _emit() => widget.onBlocksChanged(_blocks);
 
+  String _displayBlockText(ManuscriptBlock block) {
+    if (!block.text.contains('{{cite:')) return block.text;
+    return ManuscriptCitationHelper.resolvePlainText(
+      text: block.text,
+      manuscript: widget.manuscript,
+      style: widget.manuscript.effectiveStyle,
+    );
+  }
+
   void _addBlock(ManuscriptBlock block) {
     setState(() => _blocks = [..._blocks, block]);
     _emit();
@@ -369,7 +378,7 @@ class _ManuscriptBodyEditorState extends State<ManuscriptBodyEditor> {
           children: [
             _BlockTextField(
               key: _keyFor(block.id),
-              initialText: block.text,
+              initialText: _displayBlockText(block),
               minLines: block.type == ManuscriptBlockType.heading ? 1 : 4,
               maxLines: block.type == ManuscriptBlockType.heading ? 3 : null,
               hint: block.type == ManuscriptBlockType.heading

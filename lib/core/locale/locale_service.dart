@@ -34,11 +34,14 @@ class LocaleService extends ChangeNotifier {
   }
 
   Future<void> setLocale(Locale locale) async {
-    if (_locale == locale) return;
-    _locale = locale;
+    final next = Locale(locale.languageCode);
+    if (_locale?.languageCode == next.languageCode && hasChosenLocale) {
+      return;
+    }
+    _locale = next;
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_prefKey, locale.languageCode);
+    await prefs.setString(_prefKey, next.languageCode);
   }
 
   Future<void> setArabic() => setLocale(const Locale('ar'));

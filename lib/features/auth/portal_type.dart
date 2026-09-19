@@ -29,6 +29,7 @@ class PortalType {
     UserRole.merchant,
     UserRole.labManager,
     UserRole.ideaPublisher,
+    UserRole.writer,
   };
 
   /// أدوار تُقترح لها بوابة المستخدم.
@@ -48,4 +49,11 @@ class PortalType {
 
   static bool isProvider(String? portal) => portal == provider;
   static bool isUser(String? portal) => portal == user;
+
+  /// طلاب/باحثون لا يدخلون بوابة مقدم الخدمة (مخصّصة لمقدّمي الخدمات).
+  static bool canUseProviderPortal(String? role) {
+    if (role == null || role.isEmpty) return true; // guest
+    if (role == UserRole.student) return false;
+    return true;
+  }
 }

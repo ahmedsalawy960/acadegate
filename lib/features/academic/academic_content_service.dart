@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import 'academic_models.dart';
 import 'demo_supervisor_hide_service.dart';
+import '../analytics/kpi_analytics_service.dart';
 import '../home/home_search_utils.dart';
 import '../lab_import/nbsle_university_cities.dart';
 
@@ -89,6 +90,54 @@ class AcademicContentService {
       id: snap.id,
       lightweight: false,
     );
+  }
+
+  Future<AcademicSupervisor?> fetchSupervisorById(String supervisorId) async {
+    if (supervisorId.isEmpty) return null;
+    final snap = await _db.collection('supervisors').doc(supervisorId).get();
+    if (!snap.exists) return null;
+    return AcademicSupervisor.fromMap(snap.data() ?? {}, id: snap.id);
+  }
+
+  /// Text match against specialty, tags, faculty, bio. New supervisors appear
+  /// as soon as they are stored in Firestore.
+  Future<List<AcademicSupervisor>> searchSupervisors({
+    String query = '',
+    int limit = 40,
+  }) async {
+    final q = query.trim();
+    final pool = await _fetchSupervisorsOnce(limit: 250);
+    if (q.length < 2) {
+      return pool.take(limit).toList();
+    }
+    final matches = pool.where((s) {
+      return homeSearchMatches(q, [
+        s.name,
+        s.speciality,
+        s.faculty,
+        s.category,
+        s.university,
+        s.bio,
+        ...s.tags,
+      ]);
+    }).toList();
+    if (matches.length > limit) {
+      final out = matches.take(limit).toList();
+      // ignore: unawaited_futures
+      KpiAnalyticsService.instance.logSearch(
+        kind: 'supervisors',
+        query: q,
+        resultCount: out.length,
+      );
+      return out;
+    }
+    // ignore: unawaited_futures
+    KpiAnalyticsService.instance.logSearch(
+      kind: 'supervisors',
+      query: q,
+      resultCount: matches.length,
+    );
+    return matches;
   }
 
   Stream<List<AcademicSupervisor>> supervisorsStream({
@@ -436,6 +485,7 @@ class AcademicContentService {
       lab.nbsleLabId,
       lab.importSource,
       ...lab.tags,
+      ...lab.equipmentNameHints,
       ...lab.equipmentList.map((e) => e.name),
       ...lab.sampleServices.map((s) => s.name),
     ]);
@@ -656,6 +706,12 @@ class AcademicContentService {
         return _cachedLabs;
       }
       _cachedLabs = merged;
+      // ignore: unawaited_futures
+      KpiAnalyticsService.instance.logSearch(
+        kind: 'labs',
+        query: q,
+        resultCount: merged.length,
+      );
       return merged;
     } catch (error) {
       debugPrint('searchLabs error: $error');

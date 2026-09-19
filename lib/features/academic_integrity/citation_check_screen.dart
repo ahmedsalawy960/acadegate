@@ -9,7 +9,14 @@ import 'citation_check_service.dart';
 import 'citation_models.dart';
 
 class CitationCheckScreen extends StatefulWidget {
-  const CitationCheckScreen({super.key});
+  final String? initialBibliography;
+  final bool autoRun;
+
+  const CitationCheckScreen({
+    super.key,
+    this.initialBibliography,
+    this.autoRun = false,
+  });
 
   @override
   State<CitationCheckScreen> createState() => _CitationCheckScreenState();
@@ -22,6 +29,22 @@ class _CitationCheckScreenState extends State<CitationCheckScreen> {
   final _controller = TextEditingController();
   bool _loading = false;
   CitationCheckReport? _report;
+  int _progressDone = 0;
+  int _progressTotal = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initialBibliography?.trim() ?? '';
+    if (initial.isNotEmpty) {
+      _controller.text = initial;
+      if (widget.autoRun) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _runCheck();
+        });
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -48,10 +71,21 @@ class _CitationCheckScreenState extends State<CitationCheckScreen> {
     setState(() {
       _loading = true;
       _report = null;
+      _progressDone = 0;
+      _progressTotal = 0;
     });
 
     try {
-      final report = await _service.checkReferences(text);
+      final report = await _service.checkReferences(
+        text,
+        onProgress: (done, total) {
+          if (!mounted) return;
+          setState(() {
+            _progressDone = done;
+            _progressTotal = total;
+          });
+        },
+      );
       if (!mounted) return;
       setState(() {
         _report = report;
@@ -76,7 +110,7 @@ class _CitationCheckScreenState extends State<CitationCheckScreen> {
     return Scaffold(
       appBar: AcadeGateAppBar(
         title: Text(
-          context.t('فاحص المراجع', 'Reference checker'),
+          context.t('تقرير صحة الاستشهاد', 'Citation health report'),
         ),
         backgroundColor: _brand,
         foregroundColor: Colors.white,
@@ -90,15 +124,17 @@ class _CitationCheckScreenState extends State<CitationCheckScreen> {
             controller: _controller,
             minLines: 8,
             maxLines: 16,
+            textDirection: TextDirection.ltr,
+            textAlign: TextAlign.left,
             decoration: InputDecoration(
               labelText: context.t(
                 'قائمة المراجع',
                 'Reference list',
               ),
               hintText: context.t(
-                'الصق المراجع هنا — سطر لكل مرجع أو قسم «المراجع»...\n'
+                'الصق المراجع كما هي من الرسالة — APA أو IEEE أو سطراً لكل مرجع.\n'
                 'DOI يُكتشف تلقائياً: 10.xxxx/...',
-                'Paste references here — one per line or a References section...\n'
+                'Paste references as they appear in the thesis — APA, IEEE, or one per line.\n'
                 'DOIs are detected automatically: 10.xxxx/...',
               ),
               alignLabelWithHint: true,
@@ -108,8 +144,8 @@ class _CitationCheckScreenState extends State<CitationCheckScreen> {
           const SizedBox(height: 12),
           Text(
             context.t(
-              'مصادر مجانية: Crossref + OpenAlex + Semantic Scholar (حتى 40 مرجعاً)',
-              'Free sources: Crossref + OpenAlex + Semantic Scholar (up to 40 references)',
+              'السجل: Crossref updates + OpenAlex is_retracted — حتى ${CitationCheckService.maxReferences} مرجعاً. ليس تقرير Turnitin.',
+              'Registry: Crossref updates + OpenAlex is_retracted — up to ${CitationCheckService.maxReferences} references. Not a Turnitin report.',
             ),
             style: TextStyle(fontSize: 12, color: Colors.grey[700]),
           ),
@@ -132,8 +168,15 @@ class _CitationCheckScreenState extends State<CitationCheckScreen> {
                 : const Icon(Icons.fact_check_outlined),
             label: Text(
               _loading
-                  ? context.t('جاري التحقق...', 'Checking...')
-                  : context.t('تحقق من المراجع', 'Verify references'),
+                  ? context.t(
+                      _progressTotal > 0
+                          ? 'جاري الفحص $_progressDone / $_progressTotal...'
+                          : 'جاري التحقق...',
+                      _progressTotal > 0
+                          ? 'Checking $_progressDone / $_progressTotal...'
+                          : 'Checking...',
+                    )
+                  : context.t('فحص صحة الاستشهاد', 'Check citation health'),
             ),
           ),
           if (_report != null) ...[
@@ -160,8 +203,8 @@ class _CitationCheckScreenState extends State<CitationCheckScreen> {
                 Expanded(
                   child: Text(
                     context.t(
-                      'فحص المراجع والاستشهادات',
-                      'Reference & citation verification',
+                      'تقرير صحة الاستشهاد',
+                      'Citation health report',
                     ),
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
@@ -174,10 +217,10 @@ class _CitationCheckScreenState extends State<CitationCheckScreen> {
             const SizedBox(height: 8),
             Text(
               context.t(
-                'يتحقق عبر Crossref وOpenAlex وSemantic Scholar — '
-                'ليست قاعدة Google Scholar. المراجع بدون DOI أو العربية قد تحتاج بحثاً يدوياً.',
-                'Checks via Crossref, OpenAlex, and Semantic Scholar — '
-                'not the Google Scholar database. References without DOI or in Arabic may need manual search.',
+                'يؤكد المرجع عبر Crossref وOpenAlex ثم يبحث عن سحب أو تصحيح أو تعبير قلق في السجل — '
+                'لا يُختلق DOI. المراجع بلا DOI أو العربية قد تحتاج بحثاً يدوياً.',
+                'Confirms the work via Crossref and OpenAlex, then looks up retraction, correction, or concern in the registry — '
+                'no invented DOI. References without a DOI or in Arabic may need a manual search.',
               ),
               style: const TextStyle(height: 1.5),
             ),
@@ -223,6 +266,37 @@ class _CitationCheckScreenState extends State<CitationCheckScreen> {
                   ),
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  context.t(
+                    'السجل: ${report.retractedCount} سحب · ${report.concernCount} تعبير قلق · '
+                    '${report.correctionCount} تصحيح',
+                    'Registry: ${report.retractedCount} retraction · ${report.concernCount} concern · '
+                    '${report.correctionCount} correction',
+                  ),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: report.retractedCount > 0 || report.concernCount > 0
+                        ? Colors.red[800]
+                        : Colors.grey[800],
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  report.parsedTotal > report.total
+                      ? context.t(
+                          'فُحص ${report.total} من ${report.parsedTotal} مرجعاً في القائمة',
+                          'Checked ${report.total} of ${report.parsedTotal} references in the list',
+                        )
+                      : context.t(
+                          'فُحص ${report.total} مرجعاً من القائمة',
+                          'Checked ${report.total} references from the list',
+                        ),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 12, color: Colors.grey[700]),
                 ),
               ],
             ),
@@ -297,6 +371,31 @@ class _CitationCheckScreenState extends State<CitationCheckScreen> {
                   Text(
                     sourceLabel,
                     style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                  ),
+                ],
+                if (match?.health?.hasAnyNotice == true) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: (match!.health!.isRetracted ||
+                              match.health!.hasExpressionOfConcern
+                          ? Colors.red
+                          : Colors.orange)
+                          .withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      match.health!.badgeLabel,
+                      style: TextStyle(
+                        color: match.health!.isRetracted ||
+                                match.health!.hasExpressionOfConcern
+                            ? Colors.red[800]
+                            : Colors.orange[900],
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
                   ),
                 ],
               ],

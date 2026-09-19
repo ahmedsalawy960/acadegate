@@ -37,6 +37,7 @@ String get advisorGeneralHelp => appTr(
 • اقترح تحليلاً إحصائياً مع كود Python
 • جهّز هيكل عرض تقديمي للمناقشة
 • ما المشرف الأنسب لفكرتي في ...؟
+• أريد HPLC في الشرقية ومشرف كيمياء تحليلية
 ''',
       '''
 I am the AcadeGate AI multi-agent engine. Try one of these requests:
@@ -50,5 +51,6 @@ I am the AcadeGate AI multi-agent engine. Try one of these requests:
 • Suggest statistical analysis with Python code
 • Prepare a defense presentation outline
 • Who is the best supervisor for my idea in ...?
+• I need HPLC in Sharqia and an analytical chemistry supervisor
 ''',
     );

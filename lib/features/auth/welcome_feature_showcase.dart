@@ -112,18 +112,18 @@ List<WelcomeFeatureSlide> welcomeFeatureSlides() => [
         titleAr: 'أفكار بحثية ومسار ذكي',
         titleEn: 'Research ideas & intelligent path',
         subtitleAr:
-            'سوق أفكار بحثية، مسار بحث متكامل، وصندوق تمويل جامعي — من الفكرة إلى التنفيذ.',
+            'سوق أفكار بحثية ومسار بحث متكامل — من الفكرة إلى التنفيذ.',
         subtitleEn:
-            'Research idea marketplace, integrated research path, and university research fund — from idea to execution.',
+            'Research idea marketplace and integrated research path — from idea to execution.',
         highlightsAr: [
           'عرض وشراء أفكار بحثية جاهزة',
           'حزمة مسار بحث (مشرف + مختبر + متجر)',
-          'تصويت وتمويل أفكار واعدة',
+          'مطابقة ذكية حسب تخصصك',
         ],
         highlightsEn: [
           'Browse and acquire ready research ideas',
           'Research path bundle (supervisor + lab + store)',
-          'Vote and fund promising ideas',
+          'Smart matching by your specialty',
         ],
       ),
       WelcomeFeatureSlide(

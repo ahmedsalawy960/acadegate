@@ -1,6 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../core/config/app_environment.dart';
+
 /// Email/password accounts must verify ownership before using the app.
 /// Google / Apple / Facebook users are treated as already verified.
 class EmailAuthGate {
@@ -16,10 +18,21 @@ class EmailAuthGate {
     'apple.com',
   };
 
+  /// Closed-beta QA seeds (`tool/seed_qa_accounts*.js`) use this domain.
+  static bool isQaSeedEmail(String? email) {
+    final e = (email ?? '').trim().toLowerCase();
+    return e.endsWith('@acadegate.test');
+  }
+
   /// True when the signed-in user must confirm email before PortalGateway.
   static bool requiresVerification(User? user) {
     if (user == null) return false;
     if (user.emailVerified) return false;
+
+    // Debug / beta only: allow seeded QA accounts without inbox access.
+    if ((kDebugMode || AppEnvironment.isBeta) && isQaSeedEmail(user.email)) {
+      return false;
+    }
 
     final providers =
         user.providerData.map((p) => p.providerId).toSet();

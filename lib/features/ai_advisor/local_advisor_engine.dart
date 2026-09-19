@@ -8,6 +8,8 @@ import 'advisor_intent.dart';
 import 'advisor_prompts.dart';
 import 'advisor_query_parser.dart';
 import 'advisor_router.dart';
+import 'catalog_search_service.dart';
+import 'grounded_reference_service.dart';
 
 class LocalAdvisorEngine {
   LocalAdvisorEngine._();
@@ -47,10 +49,11 @@ class LocalAdvisorEngine {
       AdvisorAgentId.researchIdea => _researchIdea(message),
       AdvisorAgentId.thesisPlanning => _thesisPlanning(message),
       AdvisorAgentId.supervisorMatch => supervisorHint(message),
+      AdvisorAgentId.catalogExecute => _catalogHint(message),
       AdvisorAgentId.thesisWriter => _thesisWriter(message),
       AdvisorAgentId.researchSimulation => _researchSimulation(message),
-      AdvisorAgentId.literatureReview => _literatureReview(message),
-      AdvisorAgentId.citations => _citations(message),
+      AdvisorAgentId.literatureReview => await _literatureReview(message),
+      AdvisorAgentId.citations => await _citations(message),
       AdvisorAgentId.academicEditing => _academicEditing(message),
       AdvisorAgentId.dataAnalysis => _dataAnalysis(message),
       AdvisorAgentId.presentations => _presentations(message),
@@ -255,41 +258,36 @@ class LocalAdvisorEngine {
     );
   }
 
-  String _literatureReview(String message) {
+  Future<String> _literatureReview(String message) async {
     final topic = extractAdvisorTopic(message) ?? appTr('الموضوع', 'the topic');
-    return appTr(
+    final bundle =
+        await GroundedReferenceService.instance.searchTopic(message);
+    final draft = appTr(
       '**تحليل أدبي مبدئي لموضوع: $topic**\n\n'
           '1. **المحور النظري:** تعريف المفاهيم الأساسية وتطورها.\n'
-          '2. **الدراسات السابقة:** تصنيف حسب المنهج (كمي/نوعي) والنتائج.\n'
+          '2. **الدراسات السابقة:** استشهد فقط بالأعمال الموثّقة أدناه.\n'
           '3. **نقد منهجي:** حجم العينة، أدوات القياس، قابلية التعميم.\n'
           '4. **الفجوة البحثية:** ما الذي لم يُغطَّ بعد في السياق المحلي؟\n'
           '5. **إطار نظري مقترح:** ربط المتغيرات المستقلة والتابعة.\n\n'
-          'الصق عنوان الورقة أو ملخصها للحصول على تحليل أعمق.',
+          'المراجع من OpenAlex/Crossref فقط — لا تُدرج DOI غير مؤكد.',
       '**Initial literature analysis for: $topic**\n\n'
           '1. **Theoretical axis:** Define core concepts and their evolution.\n'
-          '2. **Previous studies:** Classify by methodology (quantitative/qualitative) and findings.\n'
+          '2. **Previous studies:** Cite only the verified works below.\n'
           '3. **Methodological critique:** Sample size, measurement tools, generalizability.\n'
           '4. **Research gap:** What remains uncovered in the local context?\n'
           '5. **Suggested theoretical framework:** Link independent and dependent variables.\n\n'
-          'Paste the paper title or abstract for deeper analysis.',
+          'References are OpenAlex/Crossref only — no unverified DOI.',
     );
+    return '$draft\n\n${GroundedReferenceService.instance.bibliographySection(bundle)}';
   }
 
-  String _citations(String message) {
-    return appTr(
-      '**تنظيم مراجع (مثال APA):**\n\n'
-          'داخل النص: (Smith, 2020)\n\n'
-          'قائمة المراجع:\n'
-          'Smith, J. (2020). Title of article. *Journal Name*, 12(3), 45-60.\n\n'
-          'أرسل قائمة مراجعك غير المرتبة وسأعيد تنسيقها '
-          '(APA / IEEE / Chicago / Harvard).',
-      '**Reference formatting (APA example):**\n\n'
-          'In text: (Smith, 2020)\n\n'
-          'Reference list:\n'
-          'Smith, J. (2020). Title of article. *Journal Name*, 12(3), 45-60.\n\n'
-          'Send your unordered reference list and I will reformat it '
-          '(APA / IEEE / Chicago / Harvard).',
-    );
+  Future<String> _citations(String message) async {
+    final grounded = GroundedReferenceService.instance;
+    if (GroundedReferenceService.looksLikeBibliographyPaste(message)) {
+      return grounded.verifyPastedBibliography(message);
+    }
+    final bundle = await grounded.searchTopic(message);
+    return grounded.replyForCitations(bundle, message: message);
   }
 
   String _academicEditing(String message) {
@@ -542,6 +540,11 @@ class LocalAdvisorEngine {
     return buffer.toString();
   }
 
+  Future<String> _catalogHint(String message) async {
+    final snapshot = await CatalogSearchService.instance.search(message);
+    return CatalogSearchService.instance.localReply(snapshot);
+  }
+
   Future<String> supervisorHint(String message) async {
     final parsed = AcademicQueryParser.parse(message);
     final profile = await AcademicProfileService.instance.loadProfile();
@@ -656,6 +659,7 @@ class LocalAdvisorEngine {
       AcademicQueryGoal.summarize =>
         AdvisorAgentId.thesisPlanning,
       AcademicQueryGoal.supervisor => AdvisorAgentId.supervisorMatch,
+      AcademicQueryGoal.catalog => AdvisorAgentId.catalogExecute,
       AcademicQueryGoal.thesisWriting => AdvisorAgentId.thesisWriter,
       AcademicQueryGoal.literatureReview => AdvisorAgentId.literatureReview,
       AcademicQueryGoal.citations => AdvisorAgentId.citations,

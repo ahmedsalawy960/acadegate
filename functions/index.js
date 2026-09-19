@@ -1,6 +1,7 @@
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+const { getAuth } = require("firebase-admin/auth");
 const { initializeApp } = require("firebase-admin/app");
 const crypto = require("crypto");
 const { createOriginalityHandlers } = require("./originality");
@@ -10,6 +11,7 @@ const { createCitationProxyHandler } = require("./citation_proxy");
 const { createResearchRoomHandlers } = require("./research_rooms");
 const { createJournalGuidelinesHandlers } = require("./journal_guidelines");
 const { createStoreSuppliersSyncHandlers } = require("./store_suppliers_sync");
+const { createStoreOrderStatsHandlers } = require("./store_order_stats");
 
 initializeApp();
 
@@ -21,11 +23,40 @@ exports.publishExtractReferencesHttp = createPublishExtractHandler();
 exports.scienceNewsRssHttp = createScienceNewsRssHandler();
 exports.citationLookupHttp = createCitationProxyHandler();
 
+// Google Scholar via SerpAPI (secret: SERPAPI_API_KEY).
+const serpapiKey = defineSecret("SERPAPI_API_KEY");
+const { createGoogleScholarSearchHandler } = require("./scholar_search");
+exports.googleScholarSearchHttp = createGoogleScholarSearchHandler(serpapiKey);
+
 const { createResearchRoom, joinResearchRoom } = createResearchRoomHandlers();
 exports.createResearchRoom = createResearchRoom;
 exports.joinResearchRoom = joinResearchRoom;
 
 const geminiApiKey = defineSecret("GEMINI_API_KEY");
+const {
+  consumeQuota,
+  quotaExceededHttpsError,
+} = require("./usage_quota");
+
+const {
+  createGenerateProductFilmHandler,
+} = require("./generate_product_film");
+const { generateProductFilm } = createGenerateProductFilmHandler(geminiApiKey);
+exports.generateProductFilm = generateProductFilm;
+
+// CAD secrets: لا تُحمَّل إلا عند التفعيل — وإلا يفشل أي deploy إن لم تُنشأ الأسرار
+const ENABLE_CAD = process.env.ENABLE_CAD === "true";
+if (ENABLE_CAD) {
+  const partworkApiKey = defineSecret("PARTWORK_API_KEY");
+  const tyeApiKey = defineSecret("TYE_API_KEY");
+  const { createCadGenerateHandlers } = require("./cad_generate");
+  const { generateCadPart } = createCadGenerateHandlers({
+    partworkApiKey,
+    tyeApiKey,
+    geminiApiKey,
+  });
+  exports.generateCadPart = generateCadPart;
+}
 
 const {
   journalGuidelinesExtract,
@@ -40,6 +71,33 @@ const {
 } = createStoreSuppliersSyncHandlers();
 exports.storeSuppliersSyncWeekly = storeSuppliersSyncWeekly;
 exports.storeSuppliersSyncNow = storeSuppliersSyncNow;
+
+const {
+  createStoreProductDiscoverHandlers,
+} = require("./store_product_discover");
+const { storeProductDiscover } = createStoreProductDiscoverHandlers();
+exports.storeProductDiscover = storeProductDiscover;
+
+const { createResearchIdeasSyncHandlers } = require("./research_ideas_sync");
+const {
+  researchIdeasSyncWeekly,
+  researchIdeasSyncNow,
+} = createResearchIdeasSyncHandlers(geminiApiKey);
+exports.researchIdeasSyncWeekly = researchIdeasSyncWeekly;
+exports.researchIdeasSyncNow = researchIdeasSyncNow;
+
+const { onStoreOrderPaidHeld } = createStoreOrderStatsHandlers();
+exports.onStoreOrderPaidHeld = onStoreOrderPaidHeld;
+
+const { createKpiWeeklyHandlers } = require("./kpi_weekly");
+const {
+  adminComputeWeeklyKpis,
+  adminSetWeeklyAdSpend,
+  kpiWeeklyScheduled,
+} = createKpiWeeklyHandlers();
+exports.adminComputeWeeklyKpis = adminComputeWeeklyKpis;
+exports.adminSetWeeklyAdSpend = adminSetWeeklyAdSpend;
+exports.kpiWeeklyScheduled = kpiWeeklyScheduled;
 
 // Paymob loads defineSecret() — if secrets are unset, ANY functions deploy fails.
 // Keep false until: firebase functions:secrets:set PAYMOB_* then set true and redeploy.
@@ -74,6 +132,10 @@ const NOTIFICATION_TYPES = new Set([
   "smart_match",
   "fund_award",
   "proposal",
+  "privacy_request",
+  "catalog_report",
+  "supplier_claim",
+  "profile_claim",
 ]);
 
 /** Types that may only target the authenticated caller (no cross-user spoofing). */
@@ -88,6 +150,10 @@ const ADMIN_FANOUT_TYPES = new Set([
   "sample_analysis",
   "lab_booking",
   "lab_claim",
+  "privacy_request",
+  "catalog_report",
+  "supplier_claim",
+  "profile_claim",
 ]);
 
 async function userHasAdminRole(db, uid) {
@@ -340,6 +406,33 @@ async function assertCanNotify(
       return;
     }
 
+    case "profile_claim": {
+      // Admin → claimant after approve/reject.
+      if (!(await userHasAdminRole(db, senderUid))) {
+        throw new HttpsError(
+          "permission-denied",
+          "Only admins can send profile_claim result notifications",
+        );
+      }
+      if (contextType !== "profile_claim" || !contextId) {
+        throw new HttpsError(
+          "invalid-argument",
+          "contextType=profile_claim and contextId required",
+        );
+      }
+      const claim = await db.collection("profile_claims").doc(contextId).get();
+      if (!claim.exists) {
+        throw new HttpsError("permission-denied", "Profile claim not found");
+      }
+      if (String(claim.data()?.claimantUid || "") !== targetUid) {
+        throw new HttpsError(
+          "permission-denied",
+          "Target is not the claim claimant",
+        );
+      }
+      return;
+    }
+
     case "proposal": {
       if (contextType !== "research_idea" || !contextId) {
         throw new HttpsError(
@@ -424,14 +517,268 @@ exports.sendAppNotification = onCall(
   return { ok: true };
 });
 
-const MODELS = [
+/**
+ * When an admin deletes a provider, release directory ownership so the same
+ * email can re-register and submit/claim again for review.
+ */
+async function releaseDeletedUserOwnership(db, uid) {
+  const writes = [];
+
+  const queueUpdate = (ref, data) => writes.push({ op: "update", ref, data });
+  const queueDelete = (ref) => writes.push({ op: "delete", ref });
+
+  const claimsSnap = await db
+    .collection("profile_claims")
+    .where("claimantUid", "==", uid)
+    .get();
+  for (const doc of claimsSnap.docs) {
+    const status = String(doc.data().status || "");
+    if (status === "pending_review") {
+      queueUpdate(doc.ref, {
+        status: "cancelled",
+        cancelledReason: "user_deleted",
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    }
+  }
+
+  const suppliersSnap = await db
+    .collection("store_suppliers")
+    .where("claimedByUid", "==", uid)
+    .get();
+  for (const doc of suppliersSnap.docs) {
+    queueUpdate(doc.ref, {
+      claimedByUid: FieldValue.delete(),
+      claimedByName: FieldValue.delete(),
+      claimedAt: FieldValue.delete(),
+      managedClaimId: FieldValue.delete(),
+      directoryStatus: "unverified",
+      isPartner: false,
+      isVerifiedSeller: false,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+  }
+
+  const releaseOwnedListing = (doc) => {
+    const data = doc.data() || {};
+    const approval = String(data.approvalStatus || "");
+    if (approval === "pending" || approval === "rejected") {
+      queueDelete(doc.ref);
+      return;
+    }
+    queueUpdate(doc.ref, {
+      ownerId: "",
+      claimedByName: FieldValue.delete(),
+      claimedAt: FieldValue.delete(),
+      managedClaimId: FieldValue.delete(),
+      directoryStatus: "unverified",
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+  };
+
+  const labsSnap = await db
+    .collection("labs")
+    .where("ownerId", "==", uid)
+    .get();
+  labsSnap.docs.forEach(releaseOwnedListing);
+
+  const supervisorsSnap = await db
+    .collection("supervisors")
+    .where("ownerId", "==", uid)
+    .get();
+  supervisorsSnap.docs.forEach(releaseOwnedListing);
+
+  const writingSnap = await db
+    .collection("writing_services")
+    .where("ownerId", "==", uid)
+    .get();
+  for (const doc of writingSnap.docs) {
+    const approval = String((doc.data() || {}).approvalStatus || "");
+    if (approval === "pending" || approval === "rejected") {
+      queueDelete(doc.ref);
+    } else {
+      queueUpdate(doc.ref, {
+        ownerId: "",
+        approvalStatus: "pending",
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    }
+  }
+
+  queueDelete(db.collection("provider_applications").doc(uid));
+
+  const productsSnap = await db
+    .collection("product")
+    .where("createdBy", "==", uid)
+    .where("approvalStatus", "==", "pending")
+    .get()
+    .catch(() => null);
+  if (productsSnap) {
+    productsSnap.docs.forEach((doc) => queueDelete(doc.ref));
+  }
+
+  for (let i = 0; i < writes.length; i += 400) {
+    const batch = db.batch();
+    for (const w of writes.slice(i, i + 400)) {
+      if (w.op === "delete") batch.delete(w.ref);
+      else batch.update(w.ref, w.data);
+    }
+    await batch.commit();
+  }
+}
+
+/**
+ * Delete all users/{id} docs whose email matches (case-insensitive).
+ * Used after Auth delete so re-register does not leave ghost profiles.
+ */
+async function deleteUserDocsByEmail(db, email, { exceptUid = "" } = {}) {
+  const target = String(email || "").trim().toLowerCase();
+  if (!target) return 0;
+  const snap = await db.collection("users").get();
+  let n = 0;
+  let batch = db.batch();
+  let batchCount = 0;
+  const commitBatch = async () => {
+    if (batchCount === 0) return;
+    await batch.commit();
+    batch = db.batch();
+    batchCount = 0;
+  };
+  for (const doc of snap.docs) {
+    if (exceptUid && doc.id === exceptUid) continue;
+    const docEmail = String(doc.data().email || "").trim().toLowerCase();
+    if (docEmail !== target) continue;
+    batch.delete(doc.ref);
+    n += 1;
+    batchCount += 1;
+    if (batchCount >= 400) await commitBatch();
+  }
+  await commitBatch();
+  return n;
+}
+
+/**
+ * Admin: delete Firestore users/{uid} AND Firebase Auth account so re-register
+ * with the same email is a true first-time signup. Also releases directory
+ * ownership so claims/submissions can enter review again.
+ */
+exports.adminDeleteUser = onCall(
+  {
+    cors: true,
+    serviceAccount: "acadegate-new@appspot.gserviceaccount.com",
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Sign in required");
+    }
+    const db = getFirestore();
+    const callerUid = request.auth.uid;
+    if (!(await userHasAdminRole(db, callerUid))) {
+      throw new HttpsError("permission-denied", "Admin only");
+    }
+    const uid = String((request.data || {}).uid || "").trim();
+    if (!uid) {
+      throw new HttpsError("invalid-argument", "uid required");
+    }
+    if (uid === callerUid) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Cannot delete your own account here",
+      );
+    }
+
+    const userSnap = await db.collection("users").doc(uid).get();
+    const email = String((userSnap.data() || {}).email || "").trim();
+
+    await releaseDeletedUserOwnership(db, uid);
+
+    await db.collection("users").doc(uid).delete().catch(() => {});
+
+    // Purge any leftover profiles with the same email (orphans from older deletes).
+    if (email) {
+      await deleteUserDocsByEmail(db, email);
+    }
+
+    try {
+      await getAuth().deleteUser(uid);
+    } catch (e) {
+      if (e && e.code !== "auth/user-not-found") {
+        throw new HttpsError("internal", e.message || "Auth delete failed");
+      }
+    }
+
+    return { ok: true };
+  },
+);
+
+/**
+ * Admin: remove Firestore user profiles whose Auth account no longer exists
+ * (typical after delete + re-register with the same email → ghost row).
+ */
+exports.adminCleanupOrphanUsers = onCall(
+  {
+    cors: true,
+    serviceAccount: "acadegate-new@appspot.gserviceaccount.com",
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Sign in required");
+    }
+    const db = getFirestore();
+    const callerUid = request.auth.uid;
+    if (!(await userHasAdminRole(db, callerUid))) {
+      throw new HttpsError("permission-denied", "Admin only");
+    }
+
+    const auth = getAuth();
+    const snap = await db.collection("users").get();
+    let orphansRemoved = 0;
+
+    for (const doc of snap.docs) {
+      if (doc.id === callerUid) continue;
+      let missing = false;
+      try {
+        await auth.getUser(doc.id);
+      } catch (e) {
+        if (e && e.code === "auth/user-not-found") {
+          missing = true;
+        } else {
+          continue;
+        }
+      }
+      if (!missing) continue;
+      await releaseDeletedUserOwnership(db, doc.id).catch(() => {});
+      await doc.ref.delete().catch(() => {});
+      orphansRemoved += 1;
+    }
+
+    return { ok: true, orphansRemoved };
+  },
+);
+
+/** نماذج حالية — 1.5 و 2.0 أُوقفت من Google */
+const MODELS_VISION = [
   "gemini-2.5-flash",
-  "gemini-2.0-flash",
   "gemini-2.5-pro",
-  "gemini-2.0-flash-lite",
-  "gemini-1.5-flash",
+  "gemini-2.5-flash-lite",
   "gemini-flash-latest",
 ];
+const MODELS_TEXT = [
+  "gemini-2.5-flash",
+  "gemini-2.5-pro",
+  "gemini-2.5-flash-lite",
+  "gemini-flash-latest",
+];
+
+const MODELS_IMAGE = [
+  "gemini-2.5-flash-image",
+  "gemini-2.5-flash-preview-image-generation",
+  "gemini-2.0-flash-preview-image-generation",
+  "gemini-2.0-flash-exp-image-generation",
+];
+
+/** نماذج تدعم thinkingConfig — إرساله لباقي النماذج يسبب INVALID_ARGUMENT */
+const THINKING_MODELS = new Set(["gemini-2.5-flash", "gemini-2.5-pro"]);
 
 function extractResponseText(data) {
   const candidates = data?.candidates;
@@ -442,10 +789,40 @@ function extractResponseText(data) {
 
   const chunks = [];
   for (const part of parts) {
+    // Gemini 2.5 may return thought parts — never treat them as user-visible text.
+    if (part?.thought === true) continue;
     const text = part?.text?.trim();
     if (text) chunks.push(text);
   }
   return chunks.length > 0 ? chunks.join("\n") : null;
+}
+
+function emptyResponseDetail(data) {
+  const c0 = Array.isArray(data?.candidates) ? data.candidates[0] : null;
+  const finish = c0?.finishReason || data?.promptFeedback?.blockReason || "unknown";
+  const partCount = Array.isArray(c0?.content?.parts) ? c0.content.parts.length : 0;
+  const thoughtOnly =
+    partCount > 0 &&
+    Array.isArray(c0?.content?.parts) &&
+    c0.content.parts.every((p) => p?.thought === true || !String(p?.text || "").trim());
+  if (thoughtOnly) return `empty (thought-only, finish=${finish})`;
+  return `empty response (finish=${finish}, parts=${partCount})`;
+}
+
+function extractResponseImage(data) {
+  const parts = data?.candidates?.[0]?.content?.parts;
+  if (!Array.isArray(parts)) return null;
+  for (const part of parts) {
+    const inline = part?.inlineData || part?.inline_data;
+    const b64 = inline?.data;
+    if (b64) {
+      return {
+        data: String(b64),
+        mimeType: inline.mimeType || inline.mime_type || "image/png",
+      };
+    }
+  }
+  return null;
 }
 
 function hashPassword(password) {
@@ -489,12 +866,30 @@ exports.geminiAdvisor = onCall(
       throw new HttpsError("unauthenticated", "يجب تسجيل الدخول لاستخدام المساعد الذكي");
     }
 
+    const quota = await consumeQuota({
+      uid: request.auth.uid,
+      kind: "gemini",
+    });
+    if (!quota.ok) {
+      if (quota.code === "resource-exhausted") {
+        throw quotaExceededHttpsError(quota, "gemini");
+      }
+      // Do not surface opaque INTERNAL for quota bookkeeping failures.
+      console.error("quota check failed", quota);
+      throw new HttpsError(
+        "unavailable",
+        quota.message || "تعذر التحقق من الحصة اليومية — أعد المحاولة",
+      );
+    }
+
     const {
       systemPrompt,
       userMessage,
       history = [],
       attachments = [],
       maxOutputTokens = 8192,
+      generateImage = false,
+      preferPro = false,
     } = request.data || {};
 
     if (
@@ -559,10 +954,20 @@ exports.geminiAdvisor = onCall(
         }
 
         if (!mimeType || !base64Data) continue;
+        // نظّف base64 (قد يصل مع بادئة data: أو مسافات)
+        let cleanB64 = String(base64Data).replace(/\s/g, "");
+        const dataUrl = cleanB64.match(/^data:([^;]+);base64,(.+)$/i);
+        let cleanMime = String(mimeType);
+        if (dataUrl) {
+          cleanMime = dataUrl[1] || cleanMime;
+          cleanB64 = dataUrl[2];
+        }
+        if (!cleanB64) continue;
+        // REST API يقبل camelCase؛ snake_case يفشل على بعض النماذج مع الصور
         userParts.push({
-          inline_data: {
-            mime_type: String(mimeType),
-            data: String(base64Data),
+          inlineData: {
+            mimeType: cleanMime,
+            data: cleanB64,
           },
         });
       }
@@ -582,32 +987,99 @@ exports.geminiAdvisor = onCall(
 
     contents.push({ role: "user", parts: userParts });
 
-    let lastError = "unknown";
-    for (const model of MODELS) {
+    if (generateImage === true) {
+      const imageErrors = [];
+      for (const model of MODELS_IMAGE) {
+        try {
+          const url =
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}` +
+            `:generateContent?key=${apiKey}`;
+          const response = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents,
+              generationConfig: {
+                temperature: 0.7,
+                responseModalities: ["TEXT", "IMAGE"],
+              },
+            }),
+          });
+          if (!response.ok) {
+            const errBody = await response.text();
+            imageErrors.push(
+              `${model}: ${formatGeminiApiError(response.status, errBody)}`,
+            );
+            if (response.status === 429) break;
+            continue;
+          }
+          const data = await response.json();
+          const image = extractResponseImage(data);
+          if (image) {
+            return {
+              imageBase64: image.data,
+              mimeType: image.mimeType || "image/png",
+              model,
+            };
+          }
+          imageErrors.push(`${model}: no image in response`);
+        } catch (err) {
+          imageErrors.push(`${model}: ${err.message}`);
+        }
+      }
+      return {
+        error:
+          imageErrors.find(
+            (e) => !/is not found|not supported for generateContent/i.test(e),
+          ) ||
+          imageErrors[imageErrors.length - 1] ||
+          "تعذر توليد صورة الأنيميشن",
+      };
+    }
+
+    const hasInlineImage = userParts.some(
+      (p) => p && typeof p === "object" && (p.inlineData || p.inline_data),
+    );
+
+    let modelsToTry = hasInlineImage ? MODELS_VISION : MODELS_TEXT;
+    if (preferPro === true) {
+      modelsToTry = [
+        "gemini-2.5-pro",
+        ...modelsToTry.filter((m) => m !== "gemini-2.5-pro"),
+      ];
+    }
+    const errors = [];
+    for (const model of modelsToTry) {
       try {
         const url =
           `https://generativelanguage.googleapis.com/v1beta/models/${model}` +
           `:generateContent?key=${apiKey}`;
 
+        const generationConfig = {
+          temperature: hasInlineImage ? 0.4 : 0.85,
+          maxOutputTokens: cappedTokens,
+        };
+        // لا ترسل thinkingConfig مع الصور — يسبب INVALID_ARGUMENT على أغلب النماذج
+        if (!hasInlineImage && THINKING_MODELS.has(model)) {
+          generationConfig.thinkingConfig = { thinkingBudget: 0 };
+        }
+
         const response = await fetch(url, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            system_instruction: {
+            systemInstruction: {
               parts: [{ text: systemPrompt || "أنت مساعد أكاديمي." }],
             },
             contents,
-            generationConfig: {
-              temperature: 0.85,
-              maxOutputTokens: cappedTokens,
-              thinkingConfig: { thinkingBudget: 0 },
-            },
+            generationConfig,
           }),
         });
 
         if (!response.ok) {
           const errBody = await response.text();
-          lastError = `${model}: ${formatGeminiApiError(response.status, errBody)}`;
+          const msg = `${model}: ${formatGeminiApiError(response.status, errBody)}`;
+          errors.push(msg);
           if (response.status === 429) break;
           continue;
         }
@@ -617,12 +1089,17 @@ exports.geminiAdvisor = onCall(
         if (text) {
           return { text, model };
         }
-        lastError = `${model}: empty response`;
+        errors.push(`${model}: ${emptyResponseDetail(data)}`);
       } catch (err) {
-        lastError = `${model}: ${err.message}`;
+        errors.push(`${model}: ${err.message}`);
       }
     }
 
-    return { error: lastError };
+    // فضّل خطأ غير "not found" إن وُجد (أوضح للمستخدم)
+    const useful =
+      errors.find((e) => !/is not found|not supported for generateContent/i.test(e)) ||
+      errors[errors.length - 1] ||
+      "unknown";
+    return { error: useful };
   },
 );

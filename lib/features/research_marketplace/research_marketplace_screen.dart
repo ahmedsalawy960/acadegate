@@ -3,6 +3,8 @@ import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
 import '../../core/locale/locale_extensions.dart';
 import '../../core/locale/l10n_lookup.dart';
+import '../guides/section_guide_catalog.dart';
+import '../guides/section_guide_screen.dart';
 import '../academic/academic_content_service.dart';
 import '../academic/academic_models.dart';
 import 'publish_research_idea_screen.dart';
@@ -21,6 +23,12 @@ class ResearchMarketplaceScreen extends StatelessWidget {
         )),
         backgroundColor: Colors.orange[800],
         foregroundColor: Colors.white,
+        actions: [
+          SectionGuideAppBarButton(
+            guideId: SectionGuideCatalog.ideas,
+            accent: Colors.orange.shade800,
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
@@ -50,6 +58,13 @@ class ResearchMarketplaceScreen extends StatelessWidget {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: SectionGuideBanner(
+              guideId: SectionGuideCatalog.ideas,
+              accent: Color(0xFFEF6C00),
+            ),
+          ),
           Container(
             width: double.infinity,
             margin: const EdgeInsets.all(16),
@@ -212,6 +227,20 @@ class _MarketIdeaCard extends StatelessWidget {
                     _InfoChip(
                       icon: Icons.school_outlined,
                       label: L10nLookup.facultyTitleStatic(idea.category),
+                    ),
+                  if (idea.degreeLevel.isNotEmpty)
+                    _InfoChip(
+                      icon: Icons.workspace_premium_outlined,
+                      label: idea.degreeLevel == 'phd'
+                          ? context.t('دكتوراه', 'PhD')
+                          : idea.degreeLevel == 'masters'
+                              ? context.t('ماجستير', 'Master\'s')
+                              : context.t('ماجستير/دكتوراه', 'MSc/PhD'),
+                    ),
+                  if (idea.isSyncedImport)
+                    _InfoChip(
+                      icon: Icons.cloud_sync_outlined,
+                      label: context.t('مزامنة', 'Synced'),
                     ),
                   if (idea.funded && idea.fundedAmount != null)
                     _InfoChip(

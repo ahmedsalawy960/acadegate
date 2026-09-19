@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import 'manuscript_image_session_cache.dart';
+
 /// Displays images imported from DOCX (Firebase URL or inline data URI).
 class ManuscriptImportImage extends StatelessWidget {
   final String url;
@@ -38,8 +40,10 @@ class ManuscriptImportImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final trimmed = url.trim();
+    var trimmed = url.trim();
     if (trimmed.isEmpty) return const SizedBox.shrink();
+    final cached = ManuscriptImageSessionCache.instance.resolve(trimmed);
+    if (cached != null && cached.isNotEmpty) trimmed = cached;
 
     if (isVectorMime(trimmed)) {
       return Column(

@@ -119,8 +119,11 @@ WritingCategory? writingCategoryByTitle(String title) {
 /// مستوى أكاديمي للطلب.
 const List<String> academicLevels = [
   'مشروع تخرج (بكالوريوس)',
+  'دبلوم دراسات عليا',
   'ماجستير',
+  'ماجستير مهني / MBA / MPA',
   'دكتوراه',
+  'دكتوراه مهنية (DBA / DPA / EdD)',
   'ورقة مؤتمر',
   'ورقة مجلة (Q1–Q4)',
   'تقرير أكاديمي',
@@ -205,10 +208,16 @@ String localizedAcademicLevel(String value) {
   switch (value) {
     case 'مشروع تخرج (بكالوريوس)':
       return appTr(value, 'Undergraduate project');
+    case 'دبلوم دراسات عليا':
+      return appTr(value, 'Postgraduate diploma');
     case 'ماجستير':
       return appTr(value, "Master's");
+    case 'ماجستير مهني / MBA / MPA':
+      return appTr(value, 'Professional Master\'s / MBA / MPA');
     case 'دكتوراه':
       return appTr(value, 'PhD');
+    case 'دكتوراه مهنية (DBA / DPA / EdD)':
+      return appTr(value, 'Professional doctorate (DBA / DPA / EdD)');
     case 'ورقة مؤتمر':
       return appTr(value, 'Conference paper');
     case 'ورقة مجلة (Q1–Q4)':

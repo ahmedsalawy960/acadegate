@@ -1,9 +1,10 @@
-import 'dart:convert';
-
 import 'package:archive/archive.dart';
 import 'package:xml/xml.dart';
 
+import 'academic_text.dart';
+import 'citation_cues.dart';
 import 'publish_models.dart';
+import 'scholarly_layout.dart';
 
 enum TitlePageSegmentKind { equation, title, authors, body }
 
@@ -63,27 +64,8 @@ class DocxScientificExtractor {
   }
 
   static bool isPaperTitle(String text) {
-    final t = text.trim();
-    if (t.length < 25 || t.length > 320) return false;
-    if (isEquationFragment(t) || isEquationPlaceholder(t)) return false;
-    if (RegExp(r'@|corresponding author|University|Department|Faculty',
-            caseSensitive: false)
-        .hasMatch(t)) {
-      return false;
-    }
-    if (RegExp(
-      r'\b(Analysis|Profile|Study|Characterization|Composition|Investigation|Review)\b',
-      caseSensitive: false,
-    ).hasMatch(t)) {
-      return true;
-    }
-    final words = t.split(RegExp(r'\s+'));
-    if (words.length >= 7 &&
-        RegExp(r'^[A-Z]').hasMatch(t) &&
-        !RegExp(r'=\s*[\.\d]').hasMatch(t.substring(0, t.length.clamp(0, 40)))) {
-      return true;
-    }
-    return false;
+    if (isEquationFragment(text) || isEquationPlaceholder(text)) return false;
+    return ScholarlyLayout.isArticleTitle(text);
   }
 
   static bool isAuthorsBlock(String text) {
@@ -93,6 +75,110 @@ class DocxScientificExtractor {
       r'@|corresponding author|\*Corresponding|University|Department|Faculty|\d+\*?\s*,',
       caseSensitive: false,
     ).hasMatch(t);
+  }
+
+  /// Paper authors / affiliations under the title — not Introduction citations.
+  static bool isFrontMatterAuthorText(String text) {
+    final t = text.trim();
+    if (t.isEmpty) return false;
+    // "(Author, Year)" / "(Year)" in a sentence is an in-text cite, not a byline.
+    if (RegExp(r'\([^)]{0,220}\b(?:19|20)\d{2}').hasMatch(t) &&
+        t.length > 40 &&
+        !RegExp(r'@|corresponding author', caseSensitive: false).hasMatch(t)) {
+      return false;
+    }
+    if (RegExp(
+          r'(Introduction|المقدمة)\b',
+          caseSensitive: false,
+        ).hasMatch(t) &&
+        RegExp(r'\([^)]{6,200}\b(?:19|20)\d{2}').hasMatch(t) &&
+        t.length > 280) {
+      return false;
+    }
+    if (ScholarlyLayout.isAuthorByline(t) ||
+        ScholarlyLayout.isAffiliationLine(t)) {
+      return true;
+    }
+    if (RegExp(
+      r'^(Abstract|Introduction|Background|Experimental|Methods|Materials|'
+      r'Results|Discussion|Conclusion|References|Keywords|الملخص|المقدمة|المراجع)\b',
+      caseSensitive: false,
+    ).hasMatch(t) &&
+        t.length < 80) {
+      return false;
+    }
+    if (RegExp(
+      r'@|corresponding author|\*Corresponding|e-?mail',
+      caseSensitive: false,
+    ).hasMatch(t) &&
+        t.length < 2500) {
+      return true;
+    }
+    if (RegExp(
+      '(${CitationCues.affiliationOrg}).{0,40}\\[\\d{1,2}\\]\\s*\$',
+      caseSensitive: false,
+    ).hasMatch(t)) {
+      return true;
+    }
+    if (RegExp(
+      r'\b(the|this|these|those|was|were|are|have|has|reported|using|'
+      r'study|results|however|therefore|according)\b',
+      caseSensitive: false,
+    ).hasMatch(t) &&
+        t.length > 90 &&
+        !CitationCues.affiliationNearby.hasMatch(t)) {
+      return false;
+    }
+    if (RegExp(
+      r'\[(\d{1,2})\]\s*(?:Department|Faculty|University|'
+      r'Institute|College|Laboratory|School)',
+      caseSensitive: false,
+    ).hasMatch(t)) {
+      return true;
+    }
+    if (RegExp(
+      r'University|Department|Faculty|Institute|College|Laboratory',
+      caseSensitive: false,
+    ).hasMatch(t) &&
+        (RegExp(r'[\u00B9\u00B2\u00B3\u2070-\u2079]').hasMatch(t) ||
+            RegExp(r'\[[1-9]\]').hasMatch(t) ||
+            RegExp(r'\band\b').hasMatch(t))) {
+      return true;
+    }
+    if (t.contains('.') && t.length > 200) return false;
+    final cleaned = t.replaceAll(
+      RegExp(r'[\u00B9\u00B2\u00B3\u2070-\u2079\d\*]+'),
+      ' ',
+    );
+    final names = RegExp(r"(?:[A-Z]\.\s*)+[A-Z][A-Za-z'\-]{1,}")
+            .allMatches(cleaned)
+            .length +
+        RegExp(r'\b[A-Z][a-z]{1,}\s+[A-Z][a-z]{1,}\b').allMatches(cleaned).length;
+    final mark = RegExp(r'[\u00B9\u00B2\u00B3\u2070-\u2079]').hasMatch(t);
+    final byline = names >= 2 && t.length < 280 && !RegExp(r'\b(the|was|were)\b', caseSensitive: false).hasMatch(t);
+    return byline || (names >= 1 && mark && t.length < 280);
+  }
+
+  /// `[1] Chemistry Department…` is an affiliation, not IEEE citation [1].
+  static bool looksLikeAffiliationBracket(String text, int openIndex) {
+    if (openIndex < 0 || openIndex >= text.length || text[openIndex] != '[') {
+      return false;
+    }
+    final close = text.indexOf(']', openIndex + 1);
+    if (close < 0) return false;
+    final after = text.substring(
+      close + 1,
+      text.length > close + 80 ? close + 80 : text.length,
+    );
+    if (CitationCues.affiliationAfterBracket.hasMatch(after)) {
+      return true;
+    }
+    final before = text.substring(0, openIndex);
+    if (CitationCues.affiliationNearby.hasMatch(before) &&
+        before.length < 500) {
+      return true;
+    }
+    return false;
   }
 
   static bool isOleScientificObject(XmlElement element) {
@@ -177,8 +263,11 @@ class DocxScientificExtractor {
     for (final pattern in patterns) {
       final match = pattern.firstMatch(normalized);
       if (match == null) continue;
-      final candidate = match.group(1)!.trim();
-      if (isPaperTitle(candidate)) return candidate;
+      var candidate = match.group(1)!.trim();
+      candidate = AcademicText.stripTrailingAuthorFromTitle(candidate);
+      if (isPaperTitle(candidate) && !isAuthorsBlock(candidate)) {
+        return candidate;
+      }
     }
     return null;
   }
@@ -313,7 +402,8 @@ class DocxScientificExtractor {
         'Materials\\s+and\\s+Methods|Materials|Methods|Results|Discussion|'
         'Conclusions?|Acknowledgments?|References?|'
         'الملخص|المقدمة|الخلفية|التجريبي|المنهجية?|المواد والطرق|'
-        'النتائج|المناقشة|الخاتمة|الاستنتاجات?|المراجع';
+        'النتائج|المناقشة|الخاتمة|الاستنتاجات?|المراجع|'
+        'الكلمات(?:\\s+المفتاحية|\\s+الدالة)?|كلمات مفتاحية';
 
     final headingRe = RegExp(
       r'(?:^|\n)\s*(?:\d+\.?\s*)?(' + sectionNames + r')\s*:?\s*(?=\n|$)',
@@ -362,11 +452,13 @@ class DocxScientificExtractor {
           ));
         }
       }
-      final heading = _normalizeSectionHeading(m.group(1)!);
+      final heading = AcademicText.stripBidi(
+        trimmed.substring(m.start, m.end),
+      ).trim().replaceAll(RegExp(r'\s*:+\s*$'), '');
       out.add(ManuscriptBlock(
         id: nextId(),
         type: ManuscriptBlockType.heading,
-        text: heading,
+        text: heading.isEmpty ? (m.group(1) ?? '') : heading,
       ));
       cursor = m.end;
     }
@@ -388,45 +480,18 @@ class DocxScientificExtractor {
       r'^(?:\d+\.?\s*)?(Abstract|Keywords?|Introduction|Experimental|Background|'
       r'Materials(\s+and\s+Methods)?|Methods|Results|Discussion|Conclusions?|'
       r'References?|الملخص|المقدمة|الخلفية|التجريبي|المنهجية?|النتائج|'
-      r'المناقشة|الخاتمة|الاستنتاجات?|المراجع)\s*:?\s*$',
+      r'المناقشة|الخاتمة|الاستنتاجات?|المراجع|'
+      r'الكلمات(?:\s+المفتاحية|\s+الدالة)?|كلمات مفتاحية)\s*:?\s*$',
       caseSensitive: false,
     ).hasMatch(t);
   }
 
+  /// Keep the heading as printed in the file. Never map الملخص→Abstract
+  /// or Background→Introduction.
   static String _normalizeSectionHeading(String raw) {
-    var h = raw.trim().replaceAll(RegExp(r'\s*:+\s*$'), '');
-    if (h.isEmpty) return raw.trim();
-    final lower = h.toLowerCase();
-    if (lower == 'keywords' || lower.startsWith('keyword')) return 'Keywords';
-    if (RegExp(r'^abstract').hasMatch(lower) || h.contains('الملخص')) {
-      return 'Abstract';
-    }
-    if (RegExp(r'^(introduction|background)').hasMatch(lower) ||
-        h.contains('المقدمة') ||
-        h.contains('الخلفية')) {
-      return 'Introduction';
-    }
-    if (RegExp(r'^(experimental|materials|methods?)').hasMatch(lower) ||
-        h.contains('التجريبي') ||
-        h.contains('المنهج') ||
-        h.contains('المواد')) {
-      return 'Experimental';
-    }
-    if (RegExp(r'^results?').hasMatch(lower) || h.contains('النتائج')) {
-      return 'Results';
-    }
-    if (RegExp(r'^discussion').hasMatch(lower) || h.contains('المناقشة')) {
-      return 'Discussion';
-    }
-    if (RegExp(r'^conclusions?').hasMatch(lower) ||
-        h.contains('الخاتمة') ||
-        h.contains('الاستنتاج')) {
-      return 'Conclusion';
-    }
-    if (RegExp(r'^references?').hasMatch(lower) || h.contains('المراجع')) {
-      return 'References';
-    }
-    return h[0].toUpperCase() + h.substring(1);
+    return AcademicText.stripBidi(raw)
+        .trim()
+        .replaceAll(RegExp(r'\s*:+\s*$'), '');
   }
 
   static List<String> indexMediaPool(
@@ -439,7 +504,7 @@ class DocxScientificExtractor {
             f.isFile &&
             f.name.replaceAll('\\', '/').toLowerCase().startsWith('word/media/'))
         .toList()
-      ..sort((a, b) => a.name.compareTo(b.name));
+      ..sort((a, b) => _naturalFileName(a.name).compareTo(_naturalFileName(b.name)));
 
     for (final file in files) {
       final uri = fileToDataUri(file);
@@ -448,71 +513,11 @@ class DocxScientificExtractor {
     return out;
   }
 
-  static int? structureColumnIndex(List<String> headerRow) {
-    for (var i = 0; i < headerRow.length; i++) {
-      final h = headerRow[i].trim().toLowerCase();
-      if (h == 'structure' ||
-          h.contains('structure') ||
-          h.contains('البنية') ||
-          h.contains('تركيب')) {
-        return i;
-      }
-    }
-    return null;
-  }
-
-  static ({
-    List<List<String>> rowCellImages,
-    Set<String> usedUris,
-  }) fillStructureColumnFromMediaPool({
-    required List<List<String>> rows,
-    required List<List<String>> rowCellImages,
-    required List<String> mediaPool,
-    required Set<String> alreadyUsed,
-  }) {
-    if (rows.isEmpty || mediaPool.isEmpty) {
-      return (rowCellImages: rowCellImages, usedUris: alreadyUsed);
-    }
-
-    final structCol = structureColumnIndex(rows.first);
-    if (structCol == null) {
-      return (rowCellImages: rowCellImages, usedUris: alreadyUsed);
-    }
-
-    int uriBytes(String uri) {
-      if (!uri.startsWith('data:')) return 0;
-      final comma = uri.indexOf(',');
-      if (comma < 0) return 0;
-      try {
-        return base64Decode(uri.substring(comma + 1)).length;
-      } catch (_) {
-        return 0;
-      }
-    }
-
-    // Small structure icons first — leave large chromatogram PNGs for figure recovery.
-    final pool = mediaPool.where((u) => !alreadyUsed.contains(u)).toList()
-      ..sort((a, b) => uriBytes(a).compareTo(uriBytes(b)));
-    var poolIdx = 0;
-    final used = Set<String>.from(alreadyUsed);
-    final filled = rowCellImages.map((row) => List<String>.from(row)).toList();
-
-    for (var r = 1; r < rows.length; r++) {
-      if (structCol >= rows[r].length) continue;
-      while (filled.length <= r) {
-        filled.add(List.filled(rows[r].length, ''));
-      }
-      while (filled[r].length < rows[r].length) {
-        filled[r].add('');
-      }
-      if (filled[r][structCol].isNotEmpty) continue;
-      if (poolIdx >= pool.length) break;
-      filled[r][structCol] = pool[poolIdx];
-      used.add(pool[poolIdx]);
-      poolIdx++;
-    }
-
-    return (rowCellImages: filled, usedUris: used);
+  static String _naturalFileName(String name) {
+    return name.toLowerCase().replaceAllMapped(
+      RegExp(r'\d+'),
+      (m) => m.group(0)!.padLeft(8, '0'),
+    );
   }
 
   static String _attr(XmlElement el, String name) {

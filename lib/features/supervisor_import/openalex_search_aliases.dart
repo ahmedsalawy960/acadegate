@@ -1,47 +1,249 @@
-/// ترجمة أسماء الجامعات العربية وتحويل نص البحث العربي لصيغ يفهمها OpenAlex.
+/// ترجمة أسماء الجامعات العربية وتحويل نص البحث (عربي/إنجليزي بأي حالة) لصيغ يفهمها OpenAlex.
 class OpenAlexSearchAliases {
   OpenAlexSearchAliases._();
 
   static final RegExp _arabicScript = RegExp(r'[\u0600-\u06FF]');
+  static final RegExp _tashkeel = RegExp(
+    r'[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]',
+  );
 
   static bool containsArabic(String text) => _arabicScript.hasMatch(text);
+
+  /// تطبيع موحّد: إنجليزي بدون حساسية لحالة الأحرف + عربي موحّد (أ/إ/آ، ة/ه، تشكيل).
+  static String normalizeQuery(String text) {
+    var value = text.trim().toLowerCase();
+    value = value.replaceAll(_tashkeel, '');
+    value = value
+        .replaceAll('أ', 'ا')
+        .replaceAll('إ', 'ا')
+        .replaceAll('آ', 'ا')
+        .replaceAll('ٱ', 'ا')
+        .replaceAll('ى', 'ي')
+        .replaceAll('ة', 'ه')
+        .replaceAll('ؤ', 'و')
+        .replaceAll('ئ', 'ي')
+        .replaceAll('ء', '');
+    // وحّد الشرطات وعلامات الترقيم إلى مسافات — al-azhar ≡ al azhar
+    value = value.replaceAll(RegExp(r'[_\-–—/\\.,;:]+'), ' ');
+    value = value.replaceAll(RegExp(r'[ـ\s]+'), ' ');
+    return value.trim();
+  }
 
   static List<String> institutionQueries(String query) {
     final trimmed = query.trim();
     if (trimmed.length < 2) return [];
 
-    final queries = <String>{trimmed};
-    final normalized = _normalizeArabic(trimmed);
+    final cleaned = _stripFacultyNoise(trimmed);
+    final best = _bestUniversityMatch(cleaned);
 
-    for (final entry in _egyptianUniversities) {
-      final key = _normalizeArabic(entry.arabic);
-      if (normalized.contains(key) ||
-          key.contains(normalized) ||
-          _tokensOverlap(normalized, key)) {
-        queries.add(entry.english);
+    final ordered = <String>{};
+    if (best != null) {
+      ordered.add(best.english);
+      for (final alt in _englishAlternates(best.english)) {
+        ordered.add(alt);
       }
+    } else {
+      // إنجليزي بأي حالة → صيغة Title Case لـ OpenAlex
+      final asEnglish = cleaned.trim();
+      if (asEnglish.isNotEmpty && !containsArabic(asEnglish)) {
+        ordered.add(_titleCaseWords(normalizeQuery(asEnglish)));
+        ordered.add(asEnglish);
+      }
+      if (cleaned.isNotEmpty && cleaned != trimmed) {
+        ordered.add(cleaned);
+      }
+      ordered.add(trimmed);
     }
+    return ordered.toList();
+  }
 
-    if (containsArabic(trimmed)) {
-      final withoutUniversity = normalized
-          .replaceAll('جامعة', '')
-          .replaceAll('الجامعة', '')
-          .trim();
-      if (withoutUniversity.isNotEmpty) {
+  /// معرّف OpenAlex المعروف لأهم الجامعات المصرية (تجاوز فشل البحث النصي).
+  static String? knownInstitutionOpenAlexId(String query) {
+    return _bestUniversityMatch(_stripFacultyNoise(query.trim()))?.openAlexId;
+  }
+
+  /// هل يجب تفضيل نتائج مصر؟ (بحث عربي أو جامعة مصرية معروفة بالإنجليزية).
+  static bool preferEgyptInstitutions(String query) {
+    if (containsArabic(query)) return true;
+    return _bestUniversityMatch(_stripFacultyNoise(query.trim())) != null;
+  }
+
+  static _UniversityAlias? _bestUniversityMatch(String cleanedQuery) {
+    if (cleanedQuery.trim().length < 2) return null;
+
+    final normalized = normalizeQuery(cleanedQuery);
+    final core = _universityCoreName(normalized);
+    if (normalized.length < 2 && core.length < 2) return null;
+
+    // كلمات مفتاحية حاسمة (بعد التطبيع — azhar / AZHAR / الأزهر سواء).
+    for (final rule in _keywordRules) {
+      final needle = normalizeQuery(rule.needle);
+      if (needle.isEmpty) continue;
+      if (normalized.contains(needle) || core.contains(needle)) {
         for (final entry in _egyptianUniversities) {
-          final key = _normalizeArabic(entry.arabic)
-              .replaceAll('جامعة', '')
-              .replaceAll('الجامعة', '')
-              .trim();
-          if (key.contains(withoutUniversity) ||
-              withoutUniversity.contains(key)) {
-            queries.add(entry.english);
-          }
+          if (entry.english == rule.english) return entry;
         }
       }
     }
 
-    return queries.toList();
+    _UniversityAlias? best;
+    var bestScore = 0;
+    for (final entry in _egyptianUniversities) {
+      final arabicKey = normalizeQuery(entry.arabic);
+      final englishKey = normalizeQuery(entry.english);
+      final scoreAr = _institutionMatchScore(
+        query: normalized,
+        queryCore: core,
+        alias: arabicKey,
+        aliasCore: _universityCoreName(arabicKey),
+      );
+      final scoreEn = _institutionMatchScore(
+        query: normalized,
+        queryCore: core,
+        alias: englishKey,
+        aliasCore: _universityCoreName(englishKey),
+      );
+      final score = scoreAr > scoreEn ? scoreAr : scoreEn;
+      if (score > bestScore) {
+        bestScore = score;
+        best = entry;
+      }
+    }
+    if (best == null || bestScore < 50) return null;
+    return best;
+  }
+
+  static const _keywordRules = <({String needle, String english})>[
+    // الأطول/الأخص أولاً حتى لا يخطف «cairo» جامعة أخرى في القاهرة.
+    (needle: 'american university', english: 'American University in Cairo'),
+    (needle: 'الامريكيه', english: 'American University in Cairo'),
+    (needle: 'german university', english: 'German University in Cairo'),
+    (needle: 'الالمانيه', english: 'German University in Cairo'),
+    (needle: 'ازهر', english: 'Al-Azhar University'),
+    (needle: 'azhar', english: 'Al-Azhar University'),
+    (needle: 'alazhar', english: 'Al-Azhar University'),
+    (needle: 'عين شمس', english: 'Ain Shams University'),
+    (needle: 'ain shams', english: 'Ain Shams University'),
+    (needle: 'ainshams', english: 'Ain Shams University'),
+    (needle: 'اسكندري', english: 'Alexandria University'),
+    (needle: 'alexandria', english: 'Alexandria University'),
+    (needle: 'منصوره', english: 'Mansoura University'),
+    (needle: 'mansoura', english: 'Mansoura University'),
+    (needle: 'حلوان', english: 'Helwan University'),
+    (needle: 'helwan', english: 'Helwan University'),
+    (needle: 'زقازيق', english: 'Zagazig University'),
+    (needle: 'zagazig', english: 'Zagazig University'),
+    (needle: 'طنطا', english: 'Tanta University'),
+    (needle: 'tanta', english: 'Tanta University'),
+    (needle: 'اسيوط', english: 'Assiut University'),
+    (needle: 'assiut', english: 'Assiut University'),
+    (needle: 'بنها', english: 'Benha University'),
+    (needle: 'benha', english: 'Benha University'),
+  ];
+
+  /// اسم الجامعة بعد حذف كلمات عامة لا تُميّز بينها.
+  static String _universityCoreName(String normalized) {
+    var value = ' $normalized ';
+    for (final stop in _institutionStopwords) {
+      value = value.replaceAll(' $stop ', ' ');
+    }
+    return value.replaceAll(RegExp(r'\s+'), ' ').trim();
+  }
+
+  static const _institutionStopwords = <String>[
+    'جامعة',
+    'الجامعة',
+    'جامعه',
+    'الجامعه',
+    'university',
+    'univ',
+    'of',
+    'the',
+    'in',
+    'at',
+  ];
+
+  /// درجة تطابق الاسم (أعلى = أدق). بدون تداخل رخيص على كلمة «جامعة».
+  static int _institutionMatchScore({
+    required String query,
+    required String queryCore,
+    required String alias,
+    required String aliasCore,
+  }) {
+    if (query.isEmpty || alias.isEmpty) return 0;
+    if (query == alias) return 100;
+    if (queryCore.isNotEmpty &&
+        aliasCore.isNotEmpty &&
+        queryCore == aliasCore) {
+      return 95;
+    }
+    if (query.contains(alias) || alias.contains(query)) {
+      final shorter = query.length <= alias.length ? query : alias;
+      if (shorter.length < 3) return 0;
+      return 80 + (shorter.length.clamp(0, 15));
+    }
+    if (queryCore.isNotEmpty &&
+        aliasCore.isNotEmpty &&
+        queryCore.length >= 3 &&
+        aliasCore.length >= 3 &&
+        (queryCore.contains(aliasCore) || aliasCore.contains(queryCore))) {
+      final shorter =
+          queryCore.length <= aliasCore.length ? queryCore : aliasCore;
+      return 70 + (shorter.length.clamp(0, 15));
+    }
+    return 0;
+  }
+
+  static List<String> _englishAlternates(String english) {
+    if (english == 'Al-Azhar University') {
+      return const [
+        'Al Azhar University',
+        'Alazhar University',
+      ];
+    }
+    if (english == 'Ain Shams University') {
+      return const ['AinShams University', 'Ain-Shams University'];
+    }
+    return const [];
+  }
+
+  /// يزيل «كلية الهندسة» ونحوها حتى لا يفشل بحث الجامعة.
+  static String _stripFacultyNoise(String text) {
+    var value = text;
+    const noise = <String>[
+      'كلية الهندسة',
+      'كليه الهندسه',
+      'كلية العلوم',
+      'كليه العلوم',
+      'كلية الطب',
+      'كليه الطب',
+      'كلية الحاسبات',
+      'كليه الحاسبات',
+      'كلية الصيدلة',
+      'كليه الصيدله',
+      'كلية الزراعة',
+      'كليه الزراعه',
+      'كلية الآداب',
+      'كليه الاداب',
+      'كلية التجارة',
+      'كليه التجاره',
+      'كلية التربية',
+      'كليه التربيه',
+      'كلية',
+      'كليه',
+      'Faculty of Engineering',
+      'Faculty of Science',
+      'Faculty of Medicine',
+      'Faculty of',
+      'Faculty',
+      'faculty of engineering',
+      'faculty of',
+      'faculty',
+    ];
+    for (final phrase in noise) {
+      value = value.replaceAll(RegExp(RegExp.escape(phrase), caseSensitive: false), ' ');
+    }
+    return value.replaceAll(RegExp(r'\s+'), ' ').trim();
   }
 
   static List<String> authorQueries(String query) {
@@ -49,12 +251,27 @@ class OpenAlexSearchAliases {
     if (trimmed.length < 2) return [];
 
     final queries = <String>{trimmed};
+    final normalized = normalizeQuery(trimmed);
+
+    // إنجليزي بأي حالة → صيغ موحدة + بدائل إملاء شائعة
+    if (!containsArabic(trimmed) && normalized.isNotEmpty) {
+      queries.add(normalized);
+      queries.add(_titleCaseWords(normalized));
+      for (final variant in _englishNameSpellingVariants(normalized)) {
+        queries.add(variant);
+        queries.add(_titleCaseWords(variant));
+      }
+    }
 
     if (containsArabic(trimmed)) {
       final transliterated = transliterateArabic(trimmed);
       if (transliterated.isNotEmpty) {
         queries.add(transliterated);
         queries.add(_titleCaseWords(transliterated));
+        for (final variant in _englishNameSpellingVariants(transliterated)) {
+          queries.add(variant);
+          queries.add(_titleCaseWords(variant));
+        }
       }
 
       for (final variant in _nameSpellingVariants(trimmed)) {
@@ -65,10 +282,135 @@ class OpenAlexSearchAliases {
     return queries.toList();
   }
 
-  /// يعرض للمستخدم الاسم الإنجليزي المقترح عند البحث بالعربية.
+  /// درجة تطابق اسم الباحث مع نص البحث (0–100). يُستبعد الضعفاء غير المطابقين.
+  static int nameRelevanceScore(String query, String candidateName) {
+    final q = normalizeQuery(query);
+    final n = normalizeQuery(candidateName);
+    if (q.isEmpty || n.isEmpty) return 0;
+    if (q == n) return 100;
+    if (n.contains(q) || q.contains(n)) {
+      return 85 + (q.length.clamp(0, 15));
+    }
+
+    final qTokens = q.split(' ').where((t) => t.length >= 2).toList();
+    final nTokens = n.split(' ').where((t) => t.length >= 2).toList();
+    if (qTokens.isEmpty || nTokens.isEmpty) return 0;
+
+    var matched = 0;
+    for (final qt in qTokens) {
+      final hit = nTokens.any(
+        (nt) =>
+            nt == qt ||
+            nt.startsWith(qt) ||
+            qt.startsWith(nt) ||
+            _namesClose(qt, nt),
+      );
+      if (hit) matched++;
+    }
+
+    if (matched == 0) return 0;
+    if (qTokens.length == 1) {
+      return matched > 0 ? 70 : 0;
+    }
+    // اسمان فأكثر: نحتاج تطابق جزء معتبر (وليس لقب عشوائي فقط).
+    final ratio = matched / qTokens.length;
+    if (ratio < 0.5) return (ratio * 40).round();
+    return (55 + ratio * 40).round().clamp(0, 99);
+  }
+
+  static bool isNameRelevantEnough(String query, String candidateName) {
+    final tokens =
+        normalizeQuery(query).split(' ').where((t) => t.length >= 2).length;
+    final score = nameRelevanceScore(query, candidateName);
+    if (tokens >= 2) return score >= 55;
+    return score >= 40;
+  }
+
+  /// عرض اسم شخص بشكل مقروء (Ramy Farid بدل ramy faride).
+  static String formatPersonName(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return trimmed;
+    if (containsArabic(trimmed)) return trimmed;
+    return _titleCaseWords(normalizeQuery(trimmed));
+  }
+
+  static bool _namesClose(String a, String b) {
+    if (a == b) return true;
+    final shorter = a.length <= b.length ? a : b;
+    final longer = a.length <= b.length ? b : a;
+    if (shorter.length < 3) return false;
+    if (longer.startsWith(shorter) || shorter.startsWith(longer)) return true;
+    // اختلاف حرف/حرفين شائع في النقل الحرفي (farid/faride, ramy/rami).
+    if ((a.length - b.length).abs() <= 2 &&
+        a.length >= 4 &&
+        b.length >= 4 &&
+        _sharedPrefixLen(a, b) >= 3) {
+      return true;
+    }
+    return false;
+  }
+
+  static int _sharedPrefixLen(String a, String b) {
+    final n = a.length < b.length ? a.length : b.length;
+    var i = 0;
+    while (i < n && a[i] == b[i]) {
+      i++;
+    }
+    return i;
+  }
+
+  static List<String> _englishNameSpellingVariants(String normalizedEnglish) {
+    final tokens = normalizedEnglish.split(' ').where((t) => t.isNotEmpty);
+    if (tokens.isEmpty) return const [];
+
+    const map = <String, List<String>>{
+      'ramy': ['rami', 'ramy'],
+      'rami': ['ramy', 'rami'],
+      'farid': ['faride', 'fareed', 'farid'],
+      'faride': ['farid', 'fareed', 'faride'],
+      'fareed': ['farid', 'faride', 'fareed'],
+      'mohamed': ['mohammed', 'muhammad', 'mohammad'],
+      'mohammed': ['mohamed', 'muhammad'],
+      'ahmed': ['ahmad'],
+      'ahmad': ['ahmed'],
+      'hassan': ['hasan'],
+      'hasan': ['hassan'],
+      'hussein': ['hussain', 'husain'],
+      'youssef': ['yousef', 'yusuf'],
+      'yousef': ['youssef', 'yusuf'],
+      'mostafa': ['mustafa', 'moustafa'],
+      'mustafa': ['mostafa', 'moustafa'],
+      'ibrahim': ['ebrahim'],
+      'khaled': ['khalid'],
+      'mahmoud': ['mahmud', 'mahmood'],
+    };
+
+    // بدائل لكل مقطع ثم نولّد تركيبات محدودة للاسم الثنائي.
+    final parts = tokens.toList();
+    if (parts.length == 1) {
+      return map[parts.first] ?? const [];
+    }
+
+    final variants = <String>{};
+    final firstAlts = [parts.first, ...?map[parts.first]];
+    final lastAlts = [parts.last, ...?map[parts.last]];
+    for (final f in firstAlts.take(3)) {
+      for (final l in lastAlts.take(3)) {
+        final mid = parts.length > 2
+            ? ' ${parts.sublist(1, parts.length - 1).join(' ')} '
+            : ' ';
+        variants.add('$f$mid$l'.replaceAll(RegExp(r'\s+'), ' ').trim());
+      }
+    }
+    return variants.toList();
+  }
+
+  /// يعرض للمستخدم الاسم الإنجليزي المقترح (عربي أو إنجليزي بأي حالة).
   static String? suggestedInstitutionEnglish(String query) {
+    final best = _bestUniversityMatch(_stripFacultyNoise(query.trim()));
+    if (best != null) return best.english;
     final englishQueries = institutionQueries(query)
-        .where((item) => item != query.trim())
+        .where((item) => normalizeQuery(item) != normalizeQuery(query))
         .toList();
     return englishQueries.isEmpty ? null : englishQueries.first;
   }
@@ -111,23 +453,7 @@ class OpenAlexSearchAliases {
     return buffer.toString().replaceAll(RegExp(r'\s+'), ' ').trim();
   }
 
-  static String _normalizeArabic(String text) {
-    return text
-        .replaceAll('أ', 'ا')
-        .replaceAll('إ', 'ا')
-        .replaceAll('آ', 'ا')
-        .replaceAll('ى', 'ي')
-        .replaceAll('ة', 'ه')
-        .replaceAll(RegExp(r'[ـ\s]+'), ' ')
-        .trim()
-        .toLowerCase();
-  }
-
-  static bool _tokensOverlap(String a, String b) {
-    final aTokens = a.split(' ').where((t) => t.length >= 3).toSet();
-    final bTokens = b.split(' ').where((t) => t.length >= 3).toSet();
-    return aTokens.intersection(bTokens).isNotEmpty;
-  }
+  static String _normalizeArabic(String text) => normalizeQuery(text);
 
   static String _titleCaseWords(String value) {
     return value
@@ -173,6 +499,9 @@ class OpenAlexSearchAliases {
       'عمر': ['Omar', 'Umar'],
       'زينب': ['Zainab', 'Zeinab'],
       'مريم': ['Mariam', 'Maryam', 'Miriam'],
+      'رامي': ['Ramy', 'Rami'],
+      'فريد': ['Farid', 'Fareed', 'Faride'],
+      'فرج': ['Farag', 'Faraj'],
     };
 
     final tokens = normalized.split(' ');
@@ -246,10 +575,14 @@ class OpenAlexSearchAliases {
   };
 
   static const _egyptianUniversities = <_UniversityAlias>[
-    _UniversityAlias('جامعة القاهرة', 'Cairo University'),
-    _UniversityAlias('جامعة عين شمس', 'Ain Shams University'),
-    _UniversityAlias('جامعة الإسكندرية', 'Alexandria University'),
-    _UniversityAlias('جامعة الاسكندرية', 'Alexandria University'),
+    _UniversityAlias('جامعة القاهرة', 'Cairo University', openAlexId: 'I145487455'),
+    _UniversityAlias('جامعة عين شمس', 'Ain Shams University', openAlexId: 'I107720978'),
+    _UniversityAlias('جامعة الإسكندرية', 'Alexandria University', openAlexId: 'I84524832'),
+    _UniversityAlias('جامعة الاسكندرية', 'Alexandria University', openAlexId: 'I84524832'),
+    _UniversityAlias('جامعة الأزهر', 'Al-Azhar University', openAlexId: 'I184834183'),
+    _UniversityAlias('جامعة الازهر', 'Al-Azhar University', openAlexId: 'I184834183'),
+    _UniversityAlias('الازهر', 'Al-Azhar University', openAlexId: 'I184834183'),
+    _UniversityAlias('الأزهر', 'Al-Azhar University', openAlexId: 'I184834183'),
     _UniversityAlias('جامعة المنصورة', 'Mansoura University'),
     _UniversityAlias('جامعة أسيوط', 'Assiut University'),
     _UniversityAlias('جامعة اسيوط', 'Assiut University'),
@@ -269,7 +602,6 @@ class OpenAlexSearchAliases {
     _UniversityAlias('جامعة جنوب الوادي', 'South Valley University'),
     _UniversityAlias('الجامعة الألمانية بالقاهرة', 'German University in Cairo'),
     _UniversityAlias('جامعة مصر للعلوم والتكنولوجيا', 'Egypt-Japan University of Science and Technology'),
-    _UniversityAlias('جامعة عين شمس', 'Ain Shams University'),
     _UniversityAlias('جامعة القاهرة الأهلية', 'New Giza University'),
     _UniversityAlias('جامعة 6 أكتوبر', 'October 6 University'),
     _UniversityAlias('جامعة سته اكتوبر', 'October 6 University'),
@@ -280,11 +612,44 @@ class OpenAlexSearchAliases {
     _UniversityAlias('جامعة بنها', 'Benha University'),
     _UniversityAlias('جامعة الشرقية', 'Zagazig University'),
   ];
+
+  /// جامعات أولوية لتعبئة المشرفين (معرّف OpenAlex إن عُرف).
+  static List<SeedUniversity> prioritySeedUniversities({int limit = 8}) {
+    final seen = <String>{};
+    final out = <SeedUniversity>[];
+    for (final entry in _egyptianUniversities) {
+      final key = entry.english.toLowerCase();
+      if (!seen.add(key)) continue;
+      out.add(
+        SeedUniversity(
+          arabic: entry.arabic,
+          english: entry.english,
+          openAlexId: entry.openAlexId,
+        ),
+      );
+      if (out.length >= limit) break;
+    }
+    return out;
+  }
+}
+
+/// جامعة جاهزة لتعبئة المشرفين الجماعية.
+class SeedUniversity {
+  final String arabic;
+  final String english;
+  final String? openAlexId;
+
+  const SeedUniversity({
+    required this.arabic,
+    required this.english,
+    this.openAlexId,
+  });
 }
 
 class _UniversityAlias {
   final String arabic;
   final String english;
+  final String? openAlexId;
 
-  const _UniversityAlias(this.arabic, this.english);
+  const _UniversityAlias(this.arabic, this.english, {this.openAlexId});
 }

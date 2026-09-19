@@ -2,13 +2,28 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/locale/locale_extensions.dart';
 import '../academic/academic_models.dart';
 import '../moderation/delete_content_button.dart';
 import '../research_fund/research_fund_models.dart';
+import '../research_supply_chain/research_supply_chain_screen.dart';
 import 'research_marketplace_service.dart';
 import 'submit_proposal_screen.dart';
+
+String _degreeLevelLabel(BuildContext context, String level) {
+  switch (level.toLowerCase()) {
+    case 'phd':
+      return context.t('دكتوراه', 'PhD');
+    case 'masters':
+      return context.t('ماجستير', 'Master\'s');
+    case 'both':
+      return context.t('ماجستير أو دكتوراه', 'Master\'s or PhD');
+    default:
+      return level;
+  }
+}
 
 class ResearchIdeaMarketplaceDetailScreen extends StatefulWidget {
   final AcademicResearchIdea idea;
@@ -42,6 +57,12 @@ class _ResearchIdeaMarketplaceDetailScreenState
     if (mounted) setState(() => _isPublisher = isPub);
   }
 
+  Future<void> _openSource(String url) async {
+    final uri = Uri.tryParse(url.trim());
+    if (uri == null) return;
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
   Future<void> _toggleVote() async {
     setState(() => _isVoting = true);
     try {
@@ -65,16 +86,48 @@ class _ResearchIdeaMarketplaceDetailScreenState
     try {
       await ResearchMarketplaceService.instance.claimIdea(widget.idea);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+      final openPath = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(context.t('تم اختيار الموضوع', 'Topic claimed')),
           content: Text(context.t(
-            'تم اختيار الموضوع — أصبح ملكك ولن يستطيع غيرك اختياره',
-            'Topic claimed — it is now yours and others cannot claim it',
+            'أصبح الموضوع ملكك. هل تريد بناء مسار البحث الذكي الآن '
+            '(مشرف · مختبر · متجر · كتابة · AI)؟',
+            'The topic is now yours. Build the smart research path now '
+            '(supervisor · lab · store · writing · AI)?',
           )),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: Colors.green,
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(context.t('لاحقاً', 'Later')),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(context.t('مسار البحث الذكي', 'Smart research path')),
+            ),
+          ],
         ),
       );
+      if (!mounted) return;
+      if (openPath == true) {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const ResearchSupplyChainScreen(),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(context.t(
+              'تم اختيار الموضوع — يمكنك فتح مسار البحث الذكي من الصفحة الرئيسية',
+              'Topic claimed — open Smart Research Path from home anytime',
+            )),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -285,10 +338,33 @@ class _ResearchIdeaMarketplaceDetailScreenState
                       ),
                       if (idea.budget.isNotEmpty)
                         Chip(label: Text(idea.budget)),
+                      if (idea.degreeLevel.isNotEmpty)
+                        Chip(
+                          avatar: const Icon(Icons.school_outlined, size: 16),
+                          label: Text(_degreeLevelLabel(context, idea.degreeLevel)),
+                          backgroundColor: Colors.deepPurple.withValues(alpha: 0.1),
+                        ),
+                      if (idea.isSyncedImport)
+                        Chip(
+                          avatar: const Icon(Icons.cloud_sync_outlined, size: 16),
+                          label: Text(context.t('مزامنة حية', 'Live sync')),
+                          backgroundColor: Colors.teal.withValues(alpha: 0.12),
+                        ),
                       if (canInteract)
                         _FundEligibilityChip(idea: idea),
                     ],
                   ),
+                  if (idea.sourceUrl.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    TextButton.icon(
+                      onPressed: () => _openSource(idea.sourceUrl),
+                      icon: const Icon(Icons.link),
+                      label: Text(context.t(
+                        'المصدر الأصلي',
+                        'Original source',
+                      )),
+                    ),
+                  ],
                   const SizedBox(height: 20),
                   Text(
                     context.t('وصف المشكلة:', 'Problem description:'),

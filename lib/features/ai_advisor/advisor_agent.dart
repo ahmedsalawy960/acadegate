@@ -13,6 +13,7 @@ enum AdvisorAgentId {
   presentations,
   thesisPlanning,
   supervisorMatch,
+  catalogExecute,
   general,
 }
 
@@ -49,7 +50,9 @@ class AdvisorAgent {
     required this.samplePrompt,
   });
 
-  bool get usesAppData => id == AdvisorAgentId.supervisorMatch;
+  bool get usesAppData =>
+      id == AdvisorAgentId.supervisorMatch ||
+      id == AdvisorAgentId.catalogExecute;
 }
 
 class AdvisorRoutePlan {

@@ -37,7 +37,38 @@ class ManuscriptService {
   Future<PublishManuscript?> getById(String id) async {
     final doc = await _manuscripts.doc(id).get();
     if (!doc.exists || doc.data() == null) return null;
-    return PublishManuscript.fromMap(doc.data()!, id: doc.id);
+    final manuscript = PublishManuscript.fromMap(doc.data()!, id: doc.id);
+    if (manuscript.bodyBlocks.isEmpty) return manuscript;
+    return manuscript.copyWith(
+      bodyBlocks: ManuscriptDocumentParser.hydratePersistedImageUris(
+        manuscript.bodyBlocks,
+      ),
+    );
+  }
+
+  Future<PublishManuscript?> latestWithContent() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return null;
+    try {
+      final snap = await _manuscripts
+          .where('userId', isEqualTo: user.uid)
+          .orderBy('updatedAt', descending: true)
+          .limit(8)
+          .get();
+      for (final doc in snap.docs) {
+        var manuscript = PublishManuscript.fromMap(doc.data(), id: doc.id);
+        if (!manuscript.hasContent) continue;
+        if (manuscript.bodyBlocks.isNotEmpty) {
+          manuscript = manuscript.copyWith(
+            bodyBlocks: ManuscriptDocumentParser.hydratePersistedImageUris(
+              manuscript.bodyBlocks,
+            ),
+          );
+        }
+        return manuscript;
+      }
+    } catch (_) {}
+    return null;
   }
 
   Future<String> createEmpty() async {
@@ -66,11 +97,15 @@ class ManuscriptService {
       throw Exception(appTr('معرّف المسودة غير صالح', 'Invalid manuscript id'));
     }
     var toSave = manuscript;
-    if (ManuscriptDocumentParser.skipImportImageUpload &&
-        manuscript.bodyBlocks.isNotEmpty) {
+    if (manuscript.bodyBlocks.isNotEmpty) {
+      final withStorageUrls =
+          await ManuscriptUploadService.instance.persistDataUriImages(
+        manuscriptId: manuscript.id!,
+        blocks: manuscript.bodyBlocks,
+      );
       toSave = manuscript.copyWith(
         bodyBlocks: ManuscriptDocumentParser.stripDataUrisForPersistence(
-          manuscript.bodyBlocks,
+          withStorageUrls,
         ),
       );
     }

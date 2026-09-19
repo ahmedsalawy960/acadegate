@@ -19,6 +19,7 @@ class PortalSelectionScreen extends StatefulWidget {
 
 class _PortalSelectionScreenState extends State<PortalSelectionScreen> {
   String? _suggested;
+  String? _role;
   bool _loading = true;
   bool _submitting = false;
 
@@ -32,6 +33,7 @@ class _PortalSelectionScreenState extends State<PortalSelectionScreen> {
     final account = await UserAccountService.instance.loadCurrentAccount();
     if (!mounted) return;
     setState(() {
+      _role = account?.role;
       _suggested = PortalType.suggestedForRole(account?.role);
       _loading = false;
     });
@@ -39,6 +41,20 @@ class _PortalSelectionScreenState extends State<PortalSelectionScreen> {
 
   Future<void> _choose(String portal) async {
     if (_submitting) return;
+    if (!PortalType.canUseProviderPortal(_role) &&
+        PortalType.isProvider(portal)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            context.t(
+              'بوابة مقدم الخدمة للموردين والمختبرات والمشرفين مقدّمي الخدمة. حسابك باحث — استخدم بوابة المستخدم.',
+              'The provider portal is for merchants, labs, and service supervisors. Your account is a researcher — use the user portal.',
+            ),
+          ),
+        ),
+      );
+      portal = PortalType.user;
+    }
     setState(() => _submitting = true);
     try {
       await widget.onSelect(portal);
@@ -111,25 +127,27 @@ class _PortalSelectionScreenState extends State<PortalSelectionScreen> {
                       suggestedLabel: l10n.portalSuggestedBadge,
                       onTap: () => _choose(PortalType.user),
                     ),
-                    const SizedBox(height: 16),
-                    _PortalCard(
-                      portal: PortalType.provider,
-                      title: l10n.portalProvider,
-                      subtitle: l10n.portalProviderSubtitleAlt,
-                      icon: Icons.storefront_outlined,
-                      accent: const Color(0xFF2E7D32),
-                      items: [
-                        l10n.portalProviderItem1,
-                        l10n.portalProviderItem2,
-                        l10n.portalProviderItem3,
-                        l10n.portalProviderItem4,
-                      ],
-                      isSuggested: _suggested == PortalType.provider,
-                      isLoading: _submitting,
-                      enterLabel: l10n.portalEnter,
-                      suggestedLabel: l10n.portalSuggestedBadge,
-                      onTap: () => _choose(PortalType.provider),
-                    ),
+                    if (PortalType.canUseProviderPortal(_role)) ...[
+                      const SizedBox(height: 16),
+                      _PortalCard(
+                        portal: PortalType.provider,
+                        title: l10n.portalProvider,
+                        subtitle: l10n.portalProviderSubtitleAlt,
+                        icon: Icons.storefront_outlined,
+                        accent: const Color(0xFF2E7D32),
+                        items: [
+                          l10n.portalProviderItem1,
+                          l10n.portalProviderItem2,
+                          l10n.portalProviderItem3,
+                          l10n.portalProviderItem4,
+                        ],
+                        isSuggested: _suggested == PortalType.provider,
+                        isLoading: _submitting,
+                        enterLabel: l10n.portalEnter,
+                        suggestedLabel: l10n.portalSuggestedBadge,
+                        onTap: () => _choose(PortalType.provider),
+                      ),
+                    ],
                     const SizedBox(height: 24),
                     if (_suggested != null)
                       Container(

@@ -36,9 +36,7 @@ class MethodologyIntegrityInput {
   bool get hasPdfSource => pdfBytes != null && pdfBytes!.length > 44;
 
   bool get hasContent =>
-      methodologyText.trim().length >= 40 ||
-      researchQuestion.trim().isNotEmpty ||
-      hasPdfSource;
+      methodologyText.trim().length >= 40 || hasPdfSource;
 }
 
 class MethodologyPdfExtractionResult {
@@ -141,6 +139,28 @@ class MethodologyIntegrityReport {
     this.modelUsed,
     this.note,
   });
+
+  MethodologyIntegrityReport copyWith({
+    int? integrityScore,
+    String? summary,
+    List<IntegrityIssue>? issues,
+    List<String>? strengths,
+    List<String>? recommendations,
+    bool? fromCloudAi,
+    String? modelUsed,
+    String? note,
+  }) {
+    return MethodologyIntegrityReport(
+      integrityScore: integrityScore ?? this.integrityScore,
+      summary: summary ?? this.summary,
+      issues: issues ?? this.issues,
+      strengths: strengths ?? this.strengths,
+      recommendations: recommendations ?? this.recommendations,
+      fromCloudAi: fromCloudAi ?? this.fromCloudAi,
+      modelUsed: modelUsed ?? this.modelUsed,
+      note: note ?? this.note,
+    );
+  }
 
   int get highCount =>
       issues.where((i) => i.severity == IntegritySeverity.high).length;

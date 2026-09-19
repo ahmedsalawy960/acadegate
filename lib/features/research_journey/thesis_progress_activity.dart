@@ -10,6 +10,7 @@ enum ThesisActivityId {
   originalityCheck,
   dataCollection,
   chapterWriting,
+  thesisStudio,
   publishManuscript,
   vivaPractice,
   defenseDeadline,
@@ -112,8 +113,16 @@ class ThesisActivityCatalog {
     ThesisActivityId.chapterWriting: ThesisActivityAdvice(
       titleAr: 'كتابة الفصول',
       titleEn: 'Writing chapters',
-      tipAr: 'استخدم AcadeGate Publish أو خدمات الكتابة + المساعد الذكي.',
-      tipEn: 'Use AcadeGate Publish, writing services, or the AI advisor.',
+      tipAr: 'اكتب في استوديو الرسالة أو عبر Publish / خدمات الكتابة.',
+      tipEn: 'Write in Thesis Studio, or via Publish / writing services.',
+    ),
+    ThesisActivityId.thesisStudio: ThesisActivityAdvice(
+      titleAr: 'استوديو الرسالة',
+      titleEn: 'Thesis Studio',
+      tipAr:
+          'افتح استوديو الرسالة: خطّط الفصول، اجلب المراجع، واكتب المقدمة والدراسات السابقة.',
+      tipEn:
+          'Open Thesis Studio: plan chapters, fetch sources, and write the introduction and prior studies.',
     ),
     ThesisActivityId.publishManuscript: ThesisActivityAdvice(
       titleAr: 'مسودة للنشر',

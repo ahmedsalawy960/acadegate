@@ -31,6 +31,8 @@ class CategoryVisual extends StatelessWidget {
               imageUrl,
               fit: BoxFit.cover,
               alignment: Alignment.center,
+              filterQuality: FilterQuality.medium,
+              gaplessPlayback: true,
               loadingBuilder: (context, child, progress) {
                 if (progress == null) return child;
                 return Container(

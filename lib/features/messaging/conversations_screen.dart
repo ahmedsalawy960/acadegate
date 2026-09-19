@@ -11,6 +11,96 @@ import 'messaging_service.dart';
 class ConversationsScreen extends StatelessWidget {
   const ConversationsScreen({super.key});
 
+  Future<void> _hideOne(BuildContext context, Conversation conv) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(ctx.t('إزالة المحادثة؟', 'Remove conversation?')),
+        content: Text(
+          ctx.t(
+            'تُزال من قائمتك فقط. الطرف الآخر يحتفظ بالمحادثة، ويمكن إعادة فتحها عند مراسلة جديدة.',
+            'Removed from your list only. The other person keeps the chat, and it can reopen on a new message.',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(ctx.t('إلغاء', 'Cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(L10nLookup.delete),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    try {
+      await MessagingService.instance.hideConversationForMe(conv.id);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            context.t('تمت إزالة المحادثة من قائمتك', 'Conversation removed from your list'),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(L10nLookup.deleteFailed(e)),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _hideAll(BuildContext context) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(ctx.t('إزالة كل المحادثات؟', 'Remove all conversations?')),
+        content: Text(
+          ctx.t(
+            'تُزال من قائمتك فقط — لا تُحذف عند الطرف الآخر.',
+            'Removed from your list only — not deleted for the other person.',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(ctx.t('إلغاء', 'Cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(L10nLookup.deleteAll),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    try {
+      await MessagingService.instance.hideAllConversationsForMe();
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            context.t('تمت إزالة المحادثات من قائمتك', 'Conversations removed from your list'),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(L10nLookup.deleteFailed(e)),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
@@ -20,6 +110,14 @@ class ConversationsScreen extends StatelessWidget {
         title: Text(L10nLookup.messages),
         backgroundColor: const Color(0xFF1A237E),
         foregroundColor: Colors.white,
+        actions: [
+          if (user != null)
+            IconButton(
+              tooltip: L10nLookup.deleteAll,
+              icon: const Icon(Icons.delete_sweep_outlined),
+              onPressed: () => _hideAll(context),
+            ),
+        ],
       ),
       body: user == null
           ? Center(
@@ -54,6 +152,22 @@ class ConversationsScreen extends StatelessWidget {
                           ),
                           style: TextStyle(color: Colors.grey[600]),
                         ),
+                        const SizedBox(height: 8),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 32),
+                          child: Text(
+                            context.t(
+                              'المحادثات المباشرة تظهر هنا. طلبات الإشراف من الباحثين تظهر في بوابة مقدم الخدمة ← طلبات الإشراف الواردة.',
+                              'Direct chats appear here. Supervision requests from researchers appear in the provider portal → Incoming supervision requests.',
+                            ),
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                              height: 1.4,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   );
@@ -77,6 +191,11 @@ class ConversationsScreen extends StatelessWidget {
                             : conv.lastMessage,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
+                      ),
+                      trailing: IconButton(
+                        tooltip: L10nLookup.delete,
+                        icon: Icon(Icons.delete_outline, color: Colors.red[400]),
+                        onPressed: () => _hideOne(context, conv),
                       ),
                       onTap: () {
                         Navigator.push(

@@ -1,40 +1,28 @@
 import 'package:flutter/material.dart';
 
-/// روابط صور حيّة لكل قسم في الشاشة الرئيسية.
+import '../../core/assets/weekly_image_rotator.dart';
+import '../../core/widgets/section_cover_image.dart';
+
+/// صور أقسام الصفحة الرئيسية — أصلية من مجلد التطبيق وتتبدل أسبوعياً.
 class HomeServiceImages {
   HomeServiceImages._();
 
-  /// المشرفون الأكاديميون — صورة مولَّدة (مشرفون بحثيون)
-  static const supervisors = 'assets/images/supervisors_card.png';
-  static const ideas =
-      'https://images.unsplash.com/photo-1507413245160-754ec704b2d6?auto=format&fit=crop&w=800&h=500&q=80';
-  static const labs =
-      'https://images.unsplash.com/photo-1532187863486-abf9dbad1b69?auto=format&fit=crop&w=800&h=500&q=80';
-  static const shop =
-      'https://images.unsplash.com/photo-1582719471133-c3967ffa1c42?auto=format&fit=crop&w=800&h=500&q=80';
-  static const community =
-      'https://images.unsplash.com/photo-1524178232363-1fb2b075b655?auto=format&fit=crop&w=800&h=500&q=80';
-  static const aiAdvisor =
-      'https://images.unsplash.com/photo-1677442136019-21780ecad995?auto=format&fit=crop&w=800&h=500&q=80';
-  static const scienceNews =
-      'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=800&h=500&q=80';
-  /// صندوق تمويل البحث — استثمار وتمويل أكاديمي
-  static const researchFund =
-      'https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?auto=format&fit=crop&w=800&h=500&q=80';
-  /// خدمات الكتابة — كتابة ومسودة أكاديمية
-  static const writingServices =
-      'https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=800&h=500&q=80';
-  /// AcadeGate Publish — نشر ومجلات علمية
-  static const publish =
-      'https://images.unsplash.com/photo-1507842217343-583bb7270b66?auto=format&fit=crop&w=800&h=500&q=80';
-  /// مسار البحث الذكي — شبكة مترابطة (تناسب أيقونة account_tree)
-  static const researchPath =
-      'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?auto=format&fit=crop&w=800&h=500&q=80';
-  /// نزاهة أكاديمية — ميزان العدل والأمانة
-  static const integrity =
-      'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=800&h=500&q=80';
-  static const matchmaking =
-      'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=800&h=500&q=80';
+  static String get supervisors => AcadeGateWeeklyImages.service('supervisors');
+  static String get matchmaking => AcadeGateWeeklyImages.service('matchmaking');
+  static String get ideas => AcadeGateWeeklyImages.service('ideas');
+  static String get researchPath =>
+      AcadeGateWeeklyImages.service('research_path');
+  static String get labs => AcadeGateWeeklyImages.service('labs');
+  static String get shop => AcadeGateWeeklyImages.service('store');
+  static String get community => AcadeGateWeeklyImages.service('community');
+  static String get aiAdvisor => AcadeGateWeeklyImages.service('ai');
+  static String get writingServices => AcadeGateWeeklyImages.service('writing');
+  static String get thesisStudio =>
+      AcadeGateWeeklyImages.service('thesis_studio');
+  static String get integrity => AcadeGateWeeklyImages.service('integrity');
+  static String get publish => AcadeGateWeeklyImages.service('publish');
+  static String get researchFund => AcadeGateWeeklyImages.service('fund');
+  static String get scienceNews => AcadeGateWeeklyImages.service('news');
 }
 
 class DashboardCard extends StatelessWidget {
@@ -62,7 +50,10 @@ class DashboardCard extends StatelessWidget {
         final imageHeight = (constraints.maxWidth * 0.62).clamp(96.0, 112.0);
 
         return Card(
+          color: Colors.white,
+          surfaceTintColor: Colors.transparent,
           elevation: 1.5,
+          shadowColor: const Color(0x1A000000),
           margin: EdgeInsets.zero,
           clipBehavior: Clip.antiAlias,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -137,16 +128,12 @@ class _ServiceImage extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         if (_isAsset)
-          Image.asset(
+          SectionCoverImage(
             imageUrl,
-            fit: BoxFit.cover,
-            alignment: Alignment.center,
             errorBuilder: (_, _, _) {
               if (assetFallback != null) {
-                return Image.asset(
+                return SectionCoverImage(
                   assetFallback!,
-                  fit: BoxFit.cover,
-                  alignment: Alignment.center,
                   errorBuilder: (_, _, _) => _iconFallback(),
                 );
               }
@@ -158,6 +145,8 @@ class _ServiceImage extends StatelessWidget {
             imageUrl,
             fit: BoxFit.cover,
             alignment: Alignment.center,
+            filterQuality: FilterQuality.medium,
+            gaplessPlayback: true,
             loadingBuilder: (context, child, progress) {
               if (progress == null) return child;
               return Container(
@@ -173,10 +162,8 @@ class _ServiceImage extends StatelessWidget {
             },
             errorBuilder: (context, error, stack) {
               if (assetFallback != null) {
-                return Image.asset(
+                return SectionCoverImage(
                   assetFallback!,
-                  fit: BoxFit.cover,
-                  alignment: Alignment.center,
                   errorBuilder: (_, _, _) => _iconFallback(),
                 );
               }

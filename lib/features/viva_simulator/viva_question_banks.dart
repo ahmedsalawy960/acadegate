@@ -255,5 +255,4 @@ One question only. No preamble, no answer.
 }
 
 /// Convenience: member ids match [VivaCommitteeMember.id].
-List<String> vivaCommitteeMemberIds() =>
-    VivaCommittee.members.map((m) => m.id).toList();
+List<String> vivaCommitteeMemberIds() => VivaCommittee.memberIds;
