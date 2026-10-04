@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
 import '../../core/locale/locale_extensions.dart';
+import '../../core/theme/acadegate_theme.dart';
 import '../ai_advisor/advisor_branding.dart';
 import '../guides/section_guide_catalog.dart';
 import '../guides/section_guide_screen.dart';
@@ -143,15 +144,15 @@ class _AcademicIntegrityHubScreenState extends State<AcademicIntegrityHubScreen>
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.verified_user, color: _brand, size: 28),
+                        Icon(Icons.verified_user, color: acadegateInk(_brand), size: 28),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
                             AdvisorBranding.integrityTitle,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 17,
-                              color: _brand,
+                              color: acadegateInk(_brand),
                             ),
                           ),
                         ),
@@ -182,7 +183,7 @@ class _AcademicIntegrityHubScreenState extends State<AcademicIntegrityHubScreen>
                     'No tools match "$_searchQuery"',
                   ),
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey[700]),
+                  style: TextStyle(color: const Color(0xFFB7C3D6)),
                 ),
               ),
             )
@@ -257,7 +258,7 @@ class _ToolCard extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              Icon(icon, color: color, size: 32),
+              Icon(icon, color: acadegateInk(color), size: 32),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
@@ -267,7 +268,7 @@ class _ToolCard extends StatelessWidget {
                       title,
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: color,
+                        color: acadegateInk(color),
                         fontSize: 16,
                       ),
                     ),
@@ -276,14 +277,14 @@ class _ToolCard extends StatelessWidget {
                       subtitle,
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.grey[800],
+                        color: const Color(0xFFB7C3D6),
                         height: 1.4,
                       ),
                     ),
                   ],
                 ),
               ),
-              Icon(Icons.chevron_left, color: color),
+              Icon(Icons.chevron_left, color: acadegateInk(color)),
             ],
           ),
         ),

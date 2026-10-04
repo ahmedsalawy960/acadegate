@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AcadeGate — عرض انضمام المتاجر والموردين الأكاديميين</title>
+  <style>
+    @page { size: A4; margin: 14mm 12mm; }
+    :root {
+      --ink: #18181b;
+      --muted: #52525b;
+      --navy: #0b1f4d;
+      --accent: #c2410c;
+      --soft: #fff7ed;
+      --line: #e4e4e7;
+      --card: #ffffff;
+      --teal: #0f766e;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, "Noto Sans Arabic", Arial, sans-serif;
+      color: var(--ink);
+      background: #e7e5e4;
+      line-height: 1.75;
+      font-size: 12.5pt;
+    }
+    .deck { max-width: 980px; margin: 0 auto; padding: 20px 12px 60px; }
+    .slide {
+      background: var(--card);
+      border-radius: 18px;
+      overflow: hidden;
+      margin-bottom: 22px;
+      border: 1px solid #e7e5e4;
+      page-break-after: always;
+      box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
+    }
+    .slide-inner { padding: 36px 40px 40px; }
+    .cover {
+      min-height: 88vh;
+      background:
+        radial-gradient(ellipse at 18% 18%, rgba(194, 65, 12, 0.35), transparent 46%),
+        radial-gradient(ellipse at 88% 12%, rgba(15, 118, 110, 0.22), transparent 42%),
+        linear-gradient(158deg, #071433 0%, #0b1f4d 52%, #9a3412 100%);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 48px 44px;
+    }
+    .cover .eyebrow { letter-spacing: 0.06em; font-size: 11pt; opacity: 0.88; }
+    .cover h1 { font-size: 44pt; margin: 16px 0 8px; line-height: 1.1; font-weight: 800; }
+    .cover .tagline { font-size: 18pt; opacity: 0.95; max-width: 740px; margin-bottom: 20px; }
+    .cover .promise {
+      font-size: 14.5pt; max-width: 760px; opacity: 0.93;
+      border-right: 4px solid #fbbf24; padding-right: 16px;
+    }
+    .pill {
+      display: inline-block; background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.25); border-radius: 999px;
+      padding: 6px 12px; margin: 4px 4px 0 0; font-size: 11pt;
+    }
+    h2 {
+      margin: 0 0 12px; color: var(--navy); font-size: 22pt;
+      border-bottom: 3px solid var(--accent); display: inline-block; padding-bottom: 4px;
+    }
+    h3 { color: var(--accent); font-size: 14.5pt; margin: 22px 0 10px; }
+    p, li { color: var(--muted); }
+    p strong, li strong, td strong { color: var(--ink); }
+    .lead { font-size: 14pt; color: var(--muted); margin: 0 0 16px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .card {
+      border: 1px solid var(--line); border-radius: 14px; padding: 16px; background: #fff;
+    }
+    .card strong { display: block; margin-bottom: 6px; color: var(--ink); }
+    .callout {
+      background: var(--soft);
+      border-right: 5px solid var(--accent);
+      padding: 14px 16px;
+      border-radius: 10px;
+      margin: 16px 0;
+    }
+    .callout-teal {
+      background: #f0fdfa;
+      border-right-color: var(--teal);
+    }
+    .callout-navy {
+      background: #eff6ff;
+      border-right-color: var(--navy);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0;
+      font-size: 11pt;
+    }
+    th {
+      background: var(--navy);
+      color: #fff;
+      text-align: right;
+      padding: 10px 8px;
+    }
+    td {
+      border: 1px solid var(--line);
+      padding: 9px 8px;
+      vertical-align: top;
+      color: var(--ink);
+    }
+    tr:nth-child(even) td { background: #fafafa; }
+    .chip {
+      display: inline-block;
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+      color: #9a3412;
+      padding: 5px 10px;
+      border-radius: 8px;
+      margin: 3px;
+      font-size: 10.5pt;
+      font-weight: 600;
+    }
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+      margin: 16px 0;
+    }
+    .flow-step {
+      background: #fafafa;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px 8px;
+      text-align: center;
+      font-size: 10.5pt;
+    }
+    .flow-step b { display: block; color: var(--navy); margin: 6px 0 4px; }
+    .num {
+      display: inline-flex; width: 26px; height: 26px;
+      align-items: center; justify-content: center;
+      border-radius: 50%; background: var(--accent); color: #fff;
+      font-weight: 700; font-size: 11pt;
+    }
+    .cta-slide {
+      background: linear-gradient(145deg, #0b1f4d, #9a3412);
+      color: #fff;
+    }
+    .cta-slide h2 { color: #fff; border-bottom-color: #fbbf24; }
+    .cta-slide p, .cta-slide li { color: rgba(255,255,255,0.92); }
+    .cta-slide a { color: #fde68a; }
+    .cta-box {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.22);
+      border-radius: 14px;
+      padding: 18px;
+      margin-top: 16px;
+    }
+    .footer-note {
+      font-size: 10pt; color: var(--muted); margin-top: 20px;
+      border-top: 1px solid var(--line); padding-top: 10px;
+    }
+    a { color: var(--teal); font-weight: 700; }
+    ol, ul { margin: 8px 0 12px; padding-right: 22px; }
+    li { margin: 6px 0; }
+    @media (max-width: 800px) {
+      .grid-2, .grid-3, .flow { grid-template-columns: 1fr; }
+      .slide-inner { padding: 24px 18px; }
+      .cover { padding: 28px 20px; min-height: auto; }
+      .cover h1 { font-size: 32pt; }
+    }
+    @media print {
+      body { background: #fff; }
+      .deck { padding: 0; max-width: none; }
+      .slide {
+        box-shadow: none; border: none; border-radius: 0; margin: 0;
+        break-after: page;
+      }
+      .cover { min-height: 100vh; }
+    }
+  
+    .link-banner {
+      position: sticky; top: 8px; z-index: 30;
+      background: linear-gradient(105deg, #071433 0%, #0b1f4d 45%, #0f766e 100%);
+      color: #fff; padding: 14px 18px; border-radius: 16px;
+      margin: 0 0 18px; display: flex; flex-wrap: wrap; gap: 10px 18px;
+      align-items: center; justify-content: space-between;
+      box-shadow: 0 12px 32px rgba(11, 31, 77, 0.28);
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+    .link-banner .lb-title { font-weight: 800; font-size: 13pt; }
+    .link-banner .lb-meta { opacity: 0.9; font-size: 10.5pt; }
+    .link-banner a {
+      color: #fde68a; font-weight: 800; text-decoration: none;
+      border-bottom: 1px solid rgba(253,230,138,0.55);
+    }
+    .link-banner .lb-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+    .link-banner .lb-btn {
+      display: inline-block; background: #fbbf24; color: #071433 !important;
+      border: none; border-radius: 999px; padding: 8px 14px; font-weight: 800;
+      border-bottom: none !important; font-size: 11pt;
+    }
+    .link-banner .lb-btn.secondary {
+      background: rgba(255,255,255,0.12); color: #fff !important;
+      border: 1px solid rgba(255,255,255,0.28);
+    }
+    .link-banner .lb-brand { display: flex; align-items: center; gap: 12px; }
+    .link-banner .lb-logo {
+      width: 52px; height: 52px; border-radius: 50%; display: block; background: #fff;
+    }
+    .cover-logo {
+      width: 88px; height: 88px; border-radius: 50%; display: block; margin-bottom: 18px;
+    }
+    @media print { .link-banner { position: static; box-shadow: none; } }
+
+  </style>
+</head>
+<body>
+<div class="deck">
+
+  <div class="link-banner" role="banner">
+    <div class="lb-brand">
+      <a href="https://acadegate-new.web.app" target="_blank" rel="noopener"><img class="lb-logo" src="/assets/assets/images/acadegate_logo.png" alt="AcadeGate" width="52" height="52" /></a>
+      <div>
+        <div class="lb-title">AcadeGate — عرض انضمام المتاجر والموردين</div>
+        <div class="lb-meta">منصة للباحثين · سجّلوا متجركم وابدأوا استقبال الطلبات</div>
+      </div>
+    </div>
+    <div class="lb-actions">
+      <a class="lb-btn" href="https://acadegate-new.web.app" target="_blank" rel="noopener">فتح المنصة</a>
+      <a class="lb-btn secondary" href="https://acadegate-new.web.app/register" target="_blank" rel="noopener">التسجيل</a>
+      <a class="lb-btn secondary" href="https://acadegate-new.firebaseapp.com" target="_blank" rel="noopener">بديل واتساب</a>
+    </div>
+  </div>
+
+  <!-- غلاف -->
+  <section class="slide cover">
+    <div>
+      <a href="https://acadegate-new.web.app" target="_blank" rel="noopener"><img class="cover-logo" src="/assets/assets/images/acadegate_logo.png" alt="AcadeGate" width="88" height="88" /></a>
+      <div class="eyebrow">عرض انضمام · المتاجر والموردون الأكاديميون</div>
+      <h1>AcadeGate</h1>
+      <div class="tagline">ادعُ متجرك إلى المنصة التي يجتمع فيها باحثو الماجستير والدكتوراه ليخطّطوا وينفّذوا أبحاثهم</div>
+      <p class="promise">
+        هذا العرض موجّه لأصحاب المتاجر والموردين: فكرة عامة عن المنصة، ثم قسم المتجر
+        بالتفصيل، ثم بنود الأرباح والمشاركة — <strong style="color:#fff">حسب الاتفاق</strong>
+        دون نسب أو أسعار مسبقة في هذه الوثيقة.
+      </p>
+      <div style="margin-top:22px;">
+        <span class="pill">متجر أكاديمي متخصص</span>
+        <span class="pill">عربة وطلبات</span>
+        <span class="pill">ضمان Escrow</span>
+        <span class="pill">شراكة مرنة بالاتفاق</span>
+      </div>
+    </div>
+    <div style="opacity:0.85;font-size:11pt;">
+      وثيقة غير سرية للشركاء المحتملين · يمكن إرسالها لمدير المبيعات ·
+      <strong>acadegate@gmail.com</strong>
+      · <a href="https://acadegate-new.web.app" style="color:#fff;">https://acadegate-new.web.app</a>
+    </div>
+  </section>
+
+  <!-- فهرس -->
+  <section class="slide">
+    <div class="slide-inner">
+      <h2>محتوى العرض</h2>
+      <ol style="font-size:14pt;line-height:2;">
+        <li>فكرة عامة عن تطبيق AcadeGate</li>
+        <li>لماذا متجرك داخل رحلة الباحث؟</li>
+        <li>قسم المتجر بالتفصيل (واجهة · أقسام · منتج · طلب)</li>
+        <li>آلية الضمان (Escrow) باختصار</li>
+        <li>ماذا يفعل المتجر داخل التطبيق؟</li>
+        <li>بنود الأرباح والمشاركة — حسب الاتفاق</li>
+        <li>خطوات الانضمام والتواصل</li>
+      </ol>
+      <div class="callout callout-navy">
+        <strong>هدف الوثيقة:</strong>
+        تعريف واضح ودعوة شراكة — لا عرض أسعار جاهز. التفاصيل التجارية تُثبَّت في اتفاق منفصل بعد التعارف.
+      </div>
+    </div>
+  </section>
+
+  <!-- فكرة عامة -->
+  <section class="slide">
+    <div class="slide-inner">
+      <h2>١ — فكرة عامة عن AcadeGate</h2>
+      <p class="lead">
+        AcadeGate منصة أكاديمية رقمية تساعد طالب الدراسات العليا والباحث على إتمام
+        رحلته البحثية في مكان واحد: من الفكرة والمشرف إلى المختبر والمتجر والكتابة والنشر والتمويل.
+      </p>
+      <div class="grid-2">
+        <div class="card">
+          <strong>الجمهور</strong>
+          باحثو وماجستير ودكتوراه، مشرفون، مختبرات، كتّاب متخصصون، وموردون أكاديميون.
+        </div>
+        <div class="card">
+          <strong>المشكلة التي نحلها</strong>
+          تشتت الأدوات: بحث عن مشرف في مكان، شراء كواشف في آخر، كتابة في ثالث — بلا مسار واحد.
+        </div>
+        <div class="card">
+          <strong>قيمة المتجر داخل المنصة</strong>
+          الباحث يصل إليك وهو يجهّز رسالته — طلب مقصود لا زيارة عشوائية من محرك بحث عام.
+        </div>
+        <div class="card">
+          <strong>مكانكم في المنصة</strong>
+          حساب تاجر، كتالوج باسم المتجر، وطلبات واردة تتابعونها من بوابة مقدم الخدمة.
+        </div>
+      </div>
+      <h3>خدمات المنصة (نظرة سريعة)</h3>
+      <table>
+        <tr><th>القسم</th><th>ماذا يفعل للباحث؟</th></tr>
+        <tr><td>المشرفون والمطابقة</td><td>إيجاد مشرف مناسب ومراسلته داخل التطبيق</td></tr>
+        <tr><td>سوق الأفكار + التمويل</td><td>نشر أفكار وتصويت ومسارات دعم / تحديات صناعية</td></tr>
+        <tr><td>مسار البحث</td><td>حزمة اقتراحات: مشرف · مختبر · مواد · كتابة</td></tr>
+        <tr><td>المختبرات</td><td>حجز أجهزة وتحليل عينات</td></tr>
+        <tr><td><strong>المتجر الأكاديمي</strong></td><td><strong>شراء مستلزمات ومواد وأجهزة من موردين على المنصة</strong></td></tr>
+        <tr><td>الكتابة · الاستوديو · النزاهة · النشر</td><td>إكمال الرسالة والمخطوطات بمعايير أكاديمية</td></tr>
+        <tr><td>المجتمع والأخبار</td><td>نقاش أكاديمي ومتابعة مستجدات</td></tr>
+      </table>
+      <div class="callout">
+        <strong>الخلاصة لمتجرك:</strong>
+        أنت لا تشتري «مساحة إعلان». أنت تدخل قناة يصل عبرها الباحث لأن المنصة تحل له رحلته —
+        والمتجر هو نقطة التنفيذ المادي لهذه الرحلة.
+      </div>
+    </div>
+  </section>
+
+  <!-- لماذا المتجر -->
+  <section class="slide">
+    <div class="slide-inner">
+      <h2>٢ — لماذا ينضم متجرك الآن؟</h2>
+      <div class="grid-3">
+        <div class="card">
+          <strong>عميل أكاديمي محدد</strong>
+          كواشف، أجهزة قياس، مستهلكات مختبر، كتب علمية — جمهور يعرف ماذا يريد.
+        </div>
+        <div class="card">
+          <strong>ظهور داخل التخصص</strong>
+          أقسام واضحة + توصيات حسب ملف الباحث (كلية / تخصص).
+        </div>
+        <div class="card">
+          <strong>ثقة البيع</strong>
+          طلب داخل التطبيق مع مسار ضمان يقلل النزاع ويبني سمعة متجرك.
+        </div>
+        <div class="card">
+          <strong>متجرك أنت</strong>
+          صفحة كتالوج للمورد + إضافة منتجات + متابعة طلبات واردة.
+        </div>
+        <div class="card">
+          <strong>مرونة الشراكة</strong>
+          شروط الأرباح والمشاركة تُحدَّد بالاتفاق — لا نموذج واحد مفروض في هذا العرض.
+        </div>
+        <div class="card">
+          <strong>ميزة الرائد</strong>
+          الموردون الأوائل يبنون حضوراً في أقسام ما زالت في طور الامتلاء.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- المتجر تفصيلي -->
+  <section class="slide">
+    <div class="slide-inner">
+      <h2>٣ — قسم المتجر بالتفصيل</h2>
+      <p class="lead">
+        المتجر الأكاديمي سوق داخل AcadeGate لعرض وبيع المستلزمات البحثية، مع بحث وأقسام
+        وعربة وطلبات — وليس مجرد قائمة روابط خارجية.
+      </p>
+      <h3>٣.١ ماذا يرى المشتري؟</h3>
+      <ul>
+        <li>واجهة سوق (Store Hub): بحث، الأكثر طلباً، جديد هذا الأسبوع، أقسام، أدوات اكتشاف</li>
+        <li>صفحة منتج: وصف، سعر يعرضه المورد، صور، بيانات البائع</li>
+        <li>عربة متعددة الأصناف ثم إتمام الطلب</li>
+        <li>إمكانية طلب عرض سعر / تفصيل حسب الاحتياج عند توفر الأدوات</li>
+        <li>شراكات بحثية مرتبطة بالمتجر لبعض حالات التمويل الجماعي للشراء</li>
+      </ul>
+      <h3>٣.٢ أقسام المتجر (١٥ قسماً)</h3>
+      <div>
+        <span class="chip">مستلزمات ومواد كيميائية وكواشف</span>
+        <span class="chip">بيولوجيا وتقنية حيوية</span>
+        <span class="chip">طبي وصيدلي وسريري</span>
+        <span class="chip">هندسة وإلكترونيات</span>
+        <span class="chip">فيزياء ومواد</span>
+        <span class="chip">زراعة وبيطري</span>
+        <span class="chip">حوسبة وبرمجيات بحثية</span>
+        <span class="chip">مستهلكات وأدوات مختبر</span>
+        <span class="chip">أجهزة وأدوات قياس</span>
+        <span class="chip">سلامة ومعدات وقاية</span>
+        <span class="chip">أدوات ميدانية ومسح</span>
+        <span class="chip">كتب ومراجع علمية</span>
+        <span class="chip">إنسانيات وتربية وبحث اجتماعي</span>
+        <span class="chip">مستلزمات كتابة وتوثيق البحث</span>
+        <span class="chip">مستلزمات عامة</span>
+      </div>
+      <div class="callout callout-teal">
+        اختر قسماً واحداً أو أكثر يناسب نشاطك. نبدأ عادة بـ <strong>٣–١٥ منتجاً أساسياً</strong>
+        عالي الطلب، ثم نوسّع الكتالوج.
+      </div>
+    </div>
+  </section>
+
+  <!-- بيانات المنتج والطلب -->
+  <section class="slide">
+    <div class="slide-inner">
+      <h2>٣ — المتجر (تابع): المنتج والطلب</h2>
+      <h3>٣.٣ بيانات المنتج التي تنشرها</h3>
+      <table>
+        <tr><th>الحقل</th><th>التوضيح</th></tr>
+        <tr><td>اسم المنتج</td><td>يظهر في البحث والقوائم</td></tr>
+        <tr><td>السعر</td><td>تحدده أنت كبائع · يُثبَّت من النظام عند إنشاء الطلب</td></tr>
+        <tr><td>القسم</td><td>أحد الأقسام الخمسة عشر</td></tr>
+        <tr><td>الوصف والمواصفات</td><td>وحدة، نقاء، منشأ، شروط استخدام — تزيد التحويل</td></tr>
+        <tr><td>اسم المتجر / العلامة</td><td>بناء تعرّف علامتك داخل المنصة</td></tr>
+        <tr><td>صورة + تواصل</td><td>مستحسن جداً · هاتف / واتساب / بريد للتنسيق</td></tr>
+      </table>
+      <h3>٣.٤ مراجعة الجودة</h3>
+      <p>
+        المنتج الجديد يدخل غالباً بحالة <strong>قيد المراجعة</strong> ثم يظهر للعامة بعد موافقة الإدارة.
+        الهدف حماية سمعة المتجر ومنع العروض الوهمية — ويمنح المورد الجاد ميزة ثقة.
+      </p>
+      <h3>٣.٥ رحلة المشتري باختصار</h3>
+      <ol>
+        <li>يفتح المتجر من الرئيسية ويتصفح قسماً أو يبحث</li>
+        <li>يفتح المنتج ويضيفه للعربة</li>
+        <li>يسجّل الدخول ويكمل الطلب</li>
+        <li>يدفع عبر المسار المتاح في المرحلة (تحويل يدوي حالياً · دفع إلكتروني عند التفعيل التشغيلي)</li>
+        <li>بعد الاستلام يؤكد التسليم ليُفرَج المبلغ وفق آلية الضمان</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- Escrow -->
+  <section class="slide">
+    <div class="slide-inner">
+      <h2>٤ — آلية الضمان (Escrow)</h2>
+      <p class="lead">حجة ثقة للمشتري ولإدارتك: يقلل النزاع ويسرّع إغلاق الصفقة.</p>
+      <div class="flow">
+        <div class="flow-step"><span class="num">1</span><b>طلب</b>اختيار المنتج من الكتالوج</div>
+        <div class="flow-step"><span class="num">2</span><b>دفع</b>تحويل / بوابة عند التفعيل</div>
+        <div class="flow-step"><span class="num">3</span><b>حجز</b>المبلغ محجوز حتى التنفيذ</div>
+        <div class="flow-step"><span class="num">4</span><b>تسليم</b>تشحن وتتواصل داخل التطبيق</div>
+        <div class="flow-step"><span class="num">5</span><b>إفراج</b>بعد تأكيد الاستلام</div>
+      </div>
+      <div class="callout">
+        تفاصيل النزاع والاسترداد وسياسة الإلغاء تُكتب في <strong>اتفاق الشراكة</strong>
+        بما يناسب طبيعة بضاعتك (مستهلكات، أجهزة، كتب…).
+      </div>
+    </div>
+  </section>
+
+  <!-- ماذا يفعل المتجر -->
+  <section class="slide">
+    <div class="slide-inner">
+      <h2>٥ — ماذا يفعل متجرك داخل التطبيق؟</h2>
+      <div class="grid-2">
+        <div class="card">
+          <strong>حساب تاجر / مورد</strong>
+          تسجيل دخول وبوابة مقدم الخدمة لمتابعة المنتجات والطلبات.
+        </div>
+        <div class="card">
+          <strong>إضافة منتجات</strong>
+          يدوياً من التطبيق، أو استيراد كتالوج بالتنسيق مع فريقنا عند الحاجة.
+        </div>
+        <div class="card">
+          <strong>صفحة متجرك</strong>
+          كتالوج باسمك يظهر للباحثين بعد اعتماد المنتجات.
+        </div>
+        <div class="card">
+          <strong>طلبات واردة</strong>
+          متابعة حالة الطلب والتنسيق مع المشتري عبر الرسائل وبيانات التواصل.
+        </div>
+      </div>
+      <h3>تقسيم الأدوار التشغيلي</h3>
+      <table>
+        <tr><th>أنتم (المتجر)</th><th>AcadeGate</th></tr>
+        <tr>
+          <td>المنتج، التسعير، التوفر، الشحن/التسليم، خدمة ما بعد البيع</td>
+          <td>القناة، الجمهور الأكاديمي، واجهة المتجر، مسار الطلب والضمان، المراجعة</td>
+        </tr>
+        <tr>
+          <td>تحديد شخص تواصل للطلبات اليومية</td>
+          <td>دعم الانضمام وتسهيل أول كتالوج</td>
+        </tr>
+      </table>
+      <div class="callout callout-teal">
+        ملكية الكتالوج تبقى لكم. المنصة قناة توزيع أكاديمية — لا مصادرة لبيانات منتجاتكم.
+      </div>
+    </div>
+  </section>
+
+  <!-- بنود الأرباح حسب الاتفاق -->
+  <section class="slide">
+    <div class="slide-inner">
+      <h2>٦ — بنود الأرباح والمشاركة (حسب الاتفاق)</h2>
+      <p class="lead">
+        لا نثبت في هذا العرض نسبة عمولة ولا رسوم اشتراك ولا أسعار باقات.
+        الإطار التجاري يُصاغ بعد فهم حجم كتالوجكم ومعدل الدوران المتوقع ونوع الأقسام.
+      </p>
+      <div class="callout callout-navy">
+        <strong>مبدأ أساسي:</strong>
+        كل بند مالي أدناه قابل للتفاوض ويُوثَّق في اتفاق شراكة منفصل قبل أي تسوية ملزمة.
+      </div>
+      <h3>٦.١ بنود قابلة للنقاش (بدون أرقام هنا)</h3>
+      <table>
+        <tr><th>البند</th><th>ماذا يعني؟</th><th>كيف يُحدد؟</th></tr>
+        <tr>
+          <td><strong>مشاركة على الطلب الناجح</strong></td>
+          <td>مقابل استخدام القناة عند اكتمال بيع عبر المنصة (ضمان / طلب منفَّذ)</td>
+          <td>بالاتفاق حسب القسم وحجم الحركة</td>
+        </tr>
+        <tr>
+          <td><strong>فترة تجربة للروّاد</strong></td>
+          <td>تسهيلات للموردين الأوائل أثناء ملء الكتالوج</td>
+          <td>بالاتفاق · مدة ونطاق يُحددان معاً</td>
+        </tr>
+        <tr>
+          <td><strong>ظهور مميّز / اشتراك اختياري</strong></td>
+          <td>أولوية ظهور، شارة، أو تحليلات إضافية إن رغبتم</td>
+          <td>اختياري · بالاتفاق عند التفعيل</td>
+        </tr>
+        <tr>
+          <td><strong>طلبات عرض السعر (RFQ) الكبيرة</strong></td>
+          <td>عند تحويل فرصة كبيرة إلى طلب مدفوع عبر المنصة</td>
+          <td>بالاتفاق لكل حالة أو سياسة عامة مكتوبة</td>
+        </tr>
+        <tr>
+          <td><strong>استيراد كتالوج</strong></td>
+          <td>مساعدة تقنية لنقل أصناف كثيرة دفعة واحدة</td>
+          <td>مشروع اختياري · نطاقه وتكلفته بالاتفاق</td>
+        </tr>
+        <tr>
+          <td><strong>إعلان داخل المتجر</strong></td>
+          <td>رعاية قسم أو ظهور مموّل محدود</td>
+          <td>اختياري لاحقاً · بالاتفاق</td>
+        </tr>
+        <tr>
+          <td><strong>عقود جهات / جامعات (B2B)</strong></td>
+          <td>مشتريات متكررة أو فوترة مجمّعة</td>
+          <td>عقد ثلاثي أو ثنائي حسب الحالة · بالاتفاق</td>
+        </tr>
+        <tr>
+          <td><strong>وضع الدليل (Directory)</strong></td>
+          <td>ظهور للتواصل دون مرور الشراء عبر الضمان — إن ناسب استراتيجيتكم</td>
+          <td>بالاتفاق · قد يختلف عن مسار الطلب الكامل</td>
+        </tr>
+      </table>
+      <h3>٦.٢ ما نؤكده بوضوح</h3>
+      <ul>
+        <li>لا تُخصم حالياً عمولة تلقائية من بوابة دفع قبل الاتفاق والتفعيل التشغيلي المتفق عليه.</li>
+        <li>لا نلزمكم بنموذج واحد: بعض الشركاء يفضّلون المشاركة على الطلب، وآخرون يفضّلون مزيجاً مع ظهور مميّز.</li>
+        <li>أي رقم يُذكر شفهياً في اجتماع يبقى غير ملزم حتى يُوقَّع أو يُؤكَّد كتابياً.</li>
+        <li>أنتم تسعّرون منتجاتكم؛ المنصة لا تفرض سعر بيع التجزئة في هذا العرض.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- انضمام -->
+  <section class="slide">
+    <div class="slide-inner">
+      <h2>٧ — كيف تنضمون؟</h2>
+      <ol>
+        <li>راسلونا على <a href="mailto:acadegate@gmail.com">acadegate@gmail.com</a> بعنوان: «انضمام متجر — [اسم المتجر] — [المدينة/التخصص]».</li>
+        <li>أرفقوا نبذة قصيرة + عينة كتالوج (PDF / Excel / رابط متجر) + الأقسام الأنسب.</li>
+        <li>افتحوا المنصة ثم أنشئوا حساب تاجر عند التوجيه:
+          <a href="https://acadegate-new.web.app/register" target="_blank" rel="noopener">https://acadegate-new.web.app/register</a>
+          · المنصة:
+          <a href="https://acadegate-new.web.app" target="_blank" rel="noopener">https://acadegate-new.web.app</a>
+        </li>
+        <li>أضيفوا دفعة أولى من المنتجات للمراجعة، أو ننسّق استيراداً جماعياً.</li>
+        <li>نثبت معاً بنود الأرباح والمشاركة في اتفاق واضح قبل أي تسوية تجارية ملزمة.</li>
+      </ol>
+      <h3>ماذا نحضر لأول اجتماع؟</h3>
+      <ul>
+        <li>نشاط المتجر والمناطق التي تغطونها</li>
+        <li>عينة منتجات عالية الدوران</li>
+        <li>شخص تواصل للطلبات اليومية</li>
+        <li>تفضيلكم: طلبات داخل المنصة، دليل تواصل، أو الاثنين</li>
+      </ul>
+      <div class="footer-note">
+        للطباعة أو الإرسال: من المتصفح Print → Save as PDF · أو أرسلوا رابط ملف HTML مباشرة.
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="slide cta-slide">
+    <div class="slide-inner">
+      <h2>الخطوة التالية</h2>
+      <p>
+        الباحث الأكاديمي يبحث عن مستلزمات موثوقة أثناء تجهيز رسالته.
+        السؤال ليس «هل سيشتري؟» — بل <strong style="color:#fff">من سيصل إليه أولاً بثقة؟</strong>
+      </p>
+      <div class="cta-box">
+        <p><strong>البريد:</strong> <a href="mailto:acadegate@gmail.com">acadegate@gmail.com</a></p>
+        <p><strong>المنصة:</strong> <a href="https://acadegate-new.web.app" target="_blank" rel="noopener">https://acadegate-new.web.app</a></p>
+        <p><strong>التسجيل:</strong> <a href="https://acadegate-new.web.app/register" target="_blank" rel="noopener">https://acadegate-new.web.app/register</a></p>
+        <p><strong>بديل واتساب:</strong> <a href="https://acadegate-new.firebaseapp.com" target="_blank" rel="noopener">https://acadegate-new.firebaseapp.com</a></p>
+        <p style="margin-bottom:0;">نرد خلال يوم عمل تقريباً.</p>
+      </div>
+      <p style="margin-top:28px;font-size:15pt;">
+        الأرباح والمشاركة — <strong style="color:#fde68a;">حسب الاتفاق</strong> · بدون نسب أو أسعار مسبقة في هذا العرض.
+      </p>
+    </div>
+  </section>
+
+  <!-- ملحق -->
+  <section class="slide">
+    <div class="slide-inner">
+      <h2>ملحق — ملخص تنفيذي</h2>
+      <table>
+        <tr><th>البند</th><th>المحتوى</th></tr>
+        <tr><td>المنصة</td><td>AcadeGate — رحلة دراسات عليا متكاملة</td></tr>
+        <tr><td>عرض المتجر</td><td>قناة بيع أكاديمية + كتالوج + عربة + طلبات + ضمان</td></tr>
+        <tr><td>الأقسام</td><td>١٥ قسماً من الكواشف إلى الكتب والأجهزة</td></tr>
+        <tr><td>الظهور</td><td>بعد مراجعة الإدارة للمنتجات</td></tr>
+        <tr><td>الدفع</td><td>مسار يدوي الآن · إلكتروني عند التفعيل المتفق عليه</td></tr>
+        <tr><td>الأرباح والمشاركة</td><td><strong>بنود بالاتفاق — بلا نسب/أسعار في هذه الوثيقة</strong></td></tr>
+        <tr><td>المنصة</td><td><a href="https://acadegate-new.web.app">https://acadegate-new.web.app</a></td></tr>
+        <tr><td>التسجيل</td><td><a href="https://acadegate-new.web.app/register">https://acadegate-new.web.app/register</a></td></tr>
+        <tr><td>التواصل</td><td>acadegate@gmail.com</td></tr>
+      </table>
+      <p class="footer-note">
+        © 2026 AcadeGate · عرض انضمام المتاجر.
+        أي تفاصيل تجارية ملزمة تُحرَّر باتفاق منفصل بعد التفاوض.
+      </p>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>

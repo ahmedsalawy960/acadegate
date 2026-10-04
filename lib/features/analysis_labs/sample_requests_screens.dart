@@ -169,7 +169,7 @@ class SampleRequestListView extends StatelessWidget {
                             fontSize: 12,
                             color: sla.isOverdue
                                 ? Colors.orange.shade900
-                                : Colors.grey[700],
+                                : const Color(0xFFB7C3D6),
                           ),
                         ),
                       ),

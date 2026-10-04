@@ -265,6 +265,17 @@ class AcademicContentService {
     controller = StreamController<List<AcademicResearchIdea>>.broadcast(
       onListen: () {
         if (sub != null) return;
+
+        // Unblock StreamBuilders immediately (snapshots often hang on web).
+        controller.add(const []);
+
+        // One-shot with timeout, then live snapshots.
+        () async {
+          final once = await _fetchIdeasOnce();
+          if (controller.isClosed) return;
+          if (once.isNotEmpty) controller.add(once);
+        }();
+
         sub = _db.collection('research_ideas').limit(500).snapshots().listen(
           (snapshot) {
             if (!controller.isClosed) {
@@ -273,7 +284,9 @@ class AcademicContentService {
           },
           onError: (Object error) {
             debugPrint('researchIdeasStream error: $error');
-            if (!controller.isClosed) controller.add(const []);
+            if (!controller.isClosed) {
+              controller.add(const []);
+            }
           },
         );
       },

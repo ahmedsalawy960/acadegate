@@ -325,8 +325,8 @@ abstract final class SectionGuideCatalogRest {
 
   static const SectionGuide aiGuide = SectionGuide(
     id: 'ai',
-    titleAr: 'دليل المساعد الأكاديمي (الذكاء)',
-    titleEn: 'AI academic advisor guide',
+    titleAr: 'دليل المساعد الأكاديمي',
+    titleEn: 'Academic Assistant guide',
     introAr:
         'المساعد أداة للحوار والاقتراح (عناوين، أسئلة بحثية، تلخيص، ملاحظات مسودة). '
         'هو ليس بديلاً عن مشرفك ولا عن أمانة البحث، ولا يضمن قبول الجامعة.',
@@ -641,6 +641,117 @@ abstract final class SectionGuideCatalogRest {
         titleEn: 'Contact',
         bodyAr: 'شراكات واستثمار: acadegate@gmail.com',
         bodyEn: 'Partnerships & investment: acadegate@gmail.com',
+      ),
+    ],
+  );
+
+  static const SectionGuide humanitiesGuide = SectionGuide(
+    id: 'humanities',
+    titleAr: 'دليل بوابة البحث الإنساني والتربوي',
+    titleEn: 'Humanities & education portal guide',
+    introAr:
+        'بوابة لباحثي التربية والحقوق والآداب: من اختيار الموضوع وجمع البيانات الميدانية '
+        'حتى كتابة الرسالة والمناقشة.',
+    introEn:
+        'A portal for Education, Law, and Arts researchers: from topic choice and field '
+        'data collection through thesis writing and viva.',
+    steps: [
+      SectionGuideStep(
+        icon: Icons.lightbulb_outline,
+        titleAr: '٠) بنك الموضوعات وفحص التكرار',
+        titleEn: '0) Topic bank & duplication check',
+        bodyAr:
+            'من موضوعات المسار افتح أي نقطة ثم «فحص التكرار واعتماد النقطة».\n'
+            'ستحصل على تشابه تقريبي ومراجع أولية وأسئلة — ثم أكّد عبر دار المنظومة/EKB.',
+        bodyEn:
+            'From track topics open any point then “Duplication check & adopt”.\n'
+            'You get approximate similarity, starter refs, and questions — then confirm via Mandumah/EKB.',
+      ),
+      SectionGuideStep(
+        icon: Icons.tune,
+        titleAr: '١) اختر مسارك (تربية / حقوق / آداب…)',
+        titleEn: '1) Pick your track (Education / Law / Arts…)',
+        bodyAr:
+            'من الشرائح أعلى الصفحة اختر تخصصاً قريباً منك.\n'
+            'الاختيار يُحفظ على الجهاز.',
+        bodyEn:
+            'Use the chips at the top to pick a track close to yours.\n'
+            'Your choice is saved on the device.',
+      ),
+      SectionGuideStep(
+        icon: Icons.route,
+        titleAr: '٢) اتبع مسار البحث بالترتيب',
+        titleEn: '2) Follow the research path in order',
+        bodyAr:
+            'موضوع → مشرف → خطة بحث → منهجية → أدوات → تحليل نوعي → كتابة → مناقشة.\n'
+            'اضغط زر المرحلة لفتح الخدمة المناسبة.',
+        bodyEn:
+            'Topic → supervisor → proposal → methodology → tools → qualitative analysis → writing → viva.\n'
+            'Tap the stage button to open the right service.',
+      ),
+      SectionGuideStep(
+        icon: Icons.assignment_turned_in_outlined,
+        titleAr: '٢-ب) مسار الخطة البحثية',
+        titleEn: '2b) Research proposal path',
+        bodyAr:
+            'ورشة أخطاء شائعة (عنوان/مشكلة/أهداف/حدود/دراسات نقدية/اتساق منهج–أداة–أسئلة).\n'
+            'كتالوج موحّد لفقرات الخطة مع اختصار اختياري حسب الكلية… ثم مراجعة بشرية قبل القسم.',
+        bodyEn:
+            'Common-faults workshop (title/problem/objectives/limits/critical lit/method–tool–questions).\n'
+            'One shared proposal-section catalog with optional faculty shortcuts… then human review before the department.',
+      ),
+      SectionGuideStep(
+        icon: Icons.psychology_alt_outlined,
+        titleAr: '٣) التحليل النوعي بعد جمع البيانات',
+        titleEn: '3) Qualitative analysis after data collection',
+        bodyAr:
+            'من «استوديو التحليل النوعي»: مكتبة نصوص → دفتر رموز → ترميز مقتطفات → موضوعات.\n'
+            'يمكنك استيراد رموز ورقة تحليل المضمون من مسار الأدوات.',
+        bodyEn:
+            'In Qualitative Analysis Studio: transcripts → codebook → excerpt coding → themes.\n'
+            'You can import codes from the content-analysis sheet in the tools path.',
+      ),
+      SectionGuideStep(
+        icon: Icons.balance_outlined,
+        titleAr: '٤) مختبر القانون (لمسار الحقوق)',
+        titleEn: '4) Law Lab (for the law track)',
+        bodyAr:
+            'خريطة مسألة → سجل أسانيد → بطاقة حكم → سلسلة استدلال → مقارنة تشريعية.\n'
+            'هذا بديل المختبر المعاملي — ليس تكراراً لأدوات الجمع.',
+        bodyEn:
+            'Issue map → authorities ledger → case brief → argument chain → comparative matrix.\n'
+            'This is the lab alternative for law — not a duplicate of collection tools.',
+      ),
+      SectionGuideStep(
+        icon: Icons.edit_note,
+        titleAr: '٥) مساعدة في الخطة والتدقيق',
+        titleEn: '5) Help with the plan and language review',
+        bodyAr: 'استشارة في خطة البحث، وإحصاء تربوي، وتدقيق لغوي لنصك — تحت مسار البحث مباشرة.',
+        bodyEn: 'Consultation on your proposal, education stats, and language review of your text — under the research path.',
+      ),
+      SectionGuideStep(
+        icon: Icons.school_outlined,
+        titleAr: '٦) ابحث عن مشرف في كليتك',
+        titleEn: '6) Find a supervisor in your faculty',
+        bodyAr:
+            'من مرحلة المشرف افتح قائمة المشرفين، أو استخدم المطابقة الذكية لاقتراح أنسب.',
+        bodyEn:
+            'From the supervisor stage open the list, or use smart matching for better suggestions.',
+      ),
+      SectionGuideStep(
+        icon: Icons.menu_book_outlined,
+        titleAr: '٧) في استوديو الرسالة اختر النمط الأدبي',
+        titleEn: '7) In Thesis Studio pick literary mode',
+        bodyAr: 'غيّر نوع الرسالة إلى أدبي/إنساني بدل التجريبي ليناسب تخصصك.',
+        bodyEn: 'Switch thesis kind to literary/humanities instead of experimental to fit your field.',
+      ),
+    ],
+    notes: [
+      SectionGuideNote(
+        titleAr: 'الدعم',
+        titleEn: 'Support',
+        bodyAr: 'acadegate@gmail.com',
+        bodyEn: 'acadegate@gmail.com',
       ),
     ],
   );

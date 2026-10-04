@@ -14,51 +14,57 @@ import 'store_theme.dart';
 class ProductSimilarSection extends StatelessWidget {
   final String productId;
   final String categoryTitle;
-  final String? createdBy;
+  final String productName;
+  final String brand;
+  final String description;
 
   const ProductSimilarSection({
     super.key,
     required this.productId,
     required this.categoryTitle,
-    this.createdBy,
+    this.productName = '',
+    this.brand = '',
+    this.description = '',
   });
 
   @override
   Widget build(BuildContext context) {
     if (categoryTitle.trim().isEmpty) return const SizedBox.shrink();
     final category = storeCategoryByTitle(categoryTitle);
-    final titles = category != null
-        ? storeCategoryQueryTitles(category).toSet()
-        : {categoryTitle};
+    final titles = (category != null
+            ? storeCategoryQueryTitles(category)
+            : <String>[categoryTitle])
+        .map((t) => t.trim())
+        .where((t) => t.isNotEmpty)
+        .take(10)
+        .toList();
+    if (titles.isEmpty) return const SizedBox.shrink();
+    final needle = _similarTokens('$productName $brand $description');
 
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: FirebaseFirestore.instance
           .collection('product')
-          .where('approvalStatus', isEqualTo: ApprovalStatus.approved)
-          .limit(40)
+          .where('category', whereIn: titles)
+          .limit(80)
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.hasError || !snapshot.hasData) {
           return const SizedBox.shrink();
         }
-        final similar = snapshot.data!.docs
+        final ranked = snapshot.data!.docs
             .where((d) {
               if (d.id == productId) return false;
               final data = d.data();
-              if (!ApprovalStatus.isPublic(data['approvalStatus']?.toString())) {
-                return false;
-              }
-              final cat = data['category']?.toString() ?? '';
-              final canonical = storeCategoryLegacyAliases[cat] ?? cat;
-              final sameCat =
-                  titles.contains(cat) || titles.contains(canonical);
-              final sameSeller = createdBy != null &&
-                  createdBy!.isNotEmpty &&
-                  data['createdBy']?.toString() == createdBy;
-              return sameCat || sameSeller;
+              return ApprovalStatus.isPublic(data['approvalStatus']?.toString());
             })
             .map(StoreCatalogProduct.fromDoc)
+            .map((p) => (product: p, score: _similarScore(p, needle, brand)))
+            .toList();
+        final matched = ranked.where((e) => e.score > 0).toList()
+          ..sort((a, b) => b.score.compareTo(a.score));
+        final similar = (matched.isNotEmpty ? matched : ranked)
             .take(8)
+            .map((e) => e.product)
             .toList();
         if (similar.isEmpty) return const SizedBox.shrink();
 
@@ -137,6 +143,52 @@ class ProductSimilarSection extends StatelessWidget {
       },
     );
   }
+}
+
+final _similarSplit = RegExp(r'[^\p{L}\p{N}]+', unicode: true);
+
+const _similarStop = {
+  'the', 'and', 'for', 'with', 'from', 'plus', 'touch', 'device', 'devices',
+  'جهاز', 'اجهزه', 'اجهزة', 'من', 'في', 'علي', 'مع', 'او', 'الي', 'هذا', 'هذه',
+  'التي', 'الذي', 'عن', 'بعد', 'قبل', 'مواصفات', 'ضمان', 'صيانه', 'كتالوج',
+  'اضغط', 'تحميل', 'للطلب', 'انظمه', 'جميع', 'انماط', 'برمجه', 'شاشه', 'تخزين',
+  'نتيجه', 'هنا', 'لتحميل',
+};
+
+String _foldSimilar(String input) {
+  return input
+      .toLowerCase()
+      .replaceAll(RegExp('[أإآ]'), 'ا')
+      .replaceAll('ة', 'ه')
+      .replaceAll('ى', 'ي')
+      .replaceAll(RegExp(r'[\u064B-\u0652]'), '');
+}
+
+Set<String> _similarTokens(String raw) {
+  final out = <String>{};
+  for (final part in _foldSimilar(raw).split(_similarSplit)) {
+    var token = part.trim();
+    if (token.startsWith('ال') && token.length > 4) {
+      token = token.substring(2);
+    }
+    final minLen = RegExp(r'[a-z0-9]').hasMatch(token) ? 3 : 2;
+    if (token.length < minLen || _similarStop.contains(token)) continue;
+    out.add(token);
+  }
+  return out;
+}
+
+int _similarScore(StoreCatalogProduct product, Set<String> needle, String brand) {
+  if (needle.isEmpty && brand.trim().isEmpty) return 0;
+  final hay = _similarTokens('${product.name} ${product.brand}');
+  var score = 0;
+  for (final token in needle) {
+    if (hay.contains(token)) score += 3;
+  }
+  final wanted = _foldSimilar(brand).trim();
+  final found = _foldSimilar(product.brand).trim();
+  if (wanted.length >= 2 && wanted == found) score += 5;
+  return score;
 }
 
 class ProductQaSection extends StatefulWidget {
@@ -277,7 +329,7 @@ class _ProductQaSectionState extends State<ProductQaSection> {
                   'لا أسئلة بعد — كن أول من يسأل.',
                   'No questions yet — be the first to ask.',
                 ),
-                style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                style: TextStyle(color: StoreTheme.muted, fontSize: 13),
               );
             }
             return Column(
@@ -297,7 +349,7 @@ class _ProductQaSectionState extends State<ProductQaSection> {
                         if (item.hasAnswer)
                           Text(
                             'A: ${item.answer}',
-                            style: TextStyle(color: Colors.grey[800]),
+                            style: TextStyle(color: StoreTheme.muted),
                           )
                         else if (isSeller)
                           TextButton(

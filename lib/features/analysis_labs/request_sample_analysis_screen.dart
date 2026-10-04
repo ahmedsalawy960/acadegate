@@ -237,7 +237,7 @@ class _RequestSampleAnalysisScreenState
         padding: const EdgeInsets.all(16),
         children: [
           Text(lab.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-          Text(lab.labTypeLabel, style: TextStyle(color: Colors.grey[600])),
+          Text(lab.labTypeLabel, style: const TextStyle(color: Color(0xFFB7C3D6))),
           if (lab.description.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(lab.description),
@@ -358,9 +358,16 @@ class _RequestSampleAnalysisScreenState
                     'Expected turnaround: ${_selectedService!.turnaroundDays} days'
                     '${_selectedService!.priceFrom > 0 ? ' • from ${_selectedService!.priceFrom} EGP' : ''}',
                   ),
+                  style: const TextStyle(
+                    color: Color(0xFF1C1917),
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 subtitle: _selectedService!.description.isNotEmpty
-                    ? Text(_selectedService!.description)
+                    ? Text(
+                        _selectedService!.description,
+                        style: const TextStyle(color: Color(0xFF44403C)),
+                      )
                     : null,
               ),
             ),

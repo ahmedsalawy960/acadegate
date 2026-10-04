@@ -163,7 +163,7 @@ class _SubmitProposalScreenState extends State<SubmitProposalScreen> {
                   'Word count: $_wordCount / 500',
                 ),
                 style: TextStyle(
-                  color: _wordCount > 500 ? Colors.red : Colors.grey[600],
+                  color: _wordCount > 500 ? Colors.red : const Color(0xFFB7C3D6),
                 ),
               ),
               const SizedBox(height: 20),

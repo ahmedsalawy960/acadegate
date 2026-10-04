@@ -5,6 +5,7 @@ import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
 import '../../core/firebase/callable_http_client.dart';
 import '../../core/locale/locale_extensions.dart';
+import '../../core/theme/acadegate_theme.dart';
 import '../analytics/kpi_analytics_service.dart';
 import '../auth/user_account_service.dart';
 
@@ -151,8 +152,8 @@ class _AdminKpiScreenState extends State<AdminKpiScreen> {
     return Scaffold(
       appBar: AcadeGateAppBar(
         title: Text(context.t('مؤشرات الأداء الأسبوعية', 'Weekly KPIs')),
-        backgroundColor: const Color(0xFF1A237E),
-        foregroundColor: Colors.white,
+        backgroundColor: AcadeGateColors.appBar,
+        foregroundColor: AcadeGateColors.text,
         actions: [
           IconButton(
             tooltip: context.t('إعادة الحساب', 'Recompute'),
@@ -163,7 +164,7 @@ class _AdminKpiScreenState extends State<AdminKpiScreen> {
                     height: 18,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: Colors.white,
+                      color: AcadeGateColors.text,
                     ),
                   )
                 : const Icon(Icons.refresh),
@@ -250,7 +251,13 @@ class _KpiWeekCard extends StatelessWidget {
 
     return Card(
       margin: const EdgeInsets.only(bottom: 14),
-      color: highlighted ? const Color(0xFFE8EAF6) : Colors.white,
+      color: highlighted ? const Color(0xFF1E3358) : AcadeGateColors.card,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: highlighted ? AcadeGateColors.gold : AcadeGateColors.line,
+        ),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -264,15 +271,21 @@ class _KpiWeekCard extends StatelessWidget {
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 18,
-                      color: Color(0xFF1A237E),
+                      color: AcadeGateColors.text,
                     ),
                   ),
                 ),
                 TextButton(
+                  style: TextButton.styleFrom(
+                    foregroundColor: AcadeGateColors.gold,
+                  ),
                   onPressed: onRecompute,
                   child: Text(context.t('تحديث', 'Refresh')),
                 ),
                 TextButton(
+                  style: TextButton.styleFrom(
+                    foregroundColor: AcadeGateColors.gold,
+                  ),
                   onPressed: onSetAdSpend,
                   child: Text(context.t('إعلانات', 'Ads')),
                 ),
@@ -346,21 +359,21 @@ class _KpiWeekCard extends StatelessWidget {
       width: 160,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AcadeGateColors.page,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.black12),
+        border: Border.all(color: AcadeGateColors.line),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[700])),
+          Text(label, style: const TextStyle(fontSize: 12, color: AcadeGateColors.muted)),
           const SizedBox(height: 6),
           Text(
             value,
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF1A237E),
+              color: AcadeGateColors.text,
             ),
           ),
         ],

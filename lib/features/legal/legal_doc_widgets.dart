@@ -63,7 +63,7 @@ class LegalMeta extends StatelessWidget {
       child: Text(
         '$effectiveDate · $version',
         style: TextStyle(
-          color: Colors.grey.shade600,
+          color: const Color(0xFFB7C3D6),
           fontSize: 12.5,
           height: 1.4,
         ),
@@ -103,7 +103,7 @@ class LegalSection extends StatelessWidget {
             body,
             style: TextStyle(
               height: 1.65,
-              color: Colors.grey.shade800,
+              color: const Color(0xFFB7C3D6),
               fontSize: 14.5,
             ),
           ),

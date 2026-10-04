@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 import '../../core/locale/locale_extensions.dart';
+import '../../core/theme/acadegate_theme.dart';
 import '../academic/academic_content_service.dart';
 import '../academic/academic_degrees.dart';
 import '../academic/academic_models.dart';
@@ -149,7 +150,7 @@ class _MatchmakingScreenState extends State<MatchmakingScreen> {
                 'اكتب ما تريد دراسته. نختار المشرفين والمختبرات والأفكار والمواد، ونبني خطة فصلية ودراسات مؤكدة وأثر تمويل إن وُجد.',
                 'Write what you want to study. We pick supervisors, labs, ideas, and materials, then a semester plan, confirmed studies, and funding fit if it exists.',
               ),
-              style: TextStyle(fontSize: 12, color: Colors.grey[700], height: 1.4),
+              style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6), height: 1.4),
             ),
             const SizedBox(height: 10),
             TextField(
@@ -166,7 +167,7 @@ class _MatchmakingScreenState extends State<MatchmakingScreen> {
             const SizedBox(height: 8),
             FilledButton.icon(
               onPressed: _openGoalEngine,
-              icon: const Icon(Icons.auto_awesome),
+              icon: const Icon(Icons.account_tree),
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF1A237E),
               ),
@@ -364,7 +365,7 @@ class _MatchmakingScreenState extends State<MatchmakingScreen> {
                     'مرتّبة حسب التوافق مع ملفك — اضغط لعرض الملف وطلب الإشراف',
                     'Ranked by profile fit — tap to view profile and request supervision',
                   ),
-                  style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                  style: TextStyle(color: const Color(0xFFB7C3D6), fontSize: 13),
                 ),
               ),
             ..._supervisorMatches.asMap().entries.map(
@@ -395,7 +396,7 @@ class _MatchmakingScreenState extends State<MatchmakingScreen> {
       padding: const EdgeInsets.only(bottom: 12, top: 8),
       child: Row(
         children: [
-          Icon(icon, color: const Color(0xFF1A237E)),
+          Icon(icon, color: const Color(0xFFF4F7FB)),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -403,7 +404,7 @@ class _MatchmakingScreenState extends State<MatchmakingScreen> {
               style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF1A237E),
+                color: const Color(0xFFF4F7FB),
               ),
             ),
           ),
@@ -499,7 +500,7 @@ class _MatchmakingScreenState extends State<MatchmakingScreen> {
                   Text(
                     context.t('عرض الملف', 'View profile'),
                     style: const TextStyle(
-                      color: Color(0xFF1A237E),
+                      color: const Color(0xFFF4F7FB),
                       fontWeight: FontWeight.w600,
                       fontSize: 13,
                     ),
@@ -508,7 +509,7 @@ class _MatchmakingScreenState extends State<MatchmakingScreen> {
                   const Icon(
                     Icons.arrow_forward_ios,
                     size: 12,
-                    color: Color(0xFF1A237E),
+                    color: Color(0xFFF4F7FB),
                   ),
                 ],
               ),
@@ -597,7 +598,7 @@ class _JourneySteps extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 6),
                 child: Icon(Icons.arrow_forward, size: 16, color: Colors.grey[400]),
               ),
-            Icon(steps[i].$1, size: 20, color: const Color(0xFF283593)),
+            Icon(steps[i].$1, size: 20, color: acadegateInk(const Color(0xFF283593))),
           ],
         ],
       );
@@ -650,7 +651,7 @@ class _JourneySteps extends StatelessWidget {
                             step.$3,
                             style: TextStyle(
                               fontSize: 12,
-                              color: Colors.grey[600],
+                              color: const Color(0xFFB7C3D6),
                             ),
                           ),
                         ],

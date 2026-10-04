@@ -32,7 +32,7 @@ Future<PaymentCheckoutChoice?> showPaymentCheckoutChooser(
                   'المبلغ: $amountLabel',
                   'Amount: $amountLabel',
                 ),
-                style: TextStyle(color: Colors.grey[700]),
+                style: TextStyle(color: const Color(0xFFB7C3D6)),
               ),
               const SizedBox(height: 16),
               ListTile(

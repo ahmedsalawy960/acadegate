@@ -145,17 +145,15 @@ class GeminiAdvisorClient {
       if (needsSignInForCloudAi) {
         return GeminiGenerateResult(
           error: appTr(
-            'سجّل الدخول لاستخدام AcadeGate AI.',
-            'Sign in to use AcadeGate AI.',
+            'سجّل الدخول لاستخدام المساعد الأكاديمي.',
+            'Sign in to use the Academic Assistant.',
           ),
         );
       }
       return GeminiGenerateResult(
         error: appTr(
-          'سجّل الدخول لاستخدام AcadeGate AI، أو أضف مفتاح Gemini في dart_defines.json '
-              'وشغّل إعداد: AcadeGate (Windows + AI).',
-          'Sign in to use AcadeGate AI, or add a Gemini key in dart_defines.json '
-              'and launch: AcadeGate (Windows + AI).',
+          'سجّل الدخول لاستخدام المساعد الأكاديمي.',
+          'Sign in to use the Academic Assistant.',
         ),
       );
     }
@@ -301,8 +299,8 @@ class GeminiAdvisorClient {
           error: e.message?.trim().isNotEmpty == true
               ? e.message!.trim()
               : appTr(
-                  'وصلت للحد اليومي لـ AcadeGate AI.',
-                  'Daily AcadeGate AI limit reached.',
+                  'وصلت للحد اليومي للمساعد الأكاديمي.',
+                  'Daily Academic Assistant limit reached.',
                 ),
         );
       }
@@ -359,8 +357,8 @@ class GeminiAdvisorClient {
       if (e.code == 'unauthenticated') {
         return GeminiGenerateResult(
           error: appTr(
-            'سجّل الدخول مجدداً لاستخدام AcadeGate AI.',
-            'Sign in again to use AcadeGate AI.',
+            'سجّل الدخول مجدداً لاستخدام المساعد الأكاديمي.',
+            'Sign in again to use the Academic Assistant.',
           ),
         );
       }
@@ -369,8 +367,8 @@ class GeminiAdvisorClient {
           error: e.message.trim().isNotEmpty
               ? e.message.trim()
               : appTr(
-                  'وصلت للحد اليومي لـ AcadeGate AI.',
-                  'Daily AcadeGate AI limit reached.',
+                  'وصلت للحد اليومي للمساعد الأكاديمي.',
+                  'Daily Academic Assistant limit reached.',
                 ),
         );
       }

@@ -18,7 +18,7 @@ class LanguageSelectionScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FB),
+      backgroundColor: const Color(0xFF071433),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -55,7 +55,7 @@ class LanguageSelectionScreen extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 26,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF1A237E),
+                      color: Color(0xFFF4F7FB),
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -65,7 +65,7 @@ class LanguageSelectionScreen extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF006064),
+                      color: Color(0xFFFBBF24),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -74,7 +74,7 @@ class LanguageSelectionScreen extends StatelessWidget {
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 14,
-                      color: Colors.grey[700],
+                      color: const Color(0xFFB7C3D6),
                       height: 1.6,
                     ),
                   ),
@@ -122,7 +122,7 @@ class _LanguageCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white,
+      color: const Color(0xFF12284F),
       borderRadius: BorderRadius.circular(16),
       elevation: 2,
       child: InkWell(
@@ -147,12 +147,13 @@ class _LanguageCard extends StatelessWidget {
                       style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
+                        color: Color(0xFFF4F7FB),
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       subtitle,
-                      style: TextStyle(color: Colors.grey[600]),
+                      style: const TextStyle(color: Color(0xFFB7C3D6)),
                     ),
                   ],
                 ),

@@ -34,7 +34,7 @@ pptx.defineLayout({ name: 'WIDE', width: 13.333, height: 7.5 });
 pptx.layout = 'WIDE';
 pptx.author = 'AcadeGate';
 pptx.title = 'AcadeGate — عرض الشراكة للموردين والتجار';
-pptx.subject = 'عرض شراكة المتجر الأكاديمي · محدّث';
+pptx.subject = 'عرض شراكة المتجر الأكاديمي · محدّث ١٩ سبتمبر ٢٠٢٦ · acadegate-new.web.app';
 pptx.rtlMode = true;
 
 const W = 13.333;
@@ -47,7 +47,7 @@ function addFooter(slide, page) {
     x: 0, y: H - 0.38, w: W, h: 0.38,
     fill: { color: C.sand },
   });
-  slide.addText('AcadeGate · عرض شراكة الموردين · محدّث آب 2026', {
+  slide.addText('AcadeGate · عرض شراكة الموردين · محدّث ١٩ سبتمبر ٢٠٢٦', {
     x: M, y: H - 0.34, w: 9, h: 0.28,
     fontSize: 10, color: C.muted, fontFace: 'Segoe UI', rtlMode: true, align: 'right',
   });
@@ -141,7 +141,7 @@ function head(text) {
     x: W - M - 1.35, y: 0.4, w: 1.2, h: 1.2,
   });
 
-  s.addText('عرض شراكة مخصص · فئة الموردين والتجار · محدّث آب 2026', {
+  s.addText('عرض شراكة مخصص · فئة الموردين والتجار · محدّث ١٩ سبتمبر ٢٠٢٦', {
     x: M, y: 1.5, w: W - M * 2 - 1.5, h: 0.35,
     fontSize: 13, color: 'CBD5E1', fontFace: 'Segoe UI',
     rtlMode: true, align: 'right',
@@ -896,7 +896,7 @@ function head(text) {
     rtlMode: true, align: 'right',
   });
   s.addText(
-    'المنصة: https://acadegate-new.web.app   ·   التسجيل: https://acadegate-new.web.app/register',
+    'المنصة: https://acadegate-new--v20261002-tp9dbk1c.web.app   ·   التسجيل: https://acadegate-new--v20261002-tp9dbk1c.web.app/register',
     {
       x: M + 0.3, y: 5.45, w: W - M * 2 - 0.6, h: 0.35,
       fontSize: 13, bold: true, color: C.goldSoft, fontFace: 'Segoe UI',
@@ -931,8 +931,8 @@ function head(text) {
     [cell('إيراد أساسي'), cell('عمولة ٥–١٥٪ على طلب ناجح (بالاتفاق)')],
     [cell('إيرادات مقترحة'), cell('اشتراك مميّز · RFQ · إعلان · B2B · عمولة متدرجة')],
     [cell('الخطوة التالية'), cell('حساب تجريبي + كتالوج صغير + اجتماع تشغيل')],
-    [cell('المنصة'), cell('https://acadegate-new.web.app')],
-    [cell('التسجيل'), cell('https://acadegate-new.web.app/register')],
+    [cell('المنصة'), cell('https://acadegate-new--v20261002-tp9dbk1c.web.app')],
+    [cell('التسجيل'), cell('https://acadegate-new--v20261002-tp9dbk1c.web.app/register')],
   ];
   s.addTable(summary, {
     x: M, y: 1.15, w: W - M * 2,

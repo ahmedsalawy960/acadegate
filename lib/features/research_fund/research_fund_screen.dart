@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
 import '../../core/locale/locale_extensions.dart';
+import '../../core/theme/acadegate_theme.dart';
 import '../academic/academic_models.dart';
 import '../auth/user_account_service.dart';
 import '../guides/section_guide_catalog.dart';
@@ -86,7 +87,7 @@ class ResearchFundScreen extends StatelessWidget {
                     'Enabled by admin with university partners — no default data',
                   ),
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey[600], height: 1.4),
+                  style: TextStyle(color: const Color(0xFFB7C3D6), height: 1.4),
                 ),
                 const SizedBox(height: 16),
                 OutlinedButton.icon(
@@ -174,7 +175,7 @@ class ResearchFundScreen extends StatelessWidget {
                               'لا توجد أفكار مؤهلة حالياً — صوّت في السوق لرفع الأفكار',
                               'No eligible ideas yet — vote in the marketplace to raise ideas',
                             ),
-                            style: TextStyle(color: Colors.grey[600]),
+                            style: TextStyle(color: const Color(0xFFB7C3D6)),
                           ),
                           TextButton(
                             onPressed: () => Navigator.push(
@@ -260,7 +261,7 @@ class ResearchFundScreen extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       child: Text(
                         context.t('لا تمويلات بعد', 'No awards yet'),
-                        style: TextStyle(color: Colors.grey[600]),
+                        style: TextStyle(color: const Color(0xFFB7C3D6)),
                       ),
                     );
                   }
@@ -272,8 +273,10 @@ class ResearchFundScreen extends StatelessWidget {
                           : '${date.year}/${date.month}/${date.day}';
                       return Card(
                         child: ListTile(
-                          leading: const Icon(Icons.volunteer_activism,
-                              color: _brand),
+                          leading: Icon(
+                            Icons.volunteer_activism,
+                            color: acadegateInk(_brand),
+                          ),
                           title: Text(a.ideaTitle),
                           subtitle: Text(
                             [
@@ -291,7 +294,7 @@ class ResearchFundScreen extends StatelessWidget {
                                 context.t(a.status.labelAr, a.status.labelEn),
                                 style: TextStyle(
                                   fontSize: 11,
-                                  color: Colors.grey[700],
+                                  color: const Color(0xFFB7C3D6),
                                 ),
                               ),
                             ],
@@ -358,7 +361,7 @@ class ResearchFundScreen extends StatelessWidget {
                 'حد التصويت: ${config.minVotes} · حد التمويل: ${config.maxAwardAmount} ${config.currency}',
                 'Vote threshold: ${config.minVotes} · Max award: ${config.maxAwardAmount} ${config.currency}',
               ),
-              style: TextStyle(color: Colors.grey[700], fontSize: 13),
+              style: TextStyle(color: const Color(0xFFB7C3D6), fontSize: 13),
             ),
             if (config.partners.isNotEmpty) ...[
               const SizedBox(height: 12),

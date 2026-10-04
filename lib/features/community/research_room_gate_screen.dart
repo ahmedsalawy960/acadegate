@@ -79,7 +79,7 @@ class _ResearchRoomGateScreenState extends State<ResearchRoomGateScreen> {
                 'Enter the password you received to enter.',
               ),
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey[700], height: 1.4),
+              style: TextStyle(color: const Color(0xFFB7C3D6), height: 1.4),
             ),
             const SizedBox(height: 24),
             TextField(

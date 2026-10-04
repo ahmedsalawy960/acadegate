@@ -1,23 +1,22 @@
 import 'package:flutter/material.dart';
 
-/// نظام ألوان واجهة المتجر — ماركت بليس محايد (ليس أخضر/أزرق تطبيق).
+/// نظام ألوان المتجر — نفس كحلي التطبيق، مع لون سعري كهرماني.
 class StoreTheme {
   StoreTheme._();
 
-  static const Color bg = Color(0xFFF4F4F5);
-  static const Color surface = Color(0xFFFFFFFF);
-  static const Color ink = Color(0xFF18181B);
-  static const Color muted = Color(0xFF71717A);
-  static const Color border = Color(0xFFE4E4E7);
-  static const Color hairline = Color(0xFFD4D4D8);
+  static const Color bg = Color(0xFF071433);
+  static const Color surface = Color(0xFF12284F);
+  static const Color ink = Color(0xFFF4F7FB);
+  static const Color muted = Color(0xFFB7C3D6);
+  static const Color border = Color(0xFF2A3F6E);
+  static const Color hairline = Color(0xFF2A3F6E);
 
   /// لون إجراء الشراء / السعر (كهرماني تجاري).
   static const Color accent = Color(0xFFC2410C);
   static const Color accentHover = Color(0xFF9A3412);
-  static const Color accentSoft = Color(0xFFFFF7ED);
+  static const Color accentSoft = Color(0xFF1E3358);
 
-  /// شريط علوي فاتح — واجهة متجر نهارية (بدون خلفية سوداء ثقيلة).
-  static const Color appBar = Color(0xFFFFFFFF);
+  static const Color appBar = Color(0xFF0B1F4D);
   static const Color appBarForeground = ink;
 
   static const Color verified = Color(0xFF0F766E);
@@ -27,6 +26,34 @@ class StoreTheme {
     final base = Theme.of(context);
     return base.copyWith(
       scaffoldBackgroundColor: bg,
+      iconTheme: const IconThemeData(color: ink),
+      textTheme: base.textTheme.apply(bodyColor: ink, displayColor: ink),
+      listTileTheme: const ListTileThemeData(
+        textColor: ink,
+        iconColor: ink,
+        titleTextStyle: TextStyle(
+          color: ink,
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+        ),
+        subtitleTextStyle: TextStyle(color: muted, fontSize: 13),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: surface,
+        hintStyle: const TextStyle(color: muted),
+        labelStyle: const TextStyle(color: muted),
+        prefixIconColor: muted,
+        suffixIconColor: muted,
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: border),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: accent, width: 1.4),
+        ),
+      ),
       colorScheme: base.colorScheme.copyWith(
         primary: accent,
         secondary: ink,

@@ -95,7 +95,7 @@ class _SubmitChallengeProtocolScreenState
                 'العربون محجوز مسبقاً. اكتب خطة العمل ومعيار التسليم.',
                 'The deposit is already held. Write the work plan and delivery bar.',
               ),
-              style: TextStyle(color: Colors.grey[700], height: 1.4),
+              style: TextStyle(color: const Color(0xFFB7C3D6), height: 1.4),
             ),
             const SizedBox(height: 16),
             TextFormField(

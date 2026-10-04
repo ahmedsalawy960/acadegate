@@ -25,8 +25,8 @@ class MethodologyIntegrityService {
     if (!isCloudEnabled) {
       return local.copyWith(
         note: appTr(
-          'التحليل المحلي فقط — سجّل الدخول أو فعّل الذكاء السحابي لتحليل أعمق.',
-          'Local analysis only — sign in or enable cloud AI for deeper checks.',
+          'تحليل محلي — سجّل الدخول لتحليل أعمق.',
+          'Local analysis — sign in for a deeper check.',
         ),
       );
     }
@@ -380,8 +380,8 @@ recommendations (مصفوفة 3-5 عناصر).
         fromCloudAi: true,
         modelUsed: result.modelUsed,
         note: appTr(
-          'رد الذكاء الاصطناعي لم يُحلَّل كـ JSON — عُرض كنص.',
-          'AI response could not be parsed as JSON — shown as text.',
+          'تعذرت قراءة الرد المنسق — عُرض كنص.',
+          'The formatted reply could not be read — shown as text.',
         ),
       );
     }

@@ -317,7 +317,7 @@ abstract class AppLocalizations {
   /// No description provided for @portalUserItem4.
   ///
   /// In en, this message translates to:
-  /// **'AI advisor and smart matchmaking'**
+  /// **'Academic Assistant and matching'**
   String get portalUserItem4;
 
   /// No description provided for @portalProviderItem1.

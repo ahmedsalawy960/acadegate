@@ -29,8 +29,8 @@ class TermsOfServiceScreen extends StatelessWidget {
         LegalSection(
           title: isAr ? '1. طبيعة الخدمة' : '1. Nature of the service',
           body: isAr
-              ? 'AcadeGate منصة رقمية عربية تربط رحلة الدراسات العليا والبحث: مشرفون، أفكار بحثية، مختبرات، متجر معدات، كتابة بشرية، مجتمع، ومساعد ذكي. المنصة وسيط تقني؛ لسنا جامعة ولا جهة اعتماد أكاديمي رسمي ولا ضامناً لنتيجة بحثية أو قبول إشراف.'
-              : 'AcadeGate is an Arabic digital platform connecting postgraduate and research journeys: supervisors, research ideas, labs, equipment store, human writing services, community, and an AI advisor. We are a technical intermediary—not a university, accreditation body, or guarantor of research outcomes or supervision acceptance.',
+              ? 'AcadeGate منصة رقمية عربية تربط رحلة الدراسات العليا والبحث: مشرفون، أفكار بحثية، مختبرات، متجر معدات، مساعدة واستشارة في الكتابة، مجتمع، والمساعد الأكاديمي. المنصة وسيط تقني؛ لسنا جامعة ولا جهة اعتماد أكاديمي رسمي ولا ضامناً لنتيجة بحثية أو قبول إشراف. لا نكتب البحث بدلاً من الباحث.'
+              : 'AcadeGate is an Arabic digital platform connecting postgraduate and research journeys: supervisors, research ideas, labs, an equipment store, writing help and consultation, community, and an Academic Assistant. We are a technical intermediary—not a university, accreditation body, or guarantor of research outcomes or supervision acceptance. We do not write the research in place of the researcher.',
         ),
         LegalSection(
           title: isAr ? '2. الأهلية والحساب' : '2. Eligibility & accounts',
@@ -65,14 +65,14 @@ class TermsOfServiceScreen extends StatelessWidget {
         LegalSection(
           title: isAr ? '7. المختبرات والكتابة والخدمات الأخرى' : '7. Labs, writing & other services',
           body: isAr
-              ? 'حجوزات الأجهزة وطلبات التحليل وخدمات الكتابة البشرية تخضع لشروط مقدم الخدمة المعروضة عند الطلب. خدمات الكتابة ليست بديلاً عن الالتزام بأخلاقيات البحث وسياسات جامعتك بخصوص الأصالة والغش الأكاديمي. المستخدم مسؤول عن الامتثال لقواعد مؤسسته.'
-              : 'Equipment bookings, sample analysis, and human writing services are subject to the provider’s terms shown at booking. Writing services do not replace research ethics or your university’s originality/academic-integrity policies. You remain responsible for complying with institutional rules.',
+              ? 'حجوزات الأجهزة وطلبات التحليل ومساعدة الكتابة تخضع لشروط مقدم الخدمة المعروضة عند الطلب. المساعدة والاستشارة مراجعة وتوجيه وتدقيق لنص كتبه الباحث. لا يكتب التطبيق ولا مقدم الخدمة الرسالة أو البحث بدلاً من الباحث. الباحث مسؤول عن الأصالة والامتثال لقواعد جامعته.'
+              : 'Equipment bookings, sample analysis, and writing help follow the provider’s terms shown at request. Help and consultation mean review, guidance, and proofreading of text the researcher wrote. Neither the app nor the provider writes the thesis or paper in place of the researcher. The researcher remains responsible for originality and institutional rules.',
         ),
         LegalSection(
-          title: isAr ? '8. المساعد الذكي' : '8. AI advisor',
+          title: isAr ? '8. المساعد الأكاديمي' : '8. Academic Assistant',
           body: isAr
-              ? 'مخرجات الذكاء الاصطناعي إرشادية وقد تحتوي أخطاء. لا تعتمد عليها وحدها في قرارات أكاديمية أو طبية أو قانونية حرجة. أنت مسؤول عن مراجعة المحتوى قبل استخدامه في رسائل أو أبحاث.'
-              : 'AI outputs are guidance and may contain errors. Do not rely on them alone for critical academic, medical, or legal decisions. You must review content before using it in theses or research.',
+              ? 'مخرجات المساعد الأكاديمي إرشادية وقد تحتوي أخطاء. لا تعتمد عليها وحدها في قرارات أكاديمية أو طبية أو قانونية حرجة. أنت مسؤول عن مراجعة المحتوى قبل استخدامه في رسائل أو أبحاث.'
+              : 'Academic Assistant outputs are guidance and may contain errors. Do not rely on them alone for critical academic, medical, or legal decisions. You must review content before using it in theses or research.',
         ),
         LegalSection(
           title: isAr ? '9. المحتوى والملكية الفكرية' : '9. Content & IP',

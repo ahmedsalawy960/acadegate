@@ -73,13 +73,21 @@ class ResearchIdeasSyncService {
     return snap.data();
   }
 
-  Future<ResearchIdeasSyncResult> syncNow({bool autoApprove = true}) async {
+  Future<ResearchIdeasSyncResult> syncNow({
+    bool autoApprove = true,
+    String scope = 'all',
+  }) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       throw Exception(appTr('يجب تسجيل الدخول', 'Sign in required'));
     }
 
-    final payload = <String, dynamic>{'autoApprove': autoApprove};
+    final normalizedScope =
+        scope.trim().toLowerCase() == 'humanities' ? 'humanities' : 'all';
+    final payload = <String, dynamic>{
+      'autoApprove': autoApprove,
+      'scope': normalizedScope,
+    };
 
     // Windows cloud_functions pigeon channel often fails; use HTTP like geminiAdvisor.
     if (_preferHttpCallable) {
@@ -110,6 +118,14 @@ class ResearchIdeasSyncService {
       }
       rethrow;
     }
+  }
+
+  Future<DateTime?> loadLastHumanitiesSyncAt() async {
+    final snap =
+        await _db.doc('app_meta/research_ideas_sync_humanities').get();
+    final raw = snap.data()?['syncedAt'];
+    if (raw is Timestamp) return raw.toDate();
+    return null;
   }
 
   Future<ResearchIdeasSyncResult> _syncViaHttp(

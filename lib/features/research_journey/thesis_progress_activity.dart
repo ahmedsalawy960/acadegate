@@ -107,14 +107,18 @@ class ThesisActivityCatalog {
     ThesisActivityId.dataCollection: ThesisActivityAdvice(
       titleAr: 'جمع البيانات',
       titleEn: 'Data collection',
-      tipAr: 'احجز مختبراً أو أرسل عينات للتحليل من قسم المختبرات.',
-      tipEn: 'Book a lab or send samples for analysis from the labs section.',
+      tipAr:
+          'ميدان أدبي/تربوي: استبانة ومقابلات وأرشيف عبر بوابة البحث الإنساني (بلا عينات معملية). '
+          'علمي: مختبرات وتحليل عينات — أو شاشة اختيار إن لم تُحدد الكلية.',
+      tipEn:
+          'Humanities/education field: surveys, interviews, archives via the humanities portal (no lab samples). '
+          'STEM: labs & sample analysis — or a chooser if faculty is unset.',
     ),
     ThesisActivityId.chapterWriting: ThesisActivityAdvice(
       titleAr: 'كتابة الفصول',
       titleEn: 'Writing chapters',
-      tipAr: 'اكتب في استوديو الرسالة أو عبر Publish / خدمات الكتابة.',
-      tipEn: 'Write in Thesis Studio, or via Publish / writing services.',
+      tipAr: 'اكتب في استوديو الرسالة، أو اطلب مساعدة واستشارة من قسم الكتابة.',
+      tipEn: 'Write in Thesis Studio, or request writing help and consultation.',
     ),
     ThesisActivityId.thesisStudio: ThesisActivityAdvice(
       titleAr: 'استوديو الرسالة',

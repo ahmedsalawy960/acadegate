@@ -19,6 +19,10 @@ class ReadableText {
     var t = _stripLatex(raw);
     t = t.replaceAll(RegExp(r'```[\s\S]*?```'), ' ');
     t = t.replaceAllMapped(RegExp(r'`([^`]+)`'), (m) => m.group(1) ?? '');
+    t = t.replaceAll(
+      RegExp(r'\s*[\(\[]\s*question\s*[\)\]]', caseSensitive: false),
+      ' ',
+    );
     t = t.replaceAll(RegExp(r'\s+'), ' ').trim();
     return t;
   }

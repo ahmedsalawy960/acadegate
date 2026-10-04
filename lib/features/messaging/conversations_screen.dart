@@ -150,7 +150,7 @@ class ConversationsScreen extends StatelessWidget {
                             'لا توجد محادثات بعد',
                             'No conversations yet',
                           ),
-                          style: TextStyle(color: Colors.grey[600]),
+                          style: TextStyle(color: const Color(0xFFB7C3D6)),
                         ),
                         const SizedBox(height: 8),
                         Padding(
@@ -163,7 +163,7 @@ class ConversationsScreen extends StatelessWidget {
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 12,
-                              color: Colors.grey[600],
+                              color: const Color(0xFFB7C3D6),
                               height: 1.4,
                             ),
                           ),

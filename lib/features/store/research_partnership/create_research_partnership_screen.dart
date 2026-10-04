@@ -124,7 +124,7 @@ class _CreateResearchPartnershipScreenState
         title: Text(
           context.t('شراكة بحثية من السلة', 'Research partnership from cart'),
         ),
-        backgroundColor: StoreTheme.ink,
+        backgroundColor: StoreTheme.appBar,
         foregroundColor: Colors.white,
       ),
       body: ListView(

@@ -81,9 +81,11 @@ exports.storeProductDiscover = storeProductDiscover;
 const { createResearchIdeasSyncHandlers } = require("./research_ideas_sync");
 const {
   researchIdeasSyncWeekly,
+  researchIdeasSyncHumanitiesWeekly,
   researchIdeasSyncNow,
 } = createResearchIdeasSyncHandlers(geminiApiKey);
 exports.researchIdeasSyncWeekly = researchIdeasSyncWeekly;
+exports.researchIdeasSyncHumanitiesWeekly = researchIdeasSyncHumanitiesWeekly;
 exports.researchIdeasSyncNow = researchIdeasSyncNow;
 
 const { onStoreOrderPaidHeld } = createStoreOrderStatsHandlers();

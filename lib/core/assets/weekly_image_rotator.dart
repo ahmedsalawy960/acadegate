@@ -37,6 +37,10 @@ class AcadeGateWeeklyImages {
       '$_feat/feat_supervisors_w2.png',
     ],
     'feat_labs': ['$_feat/feat_labs_w1.png', '$_feat/feat_labs_w2.png'],
+    'feat_humanities': [
+      '$_feat/feat_writing_w1.png',
+      '$_feat/feat_thesis_w1.png',
+    ],
     'feat_ai': ['$_feat/feat_ai_w1.png', '$_feat/feat_ai_w2.png'],
     'feat_escrow': ['$_feat/feat_escrow_w1.png', '$_feat/feat_escrow_w2.png'],
     'feat_writing': ['$_feat/feat_writing_w1.png', '$_feat/feat_writing_w2.png'],
@@ -71,6 +75,10 @@ class AcadeGateWeeklyImages {
       '$_svc/svc_research_path_w2.png',
     ],
     'labs': ['$_svc/svc_labs_w1.png', '$_svc/svc_labs_w2.png'],
+    'humanities': [
+      '$_svc/svc_writing_w1.png',
+      '$_svc/svc_thesis_w1.png',
+    ],
     'store': ['$_svc/svc_store_w1.png', '$_svc/svc_store_w2.png'],
     'community': ['$_svc/svc_community_w1.png', '$_svc/svc_community_w2.png'],
     'ai': ['$_svc/svc_ai_w1.png', '$_svc/svc_ai_w2.png'],

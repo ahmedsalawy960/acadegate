@@ -189,7 +189,7 @@ class _ProfessionalStudiesHubScreenState
                       LocaleService.instance.isEnglish
                           ? institution.nameEn
                           : institution.nameAr,
-                      style: TextStyle(color: Colors.grey.shade700),
+                      style: TextStyle(color: const Color(0xFFB7C3D6)),
                     ),
                     if (!institution.isPartnered) ...[
                       const SizedBox(height: 10),
@@ -611,7 +611,7 @@ class _ProgramCard extends StatelessWidget {
             Text(
               summary,
               style: TextStyle(
-                color: Colors.grey.shade800,
+                color: const Color(0xFFB7C3D6),
                 height: 1.5,
                 fontSize: 13.2,
               ),
@@ -641,7 +641,7 @@ class _ProgramCard extends StatelessWidget {
                 context.t('يُقدَّم لدى:', 'Offered at:'),
                 style: TextStyle(
                   fontSize: 12,
-                  color: Colors.grey.shade700,
+                  color: const Color(0xFFB7C3D6),
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -750,7 +750,7 @@ class _InstitutionCard extends StatelessWidget {
                       Text(
                         '$type · ${institution.city}',
                         style: TextStyle(
-                          color: Colors.grey.shade700,
+                          color: const Color(0xFFB7C3D6),
                           fontSize: 12.5,
                         ),
                       ),
@@ -787,7 +787,7 @@ class _InstitutionCard extends StatelessWidget {
               style: TextStyle(
                 height: 1.5,
                 fontSize: 13.2,
-                color: Colors.grey.shade800,
+                color: const Color(0xFFB7C3D6),
               ),
             ),
             const SizedBox(height: 10),
@@ -845,7 +845,7 @@ class _InstitutionCard extends StatelessWidget {
                     if (institution.phone.isNotEmpty) institution.phone,
                     if (institution.email.isNotEmpty) institution.email,
                   ].join(' · '),
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                  style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
                 ),
               ),
           ],

@@ -139,7 +139,7 @@ class _CreateCommunityPostScreenState extends State<CreateCommunityPostScreen> {
           children: [
             Icon(
               PostAudienceScope.icon(value),
-              color: selected ? widget.room.color : Colors.grey[700],
+              color: selected ? widget.room.color : const Color(0xFFB7C3D6),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -156,7 +156,7 @@ class _CreateCommunityPostScreenState extends State<CreateCommunityPostScreen> {
                   const SizedBox(height: 2),
                   Text(
                     subtitle,
-                    style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                    style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
                   ),
                 ],
               ),
@@ -279,7 +279,7 @@ class _CreateCommunityPostScreenState extends State<CreateCommunityPostScreen> {
                   'سيُحفظ في غرفة «عام» ويظهر أيضاً داخل غرف التخصص.',
                   'Saved in the General room and also shown in faculty rooms.',
                 ),
-                style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
               ),
             ],
             const SizedBox(height: 14),

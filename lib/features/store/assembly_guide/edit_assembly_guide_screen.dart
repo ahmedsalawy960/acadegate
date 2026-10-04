@@ -372,12 +372,12 @@ class _EditAssemblyGuideScreenState extends State<EditAssemblyGuideScreen> {
                 const SizedBox(height: 8),
                 Text(
                   context.t(
-                    'املأ الخطوات يدوياً أو ولّدها بالذكاء الاصطناعي، ثم أنشئ فيديو '
+                    'املأ الخطوات يدوياً أو ولّدها، ثم أنشئ فيديو '
                     'دليل الاستخدام الذي يتبع الخطوات مع شرح صوتي.',
-                    'Fill the steps yourself or generate them with AI, then create a '
+                    'Fill the steps yourself or generate them, then create a '
                     'usage-guide video that follows the steps with spoken explanation.',
                   ),
-                  style: TextStyle(color: Colors.grey.shade700, height: 1.4),
+                  style: TextStyle(color: StoreTheme.muted, height: 1.4),
                 ),
                 const SizedBox(height: 12),
                 Container(
@@ -420,7 +420,7 @@ class _EditAssemblyGuideScreenState extends State<EditAssemblyGuideScreen> {
                                   color: Colors.white,
                                 ),
                               )
-                            : const Icon(Icons.auto_awesome),
+                            : const Icon(Icons.playlist_add),
                         label: Text(
                           context.t(
                             'ولّد الخطوات + فيديو الدليل',
@@ -473,7 +473,7 @@ class _EditAssemblyGuideScreenState extends State<EditAssemblyGuideScreen> {
                           _aiNotes!.trim(),
                           style: TextStyle(
                             fontSize: 12,
-                            color: Colors.grey.shade800,
+                            color: StoreTheme.muted,
                             height: 1.35,
                           ),
                         ),

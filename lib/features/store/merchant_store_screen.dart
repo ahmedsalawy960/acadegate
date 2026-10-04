@@ -84,7 +84,7 @@ class _MerchantStoreScreenState extends State<MerchantStoreScreen>
                     'ثم أضف المنتج — يمكنك إضافة أكثر من منتج من هذه الصفحة',
                     'Then add the product — you can add more from this page',
                   ),
-                  style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                  style: TextStyle(color: StoreTheme.muted, fontSize: 13),
                 ),
                 const SizedBox(height: 12),
                 ConstrainedBox(
@@ -344,7 +344,7 @@ class _MyProductsTab extends StatelessWidget {
                       'Add your first product, then keep adding more here',
                     ),
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey[600]),
+                    style: TextStyle(color: StoreTheme.muted),
                   ),
                   const SizedBox(height: 24),
                   FilledButton.icon(
@@ -434,7 +434,7 @@ class _MyProductsTab extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       '${_formatPrice(price)}${category.isNotEmpty ? ' · $category' : ''}',
-                      style: TextStyle(color: Colors.grey[700], fontSize: 13),
+                      style: TextStyle(color: StoreTheme.muted, fontSize: 13),
                     ),
                     if (storeName.isNotEmpty)
                       Text(
@@ -587,7 +587,7 @@ class _SellerOrdersTab extends StatelessWidget {
           return Center(
             child: Text(
               context.t('لا توجد طلبات شراء بعد', 'No purchase orders yet'),
-              style: TextStyle(color: Colors.grey[600]),
+              style: TextStyle(color: StoreTheme.muted),
             ),
           );
         }
@@ -723,7 +723,7 @@ class _SellerOrderCard extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               '${order.buyerName} · ${order.price} ${appTr('ج.م', 'EGP')}',
-              style: TextStyle(color: Colors.grey[700]),
+              style: TextStyle(color: StoreTheme.muted),
             ),
             const SizedBox(height: 8),
             Wrap(

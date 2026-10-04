@@ -21,6 +21,7 @@ class SectionGuideCatalog {
   static const String integrity = 'integrity';
   static const String fund = 'fund';
   static const String news = 'news';
+  static const String humanities = 'humanities';
 
   static SectionGuide? byId(String id) {
     switch (id) {
@@ -52,6 +53,8 @@ class SectionGuideCatalog {
         return SectionGuideCatalogRest.fundGuide;
       case news:
         return SectionGuideCatalogRest.newsGuide;
+      case humanities:
+        return SectionGuideCatalogRest.humanitiesGuide;
       default:
         return null;
     }
@@ -461,16 +464,18 @@ class SectionGuideCatalog {
 
   static const SectionGuide writingGuide = SectionGuide(
     id: writing,
-    titleAr: 'دليل خدمات الكتابة الأكاديمية',
-    titleEn: 'Academic writing services guide',
+    titleAr: 'دليل المساعدة والاستشارة في الكتابة',
+    titleEn: 'Writing help and consultation guide',
     introAr:
-        'هذا القسم لطلب كتابة/تحرير بشري متخصص (كاتب حقيقي)، وليس لاستبدال رسالتك بذكاء اصطناعي. '
-        'تختار نوع الخدمة → تضع متطلباتك → تحجز مع خبير. '
-        'هناك أيضاً أدوات مساعدة بجانب الكاتب (مستشار ذكي، محاكي مناقشة، إحصاء).',
+        'هذا القسم لمساعدة الباحث واستشارته في كتابة الرسائل والأبحاث. '
+        'الباحث يكتب نصه. المستشار يراجع ويوجّه وفق لوائح الجامعة. '
+        'تختار نوع المساعدة → توضّح ما كتبته → تطلب استشارة. '
+        'هناك أيضاً أدوات مساعدة للباحث (المساعد الأكاديمي، محاكي المناقشة، الإحصاء).',
     introEn:
-        'This section books specialist human writing/editing — not AI replacing your thesis. '
-        'Choose a service type → set requirements → book an expert. '
-        'Companion tools (AI advisor, viva practice, stats wizard) sit alongside.',
+        'This section helps and consults researchers on theses and papers. '
+        'You write the text. The consultant reviews and guides you under university rules. '
+        'Choose the kind of help → describe what you wrote → request a consultation. '
+        'Researcher tools (Academic Assistant, viva practice, stats wizard) are also here.',
     steps: [
       SectionGuideStep(
         icon: Icons.login,
@@ -483,31 +488,31 @@ class SectionGuideCatalog {
       ),
       SectionGuideStep(
         icon: Icons.edit_note,
-        titleAr: '٢) افتح خدمات الكتابة',
-        titleEn: '2) Open writing services',
+        titleAr: '٢) افتح مساعدة الكتابة',
+        titleEn: '2) Open writing help',
         bodyAr:
-            'من الرئيسية ادخل «خدمات الكتابة الأكاديمية».\n'
-            'اقرأ الشريط التوضيحي: الخدمة بشرية متخصصة.',
+            'من الرئيسية ادخل «مساعدة الكتابة».\n'
+            'اقرأ الشريط: المساعدة والاستشارة، والكتابة تبقى للباحث.',
         bodyEn:
-            'From Home open «Academic writing services».\n'
-            'Read the banner: this is specialist human work.',
+            'From Home open «Writing help».\n'
+            'Read the banner: help and consultation; you remain the author.',
       ),
       SectionGuideStep(
         icon: Icons.build_outlined,
         titleAr: '٣) أدوات مساعدة (اختيارية قبل الطلب)',
         titleEn: '3) Companion tools (optional before ordering)',
         bodyAr:
-            '• راجع بالذكاء: مسودة ملاحظات من المساعد الأكاديمي — للمساعدة لا للتسليم النهائي للجامعة.\n'
+            '• مراجعة أكاديمية: مسودة ملاحظات من المساعد الأكاديمي — للمساعدة لا للتسليم النهائي للجامعة.\n'
             '• تمرّن للمناقشة: أسئلة لجنة وهمية.\n'
             '• معالج الافتراضات الإحصائية: تطبيع/قوة عينة وإرشادات SPSS/R.\n'
-            '• مطابقة كاتب: اقتراح كاتب حسب تخصصك ولغتك.\n'
-            'هذه الأدوات لا تلغي الحاجة لطلب رسمي من الأقسام أدناه إن أردت كاتباً.',
+            '• مطابقة مستشار: اقتراح مستشار حسب تخصصك ولغتك.\n'
+            'هذه الأدوات مساعدة على نصك. إن أردت مراجعة بشرية اطلب استشارة من الأقسام أدناه.',
         bodyEn:
-            '• Review with AI: feedback drafts — help only, not a final university submission.\n'
+            '• Academic review: feedback drafts — help only, not a final university submission.\n'
             '• Practice viva: mock committee questions.\n'
             '• Statistical assumptions wizard: normality/power and SPSS/R guidance.\n'
-            '• Match a writer: suggestions by specialty and language.\n'
-            'Tools do not replace a formal order if you need a human writer.',
+            '• Match a consultant: suggestions by specialty and language.\n'
+            'These tools help with your own text. Request a consultation below for a human review.',
       ),
       SectionGuideStep(
         icon: Icons.grid_view_outlined,
@@ -515,8 +520,8 @@ class SectionGuideCatalog {
         titleEn: '4) Choose a service type',
         bodyAr:
             'من شبكة الأقسام اختر ما تحتاجه، مثلاً:\n'
-            'أوراق بحثية · رسائل علمية · إحصاء وتحليل · مراجعة أدبيات · '
-            'مقترحات بحث · تحرير وتدقيق · تنسيق وتوثيق · ترجمة علمية.\n'
+            'مساعدة في الأوراق · استشارة الرسائل · استشارة إحصائية · مراجعة الأدبيات · '
+            'خطة البحث · تدقيق لغوي · تنسيق وتوثيق · ترجمة نصك.\n'
             'يمكنك البحث أعلى الصفحة بكلمات مثل «إحصاء» أو «ترجمة».',
         bodyEn:
             'From the category grid pick what you need, e.g.:\n'
@@ -529,13 +534,13 @@ class SectionGuideCatalog {
         titleAr: '٥) اختر خبيراً أو انشر احتياجك',
         titleEn: '5) Pick an expert or publish a need',
         bodyAr:
-            'بعد فتح القسم ستظهر قائمة خبراء/خدمات أو مسار لطلب جديد.\n'
-            'اقرأ ملف الكاتب: التخصص، اللغة، الأدوات.\n'
-            'إن كنت كاتباً محترفاً: قد ترى خيار نشر خدمتك — ذلك للمقدّمين لا للطلاب طالبي الخدمة.',
+            'بعد فتح القسم تظهر قائمة مستشارين.\n'
+            'اقرأ الملف: التخصص، اللغة، ونوع المساعدة.\n'
+            'إن كنت مستشار كتابة: نشر الخدمة لمقدمي الاستشارة، والباحث يبقى صاحب النص.',
         bodyEn:
-            'After opening a category you see experts/services or a new-order path.\n'
-            'Read the writer profile: specialty, language, tools.\n'
-            'If you are a professional writer: publishing your service is for providers, not student buyers.',
+            'After opening a category you see consultants.\n'
+            'Read the profile: specialty, language, and kind of help.\n'
+            'If you consult on writing: publishing a service is for consultants, and the researcher stays the author.',
       ),
       SectionGuideStep(
         icon: Icons.description_outlined,
@@ -543,12 +548,12 @@ class SectionGuideCatalog {
         titleEn: '6) Write clear requirements',
         bodyAr:
             'حدّد: اللغة، عدد الكلمات/الصفحات التقريبي، الموعد، أسلوب التوثيق (APA/IEEE…)، '
-            'وما هو الممنوع (مثلاً لا تريد إعادة صياغة كاملة إن كان المطلوب تدقيقاً فقط).\n'
-            'أرفق ملفاً إن طُلب. كن صادقاً بخصوص نسبة العمل المطلوبة من الكاتب.',
+            'وما تريده من المستشار (ملاحظات، تدقيق، تفسير نتائج) على نص كتبته أنت.\n'
+            'أرفق ملفك. لا تطلب كتابة البحث بدلاً منك.',
         bodyEn:
             'Specify: language, approx. words/pages, deadline, citation style (APA/IEEE…), '
-            'and boundaries (e.g. proofreading only vs full rewrite).\n'
-            'Attach a file if asked. Be honest about how much you need the writer to do.',
+            'and what you want from the consultant (notes, proofreading, interpretation) on text you wrote.\n'
+            'Attach your file. Do not ask anyone to write the research instead of you.',
       ),
       SectionGuideStep(
         icon: Icons.receipt_long_outlined,
@@ -556,10 +561,10 @@ class SectionGuideCatalog {
         titleEn: '7) Track orders under My orders',
         bodyAr:
             'أيقونة الإيصال أعلى الشاشة تفتح طلباتك: الحالة، الردود، والتسليمات.\n'
-            'لا تغلق المحادثة مع الكاتب داخل التطبيق إن وُجدت — استخدمها للتعديلات.',
+            'استخدم المحادثة مع المستشار لمتابعة الملاحظات على نصك.',
         bodyEn:
-            'The receipt icon opens your orders: status, replies, deliveries.\n'
-            'Keep using in-app chat with the writer for revisions when available.',
+            'The receipt icon opens your requests: status, replies, and notes.\n'
+            'Use in-app chat with the consultant to follow up on feedback on your text.',
       ),
     ],
     notes: [
@@ -567,9 +572,9 @@ class SectionGuideCatalog {
         titleAr: 'الأمانة العلمية',
         titleEn: 'Academic integrity',
         bodyAr:
-            'أنت المسؤول أمام جامعتك. استخدم الكتابة البشرية للمساعدة المشروعة (تحرير، ترجمة، إحصاء) وفق لوائح مؤسستك.',
+            'أنت صاحب النص والمسؤول أمام جامعتك. الخدمة مساعدة واستشارة (مراجعة، تدقيق، ترجمة نصك، تفسير إحصائي) وفق لوائح مؤسستك.',
         bodyEn:
-            'You remain responsible to your university. Use human writing help within your institution’s rules.',
+            'You are the author and remain responsible to your university. The service is help and consultation (review, proofreading, translation of your text, statistical interpretation) under your institution’s rules.',
       ),
       SectionGuideNote(
         titleAr: 'الدعم',

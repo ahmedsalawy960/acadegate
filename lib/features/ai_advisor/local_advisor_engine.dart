@@ -243,7 +243,7 @@ class LocalAdvisorEngine {
           '| تجريبية | 4.2 | 0.6 | 2.31 | 0.023 |\n'
           '| ضابطة | 3.7 | 0.7 | — | — |\n\n'
           '**تفسير:** الفرق ذو دلالة إحصائية عند مستوى 0.05. '
-          'فعّل AcadeGate AI السحابي لمحاكاة أدق حسب منهجيتك.',
+          'سجّل الدخول لمحاكاة أدق حسب منهجيتك.',
       '⚠️ Hypothetical results for training only — not real data.\n\n'
           '**Hypotheses:**\n'
           'H1: There is a positive relationship between $topic and performance.\n'
@@ -254,7 +254,7 @@ class LocalAdvisorEngine {
           '| Experimental | 4.2 | 0.6 | 2.31 | 0.023 |\n'
           '| Control | 3.7 | 0.7 | — | — |\n\n'
           '**Interpretation:** The difference is statistically significant at the 0.05 level. '
-          'Enable cloud AcadeGate AI for more accurate simulation based on your methodology.',
+          'Sign in for a closer simulation based on your methodology.',
     );
   }
 

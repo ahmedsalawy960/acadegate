@@ -255,7 +255,7 @@ class ContributorHubScreen extends StatelessWidget {
               if (_canPublishIdea(account.role) || account.isAdmin)
                 _actionTile(
                   context,
-                  icon: Icons.auto_awesome_outlined,
+                  icon: Icons.lightbulb_outline,
                   title: context.t(
                     'أفكار بحثية — نشر ومزامنة',
                     'Research ideas — publish & sync',
@@ -397,7 +397,7 @@ class ContributorHubScreen extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       child: ListTile(
-        leading: Icon(icon, color: const Color(0xFF1A237E)),
+        leading: Icon(icon, color: const Color(0xFFF4F7FB)),
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
         subtitle: Text(subtitle),
         trailing: const Icon(Icons.arrow_forward_ios, size: 14),
@@ -462,7 +462,7 @@ class _MyPendingListState extends State<_MyPendingList> {
               'لا توجد طلبات معلقة حالياً',
               'No pending submissions right now',
             ),
-            style: TextStyle(color: Colors.grey[600]),
+            style: TextStyle(color: const Color(0xFFB7C3D6)),
           );
         }
 

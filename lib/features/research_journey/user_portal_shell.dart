@@ -43,7 +43,7 @@ class _UserPortalShellState extends State<UserPortalShell> {
     if (_loading) {
       return const Scaffold(
         body: Center(
-          child: CircularProgressIndicator(color: Color(0xFF1A237E)),
+          child: CircularProgressIndicator(color: Color(0xFFF4F7FB)),
         ),
       );
     }

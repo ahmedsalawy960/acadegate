@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/assets/weekly_image_rotator.dart';
+import '../../core/theme/acadegate_theme.dart';
 import '../../core/widgets/section_cover_image.dart';
 
 /// صور أقسام الصفحة الرئيسية — أصلية من مجلد التطبيق وتتبدل أسبوعياً.
@@ -13,6 +14,7 @@ class HomeServiceImages {
   static String get researchPath =>
       AcadeGateWeeklyImages.service('research_path');
   static String get labs => AcadeGateWeeklyImages.service('labs');
+  static String get humanities => AcadeGateWeeklyImages.service('humanities');
   static String get shop => AcadeGateWeeklyImages.service('store');
   static String get community => AcadeGateWeeklyImages.service('community');
   static String get aiAdvisor => AcadeGateWeeklyImages.service('ai');
@@ -50,7 +52,7 @@ class DashboardCard extends StatelessWidget {
         final imageHeight = (constraints.maxWidth * 0.62).clamp(96.0, 112.0);
 
         return Card(
-          color: Colors.white,
+          color: const Color(0xFF12284F),
           surfaceTintColor: Colors.transparent,
           elevation: 1.5,
           shadowColor: const Color(0x1A000000),
@@ -80,7 +82,7 @@ class DashboardCard extends StatelessWidget {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Icon(icon, size: 17, color: color),
+                        Icon(icon, size: 17, color: acadegateInk(color)),
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
@@ -91,6 +93,7 @@ class DashboardCard extends StatelessWidget {
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
                               height: 1.25,
+                              color: Color(0xFFF4F7FB),
                             ),
                           ),
                         ),
@@ -189,7 +192,7 @@ class _ServiceImage extends StatelessWidget {
   Widget _iconFallback() {
     return Container(
       color: color.withValues(alpha: 0.12),
-      child: Icon(icon, color: color, size: 32),
+      child: Icon(icon, color: acadegateInk(color), size: 32),
     );
   }
 }

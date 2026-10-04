@@ -237,7 +237,7 @@ class VendorShopScreen extends StatelessWidget {
                                 const SizedBox(height: 8),
                                 Text(
                                   '${context.t('المدينة', 'City')}: $cities',
-                                  style: TextStyle(color: Colors.grey[800]),
+                                  style: TextStyle(color: StoreTheme.muted),
                                 ),
                               ],
                               const SizedBox(height: 12),
@@ -463,7 +463,7 @@ class VendorShopScreen extends StatelessWidget {
                                   'Escrow checkout inside AcadeGate when priced on a Partner account. Public directory items use direct contact and are not a company endorsement.',
                                 ),
                                 style: TextStyle(
-                                  color: Colors.grey[700],
+                                  color: StoreTheme.muted,
                                   height: 1.4,
                                   fontSize: 13,
                                 ),

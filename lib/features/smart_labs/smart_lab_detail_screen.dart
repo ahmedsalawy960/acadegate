@@ -355,7 +355,7 @@ class _SmartLabDetailScreenState extends State<SmartLabDetailScreen> {
             style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.bold,
-              color: Colors.purple[900],
+              color: const Color(0xFFF4F7FB),
             ),
           ),
           const SizedBox(height: 8),
@@ -430,7 +430,7 @@ class _SmartLabDetailScreenState extends State<SmartLabDetailScreen> {
               ].join(),
               style: TextStyle(
                 fontSize: 12,
-                color: Colors.grey[700],
+                color: const Color(0xFFB7C3D6),
                 height: 1.35,
               ),
             ),
@@ -448,18 +448,22 @@ class _SmartLabDetailScreenState extends State<SmartLabDetailScreen> {
               padding: const EdgeInsets.only(top: 4),
               child: Text(
                 lab.university,
-                style: TextStyle(color: Colors.grey[600]),
+                style: TextStyle(color: const Color(0xFFB7C3D6)),
               ),
             ),
           if (lab.hasFacultyLink)
             Padding(
               padding: const EdgeInsets.only(top: 6),
               child: Chip(
-                avatar: Icon(Icons.school, size: 16, color: Colors.purple[800]),
+                avatar: const Icon(Icons.school, size: 16, color: Color(0xFF4A148C)),
                 label: Text(
                   context.t(
                     '${lab.displayFacultyName} — مرتبط',
                     '${lab.displayFacultyName} — linked',
+                  ),
+                  style: const TextStyle(
+                    color: Color(0xFF4A148C),
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 backgroundColor: Colors.purple[50],
@@ -743,7 +747,7 @@ class _SmartLabDetailScreenState extends State<SmartLabDetailScreen> {
                       'لا توجد تقييمات بعد — كن أول من يقيّم',
                       'No ratings yet — be the first to rate',
                     ),
-                    style: TextStyle(color: Colors.grey[600]),
+                    style: TextStyle(color: const Color(0xFFB7C3D6)),
                   );
                 }
 
@@ -803,7 +807,7 @@ class _SmartLabDetailScreenState extends State<SmartLabDetailScreen> {
             'التقييمات الحية متاحة بعد ربط المختبر بـ Firebase',
             'Live ratings are available after linking the lab to Firebase',
           ),
-          style: TextStyle(color: Colors.grey[600]),
+          style: TextStyle(color: const Color(0xFFB7C3D6)),
         ),
       ];
     }
@@ -848,7 +852,13 @@ class _SmartLabDetailScreenState extends State<SmartLabDetailScreen> {
       margin: const EdgeInsets.only(bottom: 10),
       color: Colors.purple[50],
       child: ListTile(
-        title: Text(service.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(
+          service.name,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF1C1917),
+          ),
+        ),
         subtitle: Text(
           [
             if (service.description.isNotEmpty) service.description,
@@ -867,6 +877,7 @@ class _SmartLabDetailScreenState extends State<SmartLabDetailScreen> {
                 'Samples: ${service.sampleTypes.join(', ')}',
               ),
           ].join('\n'),
+          style: const TextStyle(color: Color(0xFF44403C)),
         ),
         isThreeLine: true,
         trailing: Row(
@@ -1033,9 +1044,9 @@ class _SmartLabDetailScreenState extends State<SmartLabDetailScreen> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 16, color: Colors.grey[700]),
+        Icon(icon, size: 16, color: const Color(0xFFB7C3D6)),
         const SizedBox(width: 4),
-        Text(text, style: TextStyle(color: Colors.grey[800], fontSize: 13)),
+        Text(text, style: TextStyle(color: const Color(0xFFB7C3D6), fontSize: 13)),
       ],
     );
   }
@@ -1099,6 +1110,10 @@ class _SmartLabDetailScreenState extends State<SmartLabDetailScreen> {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: _isSubmittingRating ? null : _submitRating,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFBBF24),
+                  foregroundColor: const Color(0xFF071433),
+                ),
                 child: Text(
                   _isSubmittingRating
                       ? context.t('جارٍ الحفظ...', 'Saving...')

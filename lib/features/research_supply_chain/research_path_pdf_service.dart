@@ -141,7 +141,7 @@ class ResearchPathPdfService {
           if (insight != null &&
               (insight.analysis.trim().isNotEmpty ||
                   insight.researchPlan.trim().isNotEmpty)) {
-            heading(appTr('تحليل الذكاء الاصطناعي', 'AI analysis'));
+            heading(appTr('ملاحظات على الخطة', 'Notes on the plan'));
             if (insight.analysis.trim().isNotEmpty) {
               line(insight.analysis);
             }

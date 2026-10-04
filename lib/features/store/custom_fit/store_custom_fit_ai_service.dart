@@ -35,8 +35,8 @@ class StoreCustomFitAiService {
     if (!GeminiAdvisorClient.isAvailable) {
       return DiagramExtractResult(
         error: appTr(
-          'سجّل الدخول لاستخدام تحليل الصورة، أو أضف مفتاح Gemini محلياً.',
-          'Sign in for image analysis, or add a local Gemini key.',
+          'سجّل الدخول لتحليل الصورة.',
+          'Sign in to analyze the image.',
         ),
       );
     }
@@ -84,8 +84,8 @@ Do not invent brand names not visible in the image.
         error: result.error?.trim().isNotEmpty == true
             ? result.error!
             : appTr(
-                'تعذر تحليل الصورة من خدمة الذكاء الاصطناعي (تحقق من رصيد Gemini أو أعد المحاولة).',
-                'AI could not analyze the image (check Gemini quota or retry).',
+                'تعذر تحليل الصورة. أعد المحاولة.',
+                'The image could not be analyzed. Try again.',
               ),
       );
     }
@@ -122,8 +122,8 @@ Do not invent brand names not visible in the image.
           requirements: const CustomFitRequirements(),
           error: fromImage.error ??
               appTr(
-                'لتحليل الرسم فقط سجّل الدخول لاستخدام الذكاء الاصطناعي، أو اكتب وصفاً قصيراً.',
-                'To analyze an image alone, sign in for AI, or type a short description.',
+                'لتحليل الرسم فقط سجّل الدخول، أو اكتب وصفاً قصيراً.',
+                'To analyze an image alone, sign in, or type a short description.',
               ),
         );
       }
@@ -141,8 +141,8 @@ Do not invent brand names not visible in the image.
         specsText: trimmed,
         candidates: candidates,
         note: appTr(
-          'سجّل الدخول أو فعّل Gemini لتحليل أدق للرسم والمواصفات.',
-          'Sign in or enable Gemini for deeper diagram/spec analysis.',
+          'سجّل الدخول لتحليل أدق للرسم والمواصفات.',
+          'Sign in for a closer reading of the diagram and specs.',
         ),
       );
     }
@@ -190,7 +190,7 @@ Do not invent brand names not visible in the image.
         specsText: trimmed,
         candidates: candidates,
         note: result.error ??
-            appTr('تعذر تحليل الطلب بالذكاء الاصطناعي', 'AI analysis failed'),
+            appTr('تعذر تحليل الطلب', 'The request could not be analyzed'),
       );
     }
 
@@ -201,7 +201,7 @@ Do not invent brand names not visible in the image.
         candidates: candidates,
         note: appTr(
           'تعذر قراءة نتيجة التحليل — عُرضت مطابقة محلية.',
-          'Could not parse AI result — showing local matches.',
+          'Could not read the analysis — showing local matches.',
         ),
       );
     }

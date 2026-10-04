@@ -380,8 +380,8 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
         SnackBar(
           content: Text(
             context.t(
-              'اختر الكلية والقسم بالأعلى (أو أكمل الملف الأكاديمي) حتى يجلب الذكاء الاصطناعي مراجع تخصصك فقط.',
-              'Select faculty and department above (or complete your academic profile) so AI fetches sources from your discipline only.',
+              'اختر الكلية والقسم بالأعلى (أو أكمل الملف الأكاديمي) حتى تُجلب مراجع تخصصك فقط.',
+              'Select faculty and department above (or complete your academic profile) so sources stay in your discipline.',
             ),
           ),
         ),
@@ -1037,7 +1037,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
                 borderRadius: BorderRadius.circular(12),
               ),
               alignLabelWithHint: true,
-              prefixIcon: const Icon(Icons.edit_note, color: _brand),
+              prefixIcon: const Icon(Icons.edit_note, color: const Color(0xFF93C5FD)),
             ),
           ),
           const SizedBox(height: 12),
@@ -1142,7 +1142,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
               'APA/Harvard/Chicago: يظهر داخل النص (مؤلف، سنة) من القائمة المؤكدة. IEEE/Vancouver: [n]. النموذج يكتب [n] حتى لا يختلق أسماء. أوامر عربية تُترجم تلقائياً إلى استعلامات إنجليزية للفهارس العلمية.',
               'APA/Harvard/Chicago: in-text shows (Author, Year) from the confirmed list. IEEE/Vancouver: [n]. The model writes [n] so it cannot invent names. Arabic commands are auto-translated into English scholarly search queries.',
             ),
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade700, height: 1.35),
+            style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6), height: 1.35),
           ),
           const SizedBox(height: 8),
           Text(
@@ -1150,7 +1150,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
               'حجم المسودة: $_targetPages صفحة (≈ ${ThesisLengthBudget.totalWords(_targetPages)} كلمة). الافتراضي 40، والحد 80. المقدمة والأدبيات تتوسعان؛ النتائج تبقى جداول فارغة.',
               'Draft length: $_targetPages pages (≈ ${ThesisLengthBudget.totalWords(_targetPages)} words). Default 40, max 80. Introduction and literature expand; results stay empty tables.',
             ),
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade700, height: 1.4),
+            style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6), height: 1.4),
           ),
           Wrap(
             spacing: 8,
@@ -1228,7 +1228,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
                     ? 'Draft is saved for this account (device + cloud) and restored when you return.'
                     : 'The draft is auto-saved for this account on device and cloud.',
               ),
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade700, height: 1.35),
+              style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6), height: 1.35),
             ),
             Align(
               alignment: AlignmentDirectional.centerEnd,
@@ -1247,13 +1247,13 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
           if (_loading && _progress.isNotEmpty) ...[
             const SizedBox(height: 10),
             LinearProgressIndicator(
-              color: _brand,
-              backgroundColor: _brand.withValues(alpha: 0.12),
+              color: const Color(0xFF93C5FD),
+              backgroundColor: const Color(0xFF1E3A5F),
             ),
             const SizedBox(height: 6),
             Text(
               _progress,
-              style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+              style: TextStyle(color: const Color(0xFFB7C3D6), fontSize: 13),
             ),
           ],
           if (_draft != null) ...[
@@ -1275,7 +1275,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
               style: const TextStyle(
                 fontWeight: FontWeight.w800,
                 fontSize: 16,
-                color: _brand,
+                color: const Color(0xFFFDE68A),
               ),
             ),
             const SizedBox(height: 4),
@@ -1284,7 +1284,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
                 'كل فقرة فارغة حتى تكتب أمرها بالأسفل. اجلب المراجع الخاصة بذلك الأمر ثم ولّد الفقرة وحدها.',
                 'Each paragraph stays empty until you type a command beneath it. Fetch sources for that command, then generate only that paragraph.',
               ),
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade700, height: 1.4),
+              style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6), height: 1.4),
             ),
             const SizedBox(height: 8),
             for (final ch in _draft!.chapters) _chapterTile(ch, _draft!.arabic),
@@ -1309,7 +1309,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
             height: 148,
             child: SectionCoverImage(
               cover,
-              errorBuilder: (_, _, _) => Container(color: _brand),
+              errorBuilder: (_, _, _) => Container(color: const Color(0xFF93C5FD)),
             ),
           ),
           Container(
@@ -1362,7 +1362,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
           ),
           style: const TextStyle(
             fontWeight: FontWeight.w800,
-            color: _brand,
+            color: Color(0xFFFDE68A),
             fontSize: 13,
           ),
         ),
@@ -1378,7 +1378,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
           ),
           style: TextStyle(
             fontSize: 12,
-            color: Colors.grey.shade700,
+            color: const Color(0xFFB7C3D6),
             height: 1.35,
           ),
         ),
@@ -1396,7 +1396,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
             ),
-            prefixIcon: const Icon(Icons.account_balance, color: _brand),
+            prefixIcon: const Icon(Icons.account_balance, color: const Color(0xFF93C5FD)),
           ),
           items: [
             for (final faculty in facultyCategories)
@@ -1427,7 +1427,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
             ),
-            prefixIcon: const Icon(Icons.school_outlined, color: _brand),
+            prefixIcon: const Icon(Icons.school_outlined, color: const Color(0xFF93C5FD)),
             helperText: departments.isEmpty
                 ? context.t(
                     'اختر الكلية أولاً لعرض أقسامها',
@@ -1469,7 +1469,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
               style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
-                color: _brand,
+                color: Color(0xFFFDE68A),
                 height: 1.35,
               ),
             ),
@@ -1487,7 +1487,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
       onSelected: _loading ? null : (_) => setState(() => _track = track),
       selectedColor: _brand.withValues(alpha: 0.18),
       labelStyle: TextStyle(
-        color: selected ? _brand : Colors.black87,
+        color: selected ? const Color(0xFFFDE68A) : const Color(0xFFF4F7FB),
         fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
       ),
     );
@@ -1509,7 +1509,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
               }),
       selectedColor: _brand.withValues(alpha: 0.18),
       labelStyle: TextStyle(
-        color: selected ? _brand : Colors.black87,
+        color: selected ? const Color(0xFFFDE68A) : const Color(0xFFF4F7FB),
         fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
       ),
     );
@@ -1536,7 +1536,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
               }),
       selectedColor: _brand.withValues(alpha: 0.18),
       labelStyle: TextStyle(
-        color: selected ? _brand : Colors.black87,
+        color: selected ? const Color(0xFFFDE68A) : const Color(0xFFF4F7FB),
         fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
         fontSize: 12,
       ),
@@ -1575,14 +1575,21 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFFFE082)),
       ),
-      child: Text(text, style: const TextStyle(height: 1.4, fontSize: 13)),
+      child: Text(
+        text,
+        style: const TextStyle(
+          height: 1.4,
+          fontSize: 13,
+          color: Color(0xFF3E2723),
+        ),
+      ),
     );
   }
 
   Widget _titleCard(ThesisDraft draft) {
     return Card(
       elevation: 0,
-      color: const Color(0xFFF5F7FF),
+      color: const Color(0xFF12284F),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -1592,7 +1599,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
             Text(
               context.t('العنوان المقترح', 'Proposed title'),
               style: const TextStyle(
-                color: _brand,
+                color: const Color(0xFFFDE68A),
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -1627,7 +1634,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
                 else if (draft.fromGemini)
                   'AI',
               ].join(' · '),
-              style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
+              style: TextStyle(color: const Color(0xFFB7C3D6), fontSize: 12),
             ),
             const SizedBox(height: 12),
             Text(
@@ -1642,7 +1649,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
                   'The abstract is empty. Type a command below, then fetch its sources or generate it.',
                 ),
                 style: TextStyle(
-                  color: Colors.grey.shade700,
+                  color: const Color(0xFFB7C3D6),
                   height: 1.45,
                   fontStyle: FontStyle.italic,
                 ),
@@ -1702,7 +1709,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
             Text(
               context.t('أسئلة البحث', 'Research questions'),
               style: const TextStyle(
-                color: _brand,
+                color: const Color(0xFFFDE68A),
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -1748,7 +1755,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
                 'Literature map (DOI-confirmed only)',
               ),
               style: const TextStyle(
-                color: _brand,
+                color: const Color(0xFFFDE68A),
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -1758,7 +1765,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
                 'جلب تلقائي من OpenAlex وSemantic Scholar وCrossref (مع فلتر Arabic في OpenAlex للمسودات العربية). مواقع مثل مبتعث مفيدة للتصفح اليدوي ثم لصق DOI إن وُجد — لا نملك واجهة برمجية لسحب PDF منها.',
                 'Auto-fetch from OpenAlex, Semantic Scholar, and Crossref (plus OpenAlex Arabic language filter for Arabic drafts). Sites like Mobt3ath help manual browsing, then paste a DOI if available — we have no API to pull their PDFs.',
               ),
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+              style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
             ),
             const SizedBox(height: 8),
             _arabicCatalogLinks(),
@@ -1781,7 +1788,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
                     child: Text(
                       '${row.index}',
                       style: const TextStyle(
-                        color: _brand,
+                        color: const Color(0xFFFDE68A),
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
                       ),
@@ -1817,7 +1824,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
     final report = ThesisCitationReport.fromDraft(draft);
     return Card(
       elevation: 0,
-      color: const Color(0xFFF1F8E9),
+      color: const Color(0xFF12284F),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -1830,7 +1837,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
                 'Citation verification report',
               ),
               style: const TextStyle(
-                color: _brand,
+                color: const Color(0xFFFDE68A),
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -1856,7 +1863,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
                 'المطابقة على قائمة المراجع المجلوبة (DOI إن وُجد، أو عنوان/مؤلف/سنة من الفهارس الحرة) — لا قراءة كاملة لكل PDF.',
                 'Matching is to the harvested list (DOI when present, otherwise title/author/year from free indexes) — we do not read every PDF.',
               ),
-              style: TextStyle(fontSize: 11, color: Colors.grey.shade700, height: 1.35),
+              style: TextStyle(fontSize: 11, color: const Color(0xFFB7C3D6), height: 1.35),
             ),
           ],
         ),
@@ -1977,7 +1984,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
         width: double.infinity,
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: const Color(0xFFF3F5FF),
+          color: const Color(0xFF12284F),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: _brand.withValues(alpha: 0.2)),
         ),
@@ -1991,7 +1998,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
               ),
               style: const TextStyle(
                 fontWeight: FontWeight.w700,
-                color: _brand,
+                color: const Color(0xFFFDE68A),
                 fontSize: 13,
               ),
             ),
@@ -2001,7 +2008,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
                 'ملف Word واحد يجمع كل الفقرات بالترتيب، مع قائمة المراجع في النهاية.',
                 'One Word file with every study paragraph in order, plus references at the end.',
               ),
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade800),
+              style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
             ),
             const SizedBox(height: 10),
             FilledButton.icon(
@@ -2061,9 +2068,9 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
         width: double.infinity,
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: const Color(0xFF12284F),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: _brand.withValues(alpha: 0.22)),
+          border: Border.all(color: const Color(0xFFFDE68A).withValues(alpha: 0.35)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2075,7 +2082,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
               ),
               style: const TextStyle(
                 fontWeight: FontWeight.w800,
-                color: _brand,
+                color: const Color(0xFFFDE68A),
                 fontSize: 13,
               ),
             ),
@@ -2092,7 +2099,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
               style: TextStyle(
                 fontSize: 12,
                 height: 1.45,
-                color: Colors.grey.shade800,
+                color: const Color(0xFFB7C3D6),
               ),
             ),
             const SizedBox(height: 8),
@@ -2115,7 +2122,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
                 'في المسودة الآن: $works مرجعاً مؤكداً ($withAbs بملخص).',
                 'In draft now: $works confirmed works ($withAbs with abstracts).',
               ),
-              style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+              style: TextStyle(fontSize: 11, color: const Color(0xFFB7C3D6)),
             ),
             const SizedBox(height: 8),
             Row(
@@ -2183,7 +2190,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
           style: const TextStyle(
             fontWeight: FontWeight.w700,
             fontSize: 12,
-            color: _brand,
+            color: const Color(0xFFFDE68A),
           ),
         ),
         const SizedBox(height: 4),
@@ -2192,7 +2199,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
             'مبتعث ودار المنظومة وغيرها للتصفح اليدوي. لا يمكن جلب Abstract/نص كامل آلياً منها (اشتراك/حقوق نشر)؛ افتح الموقع، ثم الصق DOI هنا إن توفر.',
             'Mobt3ath, Mandumah, and similar sites are for manual browsing. We cannot auto-fetch abstracts/full text (subscription/copyright); open the site, then paste a DOI here if available.',
           ),
-          style: TextStyle(fontSize: 11, height: 1.4, color: Colors.grey.shade700),
+          style: TextStyle(fontSize: 11, height: 1.4, color: const Color(0xFFB7C3D6)),
         ),
         const SizedBox(height: 6),
         for (final catalog in ArabicThesisCatalogs.all)
@@ -2226,7 +2233,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8F9FF),
+        color: const Color(0xFF12284F),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: _brand.withValues(alpha: 0.12)),
       ),
@@ -2238,7 +2245,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
             textDirection: dir,
             style: const TextStyle(
               fontWeight: FontWeight.w800,
-              color: _brand,
+              color: const Color(0xFFFDE68A),
               fontSize: 13,
             ),
           ),
@@ -2254,7 +2261,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
                       'سيُجلب Abstract من الفهارس المفتوحة عند التلخيص إن وُجد.',
                       'Abstract will be fetched from open indexes when summarising, if available.',
                     ),
-              style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+              style: TextStyle(fontSize: 11, color: const Color(0xFFB7C3D6)),
             ),
           ],
           const SizedBox(height: 8),
@@ -2282,7 +2289,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
                       ),
                 textDirection: dir,
                 style: TextStyle(
-                  color: Colors.grey.shade700,
+                  color: const Color(0xFFB7C3D6),
                   fontStyle: FontStyle.italic,
                   height: 1.45,
                 ),
@@ -2386,7 +2393,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
                           color: Colors.white,
                         ),
                       )
-                    : const Icon(Icons.auto_awesome),
+                    : const Icon(Icons.summarize),
                 label: Text(
                   writing
                       ? context.t(
@@ -2445,7 +2452,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: Colors.grey.shade800,
+              color: const Color(0xFFB7C3D6),
             ),
           ),
           for (final w in paragraph.references) ...[
@@ -2456,7 +2463,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
             ),
             Text(
               '${w.year ?? 'n.d.'} · ${w.doi}',
-              style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+              style: TextStyle(fontSize: 11, color: const Color(0xFFB7C3D6)),
             ),
           ],
         ],
@@ -2495,7 +2502,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
             'Length not reached yet — generate again to continue, or wait until all passes finish.',
           ),
       ].join(' · '),
-      style: TextStyle(fontSize: 12, color: Colors.grey.shade700, height: 1.35),
+      style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6), height: 1.35),
     );
   }
 
@@ -2528,7 +2535,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
             ),
-            prefixIcon: const Icon(Icons.edit_note, color: _brand),
+            prefixIcon: const Icon(Icons.edit_note, color: const Color(0xFF93C5FD)),
           ),
         ),
         const SizedBox(height: 8),
@@ -2558,7 +2565,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
                         color: Colors.white,
                       ),
                     )
-                  : const Icon(Icons.auto_awesome, size: 18),
+                  : const Icon(Icons.notes, size: 18),
               label: Text(context.t('توليد هذه الفقرة', 'Generate this paragraph')),
               style: FilledButton.styleFrom(
                 backgroundColor: _brand,
@@ -2568,26 +2575,26 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
             IconButton.outlined(
               tooltip: context.t('تصدير PDF', 'Export PDF'),
               onPressed: busy || !canExport ? null : onExportPdf,
-              icon: const Icon(Icons.picture_as_pdf_outlined, color: _brand),
+              icon: const Icon(Icons.picture_as_pdf_outlined, color: const Color(0xFF93C5FD)),
             ),
             IconButton.outlined(
               tooltip: context.t('تصدير Word', 'Export Word'),
               onPressed: busy || !canExport ? null : onExportDocx,
-              icon: const Icon(Icons.description_outlined, color: _brand),
+              icon: const Icon(Icons.description_outlined, color: const Color(0xFF93C5FD)),
             ),
           ],
         ),
         if (fetching || writing) ...[
           const SizedBox(height: 8),
           LinearProgressIndicator(
-            color: _brand,
+            color: const Color(0xFFFDE68A),
             backgroundColor: _brand.withValues(alpha: 0.12),
           ),
           if (_progress.isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(
               _progress,
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+              style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
             ),
           ],
         ],

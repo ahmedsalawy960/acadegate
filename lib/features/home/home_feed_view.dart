@@ -120,7 +120,7 @@ class HomeFeedView extends StatelessWidget {
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF1A237E),
+              color: const Color(0xFFF4F7FB),
             ),
           ),
         ),

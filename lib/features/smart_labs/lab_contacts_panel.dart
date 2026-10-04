@@ -111,7 +111,7 @@ class LabContactsPanel extends StatelessWidget {
                 'كل الجهات كما في الموقع الأصلي',
                 'All roles as on the original site',
               ),
-              style: TextStyle(color: Colors.grey[700], fontSize: 12),
+              style: TextStyle(color: const Color(0xFFB7C3D6), fontSize: 12),
             ),
             const SizedBox(height: 8),
             ...people.map((c) {
@@ -141,15 +141,20 @@ class LabContactsPanel extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         c.name.trim(),
-                        style: const TextStyle(fontWeight: FontWeight.w600),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF1C1917),
+                        ),
                       ),
                     ],
-                    if (email.contains('@')) Text(email),
-                    if (phone.length >= 8) Text(phone),
+                    if (email.contains('@'))
+                      Text(email, style: const TextStyle(color: Color(0xFF1C1917))),
+                    if (phone.length >= 8)
+                      Text(phone, style: const TextStyle(color: Color(0xFF1C1917))),
                     if (!email.contains('@') && phone.length < 8)
                       Text(
                         context.t('لا توجد وسيلة تواصل هنا', 'No contact method here'),
-                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                        style: TextStyle(color: const Color(0xFFB7C3D6), fontSize: 12),
                       ),
                     const SizedBox(height: 6),
                     Wrap(
@@ -162,6 +167,8 @@ class LabContactsPanel extends StatelessWidget {
                             icon: const Icon(Icons.phone, size: 16),
                             label: Text(context.t('اتصال', 'Call')),
                             style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF0F766E),
+                              side: const BorderSide(color: Color(0xFF0F766E)),
                               visualDensity: VisualDensity.compact,
                             ),
                           ),
@@ -171,6 +178,8 @@ class LabContactsPanel extends StatelessWidget {
                             icon: const Icon(Icons.chat, size: 16),
                             label: Text(context.t('واتساب', 'WhatsApp')),
                             style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF0F766E),
+                              side: const BorderSide(color: Color(0xFF0F766E)),
                               visualDensity: VisualDensity.compact,
                             ),
                           ),
@@ -180,6 +189,8 @@ class LabContactsPanel extends StatelessWidget {
                             icon: const Icon(Icons.email_outlined, size: 16),
                             label: Text(context.t('بريد', 'Email')),
                             style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF0F766E),
+                              side: const BorderSide(color: Color(0xFF0F766E)),
                               visualDensity: VisualDensity.compact,
                             ),
                           ),

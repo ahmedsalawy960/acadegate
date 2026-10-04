@@ -51,8 +51,8 @@ class ThesisStudioAiService {
     if (!GeminiAdvisorClient.isAvailable) {
       return local.copyWith(
         note: appTr(
-          'سجّل الدخول لتفعيل AcadeGate AI — المسودة الحالية هيكل كامل بمراجع مؤكدة فقط.',
-          'Sign in to enable AcadeGate AI — the current draft is a full outline with confirmed references only.',
+          'سجّل الدخول — المسودة الحالية هيكل كامل بمراجع مؤكدة فقط.',
+          'Sign in — the current draft is a full outline with confirmed references only.',
         ),
       );
     }
@@ -288,8 +288,8 @@ class ThesisStudioAiService {
         );
         if (isQuotaLikeError(firstPassError)) {
           lastFillDiagnostic = arabic
-              ? 'خطأ: $firstPassError — جلب المراجع يستهلك حصة AI؛ لم تبقَ طلبات كافية لكتابة ${resolved.estimatedPages} صفحة.'
-              : 'Error: $firstPassError — literature harvest used AI quota; not enough left for ${resolved.estimatedPages} pages.';
+              ? 'خطأ: $firstPassError — جلب المراجع استهلك الحد اليومي؛ لم تبقَ طلبات كافية لكتابة ${resolved.estimatedPages} صفحة.'
+              : 'Error: $firstPassError — literature harvest used the daily limit; not enough left for ${resolved.estimatedPages} pages.';
           onProgress?.call(lastFillDiagnostic!);
           return paragraph.copyWith(
             body: body,
@@ -325,8 +325,8 @@ class ThesisStudioAiService {
         finalWords < (words * 0.55).round()) {
       final prior = lastFillDiagnostic;
       final diag = arabic
-          ? 'اكتمل جزئياً: $finalWords/$words كلمة (≈ ${ThesisLengthBudget.estimatedPagesOf(body)}/${resolved.estimatedPages} صفحة)${prior == null ? '' : ' · السبب: $prior'}${firstPassError == null || prior != null ? '' : ' · $firstPassError'}. ارفع حصة AI أو أعد التوليد غداً.'
-          : 'Partial: $finalWords/$words words (≈ ${ThesisLengthBudget.estimatedPagesOf(body)}/${resolved.estimatedPages} pp)${prior == null ? '' : ' · cause: $prior'}${firstPassError == null || prior != null ? '' : ' · $firstPassError'}. Raise AI quota or regenerate tomorrow.';
+          ? 'اكتمل جزئياً: $finalWords/$words كلمة (≈ ${ThesisLengthBudget.estimatedPagesOf(body)}/${resolved.estimatedPages} صفحة)${prior == null ? '' : ' · السبب: $prior'}${firstPassError == null || prior != null ? '' : ' · $firstPassError'}. أعد التوليد غداً أو بعد رفع الحد اليومي.'
+          : 'Partial: $finalWords/$words words (≈ ${ThesisLengthBudget.estimatedPagesOf(body)}/${resolved.estimatedPages} pp)${prior == null ? '' : ' · cause: $prior'}${firstPassError == null || prior != null ? '' : ' · $firstPassError'}. Regenerate tomorrow or after the daily limit resets.';
       lastFillDiagnostic = diag;
       onProgress?.call(diag);
     }
@@ -339,8 +339,8 @@ class ThesisStudioAiService {
   }
 
   static String arabicUnavailableHint(bool arabic) => arabic
-      ? 'الذكاء الاصطناعي غير متاح (تسجيل الدخول مطلوب للسحابة).'
-      : 'AI unavailable (sign-in required for cloud).';
+      ? 'المساعد الأكاديمي غير متاح (تسجيل الدخول مطلوب).'
+      : 'The Academic Assistant is unavailable (sign-in required).';
 
   /// Keep prompts small so each grow pass can emit a full slice.
   static GroundedReferenceBundle _slimLiterature(
@@ -783,8 +783,8 @@ Stay strictly inside the thesis goal; the abstract command is only a lens on tha
           ),
       ],
       note: appTr(
-        'الهيكل فارغ عمداً. الذكاء الاصطناعي يقرأ هدفك كاملاً للعنوان والأسئلة. كل فقرة تُولَّد وحدها مع مراجع ذلك الأمر، بما فيها الرسائل الجامعية ذات DOI.',
-        'The outline is empty on purpose. AI reads your full goal for the title and questions. Each paragraph is generated with sources for that command, including DOI-confirmed dissertations.',
+        'الهيكل فارغ عمداً. يُقرأ هدفك كاملاً للعنوان والأسئلة. كل فقرة تُولَّد وحدها مع مراجع ذلك الأمر، بما فيها الرسائل الجامعية ذات DOI.',
+        'The outline is empty on purpose. Your full goal is read for the title and questions. Each paragraph is generated with sources for that command, including DOI-confirmed dissertations.',
       ),
     );
   }
@@ -1011,7 +1011,7 @@ $kindRule
 ${_chapterJob(template, true)}
 $citeRule
 $depthRule
-لا تكتب قائمة مراجع في نهاية الفصل. لا تنسخ متن فصل آخر. لا تلتف على كاشفات الذكاء الاصطناعي. هذه مسودة للمراجعة لا نسخة تسليم ولا رسالة من 150 صفحة. اكتب هذا الفصل لغرضه فقط.
+لا تكتب قائمة مراجع في نهاية الفصل. لا تنسخ متن فصل آخر. لا تلتف على كاشفات الانتحال. هذه مسودة للمراجعة لا نسخة تسليم ولا رسالة من 150 صفحة. اكتب هذا الفصل لغرضه فقط.
 ''';
     }
     return '''
@@ -1104,7 +1104,7 @@ $goalRule
 $depthRule
 ${plan.discipline.promptBlock(true)}
 ${_chapterJob(template, true)}
-لا تكتب قائمة مراجع. لا تنسخ فقرات أخرى. لا تلتف على كاشفات الذكاء الاصطناعي.
+لا تكتب قائمة مراجع. لا تنسخ فقرات أخرى. لا تلتف على كاشفات الانتحال.
 ''';
     }
     return '''

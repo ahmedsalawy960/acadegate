@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../moderation/approval_status.dart';
+import '../store_catalog_service.dart';
 import 'egypt_store_suppliers_catalog.dart';
 import 'woocommerce_store_api_client.dart';
 
@@ -101,6 +102,44 @@ class StoreProductSearchService {
     }).toList();
 
     return StoreProductSearchResult(local: local, remote: remoteOnly);
+  }
+
+  /// بحث فوري داخل الكتالوج المحمّل، بترتيب الأقرب، دون انتظار مواقع الموردين.
+  List<StoreSearchHit> rankLoaded(
+    List<StoreCatalogProduct> products,
+    String rawQuery, {
+    int limit = 40,
+  }) {
+    final query = rawQuery.trim();
+    if (query.length < 2 || products.isEmpty) return const [];
+    final phrase = _fold(query);
+    final tokens = _queryTokens(phrase);
+    final ranked = <({StoreSearchHit hit, int score})>[];
+    for (final product in products) {
+      final score = _matchScore(
+        phrase: phrase,
+        tokens: tokens,
+        name: product.name,
+        brand: '${product.brand} ${product.sku}',
+        category: product.categoryCanonical.isNotEmpty
+            ? product.categoryCanonical
+            : product.categoryRaw,
+        description: product.description,
+      );
+      if (score <= 0) continue;
+      ranked.add((hit: _hitFromProduct(product), score: score));
+    }
+    ranked.sort((a, b) => b.score.compareTo(a.score));
+    return ranked.take(limit).map((e) => e.hit).toList();
+  }
+
+  Future<List<StoreSearchHit>> searchSupplierSites(
+    String rawQuery, {
+    int perSupplier = 4,
+  }) {
+    final query = rawQuery.trim();
+    if (query.length < 2 || kIsWeb) return Future.value(const []);
+    return _searchRemote(query, perSupplier: perSupplier);
   }
 
   Future<List<StoreSearchHit>> _searchLocal(
@@ -209,4 +248,108 @@ class StoreProductSearchService {
     final batches = await Future.wait(futures);
     return batches.expand((e) => e).toList();
   }
+}
+
+String _fold(String input) {
+  return input
+      .toLowerCase()
+      .replaceAll(RegExp('[أإآٱ]'), 'ا')
+      .replaceAll('ة', 'ه')
+      .replaceAll('ى', 'ي')
+      .replaceAll(RegExp(r'[\u064B-\u0652\u0670]'), '')
+      .replaceAll(RegExp(r'[^\p{L}\p{N}\s]+', unicode: true), ' ')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+}
+
+const _searchStop = {
+  'the', 'and', 'for', 'with', 'from',
+  'من', 'في', 'علي', 'مع', 'او', 'الي', 'هذا', 'هذه', 'عن',
+};
+
+List<String> _queryTokens(String folded) {
+  final out = <String>[];
+  for (final part in folded.split(' ')) {
+    var token = part.trim();
+    if (token.startsWith('ال') && token.length > 4) token = token.substring(2);
+    if (token.isEmpty || _searchStop.contains(token)) continue;
+    final latin = RegExp(r'[a-z0-9]').hasMatch(token);
+    if (token.length < (latin ? 3 : 2)) continue;
+    out.add(token);
+  }
+  return out;
+}
+
+bool _fieldHit(String hay, String token) {
+  if (hay.contains(token)) return true;
+  if (token.length < 4) return false;
+  final prefix = token.substring(0, token.length >= 5 ? 5 : 4);
+  for (final word in hay.split(' ')) {
+    if (word.length < 4) continue;
+    if (word.startsWith(prefix) || token.startsWith(word.substring(0, 4))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+int _matchScore({
+  required String phrase,
+  required List<String> tokens,
+  required String name,
+  required String brand,
+  required String category,
+  required String description,
+}) {
+  final nameF = _fold(name);
+  final brandF = _fold(brand);
+  final categoryF = _fold(category);
+  final descriptionF = _fold(description);
+  final probes = tokens.isEmpty ? <String>[phrase] : tokens;
+  if (probes.isEmpty) return 0;
+
+  var score = 0;
+  var matched = 0;
+  if (phrase.isNotEmpty && nameF.contains(phrase)) score += 24;
+  for (final token in probes) {
+    if (_fieldHit(nameF, token)) {
+      score += 10;
+      matched++;
+    } else if (_fieldHit(brandF, token)) {
+      score += 7;
+      matched++;
+    } else if (_fieldHit(categoryF, token)) {
+      score += 3;
+      matched++;
+    } else if (_fieldHit(descriptionF, token)) {
+      score += 1;
+      matched++;
+    }
+  }
+  if (matched == 0) return 0;
+  if (matched == probes.length) score += 8;
+  return score;
+}
+
+StoreSearchHit _hitFromProduct(StoreCatalogProduct product) {
+  return StoreSearchHit(
+    name: product.name,
+    storeName: product.storeName,
+    contact: product.contact,
+    email: product.email,
+    phone: product.phone,
+    whatsapp: product.whatsapp,
+    website: product.website,
+    productId: product.id,
+    createdBy: product.createdBy,
+    price: product.price,
+    imageUrl: product.imageUrl,
+    sourceUrl: product.sourceUrl,
+    description: product.description,
+    category: product.categoryCanonical.isNotEmpty
+        ? product.categoryCanonical
+        : product.categoryRaw,
+    supplierId: product.supplierId ?? '',
+    isDirectoryListing: product.isDirectoryListing,
+  );
 }

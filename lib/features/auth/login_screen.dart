@@ -312,15 +312,15 @@ class _LoginScreenState extends State<LoginScreen> {
     final googleAvailable = GoogleAuthService.isConfiguredForCurrentPlatform;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFF071433),
       appBar: AcadeGateAppBar(
         title: Text(
           l10n.loginTitle,
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF1A237E),
+        backgroundColor: const Color(0xFF0B1F4D),
+        foregroundColor: const Color(0xFFF4F7FB),
         elevation: 0,
         actions: const [LanguageSwitcherButton()],
       ),
@@ -353,7 +353,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           labelText: l10n.emailLabel,
                           prefixIcon: const Icon(
                             Icons.email_outlined,
-                            color: Color(0xFF1A237E),
+                            color: Color(0xFFB7C3D6),
                           ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -375,7 +375,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           labelText: l10n.password,
                           prefixIcon: const Icon(
                             Icons.lock_outline,
-                            color: Color(0xFF1A237E),
+                            color: Color(0xFFB7C3D6),
                           ),
                           suffixIcon: IconButton(
                             tooltip: _obscurePassword
@@ -433,7 +433,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: FilledButton(
                     onPressed: _isLoading ? null : _handleLogin,
                     style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF1A237E),
+                      backgroundColor: const Color(0xFF3949AB),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -457,7 +457,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       child: Text(
                         l10n.orDivider,
-                        style: TextStyle(color: Colors.grey[600]),
+                        style: const TextStyle(color: Color(0xFFB7C3D6)),
                       ),
                     ),
                     Expanded(child: Divider(color: Colors.grey[300])),

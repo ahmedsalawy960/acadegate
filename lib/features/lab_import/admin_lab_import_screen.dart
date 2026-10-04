@@ -497,8 +497,8 @@ class _AdminLabImportScreenState extends State<AdminLabImportScreen> {
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.account_balance_outlined,
-                              color: Colors.teal[800]),
+                          const Icon(Icons.account_balance_outlined,
+                              color: Color(0xFF5EEAD4)),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
@@ -509,7 +509,7 @@ class _AdminLabImportScreenState extends State<AdminLabImportScreen> {
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,
-                                color: Colors.teal[900],
+                                color: const Color(0xFF5EEAD4),
                               ),
                             ),
                           ),
@@ -535,7 +535,7 @@ class _AdminLabImportScreenState extends State<AdminLabImportScreen> {
                             'Last sync: ${_formatSyncAt(_lastNbsleSyncAt!)}',
                           ),
                           style: TextStyle(
-                            color: Colors.teal[800],
+                            color: const Color(0xFF5EEAD4),
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -623,7 +623,7 @@ class _AdminLabImportScreenState extends State<AdminLabImportScreen> {
                             ' — labs ≈ ${_scrapeProgress?.labsSoFar ?? 0}',
                           ),
                           style:
-                              TextStyle(color: Colors.teal[900], height: 1.35),
+                              const TextStyle(color: Color(0xFF5EEAD4), height: 1.35),
                         ),
                         const SizedBox(height: 8),
                       ],
@@ -702,8 +702,8 @@ class _AdminLabImportScreenState extends State<AdminLabImportScreen> {
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.contact_phone_outlined,
-                              color: Colors.deepPurple[800]),
+                          const Icon(Icons.contact_phone_outlined,
+                              color: Color(0xFFE9D5FF)),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
@@ -713,7 +713,7 @@ class _AdminLabImportScreenState extends State<AdminLabImportScreen> {
                               ),
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                color: Colors.deepPurple[900],
+                                color: const Color(0xFFE9D5FF),
                               ),
                             ),
                           ),
@@ -727,7 +727,7 @@ class _AdminLabImportScreenState extends State<AdminLabImportScreen> {
                           'Exports CSV + HTML of all labs in the database '
                           '(email/phone/source URL) for outreach.',
                         ),
-                        style: TextStyle(height: 1.45, color: Colors.grey[800]),
+                        style: TextStyle(height: 1.45, color: const Color(0xFFB7C3D6)),
                       ),
                       const SizedBox(height: 12),
                       FilledButton.icon(
@@ -771,8 +771,8 @@ class _AdminLabImportScreenState extends State<AdminLabImportScreen> {
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.apartment_outlined,
-                              color: Colors.indigo[800]),
+                          const Icon(Icons.apartment_outlined,
+                              color: Color(0xFF93C5FD)),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
@@ -783,7 +783,7 @@ class _AdminLabImportScreenState extends State<AdminLabImportScreen> {
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,
-                                color: Colors.indigo[900],
+                                color: const Color(0xFF93C5FD),
                               ),
                             ),
                           ),
@@ -808,7 +808,7 @@ class _AdminLabImportScreenState extends State<AdminLabImportScreen> {
                             'Last CRCI sync: ${_formatSyncAt(_lastCrciSyncAt!)}',
                           ),
                           style: TextStyle(
-                            color: Colors.indigo[800],
+                            color: const Color(0xFF93C5FD),
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -870,7 +870,6 @@ class _AdminLabImportScreenState extends State<AdminLabImportScreen> {
               ),
               const SizedBox(height: 12),
               Card(
-                color: Colors.purple[50],
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
@@ -884,7 +883,7 @@ class _AdminLabImportScreenState extends State<AdminLabImportScreen> {
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 17,
-                          color: Colors.purple[900],
+                          color: const Color(0xFFE9D5FF),
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -893,7 +892,10 @@ class _AdminLabImportScreenState extends State<AdminLabImportScreen> {
                           'لرفع ملف مخصص أو إضافة أسعار: انسخ القالب واملأ الأجهزة بصيغة SEM:800;XRD:600',
                           'For a custom file or prices: copy the template and use SEM:800;XRD:600',
                         ),
-                        style: const TextStyle(height: 1.45),
+                        style: const TextStyle(
+                          height: 1.45,
+                          color: Color(0xFFB7C3D6),
+                        ),
                       ),
                     ],
                   ),

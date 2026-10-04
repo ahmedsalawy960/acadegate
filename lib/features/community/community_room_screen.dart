@@ -215,7 +215,7 @@ class _CommunityRoomScreenState extends State<CommunityRoomScreen>
                               ),
                         textAlign: TextAlign.center,
                         style:
-                            TextStyle(color: Colors.grey[700], height: 1.5),
+                            TextStyle(color: const Color(0xFFB7C3D6), height: 1.5),
                       ),
                     ),
                   );
@@ -303,7 +303,7 @@ class _PostCard extends StatelessWidget {
                   Icon(
                     PostAudienceScope.icon(post.audienceScope),
                     size: 14,
-                    color: Colors.grey[600],
+                    color: const Color(0xFFB7C3D6),
                   ),
                   const SizedBox(width: 4),
                   Flexible(
@@ -314,7 +314,7 @@ class _PostCard extends StatelessWidget {
                           : audienceLabel,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                      style: TextStyle(fontSize: 11, color: const Color(0xFFB7C3D6)),
                     ),
                   ),
                   if (pending) ...[
@@ -341,7 +341,7 @@ class _PostCard extends StatelessWidget {
                   if (post.eventDate != null)
                     Text(
                       post.eventDate!,
-                      style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                      style: TextStyle(fontSize: 11, color: const Color(0xFFB7C3D6)),
                     ),
                 ],
               ),
@@ -358,33 +358,33 @@ class _PostCard extends StatelessWidget {
                 post.body,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: Colors.grey[800], height: 1.4),
+                style: TextStyle(color: const Color(0xFFB7C3D6), height: 1.4),
               ),
               const SizedBox(height: 10),
               Row(
                 children: [
                   Text(
                     post.authorName,
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
                   ),
                   if (post.university != null) ...[
                     Text(
                       ' • ${post.university}',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
                     ),
                   ],
                   const Spacer(),
                   Icon(Icons.thumb_up_alt_outlined,
-                      size: 14, color: Colors.grey[600]),
+                      size: 14, color: const Color(0xFFB7C3D6)),
                   const SizedBox(width: 4),
                   Text('${post.upvotesCount}',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                      style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6))),
                   const SizedBox(width: 12),
                   Icon(Icons.chat_bubble_outline,
-                      size: 14, color: Colors.grey[600]),
+                      size: 14, color: const Color(0xFFB7C3D6)),
                   const SizedBox(width: 4),
                   Text('${post.repliesCount}',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                      style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6))),
                 ],
               ),
             ],

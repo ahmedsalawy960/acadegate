@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 import 'package:acadegate/core/widgets/app_site_footer.dart';
 import '../../core/config/feature_flags.dart';
+import '../../core/theme/acadegate_theme.dart';
 import '../../core/locale/l10n_lookup.dart';
 import '../../core/locale/locale_extensions.dart';
 import '../auth/auth_navigation.dart';
@@ -75,7 +76,7 @@ class ProviderHomeScreen extends StatelessWidget {
       appBar: AcadeGateAppBar(
         title: Text(l10n.providerPortalTitle),
         centerTitle: true,
-        backgroundColor: const Color(0xFF2E7D32),
+        backgroundColor: AcadeGateColors.appBar,
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
@@ -168,7 +169,8 @@ class ProviderHomeScreen extends StatelessWidget {
                   ),
                 );
               },
-              backgroundColor: const Color(0xFF2E7D32),
+              backgroundColor: AcadeGateColors.gold,
+              foregroundColor: AcadeGateColors.page,
               icon: const Icon(Icons.dashboard_customize_outlined),
               label: Text(l10n.contributorHub),
             )
@@ -206,7 +208,7 @@ class _ProviderBody extends StatelessWidget {
             'الرد على رسائل المشترين والباحثين',
             'Reply to buyers and researchers',
           ),
-          color: const Color(0xFF2E7D32),
+          color: AcadeGateColors.gold,
           screen: const ConversationsScreen(),
         ),
         const SizedBox(height: 20),
@@ -253,7 +255,7 @@ class _ProviderBody extends StatelessWidget {
               'حجوزات وطلبات تحليل من مختبرات NBSLE بدون مالك',
               'Bookings & sample requests from unowned NBSLE labs',
             ),
-            color: const Color(0xFF00695C),
+            color: const Color(0xFF5EEAD4),
             screen: const AdminUnownedLabOpsScreen(),
           ),
           const SizedBox(height: 20),
@@ -275,7 +277,7 @@ class _ProviderBody extends StatelessWidget {
               icon: Icons.science_outlined,
               title: l10n.sampleAnalysisIncoming,
               subtitle: l10n.sampleAnalysisIncomingSub,
-              color: const Color(0xFF00695C),
+              color: const Color(0xFF5EEAD4),
               screen: const IncomingSampleAnalysisRequestsScreen(),
             ),
             _tile(
@@ -363,7 +365,7 @@ class _ProviderBody extends StatelessWidget {
               icon: Icons.biotech,
               title: l10n.registerLab,
               subtitle: l10n.registerLabSub,
-              color: const Color(0xFF00695C),
+              color: const Color(0xFF5EEAD4),
               screen: const SubmitLabScreen(),
             ),
           if (_showSupervisorSubmit(role))
@@ -419,7 +421,7 @@ class _ProviderBody extends StatelessWidget {
             screen: const MySampleAnalysisRequestsScreen(),
           ),
         ],
-        const AppSiteFooter(accentColor: Color(0xFF2E7D32)),
+        const AppSiteFooter(accentColor: AcadeGateColors.gold),
         const SizedBox(height: 24),
       ],
     );
@@ -541,7 +543,7 @@ class _ProviderApprovalBannerState extends State<_ProviderApprovalBanner> {
               children: [
                 Icon(
                   rejected ? Icons.block : Icons.hourglass_top,
-                  color: color,
+                  color: acadegateInk(color),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -549,7 +551,7 @@ class _ProviderApprovalBannerState extends State<_ProviderApprovalBanner> {
                     title,
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      color: color,
+                      color: acadegateInk(color),
                     ),
                   ),
                 ),
@@ -568,7 +570,7 @@ class _ProviderApprovalBannerState extends State<_ProviderApprovalBanner> {
               ],
             ),
             const SizedBox(height: 8),
-            Text(body, style: TextStyle(height: 1.4, color: Colors.grey[800])),
+            Text(body, style: TextStyle(height: 1.4, color: const Color(0xFFB7C3D6))),
             if (rejected) ...[
               const SizedBox(height: 10),
               FilledButton.tonal(
@@ -604,7 +606,7 @@ class _GuestProviderBody extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       children: [
         Card(
-          color: const Color(0xFF2E7D32),
+          color: AcadeGateColors.card,
           child: Padding(
             padding: const EdgeInsets.all(20),
             child: Column(
@@ -644,7 +646,7 @@ class _GuestProviderBody extends StatelessWidget {
           icon: Icons.biotech,
           title: l10n.manageLab,
           subtitle: l10n.manageLabSub,
-          color: const Color(0xFF00695C),
+          color: const Color(0xFF5EEAD4),
           onTap: () => _promptLogin(context),
         ),
         _tile(
@@ -663,7 +665,7 @@ class _GuestProviderBody extends StatelessWidget {
           color: const Color(0xFFF57F17),
           onTap: () => _promptLogin(context),
         ),
-        const AppSiteFooter(accentColor: Color(0xFF2E7D32)),
+        const AppSiteFooter(accentColor: AcadeGateColors.gold),
         const SizedBox(height: 24),
       ],
     );
@@ -690,8 +692,8 @@ class _HeaderCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
 
-    return Card(
-      color: const Color(0xFF2E7D32),
+    return         Card(
+          color: AcadeGateColors.card,
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Row(
@@ -753,7 +755,7 @@ Widget _tile(
     child: ListTile(
       leading: CircleAvatar(
         backgroundColor: color.withValues(alpha: 0.12),
-        child: Icon(icon, color: color),
+        child: Icon(icon, color: acadegateInk(color)),
       ),
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
       subtitle: Text(subtitle),

@@ -80,8 +80,8 @@ class ThesisProgressTemplates {
       _auto(
         id: 'data',
         activity: ThesisActivityId.dataCollection,
-        titleAr: 'جمع البيانات / المختبر',
-        titleEn: 'Data collection / lab',
+        titleAr: 'جمع البيانات',
+        titleEn: 'Data collection',
       ),
       _auto(
         id: 'thesis_studio',

@@ -189,8 +189,8 @@ class _ProviderOrgSectionState extends State<ProviderOrgSection> {
                               : Icons.help_outline,
                           size: 16,
                           color: draft.hasCoreIdentity
-                              ? Colors.blue[800]
-                              : Colors.grey[700],
+                              ? const Color(0xFF93C5FD)
+                              : const Color(0xFFB7C3D6),
                         ),
                         label: Text(
                           draft.hasCoreIdentity
@@ -205,8 +205,8 @@ class _ProviderOrgSectionState extends State<ProviderOrgSection> {
                           style: TextStyle(
                             fontSize: 11,
                             color: draft.hasCoreIdentity
-                                ? Colors.blue[900]
-                                : Colors.grey[800],
+                                ? const Color(0xFF93C5FD)
+                                : const Color(0xFFB7C3D6),
                           ),
                         ),
                         visualDensity: VisualDensity.compact,
@@ -240,7 +240,7 @@ class _ProviderOrgSectionState extends State<ProviderOrgSection> {
                       style: TextStyle(
                         fontSize: 12,
                         height: 1.35,
-                        color: Colors.grey[800],
+                        color: const Color(0xFFB7C3D6),
                       ),
                     ),
                   ],

@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AcadeGate — عرض انضمام المختبرات ومراكز التحليل</title>
+  <style>
+    @page { size: A4; margin: 14mm 12mm; }
+    :root {
+      --ink: #18181b;
+      --muted: #52525b;
+      --navy: #0b1f4d;
+      --accent: #7b1fa2;
+      --soft: #f3e5f5;
+      --line: #e4e4e7;
+      --card: #ffffff;
+      --teal: #0f766e;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, "Noto Sans Arabic", Arial, sans-serif;
+      color: var(--ink);
+      background: #e7e5e4;
+      line-height: 1.75;
+      font-size: 12.5pt;
+    }
+    .deck { max-width: 980px; margin: 0 auto; padding: 20px 12px 60px; }
+    .slide {
+      background: var(--card);
+      border-radius: 18px;
+      overflow: hidden;
+      margin-bottom: 22px;
+      border: 1px solid #e7e5e4;
+      page-break-after: always;
+      box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
+    }
+    .slide-inner { padding: 36px 40px 40px; }
+    .cover {
+      min-height: 88vh;
+      background:
+        radial-gradient(ellipse at 18% 18%, rgba(123, 31, 162, 0.4), transparent 46%),
+        radial-gradient(ellipse at 88% 12%, rgba(15, 118, 110, 0.22), transparent 42%),
+        linear-gradient(158deg, #071433 0%, #0b1f4d 48%, #6a1b9a 100%);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 48px 44px;
+    }
+    .cover .eyebrow { letter-spacing: 0.06em; font-size: 11pt; opacity: 0.88; }
+    .cover h1 { font-size: 44pt; margin: 16px 0 8px; line-height: 1.1; font-weight: 800; }
+    .cover .tagline { font-size: 18pt; opacity: 0.95; max-width: 740px; margin-bottom: 20px; }
+    .cover .promise {
+      font-size: 14.5pt; max-width: 760px; opacity: 0.93;
+      border-right: 4px solid #fbbf24; padding-right: 16px;
+    }
+    .pill {
+      display: inline-block; background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.25); border-radius: 999px;
+      padding: 6px 12px; margin: 4px 4px 0 0; font-size: 11pt;
+    }
+    h2 {
+      margin: 0 0 12px; color: var(--navy); font-size: 22pt;
+      border-bottom: 3px solid var(--accent); display: inline-block; padding-bottom: 4px;
+    }
+    h3 { color: var(--accent); font-size: 14.5pt; margin: 22px 0 10px; }
+    p, li { color: var(--muted); }
+    p strong, li strong, td strong { color: var(--ink); }
+    .lead { font-size: 14pt; color: var(--muted); margin: 0 0 16px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .card {
+      border: 1px solid var(--line); border-radius: 14px; padding: 16px; background: #fff;
+    }
+    .card strong { display: block; margin-bottom: 6px; color: var(--ink); }
+    .callout {
+      background: var(--soft);
+      border-right: 5px solid var(--accent);
+      padding: 14px 16px;
+      border-radius: 10px;
+      margin: 16px 0;
+    }
+    .callout-teal { background: #f0fdfa; border-right-color: var(--teal); }
+    .callout-navy { background: #eff6ff; border-right-color: var(--navy); }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0;
+      font-size: 11pt;
+    }
+    th {
+      background: var(--navy);
+      color: #fff;
+      text-align: right;
+      padding: 10px 8px;
+    }
+    td {
+      border: 1px solid var(--line);
+      padding: 9px 8px;
+      vertical-align: top;
+      color: var(--ink);
+    }
+    tr:nth-child(even) td { background: #fafafa; }
+    .chip {
+      display: inline-block;
+      background: #f3e5f5;
+      border: 1px solid #e1bee7;
+      color: #6a1b9a;
+      padding: 5px 10px;
+      border-radius: 8px;
+      margin: 3px;
+      font-size: 10.5pt;
+      font-weight: 600;
+    }
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+      margin: 16px 0;
+    }
+    .flow-step {
+      background: #fafafa;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px 8px;
+      text-align: center;
+      font-size: 10.5pt;
+    }
+    .flow-step b { display: block; color: var(--navy); margin: 6px 0 4px; }
+    .num {
+      display: inline-flex; width: 26px; height: 26px;
+      align-items: center; justify-content: center;
+      border-radius: 50%; background: var(--accent); color: #fff;
+      font-weight: 700; font-size: 11pt;
+    }
+    .cta-slide {
+      background: linear-gradient(145deg, #0b1f4d, #6a1b9a);
+      color: #fff;
+    }
+    .cta-slide h2 { color: #fff; border-bottom-color: #fbbf24; }
+    .cta-slide p, .cta-slide li { color: rgba(255,255,255,0.92); }
+    .cta-slide a { color: #fde68a; }
+    .cta-box {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.22);
+      border-radius: 14px;
+      padding: 18px;
+      margin-top: 16px;
+    }
+    .footer-note {
+      font-size: 10pt; color: var(--muted); margin-top: 20px;
+      border-top: 1px solid var(--line); padding-top: 10px;
+    }
+    a { color: var(--teal); font-weight: 700; }
+    ol, ul { margin: 8px 0 12px; padding-right: 22px; }
+    li { margin: 6px 0; }
+    @media (max-width: 800px) {
+      .grid-2, .grid-3, .flow { grid-template-columns: 1fr; }
+      .slide-inner { padding: 24px 18px; }
+      .cover { padding: 28px 20px; min-height: auto; }
+      .cover h1 { font-size: 32pt; }
+    }
+    @media print {
+      body { background: #fff; }
+      .deck { padding: 0; max-width: none; }
+      .slide {
+        box-shadow: none; border: none; border-radius: 0; margin: 0;
+        break-after: page;
+      }
+      .cover { min-height: 100vh; }
+    }
+  
+    .link-banner {
+      position: sticky; top: 8px; z-index: 30;
+      background: linear-gradient(105deg, #071433 0%, #0b1f4d 45%, #0f766e 100%);
+      color: #fff; padding: 14px 18px; border-radius: 16px;
+      margin: 0 0 18px; display: flex; flex-wrap: wrap; gap: 10px 18px;
+      align-items: center; justify-content: space-between;
+      box-shadow: 0 12px 32px rgba(11, 31, 77, 0.28);
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+    .link-banner .lb-title { font-weight: 800; font-size: 13pt; }
+    .link-banner .lb-meta { opacity: 0.9; font-size: 10.5pt; }
+    .link-banner a {
+      color: #fde68a; font-weight: 800; text-decoration: none;
+      border-bottom: 1px solid rgba(253,230,138,0.55);
+    }
+    .link-banner .lb-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+    .link-banner .lb-btn {
+      display: inline-block; background: #fbbf24; color: #071433 !important;
+      border: none; border-radius: 999px; padding: 8px 14px; font-weight: 800;
+      border-bottom: none !important; font-size: 11pt;
+    }
+    .link-banner .lb-btn.secondary {
+      background: rgba(255,255,255,0.12); color: #fff !important;
+      border: 1px solid rgba(255,255,255,0.28);
+    }
+    .link-banner .lb-brand { display: flex; align-items: center; gap: 12px; }
+    .link-banner .lb-logo {
+      width: 52px; height: 52px; border-radius: 50%; display: block; background: #fff;
+    }
+    .cover-logo {
+      width: 88px; height: 88px; border-radius: 50%; display: block; margin-bottom: 18px;
+    }
+    @media print { .link-banner { position: static; box-shadow: none; } }
+
+  </style>
+</head>
+<body>
+<div class="deck">
+
+  <div class="link-banner" role="banner">
+    <div class="lb-brand">
+      <a href="https://acadegate-new.web.app" target="_blank" rel="noopener"><img class="lb-logo" src="/assets/assets/images/acadegate_logo.png" alt="AcadeGate" width="52" height="52" /></a>
+      <div>
+        <div class="lb-title">AcadeGate — عرض انضمام المختبرات</div>
+        <div class="lb-meta">منصة للباحثين · سجّلوا مختبركم وابدأوا استقبال الحجوزات وطلبات التحليل</div>
+      </div>
+    </div>
+    <div class="lb-actions">
+      <a class="lb-btn" href="https://acadegate-new.web.app" target="_blank" rel="noopener">فتح المنصة</a>
+      <a class="lb-btn secondary" href="https://acadegate-new.web.app/register" target="_blank" rel="noopener">التسجيل</a>
+      <a class="lb-btn secondary" href="https://acadegate-new.firebaseapp.com" target="_blank" rel="noopener">بديل واتساب</a>
+    </div>
+  </div>
+
+  <section class="slide cover">
+    <div>
+      <a href="https://acadegate-new.web.app" target="_blank" rel="noopener"><img class="cover-logo" src="/assets/assets/images/acadegate_logo.png" alt="AcadeGate" width="88" height="88" /></a>
+      <div class="eyebrow">عرض انضمام · المختبرات ومراكز تحليل العينات</div>
+      <h1>AcadeGate</h1>
+      <div class="tagline">وصّل أجهزة مختبرك وخدمات التحليل بباحثي الماجستير والدكتوراه داخل مسار بحث حقيقي</div>
+      <p class="promise">
+        الباحث يصل إليك وهو يجهّز رسالته: يحتاج HPLC أو XRD أو تحليل عينات —
+        فيحجز جهازاً أو يطلب تحليلاً عبر المنصة، مع تتبع واضح.
+        لسنا دليلاً ورقياً؛ نحن قناة تشغيل للطلب الأكاديمي.
+        الأرباح والمشاركة — <strong style="color:#fff;">حسب الاتفاق</strong> دون نسب أو أسعار مسبقة هنا.
+      </p>
+      <div style="margin-top:22px;">
+        <span class="pill">تحليل عينات</span>
+        <span class="pill">حجز أجهزة</span>
+        <span class="pill">فلاتر مدينة/جامعة/كلية</span>
+        <span class="pill">دليل قسم للباحث</span>
+        <span class="pill">https://acadegate-new.web.app</span>
+      </div>
+    </div>
+    <div style="opacity:0.85;font-size:11pt;">
+      وثيقة غير سرية للشركاء المحتملين · acadegate@gmail.com
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="slide-inner">
+      <h2>محتوى العرض</h2>
+      <ol style="font-size:14pt;line-height:2;">
+        <li>فكرة عامة عن AcadeGate</li>
+        <li>لماذا ينضم المختبر الآن؟</li>
+        <li>قسم المختبرات: تحليل العينات وحجز الأجهزة</li>
+        <li>ماذا يفعل المختبر داخل التطبيق؟</li>
+        <li>بنود الأرباح والمشاركة — حسب الاتفاق</li>
+        <li>خطوات الانضمام والتواصل</li>
+      </ol>
+      <div class="callout callout-navy">
+        <strong>هدف الوثيقة:</strong>
+        تعريف واضح ودعوة شراكة — التفاصيل التجارية تُثبَّت في اتفاق منفصل بعد التعارف.
+      </div>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="slide-inner">
+      <h2>١ — فكرة عامة عن AcadeGate</h2>
+      <p class="lead">
+        AcadeGate منصة أكاديمية تساعد طالب الدراسات العليا على إتمام رحلته في مكان واحد:
+        فكرة، مشرف، مختبر، متجر، كتابة، استوديو رسالة، نزاهة، نشر، تمويل، ومجتمع.
+      </p>
+      <div class="grid-2">
+        <div class="card">
+          <strong>الجمهور</strong>
+          باحثو وماجستير ودكتوراه يحتاجون أجهزة وتحليل عينات ضمن خطة الرسالة.
+        </div>
+        <div class="card">
+          <strong>المشكلة</strong>
+          البحث عن معمل عبر واتساب أو دليل ورقي بلا حجز منظم ولا تتبع طلبات.
+        </div>
+        <div class="card">
+          <strong>قيمة المختبر داخل المنصة</strong>
+          ظهور ضمن مسار البحث والمطابقة و«لك اليوم» — طلب مقصود لا زيارة عشوائية.
+        </div>
+        <div class="card">
+          <strong>مكانكم في المنصة</strong>
+          حساب مسؤول مختبر، ملف أجهزة وخدمات، وحجوزات وطلبات تحليل تصل إلى بوابة مقدم الخدمة.
+        </div>
+      </div>
+      <h3>خدمات المنصة (نظرة سريعة)</h3>
+      <table>
+        <tr><th>القسم</th><th>علاقته بالمختبر</th></tr>
+        <tr><td>المشرفون والمطابقة</td><td>طلاب يبدأون مشاريع تحتاج تحليلاً أو أجهزة</td></tr>
+        <tr><td>مسار البحث</td><td>قد يقترح مختبركم ضمن حزمة الهدف البحثي</td></tr>
+        <tr><td><strong>المختبرات والتحليل</strong></td><td><strong>أنتم هنا — حجز أجهزة + تحليل عينات</strong></td></tr>
+        <tr><td>المتجر</td><td>مستلزمات مكملة قبل/بعد التحليل</td></tr>
+        <tr><td>الكتابة · الاستوديو · النزاهة · النشر</td><td>تكمل دورة الباحث بعد النتائج</td></tr>
+        <tr><td>التمويل / تحديات الصناعة</td><td>فرص بروتوكولات بعربون عند التفعيل</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="slide-inner">
+      <h2>٢ — لماذا ينضم المختبر الآن؟</h2>
+      <div class="grid-3">
+        <div class="card">
+          <strong>طلب أكاديمي واضح</strong>
+          الباحث يحدد الجهاز أو نوع التحليل من داخل رحلته البحثية.
+        </div>
+        <div class="card">
+          <strong>مساران مستقلان</strong>
+          تحليل عينات جاهز بالتقرير · أو حجز جلسة على جهاز (SEM، HPLC…).
+        </div>
+        <div class="card">
+          <strong>ظهور بالتخصص</strong>
+          فلاتر مدينة / جامعة / كلية + اقتراحات حسب ملف الباحث.
+        </div>
+        <div class="card">
+          <strong>طلبات وحجوزات منظمة</strong>
+          الباحث يتابع «طلباتي» و«حجوزاتي» — أنتم ترون الوارد في بوابة المزوّد.
+        </div>
+        <div class="card">
+          <strong>تسجيل أو مطالبة ملف</strong>
+          أضيفوا مختبراً جديداً أو اربطوا ملفاً مستورداً بعد تحقق حقيقي.
+        </div>
+        <div class="card">
+          <strong>مرونة الشراكة</strong>
+          الأرباح والمشاركة بالاتفاق — بلا نسبة مفروضة في هذا العرض.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="slide-inner">
+      <h2>٣ — قسم المختبرات بالتفصيل</h2>
+      <p class="lead">
+        الشاشة «المختبرات والتحليل» مقسّمة إلى تبويبين أعلى الصفحة — كل تبويب لغرض مختلف.
+      </p>
+      <div class="grid-2">
+        <div class="card">
+          <strong>تبويب تحليل العينات</strong>
+          سوق عروض/خدمات تحليل: الباحث يختار عرضاً ويملأ بيانات العينة (نوع، عدد، ملاحظات سلامة) ويرسل طلباً.
+          يتابع الحالة من أيقونة طلبات تحليل العينات.
+        </div>
+        <div class="card">
+          <strong>تبويب حجز الأجهزة</strong>
+          قائمة مختبرات قابلة للتصفية والبحث. يفتح ملف المختبر، يختار جهازاً/موعداً عند التوفر، ويؤكد الحجز.
+          يتابع من «حجوزاتي».
+        </div>
+      </div>
+      <h3>٣.١ فلاتر وبحث</h3>
+      <ul>
+        <li>مدينة · جامعة · كلية · بحث باسم المختبر أو الجهاز</li>
+        <li>اقتراحات حسب تخصص الباحث عند اكتمال ملفه</li>
+        <li>رابط سجل NBSLE الرسمي للاطلاع على الجهاز عند الحاجة</li>
+      </ul>
+      <h3>٣.٢ أمثلة أجهزة/خدمات شائعة</h3>
+      <div>
+        <span class="chip">HPLC</span>
+        <span class="chip">GC-MS</span>
+        <span class="chip">XRD</span>
+        <span class="chip">SEM / TEM</span>
+        <span class="chip">FTIR</span>
+        <span class="chip">PCR / qPCR</span>
+        <span class="chip">تحليل كيميائي</span>
+        <span class="chip">تحاليل بيولوجية</span>
+        <span class="chip">اختبارات مواد</span>
+      </div>
+      <h3>مسار الباحث</h3>
+      <div class="flow">
+        <div class="flow-step"><span class="num">1</span><b>يفتح القسم</b>من الرئيسية</div>
+        <div class="flow-step"><span class="num">2</span><b>يختار تبويباً</b>تحليل أو حجز</div>
+        <div class="flow-step"><span class="num">3</span><b>يصفّي</b>مدينة · كلية · جهاز</div>
+        <div class="flow-step"><span class="num">4</span><b>يرسل طلباً</b>عينة أو جلسة</div>
+        <div class="flow-step"><span class="num">5</span><b>يتابع</b>طلباته وحجوزاته</div>
+      </div>
+      <div class="callout callout-teal">
+        ابدأوا بقائمة أجهزة/خدمات أساسية (٨–١٥ بنداً) واضحة المواصفات والتوفر — ثم وسّعوا.
+      </div>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="slide-inner">
+      <h2>٤ — ماذا يفعل المختبر داخل التطبيق؟</h2>
+      <ol>
+        <li>التسجيل على <a href="https://acadegate-new.web.app/register" target="_blank" rel="noopener">https://acadegate-new.web.app/register</a>
+          · المنصة <a href="https://acadegate-new.web.app" target="_blank" rel="noopener">https://acadegate-new.web.app</a></li>
+        <li>دور مسؤول مختبر، ثم بوابة مقدم الخدمة</li>
+        <li>إضافة مختبر جديد أو المطالبة بملف موجود بعد تحقق</li>
+        <li>تعبئة الأجهزة/خدمات التحليل، المدينة، الجامعة، التواصل</li>
+        <li>استقبال الطلبات والحجوزات ومتابعتها داخل المنصة</li>
+      </ol>
+      <table>
+        <tr><th>أنتم (المختبر)</th><th>AcadeGate</th></tr>
+        <tr>
+          <td>الأجهزة، التوفر، السلامة، التنفيذ، التقرير/الجلسة</td>
+          <td>القناة، الجمهور الأكاديمي، الواجهة، التتبع، المراجعة</td>
+        </tr>
+        <tr>
+          <td>شخص تواصل للحجوزات اليومية</td>
+          <td>دعم الانضمام وتسهيل أول ملف</td>
+        </tr>
+      </table>
+      <div class="callout">
+        الملفات المستوردة مسبقاً ليست «موثّقة تلقائياً» — التحقق يتم بعد تواصل حقيقي مع المختبر.
+      </div>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="slide-inner">
+      <h2>٥ — بنود الأرباح والمشاركة (حسب الاتفاق)</h2>
+      <p class="lead">
+        لا نثبت في هذا العرض نسبة عمولة ولا رسوم اشتراك ولا أسعار جلسات.
+        الإطار التجاري يُصاغ بعد فهم أجهزةكم وحجم الطلب المتوقع.
+      </p>
+      <div class="callout callout-navy">
+        <strong>مبدأ أساسي:</strong>
+        كل بند مالي أدناه قابل للتفاوض ويُوثَّق في اتفاق شراكة قبل أي تسوية ملزمة.
+      </div>
+      <table>
+        <tr><th>البند</th><th>ماذا يعني؟</th><th>كيف يُحدد؟</th></tr>
+        <tr>
+          <td><strong>مشاركة على طلب/حجز مكتمل</strong></td>
+          <td>مقابل القناة عند اكتمال خدمة عبر المنصة</td>
+          <td>بالاتفاق حسب نوع الخدمة والحجم</td>
+        </tr>
+        <tr>
+          <td><strong>فترة تجربة للروّاد</strong></td>
+          <td>تسهيلات للمختبرات الأولى أثناء ملء القسم</td>
+          <td>بالاتفاق · مدة ونطاق معاً</td>
+        </tr>
+        <tr>
+          <td><strong>ظهور مميّز / اشتراك اختياري</strong></td>
+          <td>أولوية ظهور أو شارة ثقة</td>
+          <td>اختياري · بالاتفاق عند التفعيل</td>
+        </tr>
+        <tr>
+          <td><strong>ظهور في مسار البحث</strong></td>
+          <td>اقتراح أدق للمختبرات المعتمدة</td>
+          <td>بالاتفاق مع معايير الجودة</td>
+        </tr>
+        <tr>
+          <td><strong>عقود جهات / كليات (B2B)</strong></td>
+          <td>حجوزات متكررة أو باقات تحليل</td>
+          <td>عقد منفصل · بالاتفاق</td>
+        </tr>
+        <tr>
+          <td><strong>تحديات صناعية بعربون</strong></td>
+          <td>عند مشاركة المختبر في بروتوكولات ممولة عبر المنصة</td>
+          <td>بالاتفاق لكل حالة</td>
+        </tr>
+      </table>
+      <ul>
+        <li>أنتم تسعّرون الجلسات/التحاليل؛ المنصة لا تفرض سعراً في هذا العرض.</li>
+        <li>أي رقم شفهي في اجتماع غير ملزم حتى يُؤكَّد كتابياً.</li>
+        <li>الدفع تحويل يدوي الآن، والإلكتروني عند التفعيل المتفق عليه.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="slide-inner">
+      <h2>٦ — كيف تنضمون؟</h2>
+      <ol>
+        <li>راسلوا <a href="mailto:acadegate@gmail.com">acadegate@gmail.com</a> بعنوان: «انضمام مختبر — [اسم المختبر] — [المدينة]».</li>
+        <li>أرفقوا: اسم الجهة، المدينة، قائمة أجهزة/خدمات أساسية، بريد أو واتساب مسؤول الحجوزات.</li>
+        <li>افتحوا <a href="https://acadegate-new.web.app/register" target="_blank" rel="noopener">https://acadegate-new.web.app/register</a> وسجّلوا / أضيفوا ملف المختبر.
+          (المنصة: <a href="https://acadegate-new.web.app" target="_blank" rel="noopener">https://acadegate-new.web.app</a>)</li>
+        <li>نثبت معاً بنود الأرباح والمشاركة في اتفاق واضح قبل أي تسوية ملزمة.</li>
+      </ol>
+      <h3>ماذا نحتاج في أول اجتماع؟</h3>
+      <ul>
+        <li>نبذة عن المختبر والجهة التابعة</li>
+        <li>٨–١٥ جهازاً أو خدمة تحليل بأولوية</li>
+        <li>ساعات التوفر التقريبية ومتطلبات السلامة الأساسية</li>
+        <li>شخص تواصل للطلبات اليومية</li>
+      </ul>
+      <div class="footer-note">
+        للطباعة: Print → Save as PDF · أو أرسلوا ملف HTML مباشرة.
+      </div>
+    </div>
+  </section>
+
+  <section class="slide cta-slide">
+    <div class="slide-inner">
+      <h2>الخطوة التالية</h2>
+      <p>
+        الباحث يحتاج معملاً موثوقاً أثناء تجهيز رسالته.
+        السؤال: <strong style="color:#fff;">من سيظهر له أولاً بملف أجهزة واضح وتتبع طلب؟</strong>
+      </p>
+      <div class="cta-box">
+        <p><strong>البريد:</strong> <a href="mailto:acadegate@gmail.com">acadegate@gmail.com</a></p>
+        <p><strong>المنصة:</strong> <a href="https://acadegate-new.web.app" target="_blank" rel="noopener">https://acadegate-new.web.app</a></p>
+        <p><strong>التسجيل:</strong> <a href="https://acadegate-new.web.app/register" target="_blank" rel="noopener">https://acadegate-new.web.app/register</a></p>
+        <p><strong>بديل واتساب:</strong> <a href="https://acadegate-new.firebaseapp.com" target="_blank" rel="noopener">https://acadegate-new.firebaseapp.com</a></p>
+        <p style="margin-bottom:0;">نرد خلال يوم عمل تقريباً.</p>
+      </div>
+      <p style="margin-top:28px;font-size:15pt;">
+        الأرباح والمشاركة — <strong style="color:#fde68a;">حسب الاتفاق</strong> · بدون نسب أو أسعار مسبقة في هذا العرض.
+      </p>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="slide-inner">
+      <h2>ملحق — ملخص تنفيذي</h2>
+      <table>
+        <tr><th>البند</th><th>المحتوى</th></tr>
+        <tr><td>المنصة</td><td>AcadeGate — رحلة دراسات عليا متكاملة</td></tr>
+        <tr><td>عرض المختبر</td><td>تحليل عينات + حجز أجهزة + فلاتر + طلبات/حجوزات</td></tr>
+        <tr><td>الانضمام</td><td>تسجيل / إضافة مختبر / مطالبة ملف بعد تحقق</td></tr>
+        <tr><td>الأرباح والمشاركة</td><td><strong>بنود بالاتفاق — بلا نسب/أسعار في هذه الوثيقة</strong></td></tr>
+        <tr><td>المنصة</td><td><a href="https://acadegate-new.web.app">https://acadegate-new.web.app</a></td></tr>
+        <tr><td>التسجيل</td><td><a href="https://acadegate-new.web.app/register">https://acadegate-new.web.app/register</a></td></tr>
+        <tr><td>التواصل</td><td>acadegate@gmail.com</td></tr>
+      </table>
+      <p class="footer-note">
+        © 2026 AcadeGate · عرض انضمام المختبرات.
+        أي تفاصيل تجارية ملزمة تُحرَّر باتفاق منفصل بعد التفاوض.
+      </p>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>

@@ -274,8 +274,18 @@ class StoreCatalogService {
   static final StoreCatalogService instance = StoreCatalogService._();
 
   final _db = FirebaseFirestore.instance;
+  StoreCatalogBundle? _cache;
+  DateTime? _cachedAt;
 
   Future<StoreCatalogBundle> loadPublicCatalog() async {
+    final cached = _cache;
+    final at = _cachedAt;
+    if (cached != null &&
+        cached.error == null &&
+        at != null &&
+        DateTime.now().difference(at) < const Duration(minutes: 4)) {
+      return cached;
+    }
     try {
       final snap = await _db.collection('product').get();
       final products = <StoreCatalogProduct>[];
@@ -299,11 +309,14 @@ class StoreCatalogService {
         }
       }
 
-      return StoreCatalogBundle(
+      final bundle = StoreCatalogBundle(
         products: products,
         countsByCanonicalTitle: counts,
         orderCountsByCanonicalTitle: orderCounts,
       );
+      _cache = bundle;
+      _cachedAt = DateTime.now();
+      return bundle;
     } catch (e) {
       return StoreCatalogBundle(error: e);
     }

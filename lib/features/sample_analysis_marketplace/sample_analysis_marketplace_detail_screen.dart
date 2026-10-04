@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
 import '../../core/locale/locale_extensions.dart';
+import '../../core/theme/acadegate_theme.dart';
 import '../academic/academic_content_service.dart';
 import '../analysis_labs/request_sample_analysis_screen.dart';
 import '../moderation/delete_content_button.dart';
@@ -114,7 +115,13 @@ class SampleAnalysisMarketplaceDetailScreen extends StatelessWidget {
               children: service.sampleTypes
                   .map(
                     (type) => Chip(
-                      label: Text(type),
+                      label: Text(
+                        type,
+                        style: const TextStyle(
+                          color: Color(0xFF134E4A),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       backgroundColor: Colors.teal.shade50,
                     ),
                   )
@@ -129,7 +136,7 @@ class SampleAnalysisMarketplaceDetailScreen extends StatelessWidget {
           const SizedBox(height: 8),
           Card(
             child: ListTile(
-              leading: const Icon(Icons.apartment, color: _brand),
+              leading: Icon(Icons.apartment, color: acadegateInk(_brand)),
               title: Text(lab.name, style: const TextStyle(fontWeight: FontWeight.w600)),
               subtitle: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -186,7 +193,7 @@ class SampleAnalysisMarketplaceDetailScreen extends StatelessWidget {
               'بعد إرسال الطلب سيتواصل معك المختبر لترتيب استلام العينة والدفع.',
               'After submitting, the lab will contact you to arrange sample delivery and payment.',
             ),
-            style: TextStyle(color: Colors.grey[700], height: 1.4, fontSize: 13),
+            style: TextStyle(color: const Color(0xFFB7C3D6), height: 1.4, fontSize: 13),
           ),
           const SizedBox(height: 80),
         ],
@@ -199,7 +206,7 @@ class SampleAnalysisMarketplaceDetailScreen extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 6),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: _brand),
+          Icon(icon, size: 18, color: acadegateInk(_brand)),
           const SizedBox(width: 8),
           Expanded(child: Text(text)),
         ],

@@ -98,17 +98,18 @@ class SupervisorMetricsChipRow extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: Colors.blue.withValues(alpha: 0.08),
+        color: const Color(0xFF1E3A5F),
         borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: const Color(0xFF60A5FA)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 12, color: Colors.blue[800]),
+          Icon(icon, size: 12, color: const Color(0xFF93C5FD)),
           const SizedBox(width: 3),
           Text(
             label,
-            style: TextStyle(fontSize: 11, color: Colors.blue[900]),
+            style: const TextStyle(fontSize: 11, color: Color(0xFF93C5FD)),
           ),
         ],
       ),
@@ -169,7 +170,7 @@ class _SupervisorPublicationPanelState
                     metrics?.sourceNote.isNotEmpty == true
                         ? metrics!.sourceNote
                         : L10nLookup.noSupervisorPublicationData,
-                    style: TextStyle(color: Colors.grey[600]),
+                    style: TextStyle(color: const Color(0xFFB7C3D6)),
                   ),
                 ],
               );
@@ -209,7 +210,7 @@ class _SupervisorPublicationPanelState
                   const SizedBox(height: 4),
                   Text(
                     L10nLookup.researchIdentityHint,
-                    style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                    style: TextStyle(fontSize: 11, color: const Color(0xFFB7C3D6)),
                   ),
                   const SizedBox(height: 10),
                   ...metrics.identityTopics.map(_topicBar),
@@ -280,7 +281,7 @@ class _SupervisorPublicationPanelState
                   const SizedBox(height: 12),
                   Text(
                     metrics.sourceNote,
-                    style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                    style: TextStyle(fontSize: 11, color: const Color(0xFFB7C3D6)),
                   ),
                 ],
               ],
@@ -306,10 +307,10 @@ class _SupervisorPublicationPanelState
               style: const TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 18,
-                color: Color(0xFF1A237E),
+                color: const Color(0xFFF4F7FB),
               ),
             ),
-            Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[700])),
+            Text(label, style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6))),
           ],
         ),
       ),
@@ -355,7 +356,7 @@ class _SupervisorPublicationPanelState
       dense: true,
       leading: Icon(
         work.hasPdf ? Icons.picture_as_pdf_outlined : Icons.article_outlined,
-        color: work.canOpen ? const Color(0xFF1A237E) : Colors.grey,
+        color: work.canOpen ? const Color(0xFF93C5FD) : const Color(0xFFB7C3D6),
       ),
       title: Text(work.title, style: const TextStyle(fontSize: 14)),
       subtitle: Text(
@@ -404,7 +405,7 @@ class _SupervisorPublicationPanelState
                 style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF1A237E),
+                  color: const Color(0xFFF4F7FB),
                 ),
               ),
             ],
@@ -416,7 +417,7 @@ class _SupervisorPublicationPanelState
               value: value,
               minHeight: 6,
               backgroundColor: const Color(0xFF1A237E).withValues(alpha: 0.08),
-              color: const Color(0xFF1A237E),
+              color: const Color(0xFF93C5FD),
             ),
           ),
         ],
@@ -428,7 +429,7 @@ class _SupervisorPublicationPanelState
     return ListTile(
       contentPadding: EdgeInsets.zero,
       dense: true,
-      leading: const Icon(Icons.people_outline, size: 20, color: Color(0xFF1A237E)),
+      leading: const Icon(Icons.people_outline, size: 20, color: const Color(0xFFF4F7FB)),
       title: Text(person.name, style: const TextStyle(fontSize: 14)),
       subtitle: Text(
         [
@@ -471,7 +472,7 @@ class _SupervisorPublicationPanelState
         'Q1' => Colors.green[700]!,
         'Q2' => Colors.lightGreen[700]!,
         'Q3' => Colors.orange[700]!,
-        'Q4' => Colors.grey[600]!,
+        'Q4' => const Color(0xFFB7C3D6),
         _ => Colors.grey,
       };
     }

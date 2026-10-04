@@ -17,7 +17,9 @@ class VivaTtsService {
 
   void setEnabled(bool value) {
     _enabled = value;
-    if (!value) stop();
+    if (!value && _tts.isSpeaking) {
+      stop();
+    }
   }
 
   Future<void> speakCommitteeQuestion({

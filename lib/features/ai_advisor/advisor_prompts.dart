@@ -26,7 +26,7 @@ List<AdvisorQuickPrompt> get advisorQuickPrompts {
 
 String get advisorGeneralHelp => appTr(
       '''
-أنا محرك AcadeGate AI متعدد الوكلاء. جرّب أحد هذه الطلبات:
+أنا المساعد الأكاديمي في AcadeGate. جرّب أحد هذه الطلبات:
 
 • اقترح لي 10 عناوين رسالة في الطاقة الشمسية
 • اكتب مقدمة أكاديمية بأسلوب طبيعي عن ...
@@ -40,7 +40,7 @@ String get advisorGeneralHelp => appTr(
 • أريد HPLC في الشرقية ومشرف كيمياء تحليلية
 ''',
       '''
-I am the AcadeGate AI multi-agent engine. Try one of these requests:
+I am the Academic Assistant in AcadeGate. Try one of these requests:
 
 • Suggest 10 thesis titles in solar energy
 • Write a natural-style academic introduction about ...

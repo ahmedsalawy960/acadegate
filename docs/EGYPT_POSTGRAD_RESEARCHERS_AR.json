@@ -1,0 +1,138 @@
+{
+  "title": "Egypt postgraduate researchers dossier",
+  "prepared_at": "2026-09-20",
+  "note_on_year": "Latest official national CAPMAS bulletin covers data year 2024 (published 2025-12-25). No full 2025 national bulletin found as of 2026-09.",
+  "capmas": {
+    "enrollment": {
+      "2024": {
+        "total": 232300,
+        "diploma_pct": 41.1,
+        "master_pct": 42.1,
+        "phd_pct": 16.8,
+        "estimates": {
+          "diploma": 95475,
+          "master": 97798,
+          "phd": 39026,
+          "master_plus_phd": 136825
+        }
+      },
+      "2023": {
+        "total": 227300,
+        "diploma_pct": 56.7,
+        "master_pct": 31.3,
+        "phd_pct": 12.0,
+        "estimates": {
+          "diploma": 128879,
+          "master": 71145,
+          "phd": 27276,
+          "master_plus_phd": 98421
+        }
+      }
+    },
+    "degrees_awarded_egyptians": {
+      "2024": 122900,
+      "2023": 100500,
+      "2022": 122000,
+      "change_2023_to_2024_pct": 22.2,
+      "change_2022_to_2023_pct": -17.6
+    },
+    "international_postgrad_degrees_from_egypt": {
+      "2024": 4327,
+      "2023": 2467,
+      "change_pct": 75.4
+    },
+    "degrees_by_field": {
+      "2024": [
+        { "rank": 1, "field_ar": "التعليم", "field_en": "Education", "count": 53300, "pct": 43.4 },
+        { "rank": 2, "field_ar": "الأعمال والإدارة والقانون", "field_en": "Business, administration and law", "count": 24900, "pct": 20.3 },
+        { "rank": 3, "field_ar": "الصحة والرفاه", "field_en": "Health and welfare", "count": 17800, "pct": 14.5 },
+        { "rank": null, "field_ar": "تكنولوجيا الاتصالات والمعلومات", "field_en": "ICT", "count": 361, "pct": 0.3, "note": "last in press summary" }
+      ],
+      "2023": [
+        { "rank": 1, "field_ar": "التعليم", "count": 49700, "pct": 49.5 },
+        { "rank": 2, "field_ar": "الأعمال والإدارة والقانون", "count": 14800, "pct": 14.7 },
+        { "rank": 3, "field_ar": "الصحة والرفاه", "count": 11600, "pct": 11.5 },
+        { "rank": null, "field_ar": "تكنولوجيا الاتصالات والمعلومات", "count": 345, "pct": 0.3 }
+      ]
+    },
+    "degrees_by_university": {
+      "2024": [
+        { "rank": 1, "university_ar": "عين شمس", "count": 10100, "pct": 8.2 },
+        { "rank": 2, "university_ar": "القاهرة", "count": 9400, "pct": 7.6 },
+        { "rank": 3, "university_ar": "المنصورة", "count": 8800, "pct": 7.1 },
+        { "rank": 4, "university_ar": "الزقازيق", "count": 8300, "pct": 6.8 }
+      ],
+      "2023": [
+        { "rank": 1, "university_ar": "الزقازيق", "count": 9000, "pct": 9.0 },
+        { "rank": 2, "university_ar": "المنصورة", "count": 7800, "pct": 7.7 },
+        { "rank": 3, "university_ar": "عين شمس", "count": 7200, "pct": 7.1 },
+        { "rank": 4, "university_ar": "مدينة السادات", "count": 7100, "pct": 7.1 }
+      ]
+    },
+    "sources": [
+      "https://gate.ahram.org.eg/News/5368591.aspx",
+      "https://www.masrtimes.com/473800",
+      "https://censusinfo.capmas.gov.eg/Metadata-ar-v4.2/index.php/catalog"
+    ]
+  },
+  "openalex": {
+    "queried_at": "2026-09-20",
+    "works_by_field_top": [
+      { "field": "Medicine", "count": 206373 },
+      { "field": "Engineering", "count": 113971 },
+      { "field": "Agricultural and Biological Sciences", "count": 81548 },
+      { "field": "Biochemistry, Genetics and Molecular Biology", "count": 50137 },
+      { "field": "Materials Science", "count": 44094 },
+      { "field": "Computer Science", "count": 38688 },
+      { "field": "Chemistry", "count": 35191 },
+      { "field": "Environmental Science", "count": 34746 },
+      { "field": "Social Sciences", "count": 21830 },
+      { "field": "Physics and Astronomy", "count": 18083 }
+    ],
+    "institutions_by_works_top": [
+      { "name": "Cairo University", "works_count": 135737, "cited_by_count": 3847454 },
+      { "name": "Ain Shams University", "works_count": 91123, "cited_by_count": 2004974 },
+      { "name": "Alexandria University", "works_count": 71309, "cited_by_count": 1890217 },
+      { "name": "Mansoura University", "works_count": 70233, "cited_by_count": 2040533 },
+      { "name": "Zagazig University", "works_count": 51019, "cited_by_count": 1407223 },
+      { "name": "National Research Centre", "works_count": 50699, "cited_by_count": 1843080 },
+      { "name": "Assiut University", "works_count": 48016, "cited_by_count": 1177692 },
+      { "name": "Al-Azhar University", "works_count": 47832, "cited_by_count": 1217734 },
+      { "name": "Tanta University", "works_count": 39623, "cited_by_count": 1065393 },
+      { "name": "Menoufia University", "works_count": 34379, "cited_by_count": 800847 },
+      { "name": "Benha University", "works_count": 34018, "cited_by_count": 626135 },
+      { "name": "Agricultural Research Center", "works_count": 30686, "cited_by_count": 378116 },
+      { "name": "Suez Canal University", "works_count": 27379, "cited_by_count": 653681 },
+      { "name": "Helwan University", "works_count": 26889, "cited_by_count": 481262 },
+      { "name": "Minia University", "works_count": 25557, "cited_by_count": 674800 }
+    ],
+    "authors_by_last_known_institution": {
+      "meta_count_approx": 409929,
+      "top": [
+        { "name": "Cairo University", "count": 45904 },
+        { "name": "Ain Shams University", "count": 40138 },
+        { "name": "Alexandria University", "count": 26508 },
+        { "name": "Mansoura University", "count": 23662 },
+        { "name": "Al-Azhar University", "count": 23526 },
+        { "name": "Zagazig University", "count": 21008 },
+        { "name": "Assiut University", "count": 16497 },
+        { "name": "Tanta University", "count": 16456 },
+        { "name": "Benha University", "count": 14940 },
+        { "name": "Menoufia University", "count": 14612 }
+      ]
+    }
+  },
+  "scimago_universities_egypt_2026_top10": [
+    { "national_rank": 1, "name": "Cairo University", "world_rank": 997 },
+    { "national_rank": 2, "name": "Ain Shams University", "world_rank": 2285 },
+    { "national_rank": 3, "name": "Mansoura University", "world_rank": 2314 },
+    { "national_rank": 4, "name": "Alexandria University", "world_rank": 2524 },
+    { "national_rank": 5, "name": "Zagazig University", "world_rank": 2907 },
+    { "national_rank": 6, "name": "Future University in Egypt", "world_rank": 3445 },
+    { "national_rank": 7, "name": "Minia University", "world_rank": 3557 },
+    { "national_rank": 8, "name": "Kafrelsheikh University", "world_rank": 3829 },
+    { "national_rank": 9, "name": "Assiut University", "world_rank": 4029 },
+    { "national_rank": 10, "name": "Tanta University", "world_rank": 4228 }
+  ],
+  "html_report": "docs/EGYPT_POSTGRAD_RESEARCHERS_AR.html"
+}

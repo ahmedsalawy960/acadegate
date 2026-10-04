@@ -308,7 +308,7 @@ class VoiceSttService {
       _notify();
       return;
     }
-    if (!_initialized) return;
+    if (!_initialized || !_listening) return;
     try {
       await _speech.cancel();
     } catch (_) {}

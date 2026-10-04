@@ -126,7 +126,7 @@ class _ManuscriptDraftChatPanelState extends State<ManuscriptDraftChatPanel> {
                           'Upload a PDF or Word file first so answers come from your file, not generic models.',
                         )
                       : index.inventoryLine,
-                  style: TextStyle(fontSize: 12, color: Colors.grey[800], height: 1.35),
+                  style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6), height: 1.35),
                 ),
               ],
             ),
@@ -143,7 +143,7 @@ class _ManuscriptDraftChatPanelState extends State<ManuscriptDraftChatPanel> {
                     'اسأل عن هذه الورقة كما رُفعت: تطابق الملخص مع النتائج، موضع جدول أو شكل، أو محتوى قسم.',
                     'Ask about this uploaded paper: abstract vs results, a table or figure location, or a section.',
                   ),
-                  style: TextStyle(color: Colors.grey[700], height: 1.4),
+                  style: TextStyle(color: const Color(0xFFB7C3D6), height: 1.4),
                 ),
                 const SizedBox(height: 12),
                 Wrap(
@@ -176,7 +176,7 @@ class _ManuscriptDraftChatPanelState extends State<ManuscriptDraftChatPanel> {
                       const SizedBox(width: 10),
                       Text(
                         context.t('أقرأ ملفك…', 'Reading your file…'),
-                        style: TextStyle(color: Colors.grey[700]),
+                        style: TextStyle(color: const Color(0xFFB7C3D6)),
                       ),
                     ],
                   ),

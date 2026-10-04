@@ -91,7 +91,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFF071433),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -147,8 +147,6 @@ class _WelcomeAuthPanel extends StatelessWidget {
   final VoidCallback onFacebook;
   final VoidCallback onApple;
 
-  static const _brand = Color(0xFF1A237E);
-
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -187,7 +185,8 @@ class _WelcomeAuthPanel extends StatelessWidget {
                 MaterialPageRoute(builder: (context) => const LoginScreen()),
               ),
               style: FilledButton.styleFrom(
-                backgroundColor: _brand,
+                backgroundColor: const Color(0xFF3949AB),
+                foregroundColor: const Color(0xFFF4F7FB),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -219,8 +218,8 @@ class _WelcomeAuthPanel extends StatelessWidget {
                 ),
               ),
               style: OutlinedButton.styleFrom(
-                foregroundColor: _brand,
-                side: const BorderSide(color: _brand),
+                foregroundColor: const Color(0xFFF4F7FB),
+                side: const BorderSide(color: Color(0xFFF4F7FB)),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -242,7 +241,7 @@ class _WelcomeAuthPanel extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Text(
                   context.t('خيارات دخول أخرى', 'Other sign-in options'),
-                  style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                  style: TextStyle(color: const Color(0xFFB7C3D6), fontSize: 13),
                 ),
               ),
               Expanded(child: Divider(color: Colors.grey[300])),

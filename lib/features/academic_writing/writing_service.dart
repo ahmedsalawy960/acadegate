@@ -93,7 +93,7 @@ class WritingService {
     if (expert.ownerId != null && expert.ownerId!.isNotEmpty) {
       await NotificationService.instance.send(
         userId: expert.ownerId!,
-        title: appTr('طلب كتابة جديد', 'New writing order'),
+        title: appTr('طلب استشارة كتابة جديد', 'New writing-consultation request'),
         body: order.topic,
         type: 'writing_order',
         contextId: '$serviceId:${orderDoc.id}',
@@ -185,7 +185,7 @@ class WritingService {
       userId: snap.data()?['userId']?.toString() ?? '',
       title: appTr('تم رفض الطلب', 'Order rejected'),
       body: reason.isEmpty
-          ? appTr('رفض الخبير طلب الكتابة', 'The expert declined the writing order')
+          ? appTr('رفض المستشار طلب الاستشارة', 'The consultant declined the consultation')
           : reason,
       type: 'writing_order',
       contextId: '$serviceId:$orderId',

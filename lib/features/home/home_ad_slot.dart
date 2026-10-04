@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/locale/locale_extensions.dart';
+import '../../core/theme/acadegate_theme.dart';
 import 'home_feed_models.dart';
 import 'home_route_navigator.dart';
 
@@ -22,12 +23,11 @@ class HomeAdSlot extends StatelessWidget {
     if (banners.isEmpty) return const SizedBox.shrink();
     final banner = banners.first;
     final arabic = Localizations.localeOf(context).languageCode == 'ar';
-    final color = Color(banner.accentColor);
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Material(
-        color: color.withValues(alpha: 0.07),
+        color: AcadeGateColors.card,
         borderRadius: BorderRadius.circular(14),
         child: InkWell(
           borderRadius: BorderRadius.circular(14),
@@ -39,7 +39,7 @@ class HomeAdSlot extends StatelessWidget {
           child: Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: color.withValues(alpha: 0.22)),
+              border: Border.all(color: AcadeGateColors.line),
             ),
             padding: const EdgeInsets.all(12),
             child: Row(
@@ -51,15 +51,21 @@ class HomeAdSlot extends StatelessWidget {
                     height: 72,
                     child: banner.imageUrl.isEmpty
                         ? ColoredBox(
-                            color: color.withValues(alpha: 0.2),
-                            child: Icon(Icons.campaign_rounded, color: color),
+                            color: AcadeGateColors.gold.withValues(alpha: 0.16),
+                            child: const Icon(
+                              Icons.campaign_rounded,
+                              color: AcadeGateColors.gold,
+                            ),
                           )
                         : Image.network(
                             banner.imageUrl,
                             fit: BoxFit.cover,
                             errorBuilder: (_, _, _) => ColoredBox(
-                              color: color.withValues(alpha: 0.2),
-                              child: Icon(Icons.campaign_rounded, color: color),
+                              color: AcadeGateColors.gold.withValues(alpha: 0.16),
+                              child: const Icon(
+                                Icons.campaign_rounded,
+                                color: AcadeGateColors.gold,
+                              ),
                             ),
                           ),
                   ),
@@ -77,7 +83,7 @@ class HomeAdSlot extends StatelessWidget {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: color.withValues(alpha: 0.14),
+                              color: AcadeGateColors.gold.withValues(alpha: 0.16),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
@@ -85,7 +91,7 @@ class HomeAdSlot extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w700,
-                                color: color,
+                                color: AcadeGateColors.gold,
                               ),
                             ),
                           ),
@@ -95,7 +101,7 @@ class HomeAdSlot extends StatelessWidget {
                               placementLabel,
                               style: TextStyle(
                                 fontSize: 10,
-                                color: Colors.grey[600],
+                                color: const Color(0xFFB7C3D6),
                               ),
                             ),
                           ],
@@ -108,7 +114,7 @@ class HomeAdSlot extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: color,
+                          color: AcadeGateColors.text,
                           fontSize: 15,
                         ),
                       ),
@@ -120,7 +126,7 @@ class HomeAdSlot extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 12,
-                            color: Colors.grey[700],
+                            color: const Color(0xFFB7C3D6),
                             height: 1.3,
                           ),
                         ),
@@ -128,7 +134,7 @@ class HomeAdSlot extends StatelessWidget {
                     ],
                   ),
                 ),
-                Icon(Icons.chevron_right, color: color),
+                const Icon(Icons.chevron_right, color: AcadeGateColors.muted),
               ],
             ),
           ),

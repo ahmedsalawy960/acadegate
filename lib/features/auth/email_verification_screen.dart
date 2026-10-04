@@ -151,17 +151,17 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
     if (!EmailAuthGate.requiresVerification(FirebaseAuth.instance.currentUser)) {
       return const Scaffold(
         body: Center(
-          child: CircularProgressIndicator(color: Color(0xFF1A237E)),
+          child: CircularProgressIndicator(color: Color(0xFFF4F7FB)),
         ),
       );
     }
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFF071433),
       appBar: AcadeGateAppBar(
         title: Text(context.t('تأكيد البريد', 'Verify email')),
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF1A237E),
+        backgroundColor: const Color(0xFF0B1F4D),
+        foregroundColor: const Color(0xFFF4F7FB),
         elevation: 0,
         actions: const [LanguageSwitcherButton()],
       ),
@@ -173,7 +173,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
             const Icon(
               Icons.mark_email_unread_outlined,
               size: 72,
-              color: Color(0xFF1A237E),
+              color: Color(0xFFFBBF24),
             ),
             const SizedBox(height: 20),
             Text(
@@ -185,7 +185,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
               style: const TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF1A237E),
+                color: Color(0xFFFBBF24),
               ),
             ),
             const SizedBox(height: 12),
@@ -199,7 +199,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                 'Check Spam if missing, then tap "I verified".',
               ),
               textAlign: TextAlign.center,
-              style: TextStyle(height: 1.5, color: Colors.grey[800]),
+              style: const TextStyle(height: 1.5, color: Color(0xFFB7C3D6)),
             ),
             if (_statusMessage != null) ...[
               const SizedBox(height: 16),

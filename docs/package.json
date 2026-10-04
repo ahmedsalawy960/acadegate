@@ -6,6 +6,7 @@
     "generate": "node generate-brochure.mjs",
     "pitch:suppliers": "node generate-pitch-suppliers-pptx.mjs",
     "pitch:suppliers:docx": "node generate-pitch-suppliers.mjs",
+    "pitch:refresh": "node refresh-partner-pitches.mjs",
     "soybean:pptx": "node generate-soybean-refining-pptx.mjs"
   },
   "dependencies": {

@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AcadeGate — عرض انضمام خبراء الكتابة الأكاديمية</title>
+  <style>
+    @page { size: A4; margin: 14mm 12mm; }
+    :root {
+      --ink: #18181b;
+      --muted: #52525b;
+      --navy: #0b1f4d;
+      --accent: #5d4037;
+      --soft: #efebe9;
+      --line: #e4e4e7;
+      --card: #ffffff;
+      --teal: #0f766e;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, "Noto Sans Arabic", Arial, sans-serif;
+      color: var(--ink);
+      background: #e7e5e4;
+      line-height: 1.75;
+      font-size: 12.5pt;
+    }
+    .deck { max-width: 980px; margin: 0 auto; padding: 20px 12px 60px; }
+    .slide {
+      background: var(--card);
+      border-radius: 18px;
+      overflow: hidden;
+      margin-bottom: 22px;
+      border: 1px solid #e7e5e4;
+      page-break-after: always;
+      box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
+    }
+    .slide-inner { padding: 36px 40px 40px; }
+    .cover {
+      min-height: 88vh;
+      background:
+        radial-gradient(ellipse at 18% 18%, rgba(93, 64, 55, 0.45), transparent 46%),
+        radial-gradient(ellipse at 88% 12%, rgba(15, 118, 110, 0.22), transparent 42%),
+        linear-gradient(158deg, #071433 0%, #0b1f4d 48%, #5d4037 100%);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 48px 44px;
+    }
+    .cover .eyebrow { letter-spacing: 0.06em; font-size: 11pt; opacity: 0.88; }
+    .cover h1 { font-size: 44pt; margin: 16px 0 8px; line-height: 1.1; font-weight: 800; }
+    .cover .tagline { font-size: 18pt; opacity: 0.95; max-width: 740px; margin-bottom: 20px; }
+    .cover .promise {
+      font-size: 14.5pt; max-width: 760px; opacity: 0.93;
+      border-right: 4px solid #fbbf24; padding-right: 16px;
+    }
+    .pill {
+      display: inline-block; background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.25); border-radius: 999px;
+      padding: 6px 12px; margin: 4px 4px 0 0; font-size: 11pt;
+    }
+    h2 {
+      margin: 0 0 12px; color: var(--navy); font-size: 22pt;
+      border-bottom: 3px solid var(--accent); display: inline-block; padding-bottom: 4px;
+    }
+    h3 { color: var(--accent); font-size: 14.5pt; margin: 22px 0 10px; }
+    p, li { color: var(--muted); }
+    p strong, li strong, td strong { color: var(--ink); }
+    .lead { font-size: 14pt; color: var(--muted); margin: 0 0 16px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .card {
+      border: 1px solid var(--line); border-radius: 14px; padding: 16px; background: #fff;
+    }
+    .card strong { display: block; margin-bottom: 6px; color: var(--ink); }
+    .callout {
+      background: var(--soft);
+      border-right: 5px solid var(--accent);
+      padding: 14px 16px;
+      border-radius: 10px;
+      margin: 16px 0;
+    }
+    .callout-teal { background: #f0fdfa; border-right-color: var(--teal); }
+    .callout-navy { background: #eff6ff; border-right-color: var(--navy); }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0;
+      font-size: 11pt;
+    }
+    th {
+      background: var(--navy);
+      color: #fff;
+      text-align: right;
+      padding: 10px 8px;
+    }
+    td {
+      border: 1px solid var(--line);
+      padding: 9px 8px;
+      vertical-align: top;
+      color: var(--ink);
+    }
+    tr:nth-child(even) td { background: #fafafa; }
+    .chip {
+      display: inline-block;
+      background: #efebe9;
+      border: 1px solid #d7ccc8;
+      color: #4e342e;
+      padding: 5px 10px;
+      border-radius: 8px;
+      margin: 3px;
+      font-size: 10.5pt;
+      font-weight: 600;
+    }
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+      margin: 16px 0;
+    }
+    .flow-step {
+      background: #fafafa;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px 8px;
+      text-align: center;
+      font-size: 10.5pt;
+    }
+    .flow-step b { display: block; color: var(--navy); margin: 6px 0 4px; }
+    .num {
+      display: inline-flex; width: 26px; height: 26px;
+      align-items: center; justify-content: center;
+      border-radius: 50%; background: var(--accent); color: #fff;
+      font-weight: 700; font-size: 11pt;
+    }
+    .cta-slide {
+      background: linear-gradient(145deg, #0b1f4d, #5d4037);
+      color: #fff;
+    }
+    .cta-slide h2 { color: #fff; border-bottom-color: #fbbf24; }
+    .cta-slide p, .cta-slide li { color: rgba(255,255,255,0.92); }
+    .cta-slide a { color: #fde68a; }
+    .cta-box {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.22);
+      border-radius: 14px;
+      padding: 18px;
+      margin-top: 16px;
+    }
+    .footer-note {
+      font-size: 10pt; color: var(--muted); margin-top: 20px;
+      border-top: 1px solid var(--line); padding-top: 10px;
+    }
+    a { color: var(--teal); font-weight: 700; }
+    ol, ul { margin: 8px 0 12px; padding-right: 22px; }
+    li { margin: 6px 0; }
+    @media (max-width: 800px) {
+      .grid-2, .grid-3, .flow { grid-template-columns: 1fr; }
+      .slide-inner { padding: 24px 18px; }
+      .cover { padding: 28px 20px; min-height: auto; }
+      .cover h1 { font-size: 32pt; }
+    }
+    @media print {
+      body { background: #fff; }
+      .deck { padding: 0; max-width: none; }
+      .slide {
+        box-shadow: none; border: none; border-radius: 0; margin: 0;
+        break-after: page;
+      }
+      .cover { min-height: 100vh; }
+    }
+  
+    .link-banner {
+      position: sticky; top: 8px; z-index: 30;
+      background: linear-gradient(105deg, #071433 0%, #0b1f4d 45%, #0f766e 100%);
+      color: #fff; padding: 14px 18px; border-radius: 16px;
+      margin: 0 0 18px; display: flex; flex-wrap: wrap; gap: 10px 18px;
+      align-items: center; justify-content: space-between;
+      box-shadow: 0 12px 32px rgba(11, 31, 77, 0.28);
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+    .link-banner .lb-title { font-weight: 800; font-size: 13pt; }
+    .link-banner .lb-meta { opacity: 0.9; font-size: 10.5pt; }
+    .link-banner a {
+      color: #fde68a; font-weight: 800; text-decoration: none;
+      border-bottom: 1px solid rgba(253,230,138,0.55);
+    }
+    .link-banner .lb-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+    .link-banner .lb-btn {
+      display: inline-block; background: #fbbf24; color: #071433 !important;
+      border: none; border-radius: 999px; padding: 8px 14px; font-weight: 800;
+      border-bottom: none !important; font-size: 11pt;
+    }
+    .link-banner .lb-btn.secondary {
+      background: rgba(255,255,255,0.12); color: #fff !important;
+      border: 1px solid rgba(255,255,255,0.28);
+    }
+    .link-banner .lb-brand { display: flex; align-items: center; gap: 12px; }
+    .link-banner .lb-logo {
+      width: 52px; height: 52px; border-radius: 50%; display: block; background: #fff;
+    }
+    .cover-logo {
+      width: 88px; height: 88px; border-radius: 50%; display: block; margin-bottom: 18px;
+    }
+    @media print { .link-banner { position: static; box-shadow: none; } }
+
+  </style>
+</head>
+<body>
+<div class="deck">
+
+  <div class="link-banner" role="banner">
+    <div class="lb-brand">
+      <a href="https://acadegate-new.web.app" target="_blank" rel="noopener"><img class="lb-logo" src="/assets/assets/images/acadegate_logo.png" alt="AcadeGate" width="52" height="52" /></a>
+      <div>
+        <div class="lb-title">AcadeGate — عرض انضمام خبراء الكتابة</div>
+        <div class="lb-meta">منصة للباحثين · سجّلوا خدمتكم وابدأوا استقبال الطلبات</div>
+      </div>
+    </div>
+    <div class="lb-actions">
+      <a class="lb-btn" href="https://acadegate-new.web.app" target="_blank" rel="noopener">فتح المنصة</a>
+      <a class="lb-btn secondary" href="https://acadegate-new.web.app/register" target="_blank" rel="noopener">التسجيل</a>
+      <a class="lb-btn secondary" href="https://acadegate-new.firebaseapp.com" target="_blank" rel="noopener">بديل واتساب</a>
+    </div>
+  </div>
+
+  <section class="slide cover">
+    <div>
+      <a href="https://acadegate-new.web.app" target="_blank" rel="noopener"><img class="cover-logo" src="/assets/assets/images/acadegate_logo.png" alt="AcadeGate" width="88" height="88" /></a>
+      <div class="eyebrow">عرض انضمام · خبراء وخدمات الكتابة الأكاديمية</div>
+      <h1>AcadeGate</h1>
+      <div class="tagline">ادعُ خدمتك إلى منصة يصل فيها باحثو الماجستير والدكتوراه بطلبات حقيقية — مواصفات كاملة وضمان وتتبع</div>
+      <p class="promise">
+        كتابة <strong style="color:#fff;">بشرية متخصصة</strong> داخل رحلة بحث متكاملة.
+        الباحث يصل إليكم بطلب واضح، وأنتم تستقبلون العمل وتسعّرونه وتسلّمونه من داخل التطبيق.
+        بنود الأرباح <strong style="color:#fff;">حسب الاتفاق</strong> دون نسب أو أسعار مسبقة هنا.
+      </p>
+      <div style="margin-top:22px;">
+        <span class="pill">٨ تخصصات كتابة</span>
+        <span class="pill">مطابقة كاتب</span>
+        <span class="pill">أدوات مساعدة بجانب الكاتب</span>
+        <span class="pill">دور كاتب + طلبات واردة</span>
+        <span class="pill">طلب بمواصفات كاملة</span>
+        <span class="pill">شراكة حسب الاتفاق</span>
+      </div>
+    </div>
+    <div style="opacity:0.85;font-size:11pt;">
+      وثيقة غير سرية · للكتّاب المستقلين وفرق الكتابة الأكاديمية ·
+      <strong>acadegate@gmail.com</strong>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="slide-inner">
+      <h2>محتوى العرض</h2>
+      <ol style="font-size:14pt;line-height:2;">
+        <li>فكرة عامة عن AcadeGate</li>
+        <li>لماذا ينضم الخبير الآن؟</li>
+        <li>قسم الكتابة: التخصصات وملف الحجز</li>
+        <li>دورة الحجز والضمان</li>
+        <li>ماذا يفعل الكاتب داخل التطبيق؟</li>
+        <li>بنود الأرباح والمشاركة — حسب الاتفاق</li>
+        <li>خطوات الانضمام والتواصل</li>
+      </ol>
+      <div class="callout callout-navy">
+        <strong>هدف الوثيقة:</strong>
+        تعريف واضح ودعوة شراكة — التفاصيل التجارية تُثبَّت في اتفاق منفصل بعد التعارف.
+      </div>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="slide-inner">
+      <h2>١ — فكرة عامة عن AcadeGate</h2>
+      <p class="lead">
+        AcadeGate منصة أكاديمية تساعد طالب الدراسات العليا على إتمام رحلته في مكان واحد:
+        فكرة، مشرف، مختبر، متجر، كتابة بشرية، استوديو رسالة، نزاهة، نشر، تمويل، ومجتمع.
+      </p>
+      <div class="grid-2">
+        <div class="card">
+          <strong>الجمهور</strong>
+          باحثو وماجستير ودكتوراه يحتاجون دعماً أكاديمياً متكرراً (مراجعة، إحصاء، تدقيق، ترجمة…).
+        </div>
+        <div class="card">
+          <strong>المشكلة</strong>
+          طلبات واتساب بلا مواصفات، خلافات دفع، وخلط بين كتابة بشرية ونصوص ذكاء اصطناعي.
+        </div>
+        <div class="card">
+          <strong>قيمة قسم الكتابة</strong>
+          الباحث يصل إليك وهو داخل رحلته — طلب مقصود بملف واضح، لا رسالة عشوائية.
+        </div>
+        <div class="card">
+          <strong>مكانكم في المنصة</strong>
+          حساب كاتب، ملف خدمة يظهر للباحثين، وطلبات واردة تتابعونها من بوابة مقدم الخدمة.
+        </div>
+      </div>
+      <h3>خدمات المنصة (نظرة سريعة)</h3>
+      <table>
+        <tr><th>القسم</th><th>علاقته بالكاتب</th></tr>
+        <tr><td>المشرفون والمطابقة</td><td>طلاب يبدأون مشاريع يحتاجون كتابة ومراجعة</td></tr>
+        <tr><td>سوق الأفكار + التمويل</td><td>أفكار ومقترحات تحتاج صياغة أكاديمية</td></tr>
+        <tr><td>مسار البحث</td><td>قد يقترح خبير كتابة ضمن حزمة الهدف البحثي</td></tr>
+        <tr><td>المختبرات والمتجر</td><td>يزيد بقاء الباحث واحتمال طلب كتابة لاحقاً</td></tr>
+        <tr><td><strong>خدمات الكتابة</strong></td><td><strong>أنت هنا — حجز بشري متخصص مع ضمان</strong></td></tr>
+        <tr><td>استوديو الرسالة · النزاهة · النشر</td><td>تكمل الدورة؛ الباحث قد يحتاجك قبل التسليم النهائي</td></tr>
+        <tr><td>المساعد الذكي + محاكي المناقشة</td><td>أدوات مساعدة بجانب الكاتب — ليست بديلاً عنك</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="slide-inner">
+      <h2>٢ — لماذا ينضم الخبير الآن؟</h2>
+      <div class="grid-3">
+        <div class="card">
+          <strong>عميل أكاديمي محدد</strong>
+          مستوى دراسي، توثيق، استعجال، مرفقات — مواصفات أوضح من واتساب.
+        </div>
+        <div class="card">
+          <strong>ثقة الدفع</strong>
+          قبول بسعر · مبلغ محجوز · تسليم · إفراج بعد التأكيد.
+        </div>
+        <div class="card">
+          <strong>تمييز بشري</strong>
+          الواجهة تصرّح: كتابة بشرية متخصصة — ليست ذكاء اصطناعي.
+        </div>
+        <div class="card">
+          <strong>مطابقة كاتب</strong>
+          اقتراح حسب تخصص الباحث ولغته وأدواته.
+        </div>
+        <div class="card">
+          <strong>دور كاتب رسمي</strong>
+          تفعيل دور الكاتب وبوابة مقدم الخدمة لطلبات واردة.
+        </div>
+        <div class="card">
+          <strong>مرونة الشراكة</strong>
+          الأرباح والمشاركة بالاتفاق — بلا نموذج نسبة مفروض في هذا العرض.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="slide-inner">
+      <h2>٣ — قسم الكتابة بالتفصيل</h2>
+      <p class="lead">
+        الباحث يفتح «خدمات الكتابة الأكاديمية»، يبحث أو يختار نوع الخدمة، يحدد المتطلبات، ويحجز مع خبير.
+      </p>
+      <h3>٣.١ ثمانية تخصصات</h3>
+      <div>
+        <span class="chip">أوراق بحثية</span>
+        <span class="chip">رسائل علمية</span>
+        <span class="chip">إحصاء وتحليل</span>
+        <span class="chip">مراجعة أدبيات</span>
+        <span class="chip">مقترحات بحث</span>
+        <span class="chip">تحرير وتدقيق</span>
+        <span class="chip">تنسيق وتوثيق</span>
+        <span class="chip">ترجمة علمية</span>
+      </div>
+      <table>
+        <tr><th>القسم</th><th>أمثلة ما يُطلب</th></tr>
+        <tr><td>أوراق بحثية</td><td>مقالات، مؤتمرات، دعم النشر</td></tr>
+        <tr><td>رسائل علمية</td><td>ماجستير / دكتوراه / مشروع — فصل أو مرحلة، لا الرسالة كاملة دفعة واحدة بالضرورة</td></tr>
+        <tr><td>إحصاء وتحليل</td><td>SPSS · R · Excel · STATA · AMOS · SmartPLS · تفسير نتائج</td></tr>
+        <tr><td>مراجعة أدبيات</td><td>نقد، تلخيص، خريطة مفاهيمية</td></tr>
+        <tr><td>مقترحات بحث</td><td>خطة، أهداف، منهجية</td></tr>
+        <tr><td>تحرير وتدقيق</td><td>لغة وأسلوب وإعادة صياغة أكاديمية</td></tr>
+        <tr><td>تنسيق وتوثيق</td><td>APA · MLA · Harvard · Chicago · IEEE · Vancouver · ISO 690</td></tr>
+        <tr><td>ترجمة علمية</td><td>عربي ↔ إنجليزي بمصطلحات دقيقة</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="slide-inner">
+      <h2>٣ — ماذا يملأ الباحث عند الحجز؟</h2>
+      <div class="grid-2">
+        <div class="card">
+          <strong>المستوى الأكاديمي</strong>
+          مشروع تخرج · دبلوم · ماجستير · ماجستير مهني / MBA · دكتوراه · دكتوراه مهنية · ورقة مؤتمر · مجلة Q1–Q4 · تقرير.
+        </div>
+        <div class="card">
+          <strong>التوثيق واللغة</strong>
+          APA 7 · MLA · Harvard · Chicago · IEEE · Vancouver · ISO 690 · دليل الجامعة · عربي / إنجليزي / ثنائي.
+        </div>
+        <div class="card">
+          <strong>الاستعجال</strong>
+          عادي ٧–١٤ يوماً · مستعجل ٣–٦ · فائق ٢٤–٤٨ ساعة.
+        </div>
+        <div class="card">
+          <strong>إضافات شائعة</strong>
+          تقرير أصالة · ملخص تنفيذي · PowerPoint · جداول ورسوم · جلسة شرح · مراجع إضافية · تعديل بعد المناقشة.
+        </div>
+      </div>
+      <div class="callout">
+        <strong>ملف خدمتك:</strong>
+        الاسم/الفريق · نوع القسم · التخصص · نبذة صادقة · نطاق أسعار توجيهي · مدة تسليم · عينات · تواصل —
+        ثم مراجعة إدارية قبل الظهور.
+      </div>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="slide-inner">
+      <h2>٤ — دورة الطلب والضمان (Escrow)</h2>
+      <div class="flow">
+        <div class="flow-step"><span class="num">1</span><b>حجز</b>طلب بمواصفات كاملة</div>
+        <div class="flow-step"><span class="num">2</span><b>قبولك</b>تقبل وتحدد المبلغ — أو ترفض</div>
+        <div class="flow-step"><span class="num">3</span><b>دفع محجوز</b>تحويل يدوي الآن · بوابة عند التفعيل</div>
+        <div class="flow-step"><span class="num">4</span><b>تنفيذ</b>قيد التنفيذ → تسليم مع ملاحظة</div>
+        <div class="flow-step"><span class="num">5</span><b>إفراج</b>تأكيد الاستلام يحرّر الضمان</div>
+      </div>
+      <table>
+        <tr><th>الحالة</th><th>المعنى</th></tr>
+        <tr><td>بانتظار قبول الخبير</td><td>طلب جديد — تقرر القبول والسعر</td></tr>
+        <tr><td>مقبول</td><td>قبلت وحددت المبلغ</td></tr>
+        <tr><td>قيد التنفيذ</td><td>بعد حجز الدفع / بدء العمل</td></tr>
+        <tr><td>تم التسليم</td><td>بانتظار تأكيد الباحث</td></tr>
+        <tr><td>مكتمل</td><td>تأكيد + إفراج الضمان</td></tr>
+        <tr><td>مرفوض / ملغى</td><td>وفق القواعد والمسار المتاح</td></tr>
+      </table>
+      <div class="callout">
+        أنت تسعّر عند القبول. تفاصيل النزاع والإلغاء تُكتب في اتفاق الشراكة حسب طبيعة خدمتك.
+      </div>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="slide-inner">
+      <h2>٥ — ماذا تفعل داخل التطبيق؟</h2>
+      <ol>
+        <li>أنشئ حساباً وسجّل الدخول على
+          <a href="https://acadegate-new.web.app" target="_blank" rel="noopener">https://acadegate-new.web.app</a>
+        </li>
+        <li>افتح <strong>خدمات الكتابة الأكاديمية</strong></li>
+        <li>اضغط إضافة خدمتك / التسجيل ككاتب أكاديمي واملأ الملف</li>
+        <li>بعد الاعتماد يظهر ملفك؛ يُفعَّل دور الكاتب لبوابة مقدم الخدمة</li>
+        <li>استقبل الطلبات من <strong>طلبات العملاء</strong> / الطلبات الواردة</li>
+        <li>اقبل وحدّد المبلغ · نفّذ · سلّم · راسل الباحث داخل المنصة</li>
+      </ol>
+      <div class="grid-2">
+        <div class="card">
+          <strong>ما نقدّمه</strong>
+          قناة جمهور أكاديمي · ٨ أقسام · مطابقة · ضمان · مراجعة جودة · دليل قسم للباحثين · تمييز بشري واضح.
+        </div>
+        <div class="card">
+          <strong>ما تقدّمه أنت</strong>
+          خدمة حقيقية · رد مهني · تنفيذ وفق المواصفات · أخلاقيات أكاديمية (دعم لا انتحال) · تحديث التوفر.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="slide-inner">
+      <h2>٦ — بنود الأرباح والمشاركة (حسب الاتفاق)</h2>
+      <p class="lead">
+        لا نثبت في هذا العرض نسبة عمولة ولا رسوم اشتراك ولا أسعار باقات.
+        الإطار التجاري يُصاغ بعد فهم تخصصك وحجم الطلبات المتوقع.
+      </p>
+      <div class="callout callout-navy">
+        <strong>مبدأ أساسي:</strong>
+        كل بند مالي أدناه قابل للتفاوض ويُوثَّق في اتفاق شراكة قبل أي تسوية ملزمة.
+      </div>
+      <table>
+        <tr><th>البند</th><th>ماذا يعني؟</th><th>كيف يُحدد؟</th></tr>
+        <tr>
+          <td><strong>مشاركة على الطلب المكتمل</strong></td>
+          <td>مقابل القناة عند اكتمال طلب بضمان وتسليم</td>
+          <td>بالاتفاق حسب القسم وحجم الحركة</td>
+        </tr>
+        <tr>
+          <td><strong>فترة تجربة للروّاد</strong></td>
+          <td>تسهيلات لملء الأقسام الثمانية مبكراً</td>
+          <td>بالاتفاق · مدة ونطاق معاً</td>
+        </tr>
+        <tr>
+          <td><strong>ظهور مميّز / اشتراك اختياري</strong></td>
+          <td>أولوية ظهور، شارة، أولوية مراجعة</td>
+          <td>اختياري · بالاتفاق عند التفعيل</td>
+        </tr>
+        <tr>
+          <td><strong>ظهور في مسار البحث / المطابقة</strong></td>
+          <td>اقتراح أدق للخبراء المعتمدين</td>
+          <td>بالاتفاق مع معايير الجودة</td>
+        </tr>
+        <tr>
+          <td><strong>باقة فريق / كاتب مؤسسي</strong></td>
+          <td>أكثر من تخصص تحت حساب منسّق</td>
+          <td>بالاتفاق</td>
+        </tr>
+        <tr>
+          <td><strong>شراكة جهة / مركز لغوي (B2B)</strong></td>
+          <td>خدمات متكررة لطلاب جهة معينة</td>
+          <td>عقد منفصل · بالاتفاق</td>
+        </tr>
+        <tr>
+          <td><strong>فرق الاستعجال</strong></td>
+          <td>عند تنظيم تسعير المستعجل/الفائق</td>
+          <td>بالاتفاق إن فُعِّل</td>
+        </tr>
+      </table>
+      <h3>ما نؤكده بوضوح</h3>
+      <ul>
+        <li>لا تُخصم حالياً عمولة تلقائية من بوابة دفع قبل الاتفاق والتفعيل المتفق عليه.</li>
+        <li>أنت تضع نطاقك السعري وتحدد مبلغ كل طلب عند القبول.</li>
+        <li>أي رقم شفهي في اجتماع غير ملزم حتى يُؤكَّد كتابياً.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="slide-inner">
+      <h2>٧ — كيف تنضمون؟</h2>
+      <ol>
+        <li>راسلوا <a href="mailto:acadegate@gmail.com">acadegate@gmail.com</a> بعنوان: «انضمام كاتب — [الاسم/الفريق] — [التخصص]».</li>
+        <li>أرفقوا نبذة + الأقسام الأنسب + نطاق سعري تقريبي + عينة إن وُجدت.</li>
+        <li>افتحوا المنصة ثم أنشئوا الحساب واملأوا ملف الخدمة للمراجعة:
+          <a href="https://acadegate-new.web.app/register" target="_blank" rel="noopener">https://acadegate-new.web.app/register</a>
+          · المنصة:
+          <a href="https://acadegate-new.web.app" target="_blank" rel="noopener">https://acadegate-new.web.app</a>
+        </li>
+        <li>نثبت معاً بنود الأرباح والمشاركة في اتفاق واضح قبل أي تسوية ملزمة.</li>
+      </ol>
+      <h3>أشياء مهمة يجب معرفتها</h3>
+      <div class="grid-2">
+        <div class="card"><strong>بشرية ≠ AI</strong>لا تقدّم نصوصاً مولَّدة كبديل كامل دون إفصاح.</div>
+        <div class="card"><strong>مراجعة قبل الظهور</strong>تحمي سمعتك وسمعة المنصة.</div>
+        <div class="card"><strong>أخلاقيات</strong>دعم بحثي مشروع وفق لوائح الجامعة — لا انتحال.</div>
+        <div class="card"><strong>الدفع</strong>تحويل يدوي + ضمان الآن · إلكتروني عند التفعيل المتفق عليه.</div>
+      </div>
+      <div class="footer-note">
+        للطباعة: Print → Save as PDF · أو أرسلوا ملف HTML مباشرة.
+      </div>
+    </div>
+  </section>
+
+  <section class="slide cta-slide">
+    <div class="slide-inner">
+      <h2>الخطوة التالية</h2>
+      <p>
+        الباحث يبحث عن خبير يثق به داخل رحلته — لا عن مجموعة عامة.
+        السؤال: <strong style="color:#fff;">من سيصله أولاً بملف واضح وضمان؟</strong>
+      </p>
+      <div class="cta-box">
+        <p><strong>البريد:</strong> <a href="mailto:acadegate@gmail.com">acadegate@gmail.com</a></p>
+        <p><strong>المنصة:</strong> <a href="https://acadegate-new.web.app" target="_blank" rel="noopener">https://acadegate-new.web.app</a></p>
+        <p><strong>التسجيل:</strong> <a href="https://acadegate-new.web.app/register" target="_blank" rel="noopener">https://acadegate-new.web.app/register</a></p>
+        <p><strong>بديل واتساب:</strong> <a href="https://acadegate-new.firebaseapp.com" target="_blank" rel="noopener">https://acadegate-new.firebaseapp.com</a></p>
+        <p style="margin-bottom:0;">نرد خلال يوم عمل تقريباً.</p>
+      </div>
+      <p style="margin-top:28px;font-size:15pt;">
+        الأرباح والمشاركة — <strong style="color:#fde68a;">حسب الاتفاق</strong> · بدون نسب أو أسعار مسبقة في هذا العرض.
+      </p>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="slide-inner">
+      <h2>ملحق — ملخص تنفيذي</h2>
+      <table>
+        <tr><th>البند</th><th>المحتوى</th></tr>
+        <tr><td>المنصة</td><td>AcadeGate — رحلة دراسات عليا متكاملة</td></tr>
+        <tr><td>عرض الكاتب</td><td>٨ تخصصات، مطابقة، حجز بمواصفات، وطلبات واردة</td></tr>
+        <tr><td>التمييز</td><td>كتابة بشرية متخصصة</td></tr>
+        <tr><td>دورة الطلب</td><td>حجز، ثم قبول وتحديد السعر، ثم دفع، ثم تسليم، ثم تأكيد الباحث</td></tr>
+        <tr><td>الأرباح والمشاركة</td><td><strong>بنود بالاتفاق — بلا نسب/أسعار في هذه الوثيقة</strong></td></tr>
+        <tr><td>المنصة</td><td><a href="https://acadegate-new.web.app">https://acadegate-new.web.app</a></td></tr>
+        <tr><td>التسجيل</td><td><a href="https://acadegate-new.web.app/register">https://acadegate-new.web.app/register</a></td></tr>
+        <tr><td>التواصل</td><td>acadegate@gmail.com</td></tr>
+      </table>
+      <p class="footer-note">
+        © 2026 AcadeGate · عرض انضمام خبراء الكتابة.
+        أي تفاصيل تجارية ملزمة تُحرَّر باتفاق منفصل بعد التفاوض.
+      </p>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>

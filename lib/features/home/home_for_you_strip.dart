@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../../core/locale/locale_extensions.dart';
+import '../../core/theme/acadegate_theme.dart';
 import '../../core/widgets/arrow_scroll_view.dart';
 import '../academic/academic_content_service.dart';
 import '../academic/academic_models.dart';
@@ -35,7 +36,6 @@ class _HomeForYouStripState extends State<HomeForYouStrip> {
   AcademicLab? _lab;
   ScienceNewsItem? _news;
   bool _loading = true;
-  bool _aiRanked = false;
   String _interestHint = '';
 
   @override
@@ -102,27 +102,15 @@ class _HomeForYouStripState extends State<HomeForYouStrip> {
       var supervisor = _dayPick(supervisorMatches, rng)?.item;
       var idea = _dayPick(ideaMatches, rng)?.item;
       var lab = _dayPick(labMatches, rng)?.item;
-      var usedAi = false;
-
-      // ترتيب Gemini على أفضل المرشحين المصفّين محلياً فقط.
       final aiSupervisor = await _aiPickSupervisor(
         profile,
         supervisorMatches,
       );
-      if (aiSupervisor != null) {
-        supervisor = aiSupervisor;
-        usedAi = true;
-      }
+      if (aiSupervisor != null) supervisor = aiSupervisor;
       final aiIdea = await _aiPickIdea(profile, ideaMatches);
-      if (aiIdea != null) {
-        idea = aiIdea;
-        usedAi = true;
-      }
+      if (aiIdea != null) idea = aiIdea;
       final aiLab = await _aiPickLab(profile, labMatches);
-      if (aiLab != null) {
-        lab = aiLab;
-        usedAi = true;
-      }
+      if (aiLab != null) lab = aiLab;
 
       ScienceNewsItem? news;
       try {
@@ -147,7 +135,6 @@ class _HomeForYouStripState extends State<HomeForYouStrip> {
         _idea = idea;
         _lab = lab;
         _news = news;
-        _aiRanked = usedAi;
         _interestHint = [
           if (facultyId.isNotEmpty) facultyTitleForCategory(facultyId),
           if (profile.specialization.trim().isNotEmpty)
@@ -318,7 +305,7 @@ class _HomeForYouStripState extends State<HomeForYouStrip> {
       return Card(
         margin: const EdgeInsets.symmetric(vertical: 4),
         child: ListTile(
-          leading: const Icon(Icons.auto_awesome, color: Color(0xFF283593)),
+          leading: Icon(Icons.recommend, color: acadegateInk(const Color(0xFF283593))),
           title: Text(context.t('مقترحات لك', 'Picks for you')),
           subtitle: Text(
             context.t(
@@ -340,27 +327,16 @@ class _HomeForYouStripState extends State<HomeForYouStrip> {
       children: [
         Row(
           children: [
-            const Icon(Icons.auto_awesome, size: 18, color: Color(0xFF283593)),
+            Icon(Icons.today, size: 18, color: acadegateInk(const Color(0xFF283593))),
             const SizedBox(width: 6),
             Text(
               context.t('لك اليوم', 'For you today'),
               style: const TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
-                color: Color(0xFF1A237E),
+                color: const Color(0xFFF4F7FB),
               ),
             ),
-            if (_aiRanked) ...[
-              const SizedBox(width: 6),
-              Text(
-                context.t('ذكي', 'AI'),
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.indigo.shade700,
-                ),
-              ),
-            ],
             const Spacer(),
             if (_interestHint.isNotEmpty)
               Flexible(
@@ -368,7 +344,7 @@ class _HomeForYouStripState extends State<HomeForYouStrip> {
                   _interestHint,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                  style: TextStyle(fontSize: 11, color: const Color(0xFFB7C3D6)),
                 ),
               ),
           ],
@@ -425,7 +401,7 @@ class _ForYouChip extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(icon, color: color, size: 22),
+                Icon(icon, color: acadegateInk(color), size: 22),
                 const SizedBox(height: 6),
                 Text(
                   title,
@@ -434,7 +410,7 @@ class _ForYouChip extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
-                    color: color,
+                    color: acadegateInk(color),
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -454,7 +430,7 @@ class _ForYouChip extends StatelessWidget {
                     meta,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 11, color: Colors.grey[700]),
+                    style: TextStyle(fontSize: 11, color: const Color(0xFFB7C3D6)),
                   ),
                 ],
               ],

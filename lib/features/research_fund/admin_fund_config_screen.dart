@@ -398,7 +398,7 @@ class _AdminFundConfigScreenState extends State<AdminFundConfigScreen> {
                         padding: const EdgeInsets.only(top: 8),
                         child: Text(
                           context.t('لا أفكار مؤهلة', 'No eligible ideas'),
-                          style: TextStyle(color: Colors.grey[600]),
+                          style: TextStyle(color: const Color(0xFFB7C3D6)),
                         ),
                       );
                     }
@@ -434,7 +434,7 @@ class _AdminFundConfigScreenState extends State<AdminFundConfigScreen> {
                   if (awards.isEmpty) {
                     return Text(
                       context.t('لا تمويلات بعد', 'No awards yet'),
-                      style: TextStyle(color: Colors.grey[600]),
+                      style: TextStyle(color: const Color(0xFFB7C3D6)),
                     );
                   }
                   return Column(

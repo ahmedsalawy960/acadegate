@@ -192,7 +192,7 @@ class _SampleAnalysisMarketplaceTabState
                       : '${filtered.length} analysis services'
                   : 'Pick faculty, university, or city to load labs',
             ),
-            style: TextStyle(color: Colors.grey[700], fontSize: 13),
+            style: TextStyle(color: const Color(0xFFB7C3D6), fontSize: 13),
           ),
         ),
         const SizedBox(height: 4),
@@ -269,7 +269,7 @@ class _SampleAnalysisMarketplaceTabState
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 2),
           child: Text(
             context.t('المدن (استخدم الأسهم لرؤية الكل)', 'Cities (use arrows to see all)'),
-            style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+            style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
           ),
         ),
         ArrowScrollView(

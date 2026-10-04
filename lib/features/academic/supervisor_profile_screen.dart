@@ -143,7 +143,7 @@ class _SupervisorProfileScreenState extends State<SupervisorProfileScreen> {
                     style: const TextStyle(
                       fontSize: 16,
                       height: 1.5,
-                      color: Colors.black54,
+                      color: const Color(0xFFB7C3D6),
                     ),
                   ),
                   DirectoryTrustChip(
@@ -212,7 +212,7 @@ class _SupervisorProfileScreenState extends State<SupervisorProfileScreen> {
                                     ),
                                     style: TextStyle(
                                       fontSize: 12,
-                                      color: Colors.grey.shade800,
+                                      color: const Color(0xFFB7C3D6),
                                     ),
                                   );
                                 }

@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
 import '../../core/locale/locale_extensions.dart';
+import '../../core/theme/acadegate_theme.dart';
 import 'admin_access_gate.dart';
 import '../bugs/bug_report_service.dart';
 
@@ -148,6 +149,52 @@ class _BugCard extends StatelessWidget {
     onChanged();
   }
 
+  Future<void> _delete(BuildContext context) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(ctx.t('حذف هذا البلاغ؟', 'Delete this report?')),
+        content: Text(
+          ctx.t(
+            'سيُحذف السجل نهائياً ولن يعود في القائمة.',
+            'The report will be removed permanently.',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(ctx.t('إلغاء', 'Cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(ctx.t('حذف', 'Delete')),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    try {
+      await BugReportService.instance.deleteReport(id);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.t('تم الحذف', 'Deleted')),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      onChanged();
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$e'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final message = '${data['message'] ?? ''}';
@@ -186,7 +233,7 @@ class _BugCard extends StatelessWidget {
             if (category.isNotEmpty) category,
             if (when.isNotEmpty) when,
           ].join(' · '),
-          style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+          style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
         ),
         children: [
           Padding(
@@ -218,14 +265,19 @@ class _BugCard extends StatelessWidget {
                   Container(
                     constraints: const BoxConstraints(maxHeight: 160),
                     padding: const EdgeInsets.all(8),
-                    color: Colors.black87,
+                    decoration: BoxDecoration(
+                      color: AcadeGateColors.page,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AcadeGateColors.line),
+                    ),
                     child: SingleChildScrollView(
                       child: SelectableText(
                         stack,
                         style: const TextStyle(
-                          color: Colors.white70,
+                          color: AcadeGateColors.text,
                           fontSize: 11,
                           fontFamily: 'monospace',
+                          height: 1.4,
                         ),
                       ),
                     ),
@@ -255,6 +307,14 @@ class _BugCard extends StatelessWidget {
                         BugReportService.statusWontFix,
                       ),
                       child: Text(context.t('تجاهل', "Won't fix")),
+                    ),
+                    IconButton(
+                      tooltip: context.t('حذف', 'Delete'),
+                      icon: const Icon(
+                        Icons.delete_outline,
+                        color: Color(0xFFFCA5A5),
+                      ),
+                      onPressed: () => _delete(context),
                     ),
                     IconButton(
                       tooltip: context.t('نسخ', 'Copy'),

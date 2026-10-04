@@ -206,8 +206,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return Scaffold(
       appBar: AcadeGateAppBar(
         title: Text(l10n.registerTitle),
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF1A237E),
+        backgroundColor: const Color(0xFF0B1F4D),
+        foregroundColor: const Color(0xFFF4F7FB),
         elevation: 0,
         actions: const [LanguageSwitcherButton()],
       ),
@@ -225,7 +225,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               const SizedBox(height: 8),
               Text(
                 l10n.registerRoleHint,
-                style: const TextStyle(color: Colors.grey),
+                style: const TextStyle(color: Color(0xFFB7C3D6)),
               ),
               const SizedBox(height: 16),
               RadioGroup<String>(
@@ -310,7 +310,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     'تظهر في ملفك ويمكنك تعديلها لاحقاً من ملفي الأكاديمي.',
                     'Saved to your profile — you can edit later anytime.',
                   ),
-                  style: const TextStyle(color: Colors.grey, fontSize: 13),
+                  style: const TextStyle(color: Color(0xFFB7C3D6), fontSize: 13),
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
@@ -430,7 +430,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         context.t('شروط الاستخدام', 'Terms of Service'),
                         style: const TextStyle(
                           fontSize: 13.5,
-                          color: Color(0xFF1A237E),
+                          color: Color(0xFFFBBF24),
                           fontWeight: FontWeight.w700,
                           decoration: TextDecoration.underline,
                         ),
@@ -450,7 +450,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         context.t('سياسة الخصوصية', 'Privacy Policy'),
                         style: const TextStyle(
                           fontSize: 13.5,
-                          color: Color(0xFF1A237E),
+                          color: Color(0xFFFBBF24),
                           fontWeight: FontWeight.w700,
                           decoration: TextDecoration.underline,
                         ),
@@ -466,7 +466,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 child: FilledButton(
                   onPressed: _isLoading ? null : _handleRegister,
                   style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF1A237E),
+                    backgroundColor: const Color(0xFF3949AB),
                   ),
                   child: _isLoading
                       ? const CircularProgressIndicator(color: Colors.white)

@@ -62,7 +62,7 @@ class AdminProfileClaimsScreen extends StatelessWidget {
                         const SizedBox(height: 4),
                         Text(
                           '${d['claimantName']} (${d['claimantRole']}) · $status',
-                          style: TextStyle(color: Colors.grey[700]),
+                          style: TextStyle(color: const Color(0xFFB7C3D6)),
                         ),
                         const SizedBox(height: 8),
                         Text(

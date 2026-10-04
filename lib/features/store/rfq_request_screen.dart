@@ -96,7 +96,7 @@ class _RfqRequestScreenState extends State<RfqRequestScreen> {
               'للأصناف غير المتوفرة أو الكميات الكبيرة — يرسل الطلب للمورد للرد بعرض.',
               'For unavailable items or bulk quantities — the supplier receives your request.',
             ),
-            style: TextStyle(color: Colors.grey[700], height: 1.4),
+            style: TextStyle(color: StoreTheme.muted, height: 1.4),
           ),
           const SizedBox(height: 20),
           TextField(

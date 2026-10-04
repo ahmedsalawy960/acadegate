@@ -213,7 +213,7 @@ class _OriginalityCheckScreenState extends State<OriginalityCheckScreen> {
               'PDF · DOCX · DOC · TXT — حتى ${OriginalityCheckService.maxSizeMb} ميجابايت · Copyleaks يدعم العربية',
               'PDF · DOCX · DOC · TXT — up to ${OriginalityCheckService.maxSizeMb} MB · Copyleaks supports Arabic',
             ),
-            style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+            style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
           ),
           const SizedBox(height: 16),
           FilledButton.icon(
@@ -366,7 +366,7 @@ class _OriginalityCheckScreenState extends State<OriginalityCheckScreen> {
               '${report.providerLabel}'
               '${report.totalWords != null ? ' · ${report.totalWords} ${context.t('كلمة', 'words')}' : ''}'
               '${report.sourceCount > 0 ? ' · ${report.sourceCount} ${context.t('مصدر', 'sources')}' : ''}',
-              style: TextStyle(color: Colors.grey[700]),
+              style: TextStyle(color: const Color(0xFFB7C3D6)),
             ),
             if (report.sources.isNotEmpty) ...[
               const SizedBox(height: 16),
@@ -402,7 +402,7 @@ class _OriginalityCheckScreenState extends State<OriginalityCheckScreen> {
                   'لم تُكتشف مصادر مطابقة واضحة',
                   'No clear matching sources detected',
                 ),
-                style: TextStyle(color: Colors.grey[700]),
+                style: TextStyle(color: const Color(0xFFB7C3D6)),
               ),
             ],
           ],

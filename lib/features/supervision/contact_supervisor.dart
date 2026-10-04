@@ -103,7 +103,7 @@ Future<void> showSupervisorContactSheet(
                       'This supervisor is not linked to an in-app account yet. Choose how to contact them:',
                     ),
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey[700], fontSize: 13),
+              style: TextStyle(color: const Color(0xFFB7C3D6), fontSize: 13),
             ),
             const SizedBox(height: 16),
             FilledButton.icon(

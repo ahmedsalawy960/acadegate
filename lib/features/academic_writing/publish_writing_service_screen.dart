@@ -90,7 +90,7 @@ class _PublishWritingServiceScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AcadeGateAppBar(
-        title: Text(context.t('التسجيل ككاتب أكاديمي', 'Register as academic writer')),
+        title: Text(context.t('التسجيل كمستشار كتابة', 'Register as a writing consultant')),
         backgroundColor: const Color(0xFF5D4037),
         foregroundColor: Colors.white,
       ),
@@ -108,9 +108,9 @@ class _PublishWritingServiceScreenState
               child: Text(
                 context.t(
                   'يُراجع ملفك قبل الظهور للباحثين. '
-                  'قدّم خبراتك الحقيقية ونماذج أعمالك عند التواصل.',
+                  'خدمتك مساعدة واستشارة، والباحث يبقى صاحب النص.',
                   'Your profile is reviewed before researchers can see it. '
-                  'Share your real experience and work samples when contacted.',
+                  'Your service is help and consultation; the researcher remains the author.',
                 ),
                 style: const TextStyle(fontSize: 13, height: 1.4),
               ),

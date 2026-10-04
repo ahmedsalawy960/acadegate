@@ -17,6 +17,7 @@ import 'knowledge_assets/knowledge_asset_workspace_screen.dart';
 import 'assembly_guide/assembly_guide_product_card.dart';
 import 'catalog_disclaimer.dart';
 import '../../core/directory/directory_trust_status.dart';
+import 'ai_compare/store_ai_compare_screen.dart';
 import 'product_detail_sections.dart';
 import 'rfq_request_screen.dart';
 import 'store_badges.dart';
@@ -439,7 +440,7 @@ class ProductDetailScreen extends StatelessWidget {
       title: Text(label, style: const TextStyle(fontSize: 12)),
       subtitle: _ltrText(
         value,
-        style: TextStyle(color: Colors.grey[900], fontSize: 14),
+        style: TextStyle(color: StoreTheme.muted, fontSize: 14),
       ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
@@ -634,7 +635,7 @@ class ProductDetailScreen extends StatelessWidget {
                       const SizedBox(height: 6),
                       Text(
                         sellerType,
-                        style: TextStyle(color: Colors.grey[700]),
+                        style: TextStyle(color: StoreTheme.muted),
                       ),
                     ],
                     const SizedBox(height: 8),
@@ -691,7 +692,7 @@ class ProductDetailScreen extends StatelessWidget {
                         padding: const EdgeInsets.only(top: 6),
                         child: _ltrText(
                           contact,
-                          style: TextStyle(color: Colors.grey[800]),
+                          style: TextStyle(color: StoreTheme.muted),
                         ),
                       ),
                     if (certifications.isNotEmpty) ...[
@@ -937,6 +938,39 @@ class ProductDetailScreen extends StatelessWidget {
                 ),
               ),
             ],
+            const SizedBox(height: 8),
+            FilledButton.icon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => StoreAiCompareScreen(
+                      initialQuery: name,
+                      brand: brand,
+                      categoryTitle: categoryTitle,
+                      description: description,
+                      productId: productId,
+                      storeName: storeName,
+                      price: priceValue,
+                      imageUrl: imageUrl,
+                      sourceUrl: sourceUrl,
+                    ),
+                  ),
+                );
+              },
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFFBBF24),
+                foregroundColor: const Color(0xFF071433),
+                minimumSize: const Size.fromHeight(48),
+              ),
+              icon: const Icon(Icons.price_check),
+              label: Text(
+                context.t(
+                  'قارن السعر بين الموردين',
+                  'Compare price across suppliers',
+                ),
+              ),
+            ),
             if (productId != null && productId!.isNotEmpty) ...[
               ProductQaSection(
                 productId: productId!,
@@ -945,7 +979,9 @@ class ProductDetailScreen extends StatelessWidget {
               ProductSimilarSection(
                 productId: productId!,
                 categoryTitle: categoryTitle,
-                createdBy: createdBy,
+                productName: name,
+                brand: brand,
+                description: description,
               ),
             ],
           ],

@@ -37,6 +37,7 @@ class _ManuscriptFormatScreenState extends State<ManuscriptFormatScreen> {
   int _lastCiteCount = 0;
   bool _loading = true;
   bool _extracting = false;
+  bool _openingJournal = false;
 
   int get _maxImportedNumber {
     final refs = _manuscript?.references ?? const [];
@@ -192,30 +193,20 @@ class _ManuscriptFormatScreenState extends State<ManuscriptFormatScreen> {
   }
 
   Future<void> _continueToJournal() async {
-    final m = _manuscript;
-    if (m == null) return;
-    final hasSourceFile = m.attachments.any((a) => a.isWord || a.isPdf);
-    if (!_isStyledForCurrent) {
-      if (hasSourceFile) {
-        final ok = await _restyleManuscript(_style);
-        if (!ok || !mounted || !_isStyledForCurrent) return;
-      } else {
-        await ManuscriptService.instance.markFormatted(
-          widget.manuscriptId,
-          _style,
-        );
-        await ManuscriptService.instance.save(m.copyWith(citationStyle: _style));
-        if (!mounted) return;
-        setState(() => _styledFor = _style);
-      }
+    if (_openingJournal || _manuscript == null) return;
+    setState(() => _openingJournal = true);
+    try {
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) =>
+              JournalSelectionScreen(manuscriptId: widget.manuscriptId),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _openingJournal = false);
     }
-    if (!mounted) return;
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => JournalSelectionScreen(manuscriptId: widget.manuscriptId),
-      ),
-    );
   }
 
   Future<void> _exportPdf() async {
@@ -342,7 +333,7 @@ class _ManuscriptFormatScreenState extends State<ManuscriptFormatScreen> {
               'رقم [n] في النص = نفس المرجع رقم n في القائمة أسفل الملف. IEEE يبقي [n]. APA يحذف الرقم ويكتب (المؤلف، السنة) لذلك المرجع نفسه. القائمة تبقى بنفس ترتيب الملف. اضغط «تنسيق المراجع الآن».',
               'In-text [n] is the same work as bibliography item n at the bottom. IEEE keeps [n]. APA deletes the number and writes (Author, Year) for that same work. The list stays in file order. Tap “Format references now”.',
             ),
-            style: TextStyle(fontSize: 13, color: Colors.grey[700], height: 1.4),
+            style: TextStyle(fontSize: 13, color: const Color(0xFFB7C3D6), height: 1.4),
           ),
           const SizedBox(height: 12),
           _StyleShapeCard(style: _style),
@@ -440,7 +431,10 @@ class _ManuscriptFormatScreenState extends State<ManuscriptFormatScreen> {
                         'لا توجد مراجع بعد',
                         'No references yet',
                       ),
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF4E342E),
+                      ),
                     ),
                     const SizedBox(height: 6),
                     Text(
@@ -452,7 +446,7 @@ class _ManuscriptFormatScreenState extends State<ManuscriptFormatScreen> {
                             ? 'Tap “Format references now” so the app reads from Introduction, finds the references, and restyles them.'
                             : 'Go back to the draft, upload a PDF or DOCX, then format references.',
                       ),
-                      style: TextStyle(color: Colors.grey[800], fontSize: 13),
+                      style: const TextStyle(color: Color(0xFF4E342E), fontSize: 13),
                     ),
                   ],
                 ),
@@ -521,14 +515,24 @@ class _ManuscriptFormatScreenState extends State<ManuscriptFormatScreen> {
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: FilledButton(
-            onPressed: _continueToJournal,
+            onPressed: _openingJournal ? null : _continueToJournal,
             style: FilledButton.styleFrom(
-              backgroundColor: _brand,
+              backgroundColor: const Color(0xFFFBBF24),
+              foregroundColor: const Color(0xFF071433),
               minimumSize: const Size.fromHeight(48),
             ),
-            child: Text(
-              context.t('التالي: اختيار المجلة', 'Next: choose journal'),
-            ),
+            child: _openingJournal
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Color(0xFF071433),
+                    ),
+                  )
+                : Text(
+                    context.t('التالي: اختيار المجلة', 'Next: choose journal'),
+                  ),
           ),
         ),
       ),
@@ -556,7 +560,10 @@ class _StyleShapeCard extends StatelessWidget {
                 'شكل المرجع المعتمد: ${CitationFormatter.styleLabel(style)}',
                 'Required ${CitationFormatter.styleLabel(style)} shape',
               ),
-              style: const TextStyle(fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF4A148C),
+              ),
             ),
             const SizedBox(height: 6),
             Text(
@@ -564,19 +571,23 @@ class _StyleShapeCard extends StatelessWidget {
                 'داخل النص: ${shape.inTextDescriptionAr} — مثال ${shape.inTextExample}',
                 'In text: ${shape.inTextDescriptionEn} — e.g. ${shape.inTextExample}',
               ),
-              style: TextStyle(fontSize: 13, color: Colors.grey[800], height: 1.4),
+              style: const TextStyle(fontSize: 13, color: Color(0xFF4A148C), height: 1.4),
             ),
             const SizedBox(height: 8),
             Text(
               context.t('شكل قائمة المراجع', 'Bibliography shape'),
-              style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+              style: const TextStyle(fontSize: 12, color: Color(0xFF4A148C)),
             ),
             const SizedBox(height: 4),
             Directionality(
               textDirection: TextDirection.ltr,
               child: SelectableText(
                 shape.bibliographyExample,
-                style: const TextStyle(fontSize: 12.5, height: 1.45),
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  height: 1.45,
+                  color: Color(0xFF4A148C),
+                ),
               ),
             ),
           ],

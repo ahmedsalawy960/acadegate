@@ -238,16 +238,19 @@ class _ProtocolSimInputSheetState extends State<_ProtocolSimInputSheet> {
             controller: _controller,
             minLines: 5,
             maxLines: 10,
+            style: const TextStyle(color: StoreTheme.ink),
+            cursorColor: StoreTheme.ink,
             decoration: InputDecoration(
               hintText: context.t(
                 'الصق خطوات البروتوكول / المواد / الظروف هنا…',
                 'Paste protocol steps / materials / conditions here…',
               ),
+              hintStyle: const TextStyle(color: StoreTheme.muted),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
               ),
               filled: true,
-              fillColor: Colors.white,
+              fillColor: StoreTheme.surface,
             ),
           ),
           const SizedBox(height: 10),
@@ -495,7 +498,7 @@ class _ProtocolSimResultBody extends StatelessWidget {
                   return Card(
                     margin: const EdgeInsets.only(bottom: 8),
                     elevation: 0,
-                    color: Colors.white,
+                    color: StoreTheme.surface,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
                       side: const BorderSide(color: StoreTheme.hairline),
@@ -592,7 +595,7 @@ class _ProtocolSimResultBody extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: StoreTheme.surface,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: StoreTheme.hairline),
       ),
@@ -606,7 +609,10 @@ class _ProtocolSimResultBody extends StatelessWidget {
             ),
           if (body.trim().isNotEmpty) ...[
             if (title.trim().isNotEmpty) const SizedBox(height: 4),
-            Text(body, style: const TextStyle(fontSize: 13.2)),
+            Text(
+              body,
+              style: const TextStyle(fontSize: 13.2, color: StoreTheme.ink),
+            ),
           ],
         ],
       ),
@@ -619,7 +625,7 @@ class _ProtocolSimResultBody extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: StoreTheme.surface,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: StoreTheme.hairline),
       ),

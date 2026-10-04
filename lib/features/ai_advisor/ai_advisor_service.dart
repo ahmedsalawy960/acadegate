@@ -43,23 +43,21 @@ class AiAdvisorService {
     final mode = isCloudAiEnabled
         ? (GeminiAdvisorClient.canUseCloudBackend
             ? appTr(
-                'وضع ${AdvisorBranding.cloudBadge} — ردود ذكية عبر السحابة.',
-                '${AdvisorBranding.cloudBadge} mode — smart responses via cloud.',
+                'وضع ${AdvisorBranding.cloudBadge}.',
+                '${AdvisorBranding.cloudBadge} is on.',
               )
             : appTr(
-                'وضع ${AdvisorBranding.cloudBadge} مفعّل — ردود ذكية حقيقية.',
-                '${AdvisorBranding.cloudBadge} mode is active — real smart responses.',
+                'وضع ${AdvisorBranding.cloudBadge} مفعّل.',
+                '${AdvisorBranding.cloudBadge} is active.',
               ))
         : (GeminiAdvisorClient.needsSignInForCloudAi
             ? appTr(
-                'الوضع الأساسي — **سجّل الدخول** لتفعيل الذكاء السحابي (بدون مفتاح محلي).',
-                'Basic mode — **sign in** to enable cloud AI (no local API key needed).',
+                'الوضع الأساسي — **سجّل الدخول** لتفعيل المساعد الأكاديمي.',
+                'Basic mode — **sign in** to turn on the Academic Assistant.',
               )
             : appTr(
-                'وضع ${AdvisorBranding.localBadge} — انسخ dart_defines.example.json إلى dart_defines.json '
-                    'وشغّل من Cursor: AcadeGate (Windows + AI)، أو سجّل الدخول للذكاء السحابي.',
-                '${AdvisorBranding.localBadge} mode — copy dart_defines.example.json to dart_defines.json '
-                    'and run from Cursor: AcadeGate (Windows + AI), or sign in for cloud AI.',
+                'وضع ${AdvisorBranding.localBadge} — سجّل الدخول لتفعيل المساعد الأكاديمي.',
+                '${AdvisorBranding.localBadge} mode — sign in to turn on the Academic Assistant.',
               ));
 
     final persistence = FirebaseAuth.instance.currentUser != null

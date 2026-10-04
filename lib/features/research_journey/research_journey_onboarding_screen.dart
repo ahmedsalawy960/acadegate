@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
 import '../../core/locale/locale_extensions.dart';
+import '../../core/theme/acadegate_theme.dart';
 import '../academic_writing/writing_hub_screen.dart';
 import '../auth/user_account_service.dart';
 import '../auth/user_role.dart';
+import '../humanities/field_or_lab_gateway_screen.dart';
 import '../matchmaking/matchmaking_screen.dart';
 import '../research_supply_chain/research_supply_chain_screen.dart';
-import '../smart_labs/smart_labs_screen.dart';
 import 'research_journey_service.dart';
 import 'research_journey_stage.dart';
 
@@ -56,39 +57,12 @@ class _ResearchJourneyOnboardingScreenState
   ];
 
   String _stageSubtitle(ResearchJourneyStage stage) {
-    return switch (stage) {
-      ResearchJourneyStage.choosingTopic => context.t(
-          'مسار ذكي + سوق أفكار',
-          'Smart path + ideas marketplace',
-        ),
-      ResearchJourneyStage.findingSupervisor => context.t(
-          'مطابقة ذكية حسب ملفك',
-          'Smart matching from your profile',
-        ),
-      ResearchJourneyStage.dataCollection => context.t(
-          'مختبرات · عينات · أدوات تحليل',
-          'Labs · samples · analysis tools',
-        ),
-      ResearchJourneyStage.writing => context.t(
-          'خدمات كتابة · نشر · محاكي مناقشة',
-          'Writing · publishing · viva practice',
-        ),
-      _ => stage.subtitle,
-    };
+    // في شاشة الاختيار نفضّل صياغة ميدانية أولاً (بلا عينات) مع خيار المختبر لاحقاً.
+    return stage.subtitleFor(fieldMode: true);
   }
 
   String _stageLabel(ResearchJourneyStage stage) {
-    return switch (stage) {
-      ResearchJourneyStage.dataCollection => context.t(
-          'مختبرات وتحليل البيانات',
-          'Labs & data analysis',
-        ),
-      ResearchJourneyStage.writing => context.t(
-          'الكتابة والنشر والمناقشة',
-          'Writing, publishing & defense',
-        ),
-      _ => stage.label,
-    };
+    return stage.labelFor(fieldMode: true);
   }
 
   String _providerRoleSubtitle(String role) {
@@ -106,8 +80,8 @@ class _ResearchJourneyOnboardingScreenState
           'Offer supervision to researchers',
         ),
       UserRole.writer => context.t(
-          'خدمات الكتابة الأكاديمية',
-          'Academic writing services',
+          'مساعدة واستشارة في الكتابة الأكاديمية',
+          'Academic writing help and consultation',
         ),
       UserRole.ideaPublisher => context.t(
           'نشر أفكار ومشاريع بحثية',
@@ -183,7 +157,7 @@ class _ResearchJourneyOnboardingScreenState
         const MatchmakingScreen(supervisorJourney: true),
       ResearchJourneyStage.methodology ||
       ResearchJourneyStage.dataCollection =>
-        const SmartLabsScreen(),
+        const FieldOrLabGatewayScreen(),
       ResearchJourneyStage.writing ||
       ResearchJourneyStage.defense =>
         const WritingHubScreen(),
@@ -232,7 +206,7 @@ class _ResearchJourneyOnboardingScreenState
           style: const TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
-            color: _brand,
+            color: AcadeGateColors.text,
           ),
         ),
         const SizedBox(height: 8),
@@ -241,14 +215,14 @@ class _ResearchJourneyOnboardingScreenState
             'اختر مسارك — باحث أو مقدم خدمة',
             'Choose your path — researcher or service provider',
           ),
-          style: TextStyle(color: Colors.grey[700], height: 1.4),
+          style: const TextStyle(color: AcadeGateColors.muted, height: 1.4),
         ),
         const SizedBox(height: 24),
         _IntentCard(
           title: context.t('باحث / طالب', 'Researcher / student'),
           subtitle: context.t(
-            'موضوع · مشرف · مختبرات · كتابة',
-            'Topic · supervisor · labs · writing',
+            'موضوع · مشرف · ميدان/مختبر · كتابة',
+            'Topic · supervisor · field/lab · writing',
           ),
           icon: Icons.school_outlined,
           accent: _brand,
@@ -268,6 +242,7 @@ class _ResearchJourneyOnboardingScreenState
         const Spacer(),
         TextButton(
           onPressed: _saving ? null : _skip,
+          style: TextButton.styleFrom(foregroundColor: AcadeGateColors.gold),
           child: Text(
             context.t('تخطي — استكشف المنصة', 'Skip — explore'),
           ),
@@ -288,7 +263,7 @@ class _ResearchJourneyOnboardingScreenState
           style: const TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.bold,
-            color: _brand,
+            color: AcadeGateColors.text,
           ),
         ),
         const SizedBox(height: 8),
@@ -297,7 +272,7 @@ class _ResearchJourneyOnboardingScreenState
             'اختر مرحلتك الحالية لفتح المسار المناسب',
             'Pick your current stage to open the right path',
           ),
-          style: TextStyle(color: Colors.grey[700], height: 1.4),
+          style: const TextStyle(color: AcadeGateColors.muted, height: 1.4),
         ),
         const SizedBox(height: 16),
         Expanded(
@@ -308,7 +283,6 @@ class _ResearchJourneyOnboardingScreenState
                 selected: selected,
                 title: _stageLabel(stage),
                 subtitle: _stageSubtitle(stage),
-                accent: _brand,
                 onTap: () => setState(() => _selectedStage = stage),
               );
             }).toList(),
@@ -318,7 +292,10 @@ class _ResearchJourneyOnboardingScreenState
           onPressed:
               _selectedStage == null || _saving ? null : _continueResearcher,
           style: FilledButton.styleFrom(
-            backgroundColor: _brand,
+            backgroundColor: AcadeGateColors.gold,
+            foregroundColor: AcadeGateColors.page,
+            disabledBackgroundColor: AcadeGateColors.card,
+            disabledForegroundColor: AcadeGateColors.muted,
             minimumSize: const Size.fromHeight(48),
           ),
           child: _saving
@@ -327,7 +304,7 @@ class _ResearchJourneyOnboardingScreenState
                   height: 22,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: Colors.white,
+                    color: AcadeGateColors.page,
                   ),
                 )
               : Text(context.t('ابدأ مساري', 'Start my path')),
@@ -348,7 +325,7 @@ class _ResearchJourneyOnboardingScreenState
           style: const TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.bold,
-            color: _providerAccent,
+            color: AcadeGateColors.text,
           ),
         ),
         const SizedBox(height: 8),
@@ -357,7 +334,7 @@ class _ResearchJourneyOnboardingScreenState
             'سنفتح لك بوابة مقدم الخدمة حسب دورك',
             'We will open the provider portal for your role',
           ),
-          style: TextStyle(color: Colors.grey[700], height: 1.4),
+          style: const TextStyle(color: AcadeGateColors.muted, height: 1.4),
         ),
         const SizedBox(height: 16),
         Expanded(
@@ -368,7 +345,6 @@ class _ResearchJourneyOnboardingScreenState
                 selected: selected,
                 title: UserRole.label(role),
                 subtitle: _providerRoleSubtitle(role),
-                accent: _providerAccent,
                 onTap: () => setState(() => _selectedProviderRole = role),
               );
             }).toList(),
@@ -379,7 +355,10 @@ class _ResearchJourneyOnboardingScreenState
               ? null
               : _continueProvider,
           style: FilledButton.styleFrom(
-            backgroundColor: _providerAccent,
+            backgroundColor: AcadeGateColors.gold,
+            foregroundColor: AcadeGateColors.page,
+            disabledBackgroundColor: AcadeGateColors.card,
+            disabledForegroundColor: AcadeGateColors.muted,
             minimumSize: const Size.fromHeight(48),
           ),
           child: _saving
@@ -388,7 +367,7 @@ class _ResearchJourneyOnboardingScreenState
                   height: 22,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: Colors.white,
+                    color: AcadeGateColors.page,
                   ),
                 )
               : Text(
@@ -420,8 +399,9 @@ class _IntentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ink = acadegateInk(accent);
     return Material(
-      color: Colors.white,
+      color: AcadeGateColors.card,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
@@ -430,14 +410,14 @@ class _IntentCard extends StatelessWidget {
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: accent.withValues(alpha: 0.35)),
+            border: Border.all(color: AcadeGateColors.line),
           ),
           child: Row(
             children: [
               CircleAvatar(
                 radius: 26,
-                backgroundColor: accent.withValues(alpha: 0.12),
-                child: Icon(icon, color: accent),
+                backgroundColor: ink.withValues(alpha: 0.16),
+                child: Icon(icon, color: ink),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -446,25 +426,25 @@ class _IntentCard extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 17,
-                        color: accent,
+                        color: AcadeGateColors.text,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       subtitle,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 13,
-                        color: Colors.grey[600],
+                        color: AcadeGateColors.muted,
                         height: 1.3,
                       ),
                     ),
                   ],
                 ),
               ),
-              Icon(Icons.arrow_forward_ios, size: 16, color: accent),
+              Icon(Icons.arrow_forward_ios, size: 16, color: ink),
             ],
           ),
         ),
@@ -477,14 +457,12 @@ class _OptionTile extends StatelessWidget {
   final bool selected;
   final String title;
   final String subtitle;
-  final Color accent;
   final VoidCallback onTap;
 
   const _OptionTile({
     required this.selected,
     required this.title,
     required this.subtitle,
-    required this.accent,
     required this.onTap,
   });
 
@@ -493,7 +471,7 @@ class _OptionTile extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Material(
-        color: selected ? accent.withValues(alpha: 0.08) : Colors.white,
+        color: selected ? const Color(0xFF1E3358) : AcadeGateColors.card,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
@@ -503,7 +481,7 @@ class _OptionTile extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: selected ? accent : Colors.grey.shade300,
+                color: selected ? AcadeGateColors.gold : AcadeGateColors.line,
                 width: selected ? 2 : 1,
               ),
             ),
@@ -513,7 +491,7 @@ class _OptionTile extends StatelessWidget {
                   selected
                       ? Icons.radio_button_checked
                       : Icons.radio_button_off,
-                  color: selected ? accent : Colors.grey,
+                  color: selected ? AcadeGateColors.gold : AcadeGateColors.muted,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -522,16 +500,16 @@ class _OptionTile extends StatelessWidget {
                     children: [
                       Text(
                         title,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: selected ? accent : Colors.black87,
+                          color: AcadeGateColors.text,
                         ),
                       ),
                       Text(
                         subtitle,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 12,
-                          color: Colors.grey[600],
+                          color: AcadeGateColors.muted,
                         ),
                       ),
                     ],

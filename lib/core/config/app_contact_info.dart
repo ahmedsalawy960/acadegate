@@ -1,5 +1,4 @@
 /// بيانات التواصل الرسمية الظاهرة في تذييل التطبيق وصفحة الدعم.
-/// البيتا: البريد فقط — لا تضع أرقاماً وهمية قبل توفر خط دعم حقيقي.
 class AppContactInfo {
   AppContactInfo._();
 
@@ -9,16 +8,19 @@ class AppContactInfo {
   static const String privacyUrl = 'https://acadegate-new.web.app/privacy';
   static const String termsUrl = 'https://acadegate-new.web.app/terms';
 
-  /// خطوط الهاتف/واتساب — فارغة في البيتا حتى يتوفر رقم حقيقي.
-  static const List<AppPhoneLine> phoneLines = <AppPhoneLine>[];
+  static const List<AppPhoneLine> phoneLines = <AppPhoneLine>[
+    AppPhoneLine(
+      labelAr: 'دعم',
+      labelEn: 'Support',
+      e164: '+201044339033',
+      displayAr: '01044339033',
+      displayEn: '01044339033',
+    ),
+  ];
 
   static String copyrightNotice(bool isAr) => isAr
       ? '© $copyrightYear $brandName. جميع الحقوق محفوظة.'
       : '© $copyrightYear $brandName. All rights reserved.';
-
-  static String betaSupportHint(bool isAr) => isAr
-      ? 'للبيتا المغلقة: راسلنا على البريد أدناه — سنرد خلال يوم عمل.'
-      : 'Closed beta: email us below — we reply within one business day.';
 }
 
 class AppPhoneLine {

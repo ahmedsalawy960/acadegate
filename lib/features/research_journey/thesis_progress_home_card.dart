@@ -128,7 +128,7 @@ class _ThesisProgressHomeCardState extends State<ThesisProgressHomeCard> {
 
                 children: [
 
-                  const Icon(Icons.timeline, color: Color(0xFF1A237E)),
+                  const Icon(Icons.timeline, color: const Color(0xFFF4F7FB)),
 
                   const SizedBox(width: 8),
 
@@ -180,7 +180,7 @@ class _ThesisProgressHomeCardState extends State<ThesisProgressHomeCard> {
 
                     fontWeight: FontWeight.bold,
 
-                    color: Colors.grey[700],
+                    color: const Color(0xFFB7C3D6),
 
                   ),
 
@@ -194,7 +194,7 @@ class _ThesisProgressHomeCardState extends State<ThesisProgressHomeCard> {
 
                   overflow: TextOverflow.ellipsis,
 
-                  style: TextStyle(fontSize: 12, color: Colors.grey[800], height: 1.35),
+                  style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6), height: 1.35),
 
                 ),
 
@@ -212,7 +212,7 @@ class _ThesisProgressHomeCardState extends State<ThesisProgressHomeCard> {
 
                 ),
 
-                style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                style: TextStyle(fontSize: 11, color: const Color(0xFFB7C3D6)),
 
               ),
 

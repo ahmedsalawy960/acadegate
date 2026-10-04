@@ -64,7 +64,7 @@ Future<void> showClaimProfileSheet(
                     ),
                     style: TextStyle(
                       height: 1.4,
-                      color: Colors.grey[800],
+                      color: const Color(0xFFB7C3D6),
                       fontSize: 13,
                     ),
                   ),
@@ -295,7 +295,7 @@ Future<void> showClaimProfileSheet(
                       'Support: ${AppContactInfo.supportEmail}',
                     ),
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
                   ),
                 ],
               ),

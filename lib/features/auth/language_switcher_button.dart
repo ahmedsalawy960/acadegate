@@ -24,7 +24,7 @@ class LanguageSwitcherButton extends StatelessWidget {
       icon: const Icon(Icons.translate, size: 18),
       label: Text(isAr ? 'English' : l10n.languageArabic),
       style: TextButton.styleFrom(
-        foregroundColor: const Color(0xFF1A237E),
+        foregroundColor: const Color(0xFFF4F7FB),
       ),
     );
   }

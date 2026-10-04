@@ -3,6 +3,7 @@ import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/locale/locale_extensions.dart';
+import '../../core/theme/acadegate_theme.dart';
 import '../auth/user_account_service.dart';
 import '../home/section_search_field.dart';
 import '../profile/academic_profile.dart';
@@ -324,7 +325,7 @@ class _JournalSelectionScreenState extends State<JournalSelectionScreen> {
                             Text(
                               _loadError!,
                               textAlign: TextAlign.center,
-                              style: TextStyle(color: Colors.grey[600]),
+                              style: TextStyle(color: const Color(0xFFB7C3D6)),
                             ),
                             const SizedBox(height: 12),
                             FilledButton(
@@ -383,7 +384,7 @@ class _JournalSelectionScreenState extends State<JournalSelectionScreen> {
                           '${items.length} مجلة — اختر المجلة ثم راجع دليل المؤلفين',
                           '${items.length} journals — pick one then verify author guidelines',
                         ),
-                        style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+                        style: TextStyle(fontSize: 13, color: const Color(0xFFB7C3D6)),
                       ),
                       const SizedBox(height: 8),
                       for (final item in items)
@@ -440,7 +441,7 @@ class _RecommendationsHeader extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.auto_awesome, color: brand, size: 22),
+              const Icon(Icons.recommend, color: Color(0xFFE9D5FF), size: 22),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -448,10 +449,10 @@ class _RecommendationsHeader extends StatelessWidget {
                     'ترشيحات لك ($count مجلات)',
                     'Recommended for you ($count journals)',
                   ),
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
-                    color: brand,
+                    color: Color(0xFFE9D5FF),
                   ),
                 ),
               ),
@@ -463,7 +464,7 @@ class _RecommendationsHeader extends StatelessWidget {
               'بناءً على نقطة بحثك وتخصصك — اختر الأنسب ثم راجع دليل المؤلفين',
               'Based on your research focus and specialization — pick the best fit then check author guidelines',
             ),
-            style: TextStyle(fontSize: 12.5, color: Colors.grey[800], height: 1.4),
+            style: TextStyle(fontSize: 12.5, color: const Color(0xFFB7C3D6), height: 1.4),
           ),
           if (basis.isNotEmpty) ...[
             const SizedBox(height: 8),
@@ -471,7 +472,7 @@ class _RecommendationsHeader extends StatelessWidget {
               context.t('المرجع: $basis', 'Based on: $basis'),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+              style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
             ),
           ],
         ],
@@ -506,7 +507,7 @@ class _EmptyRecommendationsHint extends StatelessWidget {
                 'لإظهار ترشيحات متعددة: أضف عنواناً/ملخصاً للمخطوطة وأكمل التخصص والاهتمام البحثي في ملفك الأكاديمي.',
                 'For multi-journal recommendations: add a manuscript title/abstract and complete specialization + research interest in your academic profile.',
               ),
-              style: TextStyle(fontSize: 12.5, color: Colors.grey[900], height: 1.4),
+              style: TextStyle(fontSize: 12.5, color: const Color(0xFFB7C3D6), height: 1.4),
             ),
           ),
         ],
@@ -582,10 +583,10 @@ class _JournalCard extends StatelessWidget {
                           'تطابق $matchScore%',
                           'Match $matchScore%',
                         ),
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
-                          color: brand,
+                          color: Color(0xFFE9D5FF),
                         ),
                       ),
                     ),
@@ -617,7 +618,7 @@ class _JournalCard extends StatelessWidget {
                   padding: const EdgeInsets.only(top: 4),
                   child: Text(
                     item.publisher,
-                    style: TextStyle(color: Colors.grey[700], fontSize: 13),
+                    style: TextStyle(color: const Color(0xFFB7C3D6), fontSize: 13),
                   ),
                 ),
               if (item.partnerUniversity?.isNotEmpty == true)
@@ -626,14 +627,14 @@ class _JournalCard extends StatelessWidget {
                   child: Row(
                     children: [
                       Icon(Icons.school_outlined,
-                          size: 15, color: Colors.grey[600]),
+                          size: 15, color: const Color(0xFFB7C3D6)),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
                           item.partnerUniversity!,
                           style: TextStyle(
                             fontSize: 12,
-                            color: Colors.grey[700],
+                            color: const Color(0xFFB7C3D6),
                           ),
                         ),
                       ),
@@ -649,7 +650,7 @@ class _JournalCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.grey[600],
+                      color: const Color(0xFFB7C3D6),
                       height: 1.35,
                     ),
                   ),
@@ -670,7 +671,7 @@ class _JournalCard extends StatelessWidget {
                             reason,
                             style: TextStyle(
                               fontSize: 12,
-                              color: Colors.grey[800],
+                              color: const Color(0xFFB7C3D6),
                               height: 1.3,
                             ),
                           ),
@@ -685,7 +686,7 @@ class _JournalCard extends StatelessWidget {
                   if (item.sjr != null)
                     Text(
                       'SJR ${item.sjr!.toStringAsFixed(3)}',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                      style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
                     ),
                   const Spacer(),
                   TextButton.icon(
@@ -695,10 +696,10 @@ class _JournalCard extends StatelessWidget {
                       context.t('دليل المؤلفين', 'Author guide'),
                     ),
                   ),
-                  Icon(
+                  const Icon(
                     Icons.open_in_new,
                     size: 18,
-                    color: brand.withValues(alpha: 0.85),
+                    color: AcadeGateColors.gold,
                   ),
                 ],
               ),

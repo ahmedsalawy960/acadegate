@@ -103,18 +103,28 @@ class _AdminResearchIdeasSeedScreenState
     }
   }
 
-  Future<void> _syncLive() async {
+  Future<void> _syncLive({String scope = 'all'}) async {
+    final isHum = scope == 'humanities';
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(context.t('مزامنة أفكار حية', 'Live ideas sync')),
+        title: Text(
+          isHum
+              ? context.t('مزامنة أفكار إنسانية', 'Humanities ideas sync')
+              : context.t('مزامنة أفكار حية', 'Live ideas sync'),
+        ),
         content: Text(
-          context.t(
-            'ستُجلب أفكار من OpenAlex وأخبار العلوم، تُحوَّل عبر Gemini '
-            '(أو قالب ذكي احتياطي)، وتُضاف لسوق الأفكار مع إزالة التكرار.',
-            'Fetches OpenAlex + science news, normalizes via Gemini '
-            '(or heuristic fallback), and upserts marketplace ideas with dedupe.',
-          ),
+          isHum
+              ? context.t(
+                  'جلب من OpenAlex لتخصصات التربية والقانون والآداب والإعلام والتجارة، '
+                  'ثم صياغة أفكار فجوات لسوق وبوابة الإنسانيات.',
+                  'Fetch OpenAlex for Education, Law, Arts, Media, and Business, '
+                  'then draft gap ideas for the humanities portal.',
+                )
+              : context.t(
+                  'ستُجلب أفكار من OpenAlex وأخبار العلوم وتُضاف لسوق الأفكار مع إزالة التكرار.',
+                  'Fetches OpenAlex and science news, then adds marketplace ideas and removes duplicates.',
+                ),
         ),
         actions: [
           TextButton(
@@ -138,17 +148,16 @@ class _AdminResearchIdeasSeedScreenState
     try {
       final result = await ResearchIdeasSyncService.instance.syncNow(
         autoApprove: true,
+        scope: scope,
       );
       if (!mounted) return;
       await _loadLastSync();
       if (!mounted) return;
       final msg = context.t(
-        'مزامنة: ${result.imported} جديدة · ${result.updated} محدّثة · '
-        'مرشّحات ${result.candidates} (OpenAlex ${result.openalex} / RSS ${result.rss})'
-        '${result.usedGemini ? ' · Gemini' : ' · قالب احتياطي'}',
-        'Sync: ${result.imported} new · ${result.updated} updated · '
-        '${result.candidates} candidates (OpenAlex ${result.openalex} / RSS ${result.rss})'
-        '${result.usedGemini ? ' · Gemini' : ' · heuristic'}',
+        'مزامنة${isHum ? ' إنسانية' : ''}: ${result.imported} جديدة · ${result.updated} محدّثة · '
+        'مرشّحات ${result.candidates} (OpenAlex ${result.openalex} / RSS ${result.rss})',
+        'Sync${isHum ? ' (humanities)' : ''}: ${result.imported} new · ${result.updated} updated · '
+        '${result.candidates} candidates (OpenAlex ${result.openalex} / RSS ${result.rss})',
       );
       setState(() => _syncMessage = msg);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -216,7 +225,7 @@ class _AdminResearchIdeasSeedScreenState
                             'OpenAlex + science news → smart normalize → marketplace. '
                             'Weekly schedule: Tuesday 04:00 (Cairo) after function deploy.',
                           ),
-                          style: TextStyle(color: Colors.grey[800], height: 1.4),
+                          style: TextStyle(color: const Color(0xFFB7C3D6), height: 1.4),
                         ),
                         if (_lastSyncAt != null) ...[
                           const SizedBox(height: 8),
@@ -249,7 +258,7 @@ class _AdminResearchIdeasSeedScreenState
                           const SizedBox(height: 12),
                         ],
                         FilledButton.icon(
-                          onPressed: (_syncing || _publishing) ? null : _syncLive,
+                          onPressed: (_syncing || _publishing) ? null : () => _syncLive(),
                           icon: const Icon(Icons.sync),
                           label: Text(context.t(
                             'مزامنة الأفكار الآن',
@@ -257,6 +266,21 @@ class _AdminResearchIdeasSeedScreenState
                           )),
                           style: FilledButton.styleFrom(
                             backgroundColor: Colors.teal[700],
+                            minimumSize: const Size.fromHeight(48),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        OutlinedButton.icon(
+                          onPressed: (_syncing || _publishing)
+                              ? null
+                              : () => _syncLive(scope: 'humanities'),
+                          icon: const Icon(Icons.menu_book_outlined),
+                          label: Text(context.t(
+                            'مزامنة أفكار إنسانية',
+                            'Sync humanities ideas',
+                          )),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.brown[800],
                             minimumSize: const Size.fromHeight(48),
                           ),
                         ),
@@ -291,7 +315,7 @@ class _AdminResearchIdeasSeedScreenState
                           'Complete ideas (problem, 2024–2026 gap, goals, method, outcomes) '
                           'published under your account. Admins auto-approve.',
                         ),
-                        style: TextStyle(color: Colors.grey[800], height: 1.4),
+                        style: TextStyle(color: const Color(0xFFB7C3D6), height: 1.4),
                       ),
                       if (!isAdmin) ...[
                         const SizedBox(height: 8),

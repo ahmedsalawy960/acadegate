@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
 import '../../core/escrow/payment_status.dart';
+import '../../core/theme/acadegate_theme.dart';
 import '../../core/locale/locale_extensions.dart';
 import '../auth/user_account_service.dart';
 import '../auth/user_role.dart';
@@ -76,7 +77,7 @@ class IndustryChallengesScreen extends StatelessWidget {
                     'No challenges yet. A company posts the problem and holds the deposit before any protocol.',
                   ),
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey[700], height: 1.45),
+                  style: TextStyle(color: const Color(0xFFB7C3D6), height: 1.45),
                 ),
               ),
             );
@@ -127,7 +128,7 @@ class IndustryChallengeTile extends StatelessWidget {
           backgroundColor: _brand.withValues(alpha: 0.12),
           child: Icon(
             held ? Icons.lock_outlined : Icons.factory_outlined,
-            color: _brand,
+            color: acadegateInk(_brand),
             size: 20,
           ),
         ),
@@ -179,7 +180,10 @@ class IndustryChallengesFundItem extends StatelessWidget {
         Card(
           color: _brand.withValues(alpha: 0.08),
           child: ListTile(
-            leading: const Icon(Icons.factory_outlined, color: _brand),
+            leading: Icon(
+              Icons.factory_outlined,
+              color: acadegateInk(_brand),
+            ),
             title: Text(
               context.t(
                 'تحديات الصناعة بعربون مضمون',

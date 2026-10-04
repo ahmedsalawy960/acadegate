@@ -286,7 +286,7 @@ class NotificationsScreen extends StatelessWidget {
                         n.read
                             ? Icons.notifications_none
                             : Icons.notifications_active,
-                        color: n.read ? Colors.grey : const Color(0xFF1A237E),
+                        color: n.read ? Colors.grey : const Color(0xFFF4F7FB),
                       ),
                       title: Text(
                         n.title,

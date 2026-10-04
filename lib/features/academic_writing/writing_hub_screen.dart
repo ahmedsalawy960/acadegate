@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
 import '../../core/locale/locale_extensions.dart';
+import '../../core/theme/acadegate_theme.dart';
 import '../../core/widgets/category_visual.dart';
 import '../ai_advisor/ai_advisor_screen.dart';
 import '../data_analysis/statistical_assumptions_screen.dart';
@@ -82,7 +83,10 @@ class _WritingHubScreenState extends State<WritingHubScreen> {
 
     return Scaffold(
       appBar: AcadeGateAppBar(
-        title: Text(context.t('خدمات الكتابة الأكاديمية', 'Academic writing services')),
+        title: Text(context.t(
+          'مساعدة واستشارة في الكتابة',
+          'Writing help & consultation',
+        )),
         centerTitle: true,
         backgroundColor: _brandColor,
         foregroundColor: Colors.white,
@@ -154,10 +158,10 @@ class _WritingHubScreenState extends State<WritingHubScreen> {
                         Expanded(
                           child: Text(
                             context.t(
-                              'كتابة بشرية متخصصة — ليست ذكاء اصطناعي. '
-                              'اختر الخدمة، حدّد متطلباتك، واحجز مع خبير.',
-                              'Specialist human writing — not AI. '
-                              'Choose a service, set your requirements, and book an expert.',
+                              'مساعدة واستشارة في كتابة الرسائل والأبحاث. '
+                              'الباحث يكتب نصه، والمستشار يراجع ويوجّه وفق لوائح الجامعة.',
+                              'Help and consultation on theses and papers. '
+                              'You write the text; the consultant reviews and guides you under your university rules.',
                             ),
                             style: const TextStyle(height: 1.4, fontSize: 13),
                           ),
@@ -170,31 +174,31 @@ class _WritingHubScreenState extends State<WritingHubScreen> {
                 if (showTools) ...[
                   Text(
                     context.t(
-                      'أدوات مساعدة بجانب الكاتب',
-                      'Companion tools alongside a writer',
+                      'أدوات مساعدة للباحث',
+                      'Tools that help you with your own writing',
                     ),
                     style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF1A237E),
+                      color: const Color(0xFFF4F7FB),
                     ),
                   ),
                   const SizedBox(height: 6),
                   Text(
                     context.t(
-                      'ليست بديلاً عن الكاتب — استخدمها قبل أو أثناء الطلب',
-                      'Not a substitute for a writer — use before or during your order',
+                      'تُستخدم مع عملك قبل طلب الاستشارة أو أثناءه',
+                      'Use them with your own work, before or during a consultation',
                     ),
-                    style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                    style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
                   ),
                   const SizedBox(height: 10),
                   _CompanionToolCard(
                     icon: Icons.psychology_alt_outlined,
                     color: const Color(0xFF4527A0),
-                    title: context.t('راجع بالذكاء', 'Review with AI'),
+                    title: context.t('مراجعة أكاديمية', 'Academic review'),
                     subtitle: context.t(
                       'المساعد الأكاديمي — مسودة وملاحظات',
-                      'AI advisor — draft & feedback',
+                      'Academic Assistant — draft and notes',
                     ),
                     onTap: () => Navigator.push(
                       context,
@@ -240,7 +244,7 @@ class _WritingHubScreenState extends State<WritingHubScreen> {
                   _CompanionToolCard(
                     icon: Icons.handshake_outlined,
                     color: _brandColor,
-                    title: context.t('مطابقة كاتب', 'Match a writer'),
+                    title: context.t('مطابقة مستشار', 'Match a consultant'),
                     subtitle: context.t(
                       'حسب تخصصك ولغتك وأدواتك',
                       'By your specialty, language & tools',
@@ -259,7 +263,7 @@ class _WritingHubScreenState extends State<WritingHubScreen> {
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF1A237E),
+                      color: const Color(0xFFF4F7FB),
                     ),
                   )
                 else
@@ -272,7 +276,7 @@ class _WritingHubScreenState extends State<WritingHubScreen> {
                           'No services match "$_searchQuery"',
                         ),
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.grey[700]),
+                        style: TextStyle(color: const Color(0xFFB7C3D6)),
                       ),
                     ),
                   ),
@@ -359,7 +363,7 @@ class _CompanionToolCard extends StatelessWidget {
             padding: const EdgeInsets.all(12),
             child: Row(
               children: [
-                Icon(icon, color: color),
+                Icon(icon, color: acadegateInk(color)),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(
@@ -369,18 +373,18 @@ class _CompanionToolCard extends StatelessWidget {
                         title,
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
-                          color: color,
+                          color: acadegateInk(color),
                           fontSize: 13,
                         ),
                       ),
                       Text(
                         subtitle,
-                        style: TextStyle(fontSize: 11, color: Colors.grey[700]),
+                        style: TextStyle(fontSize: 11, color: const Color(0xFFB7C3D6)),
                       ),
                     ],
                   ),
                 ),
-                Icon(Icons.chevron_left, color: color),
+                Icon(Icons.chevron_left, color: acadegateInk(color)),
               ],
             ),
           ),
@@ -425,7 +429,7 @@ class _CategoryCard extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  color: category.color,
+                  color: acadegateInk(category.color),
                   fontSize: 14,
                 ),
               ),
@@ -434,7 +438,7 @@ class _CategoryCard extends StatelessWidget {
                 category.localizedSubtitle,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 11, color: Colors.grey[700], height: 1.3),
+                style: TextStyle(fontSize: 11, color: const Color(0xFFB7C3D6), height: 1.3),
               ),
             ],
           ),

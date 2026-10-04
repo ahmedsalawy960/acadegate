@@ -12,6 +12,9 @@ import '../research_marketplace/research_marketplace_screen.dart';
 import '../research_supply_chain/research_supply_chain_screen.dart';
 import '../thesis_studio/thesis_studio_screen.dart';
 import '../science_news/science_news_screen.dart';
+import '../humanities/humanities_hub_screen.dart';
+import '../humanities_publish/humanities_publish_screen.dart';
+import '../research_proposal/research_proposal_screen.dart';
 import '../smart_labs/smart_labs_screen.dart';
 import '../store/store_hub_screen.dart';
 import 'home_feed_models.dart';
@@ -58,6 +61,14 @@ Widget? screenForHomeRoute(String key) {
     case 'labs':
     case 'smart_labs':
       return const SmartLabsScreen();
+    case 'humanities':
+    case 'humanities_hub':
+    case 'education_research':
+      return const HumanitiesHubScreen();
+    case 'research_proposal':
+    case 'proposal_path':
+    case 'proposal_studio':
+      return const ResearchProposalScreen();
     case 'store':
     case 'shop':
       return const StoreHubScreen();
@@ -75,6 +86,10 @@ Widget? screenForHomeRoute(String key) {
       return const AcademicIntegrityHubScreen();
     case 'publish':
       return const PublishHubScreen();
+    case 'humanities_publish':
+    case 'arabic_publish':
+    case 'annals_publish':
+      return const HumanitiesPublishScreen();
     case 'fund':
       return const ResearchFundScreen();
     case 'news':

@@ -23,7 +23,7 @@ class WritingExpertDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AcadeGateAppBar(
-        title: Text(context.t('ملف الكاتب', 'Writer profile')),
+        title: Text(context.t('ملف المستشار', 'Consultant profile')),
         backgroundColor: category.color,
         foregroundColor: Colors.white,
         actions: deleteAppBarActions(
@@ -63,7 +63,7 @@ class WritingExpertDetailScreen extends StatelessWidget {
                             ),
                             Text(
                               expert.speciality,
-                              style: TextStyle(color: Colors.grey[600]),
+                              style: TextStyle(color: const Color(0xFFB7C3D6)),
                             ),
                           ],
                         ),
@@ -165,7 +165,7 @@ class WritingExpertDetailScreen extends StatelessWidget {
                   );
                 },
                 icon: const Icon(Icons.chat),
-                label: Text(context.t('مراسلة الكاتب', 'Message writer')),
+                label: Text(context.t('مراسلة المستشار', 'Message the consultant')),
               ),
             ),
           const SizedBox(height: 12),
@@ -188,7 +188,7 @@ class WritingExpertDetailScreen extends StatelessWidget {
                 }
               },
               icon: const Icon(Icons.edit_calendar),
-              label: Text(context.t('حجز خدمة كتابة', 'Book writing service')),
+              label: Text(context.t('طلب مساعدة أو استشارة', 'Request help or consultation')),
               style: FilledButton.styleFrom(
                 backgroundColor: category.color,
                 foregroundColor: Colors.white,
@@ -217,7 +217,7 @@ class WritingExpertDetailScreen extends StatelessWidget {
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           ),
           const SizedBox(height: 6),
-          Text(body, style: const TextStyle(height: 1.5, color: Colors.black87)),
+          Text(body, style: const TextStyle(height: 1.5, color: const Color(0xFFF4F7FB))),
         ],
       ),
     );
@@ -233,7 +233,7 @@ class WritingExpertDetailScreen extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: Colors.grey[700]),
+          Icon(icon, size: 14, color: const Color(0xFFB7C3D6)),
           const SizedBox(width: 4),
           Text(label, style: const TextStyle(fontSize: 12)),
         ],

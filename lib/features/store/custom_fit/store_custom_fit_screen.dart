@@ -384,7 +384,7 @@ class _StoreCustomFitScreenState extends State<StoreCustomFitScreen> {
                         color: Colors.white,
                       ),
                     )
-                  : const Icon(Icons.auto_awesome),
+                  : const Icon(Icons.design_services_outlined),
               label: Text(
                 _analyzing
                     ? context.t('جارٍ التحليل…', 'Analyzing…')
@@ -484,12 +484,12 @@ class _IntroCard extends StatelessWidget {
           Text(
             aiReady
                 ? context.t(
-                    'الذكاء الاصطناعي جاهز للتحليل.',
-                    'AI analysis is ready.',
+                    'التحليل جاهز.',
+                    'Analysis is ready.',
                   )
                 : context.t(
-                    'سجّل الدخول لاستخدام التحليل بالذكاء الاصطناعي (أو فعّل مفتاح Gemini محلياً).',
-                    'Sign in for AI analysis (or enable a local Gemini key).',
+                    'سجّل الدخول لإتمام التحليل.',
+                    'Sign in to run the analysis.',
                   ),
             style: TextStyle(
               fontSize: 12,
@@ -542,17 +542,6 @@ class _ResultSection extends StatelessWidget {
             fontSize: 17,
           ),
         ),
-        if (result.fromAi)
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text(
-              context.t(
-                'مصدر: AcadeGate AI${result.modelUsed != null ? ' · ${result.modelUsed}' : ''}',
-                'Source: AcadeGate AI${result.modelUsed != null ? ' · ${result.modelUsed}' : ''}',
-              ),
-              style: const TextStyle(fontSize: 12, color: StoreTheme.muted),
-            ),
-          ),
         if (note.isNotEmpty) ...[
           const SizedBox(height: 8),
           Text(note, style: const TextStyle(fontSize: 12.5, height: 1.4)),
@@ -730,7 +719,7 @@ class _ResultSection extends StatelessWidget {
         FilledButton.icon(
           onPressed: submitting ? null : onRequestOpenFabrication,
           style: FilledButton.styleFrom(
-            backgroundColor: StoreTheme.ink,
+            backgroundColor: StoreTheme.accent,
             minimumSize: const Size.fromHeight(48),
           ),
           icon: submitting

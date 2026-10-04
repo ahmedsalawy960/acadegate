@@ -92,7 +92,12 @@ const rows = suppliers
     const phone = s.phone
       ? `<a href="tel:${encodeURIComponent(s.phone)}">${htmlEsc(s.phone)}</a>`
       : '<span class="empty">—</span>';
-    const waDigits = s.whatsapp.replace(/\D/g, '');
+    let waDigits = s.whatsapp.replace(/\D/g, '');
+    if (waDigits.startsWith('00')) waDigits = waDigits.slice(2);
+    if (waDigits.startsWith('0')) waDigits = `20${waDigits.slice(1)}`;
+    else if (!waDigits.startsWith('20') && waDigits.length >= 9 && waDigits.length <= 10) {
+      waDigits = `20${waDigits}`;
+    }
     const wa = s.whatsapp
       ? `<a href="https://wa.me/${waDigits}">${htmlEsc(s.whatsapp)}</a>`
       : '<span class="empty">—</span>';

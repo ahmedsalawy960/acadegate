@@ -63,7 +63,7 @@ class _ResearchPartnershipChatScreenState
         title: Text(
           context.t('غرفة المعرفة', 'Knowledge room'),
         ),
-        backgroundColor: StoreTheme.ink,
+        backgroundColor: StoreTheme.appBar,
         foregroundColor: Colors.white,
       ),
       body: Column(
@@ -126,14 +126,24 @@ class _ResearchPartnershipChatScreenState
                           children: [
                             Text(
                               m.senderName,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,
-                                color: StoreTheme.muted,
+                                color: mine
+                                    ? StoreTheme.muted
+                                    : const Color(0xFF57534E),
                               ),
                             ),
                             const SizedBox(height: 4),
-                            Text(m.text),
+                            Text(
+                              m.text,
+                              style: TextStyle(
+                                color: mine
+                                    ? StoreTheme.ink
+                                    : const Color(0xFF18181B),
+                                height: 1.35,
+                              ),
+                            ),
                           ],
                         ),
                       ),

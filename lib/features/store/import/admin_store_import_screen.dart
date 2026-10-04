@@ -172,7 +172,7 @@ class _AdminStoreImportScreenState extends State<AdminStoreImportScreen> {
                 ),
                 style: TextStyle(
                   fontSize: 12,
-                  color: Colors.grey.shade700,
+                  color: StoreTheme.muted,
                   height: 1.4,
                 ),
               ),

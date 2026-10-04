@@ -98,7 +98,7 @@ const List<StoreCategory> storeCategories = [
     color: Color(0xFF4527A0),
     audienceAr: 'كود · نماذج 3D · بيانات · قوالب مرخّصة',
     audienceEn: 'Code · 3D models · datasets · licensed templates',
-    backgroundAsset: 'assets/images/store/categories/cat_computing.png',
+    backgroundAsset: 'assets/images/store/categories/cat_knowledge.jpg',
   ),
   StoreCategory(
     id: 'consumables',
@@ -141,8 +141,8 @@ const List<StoreCategory> storeCategories = [
     title: 'كتب ومراجع علمية',
     icon: Icons.menu_book_outlined,
     color: Color(0xFF4E342E),
-    audienceAr: 'جميع الكليات والتخصصات',
-    audienceEn: 'All faculties & disciplines',
+    audienceAr: 'مكتبات ودور نشر · مراجع حسب الكلية',
+    audienceEn: 'Libraries & presses · references by faculty',
     backgroundAsset: 'assets/images/store/categories/cat_books.png',
   ),
   StoreCategory(
@@ -150,8 +150,8 @@ const List<StoreCategory> storeCategories = [
     title: 'إنسانيات وتربية وبحث اجتماعي',
     icon: Icons.psychology_outlined,
     color: Color(0xFF7B1FA2),
-    audienceAr: 'آداب · تربية · حقوق · إعلام · خدمة اجتماعية',
-    audienceEn: 'Arts · Education · Law · Media',
+    audienceAr: 'أرشيف · رسائل · إحصاء · بحوث تربية (ليس مكتبات بيع كتب)',
+    audienceEn: 'Archives · theses · stats · education research (not bookstores)',
     backgroundAsset: 'assets/images/store/categories/cat_humanities.png',
   ),
   StoreCategory(

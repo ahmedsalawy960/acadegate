@@ -127,7 +127,7 @@ class _ScienceNewsScreenState extends State<ScienceNewsScreen> {
             'بدون ملف أكاديمي نعرض الأخبار كما هي. أضف تخصصك لتصفية الموجز.',
             'Without an academic profile we show the raw feed. Add your specialty to filter the digest.',
           ),
-          style: TextStyle(color: Colors.grey[700], height: 1.35),
+          style: TextStyle(color: const Color(0xFFB7C3D6), height: 1.35),
         ),
       );
     }
@@ -334,7 +334,7 @@ class _NewsCard extends StatelessWidget {
                   ],
                   const Spacer(),
                   if (dateLabel.isNotEmpty)
-                    Text(dateLabel, style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+                    Text(dateLabel, style: TextStyle(fontSize: 11, color: const Color(0xFFB7C3D6))),
                 ],
               ),
               if (why != null && why!.isNotEmpty) ...[
@@ -343,7 +343,7 @@ class _NewsCard extends StatelessWidget {
                     'يطابق ملفك: ${why!.take(3).join(' · ')}',
                     'Matches your file: ${why!.take(3).join(' · ')}',
                   ),
-                  style: TextStyle(fontSize: 12, color: Colors.blue[800]),
+                  style: TextStyle(fontSize: 12, color: const Color(0xFF93C5FD)),
                 ),
                 const SizedBox(height: 6),
               ],
@@ -358,7 +358,7 @@ class _NewsCard extends StatelessWidget {
                   item.summary,
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: Colors.grey[800], height: 1.4),
+                  style: TextStyle(color: const Color(0xFFB7C3D6), height: 1.4),
                 ),
               ],
               const SizedBox(height: 10),
@@ -366,14 +366,14 @@ class _NewsCard extends StatelessWidget {
                 children: [
                   Text(
                     item.source,
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
                   ),
                   const Spacer(),
                   const Icon(Icons.open_in_new, size: 16),
                   const SizedBox(width: 4),
                   Text(
                     context.t('قراءة المصدر', 'Read source'),
-                    style: TextStyle(fontSize: 12, color: Colors.blue[800]),
+                    style: TextStyle(fontSize: 12, color: const Color(0xFF93C5FD)),
                   ),
                 ],
               ),

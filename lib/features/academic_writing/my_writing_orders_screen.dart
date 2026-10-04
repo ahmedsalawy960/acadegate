@@ -21,7 +21,7 @@ class MyWritingOrdersScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AcadeGateAppBar(
-        title: Text(context.t('طلبات الكتابة', 'Writing orders')),
+        title: Text(context.t('طلبات الاستشارة', 'Consultation requests')),
         backgroundColor: _brandColor,
         foregroundColor: Colors.white,
       ),
@@ -51,7 +51,7 @@ class MyWritingOrdersScreen extends StatelessWidget {
                           Text(
                             context.t('تعذر تحميل الطلبات', 'Could not load orders'),
                             style: TextStyle(
-                              color: Colors.grey[700],
+                              color: const Color(0xFFB7C3D6),
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -59,7 +59,7 @@ class MyWritingOrdersScreen extends StatelessWidget {
                           Text(
                             '${snapshot.error}',
                             textAlign: TextAlign.center,
-                            style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                            style: TextStyle(color: const Color(0xFFB7C3D6), fontSize: 13),
                           ),
                         ],
                       ),
@@ -78,7 +78,7 @@ class MyWritingOrdersScreen extends StatelessWidget {
                         const SizedBox(height: 12),
                         Text(
                           context.t('لا توجد طلبات حجز بعد', 'No booking orders yet'),
-                          style: TextStyle(color: Colors.grey[600]),
+                          style: TextStyle(color: const Color(0xFFB7C3D6)),
                         ),
                       ],
                     ),
@@ -160,7 +160,7 @@ class _OrderCard extends StatelessWidget {
             Text('${_localizedCategory()} • ${order.expertName}'),
             Text(
               '${localizedAcademicLevel(order.academicLevel)} • ${localizedWritingLanguage(order.language)}',
-              style: TextStyle(color: Colors.grey[600], fontSize: 13),
+              style: TextStyle(color: const Color(0xFFB7C3D6), fontSize: 13),
             ),
             if (order.deadline != null)
               Text(
@@ -168,7 +168,7 @@ class _OrderCard extends StatelessWidget {
                   'التسليم: ${order.deadline!.year}/${order.deadline!.month}/${order.deadline!.day}',
                   'Delivery: ${order.deadline!.year}/${order.deadline!.month}/${order.deadline!.day}',
                 ),
-                style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                style: TextStyle(color: const Color(0xFFB7C3D6), fontSize: 13),
               ),
             if (order.milestones.isNotEmpty) ...[
               const SizedBox(height: 8),

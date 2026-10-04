@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'store_theme.dart';
 
 import '../../core/locale/locale_extensions.dart';
 import '../auth/auth_guard.dart';
@@ -90,7 +91,7 @@ class CatalogSourceMeta extends StatelessWidget {
         if (lastManagedLabel != null && lastManagedLabel!.isNotEmpty)
           ' · ${context.t('آخر ترتيب', 'Last arranged')}: $lastManagedLabel',
       ].join(),
-      style: TextStyle(fontSize: 12, color: Colors.grey[700], height: 1.35),
+      style: TextStyle(fontSize: 12, color: StoreTheme.muted, height: 1.35),
     );
   }
 }

@@ -57,21 +57,22 @@ class SampleAnalysisListingCard extends StatelessWidget {
                           style: const TextStyle(
                             fontWeight: FontWeight.w700,
                             fontSize: 15,
+                            color: Color(0xFF1C1917),
                           ),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           listing.labName,
-                          style: TextStyle(
-                            color: Colors.grey[700],
+                          style: const TextStyle(
+                            color: Color(0xFF44403C),
                             fontSize: 13,
                           ),
                         ),
                         if (listing.locationLabel.isNotEmpty)
                           Text(
                             listing.locationLabel,
-                            style: TextStyle(
-                              color: Colors.grey[600],
+                            style: const TextStyle(
+                              color: Color(0xFF44403C),
                               fontSize: 12,
                             ),
                           ),
@@ -115,7 +116,13 @@ class SampleAnalysisListingCard extends StatelessWidget {
                   children: specialties
                       .map(
                         (s) => Chip(
-                          label: Text(s, style: const TextStyle(fontSize: 11)),
+                          label: Text(
+                            s,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF115E59),
+                            ),
+                          ),
                           visualDensity: VisualDensity.compact,
                           materialTapTargetSize:
                               MaterialTapTargetSize.shrinkWrap,
@@ -145,7 +152,10 @@ class SampleAnalysisListingCard extends StatelessWidget {
         children: [
           Icon(icon, size: 14, color: _brand),
           const SizedBox(width: 4),
-          Text(label, style: const TextStyle(fontSize: 12)),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 12, color: Color(0xFF1C1917)),
+          ),
         ],
       ),
     );

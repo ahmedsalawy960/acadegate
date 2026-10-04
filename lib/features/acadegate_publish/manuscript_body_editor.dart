@@ -222,7 +222,7 @@ class _ManuscriptBodyEditorState extends State<ManuscriptBodyEditor> {
                           ),
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: Colors.blue.shade900,
+                            color: const Color(0xFF0D47A1),
                           ),
                         ),
                       ),
@@ -239,7 +239,7 @@ class _ManuscriptBodyEditorState extends State<ManuscriptBodyEditor> {
                       '③ References at the end are generated from inserted citations',
                     ),
                     style: TextStyle(
-                        fontSize: 12, height: 1.45, color: Colors.blue.shade900),
+                        fontSize: 12, height: 1.45, color: const Color(0xFF0D47A1)),
                   ),
                 ],
               ),
@@ -254,7 +254,7 @@ class _ManuscriptBodyEditorState extends State<ManuscriptBodyEditor> {
                 'Draft layout: (1) Title & authors (2) Abstract & keywords (3) Body with tables & figures',
               ),
               style:
-                  TextStyle(fontSize: 12, color: Colors.grey[700], height: 1.4),
+                  TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6), height: 1.4),
             ),
           ),
         if (_blocks.isEmpty)
@@ -265,7 +265,7 @@ class _ManuscriptBodyEditorState extends State<ManuscriptBodyEditor> {
                 'استخدم شريط الأدوات لإضافة فقرات، صور، جداول، أو معادلات',
                 'Use the toolbar to add paragraphs, images, tables, or equations',
               ),
-              style: TextStyle(color: Colors.grey[600]),
+              style: TextStyle(color: const Color(0xFFB7C3D6)),
             ),
           )
         else ...[
@@ -277,7 +277,7 @@ class _ManuscriptBodyEditorState extends State<ManuscriptBodyEditor> {
                   'عرض $_maxEditBlocks من ${_blocks.length} عنصر — المحتوى الكامل في تبويب المعاينة',
                   'Showing $_maxEditBlocks of ${_blocks.length} blocks — full content in Preview tab',
                 ),
-                style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
               ),
             ),
           ...List.generate(
@@ -335,7 +335,7 @@ class _ManuscriptBodyEditorState extends State<ManuscriptBodyEditor> {
                   _blockTypeLabel(context, block.type),
                   style: TextStyle(
                     fontSize: 11,
-                    color: Colors.grey[600],
+                    color: const Color(0xFFB7C3D6),
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -396,7 +396,7 @@ class _ManuscriptBodyEditorState extends State<ManuscriptBodyEditor> {
                 'ضع المؤشر في موضع الإدراج ثم اضغط الزر',
                 'Place the cursor where you want the citation, then tap',
               ),
-              style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+              style: TextStyle(fontSize: 11, color: const Color(0xFFB7C3D6)),
             ),
           ],
         ),
@@ -426,14 +426,14 @@ class _ManuscriptBodyEditorState extends State<ManuscriptBodyEditor> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(Icons.image_outlined,
-                                size: 48, color: Colors.grey.shade600),
+                                size: 48, color: const Color(0xFFB7C3D6)),
                             const SizedBox(height: 6),
                             Text(
                               context.t(
                                   'صورة — انظر المعاينة', 'Image — see Preview'),
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Colors.grey.shade700,
+                                color: const Color(0xFFB7C3D6),
                               ),
                             ),
                           ],
@@ -818,7 +818,7 @@ class _InsertCitationDialogState extends State<_InsertCitationDialog> {
                 'ابحث محلياً أو اضغط أيقونة البوابة / Enter للبحث في Crossref وOpenAlex',
                 'Filter local refs, or tap portal / Enter to search Crossref & OpenAlex',
               ),
-              style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+              style: TextStyle(fontSize: 11, color: const Color(0xFFB7C3D6)),
             ),
             const SizedBox(height: 8),
             Flexible(
@@ -947,7 +947,7 @@ class _InsertCitationDialogState extends State<_InsertCitationDialog> {
                                     'Type an author or title, then press Enter',
                                   ),
                             textAlign: TextAlign.center,
-                            style: TextStyle(color: Colors.grey[600]),
+                            style: TextStyle(color: const Color(0xFFB7C3D6)),
                           ),
                         ),
                       ),

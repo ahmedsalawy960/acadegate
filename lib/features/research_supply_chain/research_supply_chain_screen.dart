@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
 import '../../core/locale/l10n_lookup.dart';
+import '../../core/theme/acadegate_theme.dart';
 import '../../core/locale/locale_extensions.dart';
 import '../academic_writing/writing_categories.dart';
 import '../academic_writing/writing_expert_detail_screen.dart';
@@ -530,7 +531,7 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
                 'e.g. I want a master’s in analytical chemistry to improve an oil factory',
               ),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              prefixIcon: const Icon(Icons.edit_note, color: _brand),
+              prefixIcon: Icon(Icons.edit_note, color: acadegateInk(_brand)),
               alignLabelWithHint: true,
             ),
           ),
@@ -549,14 +550,14 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
                         color: Colors.white,
                       ),
                     )
-                  : const Icon(Icons.auto_awesome),
+                  : const Icon(Icons.account_tree),
               label: Text(
                 _loading
                     ? context.t('جارٍ المطابقة...', 'Matching...')
                     : _aiLoading
                         ? context.t(
-                            'جارٍ التحليل بالذكاء الاصطناعي...',
-                            'Analyzing with AI...',
+                            'جارٍ التحليل...',
+                            'Analyzing...',
                           )
                         : ResearchPathBranding.buildButton,
               ),
@@ -685,12 +686,12 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
               context.t(
                 bundle.goal?.fieldEn.isNotEmpty == true
                     ? 'خطة على نقطة: ${bundle.goal!.field} (${bundle.goal!.fieldEn})'
-                    : 'مراحل مرتبطة بنقطة بحثك — إن كانت عامة أعد التشغيل بعد تسجيل الدخول للذكاء الاصطناعي.',
+                    : 'مراحل مرتبطة بنقطة بحثك — إن كانت عامة أعد التشغيل بعد تسجيل الدخول.',
                 bundle.goal?.fieldEn.isNotEmpty == true
                     ? 'Plan on: ${bundle.goal!.field} (${bundle.goal!.fieldEn})'
-                    : 'Stages tied to your topic — if they look generic, sign in and rebuild so Gemini can specialize them.',
+                    : 'Stages tied to your topic — if they look generic, sign in and rebuild.',
               ),
-              style: TextStyle(fontSize: 12, color: Colors.grey[700], height: 1.4),
+              style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6), height: 1.4),
             ),
             const SizedBox(height: 12),
             ...bundle.degreePlan.map(
@@ -701,8 +702,8 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
                   children: [
                     Text(
                       stage.period,
-                      style: const TextStyle(
-                        color: _brand,
+                      style: TextStyle(
+                        color: acadegateInk(_brand),
                         fontWeight: FontWeight.w600,
                         fontSize: 12,
                       ),
@@ -718,7 +719,7 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
                     ...stage.platformActions.map(
                       (a) => Text(
                         '→ $a',
-                        style: TextStyle(height: 1.4, color: Colors.grey[700]),
+                        style: TextStyle(height: 1.4, color: const Color(0xFFB7C3D6)),
                       ),
                     ),
                   ],
@@ -767,7 +768,7 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
                       : '${bundle.literature.length} on-topic works with a confirmed DOI. The rest were not invented.',
                 ].join(' '),
               ),
-              style: TextStyle(fontSize: 12, color: Colors.grey[700], height: 1.4),
+              style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6), height: 1.4),
             ),
             const SizedBox(height: 8),
             if (bundle.literature.isEmpty)
@@ -832,7 +833,7 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
                     fit.kind == 'industry_challenge'
                         ? Icons.factory_outlined
                         : Icons.savings_outlined,
-                    color: _brand,
+                    color: acadegateInk(_brand),
                   ),
                   title: Text(fit.title),
                   subtitle: Text(
@@ -935,7 +936,7 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
                 'توافق عام: ${bundle.overallScore}% • ${bundle.literature.length} دراسة مؤكدة',
                 'Overall match: ${bundle.overallScore}% • ${bundle.literature.length} confirmed studies',
               ),
-              style: TextStyle(color: Colors.grey[600], fontSize: 13),
+              style: TextStyle(color: const Color(0xFFB7C3D6), fontSize: 13),
             ),
             if (!bundle.hasAnyMatch) ...[
               const SizedBox(height: 12),
@@ -959,7 +960,10 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
             const SizedBox(
               width: 28,
               height: 28,
-              child: CircularProgressIndicator(strokeWidth: 2.5, color: _brand),
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                color: Color(0xFFF4F7FB),
+              ),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -976,10 +980,10 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
                   const SizedBox(height: 4),
                   Text(
                     context.t(
-                      'الذكاء السحابي يحلّل ملفك ويربط عناصر الحزمة بخطة بحثية...',
-                      'Cloud AI analyzes your profile and links bundle items to a research plan...',
+                      'يجري ربط عناصر الحزمة بخطتك البحثية...',
+                      'Linking the bundle items to your research plan...',
                     ),
-                    style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                    style: TextStyle(fontSize: 13, color: const Color(0xFFB7C3D6)),
                   ),
                 ],
               ),
@@ -1044,7 +1048,7 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
               context.t('لماذا هذه الحزمة؟', 'Why this bundle?'),
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: _brand,
+                color: acadegateInk(_brand),
                 fontSize: 14,
               ),
             ),
@@ -1058,7 +1062,7 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
               ResearchPathBranding.aiPlanTitle,
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: _brand,
+                color: acadegateInk(_brand),
                 fontSize: 14,
               ),
             ),
@@ -1079,7 +1083,7 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.play_arrow, color: _brand, size: 22),
+                    Icon(Icons.play_arrow, color: acadegateInk(_brand), size: 22),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Column(
@@ -1089,7 +1093,7 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
                             context.t('الخطوة التالية', 'Next step'),
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              color: _brand,
+                              color: acadegateInk(_brand),
                             ),
                           ),
                           const SizedBox(height: 4),
@@ -1133,7 +1137,7 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
             'نعرض فقط ما يشارك كلمات نقطة بحثك. القائمة الفارغة أفضل من توافق 100% بلا صلة.',
             'Only items that share your topic words are shown. An empty list is better than a 100% mismatch.',
           ),
-          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+          style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
         ),
         const SizedBox(height: 12),
         if (bundle.ideas.isEmpty)
@@ -1417,7 +1421,7 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
                   color: color.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(icon, color: color, size: 22),
+                child: Icon(icon, color: acadegateInk(color), size: 22),
               ),
               Expanded(
                 child: Container(width: 2, color: color.withValues(alpha: 0.3)),
@@ -1443,7 +1447,7 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
                               title,
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                color: color,
+                                color: acadegateInk(color),
                               ),
                             ),
                           ),
@@ -1466,7 +1470,7 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
                           reasons.join(' • '),
                           style: TextStyle(
                             fontSize: 12,
-                            color: Colors.grey[600],
+                            color: const Color(0xFFB7C3D6),
                           ),
                         ),
                       ],
@@ -1476,7 +1480,7 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
                           alignment: Alignment.centerLeft,
                           child: Text(
                             context.t('اضغط للتفاصيل ←', 'Tap for details ←'),
-                            style: TextStyle(fontSize: 12, color: color),
+                            style: TextStyle(fontSize: 12, color: acadegateInk(color)),
                           ),
                         ),
                       ],

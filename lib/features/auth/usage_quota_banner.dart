@@ -42,8 +42,8 @@ class UsageQuotaBanner extends StatelessWidget {
             if (showGemini) {
               parts.add(
                 context.t(
-                  'AI ${usage.geminiRemaining}/${usage.geminiLimit}',
-                  'AI ${usage.geminiRemaining}/${usage.geminiLimit}',
+                  'المساعد ${usage.geminiRemaining}/${usage.geminiLimit}',
+                  'Assistant ${usage.geminiRemaining}/${usage.geminiLimit}',
                 ),
               );
             }

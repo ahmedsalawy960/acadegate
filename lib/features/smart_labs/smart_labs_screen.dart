@@ -467,6 +467,8 @@ class _SmartLabsScreenState extends State<SmartLabsScreen>
                               'Import CSV',
                             )),
                             style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.teal[900],
+                              side: BorderSide(color: Colors.teal.shade700),
                               visualDensity: VisualDensity.compact,
                             ),
                           ),
@@ -532,7 +534,7 @@ class _SmartLabsScreenState extends State<SmartLabsScreen>
             const SizedBox(height: 16),
             _sectionTitle(
               context.t('مقترحة لك', 'Recommended for you'),
-              Icons.auto_awesome,
+              Icons.recommend,
             ),
             ..._recommended.map(
               (result) => _RecommendedLabCard(
@@ -603,7 +605,7 @@ class _SmartLabsScreenState extends State<SmartLabsScreen>
                 const SizedBox(height: 16),
                 _sectionTitle(
                   context.t('مقترحة لك', 'Recommended for you'),
-                  Icons.auto_awesome,
+                  Icons.recommend,
                 ),
                 ..._recommended.map(
                   (result) => _RecommendedLabCard(
@@ -652,7 +654,7 @@ class _SmartLabsScreenState extends State<SmartLabsScreen>
                           ? 'Showing first $maxLabs results — narrow search or city'
                           : '${labs.length} lab(s)/center(s) available',
                     ),
-                    style: TextStyle(color: Colors.grey[700], fontSize: 13),
+                    style: TextStyle(color: const Color(0xFFB7C3D6), fontSize: 13),
                   ),
                 ),
                 _buildViewToggle(),
@@ -818,7 +820,7 @@ class _SmartLabsScreenState extends State<SmartLabsScreen>
               '$visibleCount lab(s)/center(s)'
               '${_labSearchController.text.trim().isNotEmpty ? ' matching search' : ''}',
             ),
-            style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+            style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
           ),
         ],
       ],
@@ -846,7 +848,7 @@ class _SmartLabsScreenState extends State<SmartLabsScreen>
               'Example: Sharqia — or search a device name like SEM / HPLC',
             ),
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey[600]),
+            style: TextStyle(color: const Color(0xFFB7C3D6)),
           ),
         ],
       ),
@@ -867,7 +869,7 @@ class _SmartLabsScreenState extends State<SmartLabsScreen>
                 'No labs registered for this faculty yet',
               ),
         textAlign: TextAlign.center,
-        style: TextStyle(color: Colors.grey[600]),
+        style: TextStyle(color: const Color(0xFFB7C3D6)),
       ),
     );
   }
@@ -1090,19 +1092,19 @@ class SmartLabCard extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 lab.location,
-                style: TextStyle(color: Colors.grey[700], fontSize: 13),
+                style: TextStyle(color: const Color(0xFFB7C3D6), fontSize: 13),
               ),
               if (lab.university.isNotEmpty)
                 Text(
                   lab.university,
-                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                  style: TextStyle(color: const Color(0xFFB7C3D6), fontSize: 12),
                 ),
               if (lab.hasFacultyLink) ...[
                 const SizedBox(height: 4),
                 Chip(
                   label: Text(
                     lab.displayFacultyName,
-                    style: const TextStyle(fontSize: 11),
+                    style: const TextStyle(fontSize: 11, color: Color(0xFF4A148C)),
                   ),
                   visualDensity: VisualDensity.compact,
                   backgroundColor: Colors.purple[50],
@@ -1196,13 +1198,17 @@ class _RecommendedLabCard extends StatelessWidget {
         ),
         title: Text(
           lab.name,
-          style: const TextStyle(fontWeight: FontWeight.bold),
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF1C1917),
+          ),
         ),
         subtitle: Text(
           reason.isNotEmpty ? '$reason\n${lab.location}' : lab.location,
+          style: const TextStyle(color: Color(0xFF44403C)),
         ),
         isThreeLine: reason.isNotEmpty,
-        trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+        trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Color(0xFF44403C)),
       ),
     );
   }

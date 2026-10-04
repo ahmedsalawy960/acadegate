@@ -139,7 +139,7 @@ class _ResearchDiscussionDetailScreenState
                                     Text(
                                       CommunityPostType.label(discussion.type),
                                       style: const TextStyle(
-                                        color: Color(0xFF00695C),
+                                        color: const Color(0xFF5EEAD4),
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
@@ -201,7 +201,7 @@ class _ResearchDiscussionDetailScreenState
                                   discussion.authorName,
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: Colors.grey[600],
+                                    color: const Color(0xFFB7C3D6),
                                   ),
                                 ),
                                 if (discussion.tags.isNotEmpty) ...[
@@ -238,7 +238,7 @@ class _ResearchDiscussionDetailScreenState
                               'لا توجد ردود بعد — كن أول من يرد.',
                               'No replies yet — be the first to reply.',
                             ),
-                            style: TextStyle(color: Colors.grey[600]),
+                            style: TextStyle(color: const Color(0xFFB7C3D6)),
                           )
                         else
                           ...replies.map(_replyTile),

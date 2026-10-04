@@ -69,11 +69,11 @@ class _PortalSelectionScreenState extends State<PortalSelectionScreen> {
     final isLoggedIn = FirebaseAuth.instance.currentUser != null;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FB),
+      backgroundColor: const Color(0xFF071433),
       body: SafeArea(
         child: _loading
             ? const Center(
-                child: CircularProgressIndicator(color: Color(0xFF1A237E)),
+                child: CircularProgressIndicator(color: Color(0xFFF4F7FB)),
               )
             : SingleChildScrollView(
                 padding: const EdgeInsets.all(24),
@@ -84,7 +84,7 @@ class _PortalSelectionScreenState extends State<PortalSelectionScreen> {
                     const Icon(
                       Icons.hub_outlined,
                       size: 56,
-                      color: Color(0xFF1A237E),
+                      color: Color(0xFFF4F7FB),
                     ),
                     const SizedBox(height: 16),
                     Text(
@@ -93,7 +93,7 @@ class _PortalSelectionScreenState extends State<PortalSelectionScreen> {
                       style: const TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF1A237E),
+                        color: const Color(0xFFF4F7FB),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -104,7 +104,7 @@ class _PortalSelectionScreenState extends State<PortalSelectionScreen> {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 15,
-                        color: Colors.grey[700],
+                        color: const Color(0xFFB7C3D6),
                         height: 1.5,
                       ),
                     ),
@@ -160,7 +160,7 @@ class _PortalSelectionScreenState extends State<PortalSelectionScreen> {
                           children: [
                             const Icon(
                               Icons.lightbulb_outline,
-                              color: Color(0xFF1A237E),
+                              color: Color(0xFFF4F7FB),
                               size: 22,
                             ),
                             const SizedBox(width: 10),
@@ -168,7 +168,7 @@ class _PortalSelectionScreenState extends State<PortalSelectionScreen> {
                               child: Text(
                                 '${l10n.portalSuggestedPrefix} ${L10nLookup.portalLabel(l10n, _suggested)}',
                                 style: const TextStyle(
-                                  color: Color(0xFF1A237E),
+                                  color: const Color(0xFFF4F7FB),
                                   fontSize: 13,
                                 ),
                               ),
@@ -214,7 +214,7 @@ class _PortalCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white,
+      color: const Color(0xFF12284F),
       elevation: isSuggested ? 4 : 1,
       shadowColor: accent.withValues(alpha: 0.3),
       borderRadius: BorderRadius.circular(20),
@@ -225,7 +225,7 @@ class _PortalCard extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: isSuggested ? accent : Colors.grey.shade200,
+              color: isSuggested ? accent : const Color(0xFF2A3F6E),
               width: isSuggested ? 2 : 1,
             ),
           ),
@@ -261,7 +261,7 @@ class _PortalCard extends StatelessWidget {
                           subtitle,
                           style: TextStyle(
                             fontSize: 13,
-                            color: Colors.grey[600],
+                            color: const Color(0xFFB7C3D6),
                           ),
                         ),
                       ],
@@ -299,7 +299,10 @@ class _PortalCard extends StatelessWidget {
                       Expanded(
                         child: Text(
                           item,
-                          style: const TextStyle(fontSize: 13),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFFF4F7FB),
+                          ),
                         ),
                       ),
                     ],

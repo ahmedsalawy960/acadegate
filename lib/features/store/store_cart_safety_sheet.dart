@@ -72,13 +72,6 @@ class _CartSafetySheetBody extends StatelessWidget {
                   ),
                 ),
               ),
-              if (result.fromAi)
-                Text(
-                  result.modelUsed != null
-                      ? 'AI · ${result.modelUsed}'
-                      : 'AI',
-                  style: const TextStyle(fontSize: 11, color: StoreTheme.muted),
-                ),
             ],
           ),
         ),

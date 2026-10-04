@@ -64,3 +64,5 @@ flutter:
     - assets/images/weekly/services/
     - seed_data/csv/
     - seed_data/universities/
+    - seed_data/books/
+    - assets/seed_data/books/open_library_faculty_books.json

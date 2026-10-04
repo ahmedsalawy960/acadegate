@@ -111,8 +111,8 @@ class _BookWritingOrderScreenState extends State<BookWritingOrderScreen> {
       if (!mounted) return;
       _showMessage(
         context.t(
-          'تم إرسال طلب الحجز — سيتواصل معك الكاتب قريباً',
-          'Booking request sent — the writer will contact you soon',
+          'تم إرسال طلب الاستشارة — سيتواصل معك المستشار قريباً',
+          'Consultation request sent — the consultant will contact you soon',
         ),
       );
       Navigator.pop(context, true);
@@ -144,7 +144,7 @@ class _BookWritingOrderScreenState extends State<BookWritingOrderScreen> {
 
     return Scaffold(
       appBar: AcadeGateAppBar(
-        title: Text(context.t('حجز خدمة كتابة', 'Book writing service')),
+        title: Text(context.t('طلب مساعدة أو استشارة', 'Request help or consultation')),
         backgroundColor: color,
         foregroundColor: Colors.white,
       ),
@@ -157,7 +157,7 @@ class _BookWritingOrderScreenState extends State<BookWritingOrderScreen> {
               expert.name,
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-            Text(expert.speciality, style: TextStyle(color: Colors.grey[600])),
+            Text(expert.speciality, style: const TextStyle(color: Color(0xFFB7C3D6))),
             const SizedBox(height: 16),
             _infoBanner(color),
             const SizedBox(height: 16),
@@ -261,7 +261,7 @@ class _BookWritingOrderScreenState extends State<BookWritingOrderScreen> {
                   'اختر المراحل المطلوبة — يُسلَّم كل جزء على حدة ضمن الضمان الحالي',
                   'Pick stages — each part is delivered separately under current escrow',
                 ),
-                style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
               ),
               const SizedBox(height: 8),
               Wrap(
@@ -371,10 +371,10 @@ class _BookWritingOrderScreenState extends State<BookWritingOrderScreen> {
       ),
       child: Text(
         context.t(
-          'سيتم مراجعة طلبك من الكاتب خلال 24 ساعة. '
-          'التواصل المباشر بعد تأكيد الطلب.',
-          'The writer will review your request within 24 hours. '
-          'Direct contact after order confirmation.',
+          'يراجع المستشار طلبك خلال 24 ساعة. '
+          'الخدمة مساعدة واستشارة، والكتابة تبقى للباحث. التواصل بعد تأكيد الطلب.',
+          'The consultant reviews your request within 24 hours. '
+          'This is help and consultation; you remain the author. Contact follows confirmation.',
         ),
         style: const TextStyle(fontSize: 13, height: 1.4),
       ),

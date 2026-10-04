@@ -94,6 +94,7 @@ class _CommunityHubScreenState extends State<CommunityHubScreen>
           ? FloatingActionButton.extended(
               onPressed: _createRoom,
               backgroundColor: const Color(0xFF00695C),
+              foregroundColor: Colors.white,
               icon: const Icon(Icons.meeting_room_outlined),
               label: Text(context.t('غرفة جديدة', 'New room')),
             )
@@ -379,7 +380,7 @@ class _ResearchRoomsTabState extends State<_ResearchRoomsTab> {
                               'لا غرف ضمن هذا التخصص من غرفك.',
                               'None of your rooms match this faculty filter.',
                             ),
-                            style: TextStyle(color: Colors.grey[600]),
+                            style: TextStyle(color: const Color(0xFFB7C3D6)),
                           ),
                         )
                       else
@@ -592,6 +593,7 @@ class _RoomCard extends StatelessWidget {
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
+                              color: Color(0xFF1C1917),
                             ),
                           ),
                         ),
@@ -619,12 +621,12 @@ class _RoomCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       subtitle ?? description,
-                      style: TextStyle(color: Colors.grey[700], height: 1.3),
+                      style: const TextStyle(color: Color(0xFF44403C), height: 1.3),
                     ),
                   ],
                 ),
               ),
-              trailing ?? Icon(Icons.chevron_left, color: Colors.grey[500]),
+              trailing ?? const Icon(Icons.chevron_left, color: Color(0xFF44403C)),
             ],
           ),
         ),

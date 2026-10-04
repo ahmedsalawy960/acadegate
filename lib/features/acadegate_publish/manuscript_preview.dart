@@ -91,7 +91,7 @@ class ManuscriptBlockPreview extends StatelessWidget {
                 block.caption!,
                 style: TextStyle(
                   fontSize: 12,
-                  color: Colors.grey[700],
+                  color: const Color(0xFFB7C3D6),
                   fontStyle: FontStyle.italic,
                 ),
               ),
@@ -198,7 +198,7 @@ class _TablePreview extends StatelessWidget {
                 block.caption!,
                 style: TextStyle(
                   fontSize: 12,
-                  color: Colors.grey[700],
+                  color: const Color(0xFFB7C3D6),
                   fontStyle: FontStyle.italic,
                 ),
               ),

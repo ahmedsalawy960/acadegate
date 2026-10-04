@@ -28,7 +28,7 @@ class AdvisorAgentRegistry {
       shortLabelEn: 'Research idea',
       description: 'تقييم وتطوير واقتراح أفكار بحثية',
       descriptionEn: 'Evaluate, develop, and suggest research ideas',
-      icon: Icons.auto_awesome,
+      icon: Icons.lightbulb_outline,
       color: Color(0xFFF57C00),
       keywords: [
         'فكرة بحث',
@@ -150,7 +150,7 @@ class AdvisorAgentRegistry {
       shortLabelEn: 'Citations',
       description: 'APA، IEEE، Chicago وتنظيم المراجع',
       descriptionEn: 'APA, IEEE, Chicago, and reference formatting',
-      icon: Icons.library_books_outlined,
+      icon: Icons.format_quote,
       color: Color(0xFF5D4037),
       keywords: [
         'مرجع',

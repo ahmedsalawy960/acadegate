@@ -153,7 +153,7 @@ class _BookEquipmentScreenState extends State<BookEquipmentScreen> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                Text(lab.name, style: TextStyle(color: Colors.grey[700])),
+                Text(lab.name, style: TextStyle(color: const Color(0xFFB7C3D6))),
                 const SizedBox(height: 10),
                 _opsBanner(lab),
                 if (lab.hasLabContact || lab.contacts.isNotEmpty) ...[
@@ -517,7 +517,7 @@ class _BookEquipmentScreenState extends State<BookEquipmentScreen> {
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
-          Expanded(child: Text(label, style: TextStyle(color: Colors.grey[700]))),
+          Expanded(child: Text(label, style: TextStyle(color: const Color(0xFFB7C3D6)))),
           Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
         ],
       ),

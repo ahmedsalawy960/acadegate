@@ -7,11 +7,103 @@ import '../guides/section_guide_catalog.dart';
 import '../guides/section_guide_screen.dart';
 import '../academic/academic_content_service.dart';
 import '../academic/academic_models.dart';
+import '../auth/user_account_service.dart';
 import 'publish_research_idea_screen.dart';
 import 'research_idea_marketplace_detail_screen.dart';
+import 'research_ideas_sync_service.dart';
+import 'seed/egypt_research_ideas_seed.dart';
 
-class ResearchMarketplaceScreen extends StatelessWidget {
+class ResearchMarketplaceScreen extends StatefulWidget {
   const ResearchMarketplaceScreen({super.key});
+
+  @override
+  State<ResearchMarketplaceScreen> createState() =>
+      _ResearchMarketplaceScreenState();
+}
+
+class _ResearchMarketplaceScreenState extends State<ResearchMarketplaceScreen> {
+  static const _brand = Color(0xFFEF6C00);
+
+  bool _syncing = false;
+  DateTime? _lastSyncAt;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSyncMeta();
+  }
+
+  Future<void> _loadSyncMeta() async {
+    final at = await ResearchIdeasSyncService.instance.loadLastSyncAt();
+    if (mounted) setState(() => _lastSyncAt = at);
+  }
+
+  AcademicResearchIdea _fromSeed(SeedResearchIdea seed) {
+    return AcademicResearchIdea(
+      title: seed.title,
+      provider: seed.provider,
+      details: seed.details,
+      tags: seed.tags,
+      budget: seed.budget,
+      category: seed.category,
+      degreeLevel: 'both',
+      status: 'open',
+      seedSource: 'egypt_research_ideas_seed',
+      importSource: 'curated_marketplace',
+    );
+  }
+
+  List<AcademicResearchIdea> _mergeIdeas(List<AcademicResearchIdea> live) {
+    final public = live.where((e) => e.isPubliclyVisible).toList();
+    final curated = [for (final s in egyptResearchIdeasSeed) _fromSeed(s)];
+    if (public.isEmpty) return curated;
+
+    final seen = <String>{
+      for (final i in public) i.title.trim().toLowerCase(),
+    };
+    final extras = <AcademicResearchIdea>[];
+    for (final c in curated) {
+      final key = c.title.trim().toLowerCase();
+      if (seen.contains(key)) continue;
+      seen.add(key);
+      extras.add(c);
+    }
+    // Live/synced first, then curated pack fillers.
+    return [...public, ...extras];
+  }
+
+  Future<void> _runAiSync() async {
+    setState(() => _syncing = true);
+    try {
+      final result = await ResearchIdeasSyncService.instance.syncNow(
+        scope: 'all',
+      );
+      await _loadSyncMeta();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            context.t(
+              'تمت المزامنة: +${result.imported} جديدة · ${result.updated} محدّثة',
+              'Synced: +${result.imported} new · ${result.updated} updated',
+            ),
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$e'),
+          backgroundColor: Colors.red.shade700,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _syncing = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -67,7 +159,7 @@ class ResearchMarketplaceScreen extends StatelessWidget {
           ),
           Container(
             width: double.infinity,
-            margin: const EdgeInsets.all(16),
+            margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: Colors.orange.withValues(alpha: 0.08),
@@ -76,21 +168,58 @@ class ResearchMarketplaceScreen extends StatelessWidget {
             ),
             child: Text(
               context.t(
-                'جهات أكاديمية وصناعية تنشر مشاكل بحثية، والطلاب يقدمون مقترحات ويصوّتون عليها.',
-                'Academic and industry partners publish research problems; students submit proposals and vote.',
+                'جهات أكاديمية وصناعية تنشر مشاكل بحثية. افتح أي نقطة لجلب دراسات سابقة وفحص التكرار واعتمادها (يشمل Scholar — بدون إلزام DOI).',
+                'Partners publish research problems. Open any idea for prior studies, duplication check & adopt (incl. Scholar — DOI not required).',
               ),
               style: const TextStyle(height: 1.4),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: StreamBuilder(
+              stream: UserAccountService.instance.watchCurrentAccount(),
+              builder: (context, snap) {
+                final isAdmin = snap.data?.isAdmin == true;
+                return Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _lastSyncAt == null
+                            ? context.t(
+                                'الحزمة المحلية جاهزة · المزامنة تضيف نقاطاً جديدة من OpenAlex والأخبار',
+                                'Curated pack ready · sync adds new points from OpenAlex and news',
+                              )
+                            : context.t(
+                                'آخر مزامنة: ${_lastSyncAt!.toLocal().toString().split('.').first}',
+                                'Last sync: ${_lastSyncAt!.toLocal().toString().split('.').first}',
+                              ),
+                        style: TextStyle(fontSize: 12.5, color: const Color(0xFFB7C3D6)),
+                      ),
+                    ),
+                    if (isAdmin)
+                      FilledButton.tonalIcon(
+                        onPressed: _syncing ? null : _runAiSync,
+                        icon: _syncing
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.cloud_sync, size: 18),
+                        label: Text(context.t('مزامنة', 'Sync')),
+                        style: FilledButton.styleFrom(
+                          foregroundColor: _brand,
+                        ),
+                      ),
+                  ],
+                );
+              },
             ),
           ),
           Expanded(
             child: StreamBuilder<List<AcademicResearchIdea>>(
               stream: AcademicContentService.instance.researchIdeasStream(),
               builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting &&
-                    !snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
                 if (snapshot.hasError) {
                   return Center(
                     child: Text(context.t(
@@ -100,7 +229,7 @@ class ResearchMarketplaceScreen extends StatelessWidget {
                   );
                 }
 
-                final ideas = snapshot.data ?? [];
+                final ideas = _mergeIdeas(snapshot.data ?? const []);
                 if (ideas.isEmpty) {
                   return Center(
                     child: Text(context.t(
@@ -197,7 +326,7 @@ class _MarketIdeaCard extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 idea.provider,
-                style: TextStyle(color: Colors.grey[700]),
+                style: TextStyle(color: const Color(0xFFB7C3D6)),
               ),
               const SizedBox(height: 10),
               Wrap(
@@ -276,7 +405,7 @@ class _StatusChip extends StatelessWidget {
     final String label;
     if (isClaimed) {
       bgColor = Colors.blue;
-      textColor = Colors.blue[800]!;
+      textColor = const Color(0xFF93C5FD);
       label = context.t('تم اختياره', 'Claimed');
     } else if (isOpen) {
       bgColor = Colors.green;
@@ -284,7 +413,7 @@ class _StatusChip extends StatelessWidget {
       label = context.t('مفتوحة', 'Open');
     } else {
       bgColor = Colors.grey;
-      textColor = Colors.grey[700]!;
+      textColor = const Color(0xFFB7C3D6);
       label = context.t('مغلقة', 'Closed');
     }
 

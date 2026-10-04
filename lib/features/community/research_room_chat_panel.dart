@@ -150,7 +150,7 @@ class _ResearchRoomChatPanelState extends State<ResearchRoomChatPanel> {
                       'ابدأ النقاش الحي في هذه القناة',
                       'Start the live discussion in this channel',
                     ),
-                    style: TextStyle(color: Colors.grey[600]),
+                    style: TextStyle(color: const Color(0xFFB7C3D6)),
                   ),
                 );
               }
@@ -187,7 +187,7 @@ class _ResearchRoomChatPanelState extends State<ResearchRoomChatPanel> {
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
-                              color: Colors.grey[700],
+                              color: const Color(0xFFB7C3D6),
                             ),
                           ),
                           if (msg.text.isNotEmpty) ...[
@@ -209,7 +209,7 @@ class _ResearchRoomChatPanelState extends State<ResearchRoomChatPanel> {
                                           ? msg.academicTitle!
                                           : msg.academicLink!,
                                       style: const TextStyle(
-                                        color: Color(0xFF00695C),
+                                        color: const Color(0xFF5EEAD4),
                                         decoration: TextDecoration.underline,
                                         fontSize: 13,
                                       ),
@@ -273,7 +273,7 @@ class _ResearchRoomChatPanelState extends State<ResearchRoomChatPanel> {
                     Icons.menu_book_outlined,
                     color: _showLinkFields
                         ? const Color(0xFF00695C)
-                        : Colors.grey[700],
+                        : const Color(0xFFB7C3D6),
                   ),
                 ),
                 Expanded(

@@ -703,8 +703,8 @@ class ResearchSupplyChainEngine {
           reasons: reasons.isEmpty
               ? [
                   appTr(
-                    'كاتب أكاديمي مقترح',
-                    'Suggested academic writer',
+                    'مستشار كتابة مقترح',
+                    'Suggested writing consultant',
                   ),
                 ]
               : reasons,

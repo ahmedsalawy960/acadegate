@@ -123,7 +123,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get portalUserItem3 => 'أفكار بحثية ومجتمع علمي';
 
   @override
-  String get portalUserItem4 => 'المساعد الذكي والمطابقة';
+  String get portalUserItem4 => 'المساعد الأكاديمي والمطابقة';
 
   @override
   String get portalProviderItem1 => 'تاجر / مورد أكاديمي';
@@ -132,7 +132,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get portalProviderItem2 => 'مختبر وتحليل عينات';
 
   @override
-  String get portalProviderItem3 => 'كاتب أكاديمي وخبير';
+  String get portalProviderItem3 => 'مستشار كتابة أكاديمية';
 
   @override
   String get portalProviderItem4 => 'ناشر أفكار ومشرف مقدّم خدمة';
@@ -202,7 +202,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get serviceIntegrity => 'سلامة أكاديمية AcadeGate';
 
   @override
-  String get serviceWriting => 'خدمات الكتابة';
+  String get serviceWriting => 'مساعدة الكتابة';
 
   @override
   String get serviceThesisStudio => 'استوديو الرسالة';
@@ -345,10 +345,10 @@ class AppLocalizationsAr extends AppLocalizations {
   String get manageLabSub => 'مسؤول مختبر';
 
   @override
-  String get offerWriting => 'تقديم خدمات الكتابة الأكاديمية';
+  String get offerWriting => 'تقديم مساعدة واستشارة في الكتابة';
 
   @override
-  String get offerWritingSub => 'كاتب / خبير';
+  String get offerWritingSub => 'مستشار كتابة';
 
   @override
   String get publishIdeasGuest => 'نشر أفكار بحثية';
@@ -460,7 +460,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get portalProviderDesc =>
-      'تاجر، مختبر، كاتب أكاديمي، ناشر أفكار، مشرف يقدّم خدماته';
+      'تاجر، مختبر، مستشار كتابة، ناشر أفكار، مشرف يقدّم خدماته';
 
   @override
   String get portalUserDesc =>

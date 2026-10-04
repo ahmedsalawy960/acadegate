@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import '../../core/locale/app_translate.dart';
 import '../../core/voice/readable_text.dart';
 import '../ai_advisor/gemini_advisor_client.dart';
@@ -15,6 +17,12 @@ class VivaService {
   final _local = VivaLocalEngine.instance;
 
   bool get isCloudEnabled => GeminiAdvisorClient.isAvailable;
+
+  /// Windows exits when this screen talks to Gemini while speech engines
+  /// are loaded. Questions already extracted from the thesis are local.
+  bool get _cloudQuestionsEnabled =>
+      isCloudEnabled &&
+      (kIsWeb || defaultTargetPlatform != TargetPlatform.windows);
 
   int _counter = 0;
   String _nextId() => 'viva_${++_counter}';
@@ -72,14 +80,22 @@ class VivaService {
     required int questionIndex,
     required List<VivaMessage> history,
   }) async {
-    if (isCloudEnabled) {
-      final cloud = await _cloudQuestion(
-        config: config,
-        member: member,
-        questionIndex: questionIndex,
-        history: history,
-      );
-      if (cloud != null) return ReadableText.forDisplay(cloud);
+    if (_cloudQuestionsEnabled) {
+      try {
+        final cloud = await _cloudQuestion(
+          config: config,
+          member: member,
+          questionIndex: questionIndex,
+          history: history,
+        );
+        if (cloud != null && cloud.trim().isNotEmpty) {
+          return ReadableText.forDisplay(cloud);
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          debugPrint('Viva cloud question failed, using local question: $e');
+        }
+      }
     }
     return ReadableText.forDisplay(
       _local.askQuestion(
@@ -96,7 +112,7 @@ class VivaService {
     required List<VivaMessage> history,
   }) async {
     VivaReport report;
-    if (isCloudEnabled) {
+    if (_cloudQuestionsEnabled) {
       final cloud = await _cloudReport(config: config, history: history);
       report = cloud ?? _local.buildReport(config: config, history: history);
     } else {
@@ -303,7 +319,7 @@ class VivaService {
               ),
             ],
       overallAssessment: appTr(
-        'تقرير مولّد بالذكاء السحابي بناءً على محاكاة المناقشة.',
+        'تقرير مبني على محاكاة المناقشة.',
         'Cloud AI report based on the defense simulation.',
       ),
       fromCloudAi: true,

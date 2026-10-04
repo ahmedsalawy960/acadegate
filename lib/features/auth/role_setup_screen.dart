@@ -51,7 +51,7 @@ class _RoleSetupScreenState extends State<RoleSetupScreen> {
               'تمت إعادة إنشاء ملفك. اختر دورك من جديد كما في التسجيل لأول مرة.',
               'Your profile was recreated. Choose your role again as in first-time registration.',
             ),
-            style: TextStyle(height: 1.4, color: Colors.grey[800]),
+            style: const TextStyle(height: 1.4, color: Color(0xFFB7C3D6)),
           ),
           const SizedBox(height: 16),
           ...UserRole.all.map(

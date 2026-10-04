@@ -9,6 +9,7 @@ import '../academic/academic_models.dart';
 import '../moderation/delete_content_button.dart';
 import '../research_fund/research_fund_models.dart';
 import '../research_supply_chain/research_supply_chain_screen.dart';
+import '../topic_bank/topic_adoption_screen.dart';
 import 'research_marketplace_service.dart';
 import 'submit_proposal_screen.dart';
 
@@ -292,7 +293,7 @@ class _ResearchIdeaMarketplaceDetailScreenState
                   const SizedBox(height: 8),
                   Text(
                     idea.provider,
-                    style: TextStyle(color: Colors.grey[700], fontSize: 15),
+                    style: TextStyle(color: const Color(0xFFB7C3D6), fontSize: 15),
                   ),
                   const SizedBox(height: 12),
                   Wrap(
@@ -372,6 +373,46 @@ class _ResearchIdeaMarketplaceDetailScreenState
                   ),
                   const SizedBox(height: 8),
                   Text(idea.details, style: const TextStyle(height: 1.5)),
+                  const SizedBox(height: 20),
+                  Card(
+                    color: const Color(0xFFFFF3E0),
+                    child: ListTile(
+                      leading: const CircleAvatar(
+                        backgroundColor: Color(0x33EF6C00),
+                        foregroundColor: Color(0xFFEF6C00),
+                        child: Icon(Icons.fact_check_outlined),
+                      ),
+                      title: Text(
+                        context.t(
+                          'فحص التكرار واعتماد النقطة',
+                          'Duplication check & adopt point',
+                        ),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF3E2723),
+                        ),
+                      ),
+                      subtitle: Text(
+                        context.t(
+                          'تشابه تقريبي · دراسات سابقة (يشمل Scholar) · أسئلة · حجز — بدون إلزام DOI',
+                          'Approx. similarity · prior studies (incl. Scholar) · questions · claim — DOI not required',
+                        ),
+                        style: const TextStyle(color: Color(0xFF5D4037)),
+                      ),
+                      trailing: const Icon(
+                        Icons.chevron_left,
+                        color: Color(0xFF5D4037),
+                      ),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => TopicAdoptionScreen(idea: idea),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
                   if (idea.tags.isNotEmpty) ...[
                     const SizedBox(height: 16),
                     Wrap(
@@ -508,7 +549,7 @@ class _ResearchIdeaMarketplaceDetailScreenState
                             : (canRelease ? _releaseTopic : _claimTopic),
                         style: FilledButton.styleFrom(
                           backgroundColor:
-                              canRelease ? Colors.grey[700] : const Color(0xFF1A237E),
+                              canRelease ? const Color(0xFFB7C3D6) : const Color(0xFF1A237E),
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                         ),

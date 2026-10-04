@@ -220,12 +220,12 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
                 children: [
                   Text(
                     post.authorName,
-                    style: TextStyle(color: Colors.grey[700]),
+                    style: TextStyle(color: const Color(0xFFB7C3D6)),
                   ),
                   if (post.university != null) ...[
                     Text(
                       ' • ${post.university}',
-                      style: TextStyle(color: Colors.grey[600]),
+                      style: TextStyle(color: const Color(0xFFB7C3D6)),
                     ),
                   ],
                 ],
@@ -249,7 +249,7 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
                       Icon(
                         PostAudienceScope.icon(post.audienceScope),
                         size: 16,
-                        color: Colors.grey[700],
+                        color: const Color(0xFFB7C3D6),
                       ),
                       const SizedBox(width: 6),
                       Expanded(
@@ -257,7 +257,7 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
                           detail,
                           style: TextStyle(
                             fontSize: 13,
-                            color: Colors.grey[700],
+                            color: const Color(0xFFB7C3D6),
                           ),
                         ),
                       ),
@@ -360,7 +360,7 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
                       'لا توجد ردود بعد — كن أول من يرد.',
                       'No replies yet — be the first to reply.',
                     ),
-                    style: TextStyle(color: Colors.grey[600]),
+                    style: TextStyle(color: const Color(0xFFB7C3D6)),
                   ),
                 )
               else

@@ -380,7 +380,7 @@ class _CsvImportTabState extends State<_CsvImportTab> {
                 '... و ${_preview.length - 8} صف إضافي',
                 '... and ${_preview.length - 8} more rows',
               ),
-              style: TextStyle(color: Colors.grey[600]),
+              style: TextStyle(color: const Color(0xFFB7C3D6)),
             ),
           const SizedBox(height: 16),
           SizedBox(
@@ -779,7 +779,7 @@ class _OpenAlexImportTabState extends State<_OpenAlexImportTab> {
                     ),
                     style: const TextStyle(
                       fontWeight: FontWeight.w800,
-                      color: Color(0xFF1A237E),
+                      color: Color(0xFF1C1917),
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -790,13 +790,14 @@ class _OpenAlexImportTabState extends State<_OpenAlexImportTab> {
                       'Pulls real supervisors from OpenAlex for priority Egyptian universities '
                       'and maps them across faculties. No invented names.',
                     ),
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade800),
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF44403C)),
                   ),
                   const SizedBox(height: 8),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: Text(
                       context.t('موافقة تلقائية عند الاستيراد', 'Auto-approve on import'),
+                      style: const TextStyle(color: Color(0xFF1C1917)),
                     ),
                     value: _autoApprove,
                     onChanged: (v) => setState(() => _autoApprove = v),
@@ -813,7 +814,7 @@ class _OpenAlexImportTabState extends State<_OpenAlexImportTab> {
                             height: 18,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Icon(Icons.auto_awesome),
+                        : const Icon(Icons.domain_add),
                     label: Text(
                       context.t(
                         'املأ كل الكليات الآن',
@@ -969,7 +970,7 @@ class _OpenAlexImportTabState extends State<_OpenAlexImportTab> {
                     'Loading all researchers from OpenAlex for this university...',
                   ),
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey[700]),
+                  style: TextStyle(color: const Color(0xFFB7C3D6)),
                 ),
               ],
             ),
@@ -1065,7 +1066,7 @@ class _OpenAlexImportTabState extends State<_OpenAlexImportTab> {
                   'لا يوجد باحثون مطابقون لهذه الكلية في القائمة الحالية.',
                   'No researchers match this faculty in the current list.',
                 ),
-                style: TextStyle(color: Colors.grey[600]),
+                style: TextStyle(color: const Color(0xFFB7C3D6)),
               ),
             ),
           ...visibleAuthors.map(
@@ -1095,7 +1096,7 @@ class _OpenAlexImportTabState extends State<_OpenAlexImportTab> {
                   'قائمة كاملة ${_authors.length} باحث — صفِّ بالكلية أعلاه أو استخدم البحث الاختياري بالاسم',
                   'Full list of ${_authors.length} researchers — filter by faculty above or use optional name search',
                 ),
-                style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                style: TextStyle(color: const Color(0xFFB7C3D6), fontSize: 12),
               ),
             ),
           const SizedBox(height: 12),
@@ -1163,6 +1164,8 @@ class _OpenAlexImportTabState extends State<_OpenAlexImportTab> {
                     TextField(
                       controller: _professorController,
                       textAlign: TextAlign.start,
+                      style: const TextStyle(color: Color(0xFF1C1917)),
+                      cursorColor: Color(0xFF1C1917),
                       decoration: InputDecoration(
                         labelText: context.t(
                           'اسم الدكتور / الباحث',
@@ -1174,6 +1177,8 @@ class _OpenAlexImportTabState extends State<_OpenAlexImportTab> {
                         ),
                         filled: true,
                         fillColor: Colors.white,
+                        labelStyle: const TextStyle(color: Color(0xFF44403C)),
+                        hintStyle: const TextStyle(color: Color(0xFF57534E)),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),

@@ -24,7 +24,7 @@ class L10nLookup {
       case UserRole.ideaPublisher:
         return appTr('ناشر أفكار بحثية', 'Research idea publisher');
       case UserRole.writer:
-        return appTr('كاتب أكاديمي', 'Academic writer');
+        return appTr('مستشار كتابة', 'Writing consultant');
       case UserRole.admin:
         return appTr('مدير النظام', 'System admin');
       default:
@@ -167,21 +167,21 @@ class L10nLookup {
   static String writingTitle(String id) {
     switch (id) {
       case 'research_paper':
-        return appTr('أوراق بحثية', 'Research papers');
+        return appTr('مساعدة في الأوراق البحثية', 'Help with research papers');
       case 'thesis':
-        return appTr('رسائل علمية', 'Theses');
+        return appTr('استشارة في الرسائل العلمية', 'Thesis consultation');
       case 'statistics':
-        return appTr('إحصاء وتحليل', 'Statistics & analysis');
+        return appTr('استشارة إحصائية', 'Statistics consultation');
       case 'literature_review':
-        return appTr('مراجعة أدبيات', 'Literature review');
+        return appTr('مساعدة في مراجعة الأدبيات', 'Literature-review help');
       case 'proposal':
-        return appTr('مقترحات بحث', 'Research proposals');
+        return appTr('استشارة في خطة البحث', 'Research-plan consultation');
       case 'editing':
-        return appTr('تحرير وتدقيق', 'Editing & proofreading');
+        return appTr('تدقيق ومراجعة لغوية', 'Language review of your text');
       case 'formatting':
-        return appTr('تنسيق وتوثيق', 'Formatting & citations');
+        return appTr('مساعدة في التنسيق والتوثيق', 'Formatting & citation help');
       case 'translation':
-        return appTr('ترجمة علمية', 'Academic translation');
+        return appTr('ترجمة علمية لنصك', 'Translation of your text');
       default:
         return id;
     }
@@ -191,31 +191,43 @@ class L10nLookup {
     switch (id) {
       case 'research_paper':
         return appTr(
-          'مقالات، أوراق مؤتمرات، نشر علمي',
-          'Articles, conference papers, publishing',
+          'ملاحظات على مقالك أو ورقة المؤتمر',
+          'Feedback on your article or conference paper',
         );
       case 'thesis':
         return appTr(
-          'ماجستير، دكتوراه، مشروع تخرج',
-          'Master\'s, PhD, graduation project',
+          'توجيه ومراجعة لفصول يكتبها الباحث',
+          'Guidance and review of chapters you write',
         );
       case 'statistics':
         return appTr(
-          'SPSS، R، Excel، تفسير النتائج',
-          'SPSS, R, Excel, results interpretation',
+          'اختيار الاختبار وتفسير النتائج',
+          'Choosing a test and interpreting results',
         );
       case 'literature_review':
-        return appTr('نقد، تلخيص، خريطة مفاهيمية', 'Critique, summary, concept map');
+        return appTr(
+          'نقد وتلخيص انطلاقاً من قراءاتك',
+          'Critique and summary from your reading',
+        );
       case 'proposal':
-        return appTr('خطة بحث، أهداف، منهجية', 'Research plan, objectives, methodology');
+        return appTr(
+          'مراجعة الأهداف والمنهجية في خطتك',
+          'Review of objectives and method in your plan',
+        );
       case 'editing':
-        return appTr('لغة، أسلوب، إعادة صياغة', 'Language, style, paraphrasing');
+        return appTr(
+          'لغة وأسلوب على نصك',
+          'Language and style on your own text',
+        );
       case 'formatting':
-        return appTr('APA، MLA، Harvard، IEEE', 'APA, MLA, Harvard, IEEE');
+        return appTr(
+          'تنسيق وتوثيق وفق دليل جامعتك',
+          'Formatting and citations per your university guide',
+        );
       case 'translation':
         return appTr(
-          'عربي ↔ إنجليزي، مصطلحات دقيقة',
-          'Arabic ↔ English, precise terminology',
+          'ترجمة نص أعددته أنت',
+          'Translation of a text you prepared',
         );
       default:
         return '';

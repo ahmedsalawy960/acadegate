@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/locale/locale_extensions.dart';
 import '../../core/widgets/acadegate_logo.dart';
+import '../../core/widgets/section_cover_image.dart';
 import '../home/dashboard_card.dart';
 
 class WelcomeFeatureSlide {
@@ -54,12 +55,12 @@ List<WelcomeFeatureSlide> welcomeFeatureSlides() => [
             'An all-in-one postgraduate platform: from supervisor matching to scholarly publishing.',
         highlightsAr: [
           'مشرفون، مختبرات، متجر بحثي، ومجتمع أكاديمي',
-          'وكلاء ذكاء اصطناعي متخصصون لكل مرحلة',
-          'متابعة ذكية لمسار الرسالة والتنبيهات',
+          'وكلاء متخصصون لكل مرحلة',
+          'متابعة مسار الرسالة والتنبيهات',
         ],
         highlightsEn: [
           'Supervisors, labs, research store & academic community',
-          'Specialized AI agents for every thesis stage',
+          'Specialized agents for every thesis stage',
           'Smart thesis journey tracking & in-app alerts',
         ],
       ),
@@ -67,8 +68,8 @@ List<WelcomeFeatureSlide> welcomeFeatureSlides() => [
         imageUrl: HomeServiceImages.aiAdvisor,
         icon: Icons.psychology_alt_rounded,
         accent: const Color(0xFF4527A0),
-        titleAr: 'مساعد بحث ذكي — وكلاء متخصصون',
-        titleEn: 'Smart research assistant — specialized agents',
+        titleAr: 'المساعد الأكاديمي — وكلاء متخصصون',
+        titleEn: 'Academic Assistant — specialized agents',
         subtitleAr:
             'اسأل بلغتك الطبيعية: أفكار بحثية، كتابة فصول، مراجعة أدبية، منهجية، استشهاد، ومحاكاة مناقشة.',
         subtitleEn:
@@ -88,20 +89,20 @@ List<WelcomeFeatureSlide> welcomeFeatureSlides() => [
         imageUrl: HomeServiceImages.matchmaking,
         icon: Icons.auto_awesome,
         accent: const Color(0xFF283593),
-        titleAr: 'مشرفون ومطابقة ذكية',
-        titleEn: 'Supervisors & smart matchmaking',
+        titleAr: 'مشرفون ومطابقة',
+        titleEn: 'Supervisors and matching',
         subtitleAr:
-            'تصفّح كليات وجامعات، اطلع على ملفات المشرفين، واطلب مطابقة ذكية حسب تخصصك ومنهجيتك.',
+            'تصفّح كليات وجامعات، اطلع على ملفات المشرفين، واطلب مطابقة حسب تخصصك ومنهجيتك.',
         subtitleEn:
-            'Browse faculties and universities, explore supervisor profiles, and request smart matching by field & methodology.',
+            'Browse faculties and universities, explore supervisor profiles, and request matching by field and methodology.',
         highlightsAr: [
           'دليل أكاديمي شامل للمشرفين',
-          'مطابقة ذكية مع تنبيهات داخل التطبيق',
+          'مطابقة مع تنبيهات داخل التطبيق',
           'تواصل مباشر وطلب إشراف',
         ],
         highlightsEn: [
           'Comprehensive academic supervisor directory',
-          'Smart matching with in-app notifications',
+          'Matching with in-app notifications',
           'Direct contact & supervision requests',
         ],
       ),
@@ -109,8 +110,8 @@ List<WelcomeFeatureSlide> welcomeFeatureSlides() => [
         imageUrl: HomeServiceImages.ideas,
         icon: Icons.lightbulb_rounded,
         accent: Colors.orange,
-        titleAr: 'أفكار بحثية ومسار ذكي',
-        titleEn: 'Research ideas & intelligent path',
+        titleAr: 'أفكار بحثية ومسار الرسالة',
+        titleEn: 'Research ideas and thesis path',
         subtitleAr:
             'سوق أفكار بحثية ومسار بحث متكامل — من الفكرة إلى التنفيذ.',
         subtitleEn:
@@ -118,20 +119,20 @@ List<WelcomeFeatureSlide> welcomeFeatureSlides() => [
         highlightsAr: [
           'عرض وشراء أفكار بحثية جاهزة',
           'حزمة مسار بحث (مشرف + مختبر + متجر)',
-          'مطابقة ذكية حسب تخصصك',
+          'مطابقة حسب تخصصك',
         ],
         highlightsEn: [
           'Browse and acquire ready research ideas',
           'Research path bundle (supervisor + lab + store)',
-          'Smart matching by your specialty',
+          'Matching by your specialty',
         ],
       ),
       WelcomeFeatureSlide(
         imageUrl: HomeServiceImages.labs,
         icon: Icons.science_rounded,
         accent: Colors.purple,
-        titleAr: 'مختبرات ذكية وتحليل بيانات',
-        titleEn: 'Smart labs & data analysis',
+        titleAr: 'مختبرات وتحليل بيانات',
+        titleEn: 'Labs and data analysis',
         subtitleAr:
             'احجز مختبرات، اطلب تحليل عينات، واستخدم معالج الافتراضات الإحصائية مع بيانات CSV حقيقية.',
         subtitleEn:
@@ -217,7 +218,7 @@ List<WelcomeFeatureSlide> welcomeFeatureSlides() => [
         titleAr: 'أخبار علمية ومتابعة الرسالة',
         titleEn: 'Science news & thesis progress',
         subtitleAr:
-            'آخر أخبار العلوم، بطاقة تقدم الرسالة الذكية، وتنبيهات للمهام والمواعيد — دون إزعاج خارج التطبيق.',
+            'آخر أخبار العلوم، بطاقة تقدم الرسالة، وتنبيهات للمهام والمواعيد — دون إزعاج خارج التطبيق.',
         subtitleEn:
             'Latest science news, smart thesis progress card, and task deadline alerts — without external push noise.',
         highlightsAr: [
@@ -410,18 +411,18 @@ class _SlideBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final url = slide.imageUrl;
+    if (url.startsWith('assets/') || url.startsWith('Assets/')) {
+      return SectionCoverImage(
+        url,
+        errorBuilder: (_, _, _) => _fallback(),
+      );
+    }
     return Image.network(
-      slide.imageUrl,
+      url,
       fit: BoxFit.cover,
       gaplessPlayback: true,
-      errorBuilder: (_, _, _) => Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [slide.accent, slide.accent.withValues(alpha: 0.6)],
-          ),
-        ),
-        child: Icon(slide.icon, size: 80, color: Colors.white24),
-      ),
+      errorBuilder: (_, _, _) => _fallback(),
       loadingBuilder: (context, child, progress) {
         if (progress == null) return child;
         return Container(
@@ -431,6 +432,17 @@ class _SlideBackground extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  Widget _fallback() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [slide.accent, slide.accent.withValues(alpha: 0.6)],
+        ),
+      ),
+      child: Icon(slide.icon, size: 80, color: Colors.white24),
     );
   }
 }

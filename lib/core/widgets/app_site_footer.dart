@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../config/app_contact_info.dart';
 import '../locale/locale_extensions.dart';
+import '../theme/acadegate_theme.dart';
 import '../../features/legal/privacy_policy_screen.dart';
 import '../../features/legal/privacy_rights_screen.dart';
 import '../../features/legal/support_help_screen.dart';
@@ -32,14 +33,8 @@ class AppSiteFooter extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 28, 20, 24),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            accentColor,
-            Color.lerp(accentColor, const Color(0xFF0D1333), 0.35)!,
-          ],
-        ),
+        color: AcadeGateColors.card,
+        border: Border.all(color: AcadeGateColors.line),
       ),
       child: Column(
         children: [
@@ -66,7 +61,9 @@ class AppSiteFooter extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w900,
-                    color: Color(0xFFE8C468),
+                    color: accentColor.computeLuminance() > 0.45
+                        ? accentColor
+                        : AcadeGateColors.gold,
                     letterSpacing: 0.4,
                   ),
                 ),
@@ -139,30 +136,6 @@ class AppSiteFooter extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          ...AppContactInfo.phoneLines.map((line) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(8),
-                onTap: () => _call(line.e164),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Row(
-                    children: [
-                      Icon(Icons.phone_outlined, size: 18, color: muted),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          '${line.label(isAr)}: ${line.display(isAr)}',
-                          style: TextStyle(color: muted, fontSize: 13.5),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }),
           InkWell(
             borderRadius: BorderRadius.circular(8),
             onTap: () async {
@@ -190,6 +163,30 @@ class AppSiteFooter extends StatelessWidget {
               ),
             ),
           ),
+          ...AppContactInfo.phoneLines.map((line) {
+            return Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () => _call(line.e164),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    children: [
+                      Icon(Icons.phone_outlined, size: 18, color: muted),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          line.display(isAr),
+                          style: TextStyle(color: muted, fontSize: 13.5),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }),
           const SizedBox(height: 20),
           Divider(color: Colors.white.withValues(alpha: 0.2), height: 1),
           const SizedBox(height: 14),

@@ -45,7 +45,7 @@ class SupportHelpScreen extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF1A237E),
+                      color: const Color(0xFFF4F7FB),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -54,64 +54,13 @@ class SupportHelpScreen extends StatelessWidget {
                       'للاستفسارات التقنية، الحسابات، أو مشاكل الطلبات — تواصل معنا عبر القنوات أدناه.',
                       'For technical questions, accounts, or order issues — reach us through the channels below.',
                     ),
-                    style: TextStyle(height: 1.5, color: Colors.grey.shade700),
+                    style: TextStyle(height: 1.5, color: const Color(0xFFB7C3D6)),
                   ),
                 ],
               ),
             ),
           ),
           const SizedBox(height: 12),
-          if (AppContactInfo.phoneLines.isNotEmpty) ...[
-            Text(
-              context.t('الهواتف', 'Phone lines'),
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-            ),
-            const SizedBox(height: 8),
-            ...AppContactInfo.phoneLines.map((line) {
-              return Card(
-                child: ListTile(
-                  leading: const CircleAvatar(
-                    backgroundColor: Color(0xFFE8EAF6),
-                    child: Icon(Icons.phone_outlined, color: Color(0xFF1A237E)),
-                  ),
-                  title: Text(line.label(isAr)),
-                  subtitle: Text(line.display(isAr)),
-                  trailing: IconButton(
-                    tooltip: context.t('اتصال', 'Call'),
-                    icon: const Icon(Icons.call, color: Color(0xFF2E7D32)),
-                    onPressed: () =>
-                        _launchUri(Uri(scheme: 'tel', path: line.e164)),
-                  ),
-                  onLongPress: () async {
-                    await Clipboard.setData(
-                      ClipboardData(text: line.display(isAr)),
-                    );
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          context.t('تم نسخ الرقم', 'Number copied'),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              );
-            }),
-            const SizedBox(height: 12),
-          ] else ...[
-            Card(
-              color: const Color(0xFFFFF8E1),
-              child: ListTile(
-                leading: const Icon(Icons.info_outline, color: Color(0xFFF57F17)),
-                title: Text(
-                  AppContactInfo.betaSupportHint(isAr),
-                  style: const TextStyle(fontSize: 13, height: 1.35),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-          ],
           Text(
             context.t('البريد الإلكتروني', 'Email'),
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
@@ -139,6 +88,40 @@ class SupportHelpScreen extends StatelessWidget {
               ),
             ),
           ),
+          if (AppContactInfo.phoneLines.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            ...AppContactInfo.phoneLines.map((line) {
+              return Card(
+                child: ListTile(
+                  leading: const CircleAvatar(
+                    backgroundColor: Color(0xFFE8EAF6),
+                    child: Icon(Icons.phone_outlined, color: Color(0xFF1A237E)),
+                  ),
+                  title: Text(line.label(isAr)),
+                  subtitle: Text(line.display(isAr)),
+                  trailing: IconButton(
+                    tooltip: context.t('اتصال', 'Call'),
+                    icon: const Icon(Icons.call, color: Color(0xFF86EFAC)),
+                    onPressed: () =>
+                        _launchUri(Uri(scheme: 'tel', path: line.e164)),
+                  ),
+                  onLongPress: () async {
+                    await Clipboard.setData(
+                      ClipboardData(text: line.display(isAr)),
+                    );
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          context.t('تم نسخ الرقم', 'Number copied'),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              );
+            }),
+          ],
           const SizedBox(height: 20),
           Text(
             context.t('الخصوصية والشروط', 'Privacy & terms'),
@@ -149,7 +132,7 @@ class SupportHelpScreen extends StatelessWidget {
             child: ListTile(
               leading: const CircleAvatar(
                 backgroundColor: Color(0xFFE8EAF6),
-                child: Icon(Icons.manage_accounts_outlined, color: Color(0xFF1A237E)),
+                child: Icon(Icons.manage_accounts_outlined, color: const Color(0xFFF4F7FB)),
               ),
               title: Text(context.t('حقوق الخصوصية', 'Privacy rights')),
               subtitle: Text(
@@ -168,7 +151,7 @@ class SupportHelpScreen extends StatelessWidget {
             child: ListTile(
               leading: const CircleAvatar(
                 backgroundColor: Color(0xFFE8EAF6),
-                child: Icon(Icons.privacy_tip_outlined, color: Color(0xFF1A237E)),
+                child: Icon(Icons.privacy_tip_outlined, color: const Color(0xFFF4F7FB)),
               ),
               title: Text(context.t('سياسة الخصوصية', 'Privacy Policy')),
               trailing: const Icon(Icons.chevron_right),
@@ -181,7 +164,7 @@ class SupportHelpScreen extends StatelessWidget {
             child: ListTile(
               leading: const CircleAvatar(
                 backgroundColor: Color(0xFFE8EAF6),
-                child: Icon(Icons.gavel_outlined, color: Color(0xFF1A237E)),
+                child: Icon(Icons.gavel_outlined, color: const Color(0xFFF4F7FB)),
               ),
               title: Text(context.t('شروط الاستخدام', 'Terms of Service')),
               trailing: const Icon(Icons.chevron_right),
@@ -196,7 +179,7 @@ class SupportHelpScreen extends StatelessWidget {
               'ساعات الرد التقريبية: يومياً 10 ص — 6 م (توقيت مصر)، عدا العطل الرسمية.',
               'Typical reply hours: daily 10:00–18:00 (Egypt time), excluding public holidays.',
             ),
-            style: TextStyle(fontSize: 13, color: Colors.grey.shade600, height: 1.4),
+            style: TextStyle(fontSize: 13, color: const Color(0xFFB7C3D6), height: 1.4),
           ),
         ],
       ),

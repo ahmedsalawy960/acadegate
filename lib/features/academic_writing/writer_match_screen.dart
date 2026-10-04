@@ -82,7 +82,7 @@ class _WriterMatchScreenState extends State<WriterMatchScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AcadeGateAppBar(
-        title: Text(context.t('مطابقة كاتب', 'Match a writer')),
+        title: Text(context.t('مطابقة مستشار', 'Match a consultant')),
         backgroundColor: _brand,
         foregroundColor: Colors.white,
         actions: [
@@ -213,7 +213,7 @@ class _WriterMatchScreenState extends State<WriterMatchScreen> {
                 const SizedBox(height: 4),
                 Text(
                   m.reasons.take(3).join(' · '),
-                  style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                  style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
                 ),
               ],
             ),

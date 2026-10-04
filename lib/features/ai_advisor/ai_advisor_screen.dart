@@ -5,6 +5,7 @@ import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/locale/locale_extensions.dart';
+import '../../core/theme/acadegate_theme.dart';
 import '../../core/voice/voice_stt_service.dart';
 import '../../core/voice/voice_tts_service.dart';
 import '../auth/usage_quota_banner.dart';
@@ -66,10 +67,8 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
   Future<void> _initVoice() async {
     _tts.onStateChanged = _onVoiceState;
     _stt.addListener(_onVoiceState);
-    _tts.init();
-    final available = await _stt.init();
     if (!mounted) return;
-    setState(() => _sttAvailable = available);
+    setState(() => _sttAvailable = true);
   }
 
   void _onVoiceState() {
@@ -338,8 +337,8 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
       _showSnack(
         needsCloud && !_service.isCloudAiEnabled
             ? context.t(
-                'التعرف على العربية على Windows يحتاج تسجيل الدخول للذكاء السحابي. على Chrome يُستخدم ميكروفون المتصفح.',
-                'Arabic on Windows needs sign-in for cloud AI. On Chrome the browser microphone is used.',
+                'التعرف على العربية على Windows يحتاج تسجيل الدخول. على Chrome يُستخدم ميكروفون المتصفح.',
+                'Arabic on Windows needs sign-in. On Chrome the browser microphone is used.',
               )
             : context.t(
                 'التعرف على الصوت غير متاح — اسمح بالميكروفون ثم أعد المحاولة.',
@@ -853,12 +852,12 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
               child: Tooltip(
                 message: _service.isCloudAiEnabled
                     ? context.t(
-                        'الذكاء السحابي مفعّل',
-                        'Cloud AI enabled',
+                        'المساعد الأكاديمي مفعّل',
+                        'Academic Assistant is on',
                       )
                     : context.t(
-                        'الوضع الأساسي — سجّل الدخول لتفعيل الذكاء السحابي (بدون مفتاح محلي)',
-                        'Basic mode — sign in to enable cloud AI (no local key needed)',
+                        'الوضع الأساسي — سجّل الدخول لتفعيل المساعد الأكاديمي',
+                        'Basic mode — sign in to turn on the Academic Assistant',
                       ),
                 child: Container(
                   padding:
@@ -884,7 +883,12 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
           ),
         ],
       ),
-      drawer: wide ? null : Drawer(child: _buildSidebar(inDrawer: true)),
+      drawer: wide
+          ? null
+          : Drawer(
+              backgroundColor: AcadeGateColors.page,
+              child: _buildSidebar(inDrawer: true),
+            ),
       body: wide
           ? Row(
               children: [
@@ -923,7 +927,7 @@ class _ConversationSidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: inDrawer ? null : Colors.white,
+      color: AcadeGateColors.page,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -948,7 +952,7 @@ class _ConversationSidebar extends StatelessWidget {
                 context.t('المحادثات', 'Conversations'),
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
-                      color: const Color(0xFF4527A0),
+                      color: AcadeGateColors.text,
                     ),
               ),
             ),
@@ -960,6 +964,7 @@ class _ConversationSidebar extends StatelessWidget {
               label: Text(context.t('محادثة جديدة', 'New conversation')),
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF4527A0),
+                foregroundColor: Colors.white,
                 minimumSize: const Size(double.infinity, 44),
               ),
             ),
@@ -969,18 +974,29 @@ class _ConversationSidebar extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               child: Material(
-                color: const Color(0xFFEDE7F6),
+                color: AcadeGateColors.card,
                 borderRadius: BorderRadius.circular(10),
                 child: ListTile(
                   dense: true,
-                  leading: const Icon(Icons.edit_outlined, size: 20),
+                  leading: const Icon(
+                    Icons.edit_outlined,
+                    size: 20,
+                    color: AcadeGateColors.gold,
+                  ),
                   title: Text(
                     context.t('محادثة جديدة', 'New conversation'),
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: AcadeGateColors.text,
+                    ),
                   ),
                   subtitle: Text(
                     context.t('لم تُرسل رسائل بعد', 'No messages sent yet'),
-                    style: const TextStyle(fontSize: 11),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: AcadeGateColors.muted,
+                    ),
                   ),
                 ),
               ),
@@ -1018,7 +1034,7 @@ class _ConversationSidebar extends StatelessWidget {
               'No saved conversations yet',
             ),
             textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.grey),
+            style: const TextStyle(color: AcadeGateColors.muted),
           ),
         ),
       );
@@ -1038,7 +1054,7 @@ class _ConversationSidebar extends StatelessWidget {
             !isDraftConversation && conversation.id == activeConversationId;
 
         return Material(
-          color: isActive ? const Color(0xFFEDE7F6) : Colors.transparent,
+          color: isActive ? const Color(0xFF1E3358) : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
           child: ListTile(
             dense: true,
@@ -1048,7 +1064,7 @@ class _ConversationSidebar extends StatelessWidget {
             leading: Icon(
               Icons.chat_bubble_outline,
               size: 20,
-              color: isActive ? const Color(0xFF4527A0) : Colors.grey,
+              color: isActive ? AcadeGateColors.gold : AcadeGateColors.muted,
             ),
             title: Text(
               conversation.title,
@@ -1057,11 +1073,15 @@ class _ConversationSidebar extends StatelessWidget {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                color: AcadeGateColors.text,
               ),
             ),
             subtitle: Text(
               _formatDate(context, conversation.updatedAt),
-              style: const TextStyle(fontSize: 11),
+              style: const TextStyle(
+                fontSize: 11,
+                color: AcadeGateColors.muted,
+              ),
             ),
             onTap: () => onOpenConversation(
               conversation.id,
@@ -1113,7 +1133,7 @@ class _VivaPromoCard extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           child: Row(
             children: [
-              const Icon(Icons.gavel, color: Color(0xFF880E4F)),
+              const Icon(Icons.gavel, color: const Color(0xFFF9A8D4)),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -1126,7 +1146,7 @@ class _VivaPromoCard extends StatelessWidget {
                       ),
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF880E4F),
+                        color: const Color(0xFFF9A8D4),
                       ),
                     ),
                     Text(
@@ -1134,12 +1154,12 @@ class _VivaPromoCard extends StatelessWidget {
                         '3 مناقشين افتراضيين + تقرير تحضيري',
                         '3 virtual examiners + prep report',
                       ),
-                      style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                      style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
                     ),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_left, color: Color(0xFF880E4F)),
+              const Icon(Icons.chevron_left, color: const Color(0xFFF9A8D4)),
             ],
           ),
         ),
@@ -1312,16 +1332,6 @@ class _MessageBubble extends StatelessWidget {
                 ),
               ),
             ],
-            if (message.usedCloudAi) ...[
-              const SizedBox(height: 6),
-              Text(
-                AdvisorBranding.poweredBy,
-                style: TextStyle(
-                  fontSize: 10,
-                  color: isUser ? Colors.white70 : Colors.deepPurple,
-                ),
-              ),
-            ],
           ],
         ),
       ),
@@ -1365,7 +1375,7 @@ class _CatalogHitCard extends StatelessWidget {
               padding: const EdgeInsets.only(top: 2),
               child: Text(
                 hit.subtitle,
-                style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
               ),
             ),
           if (hit.reason.isNotEmpty)
@@ -1373,7 +1383,7 @@ class _CatalogHitCard extends StatelessWidget {
               padding: const EdgeInsets.only(top: 2),
               child: Text(
                 hit.reason,
-                style: TextStyle(fontSize: 11.5, color: Colors.grey[600]),
+                style: TextStyle(fontSize: 11.5, color: const Color(0xFFB7C3D6)),
               ),
             ),
           const SizedBox(height: 8),
@@ -1616,7 +1626,7 @@ class _SttLangChip extends StatelessWidget {
       onSelected: onSelected == null ? null : (_) => onSelected!(),
       selectedColor: const Color(0xFF4527A0).withValues(alpha: 0.15),
       labelStyle: TextStyle(
-        color: selected ? const Color(0xFF4527A0) : Colors.grey[800],
+        color: selected ? const Color(0xFF4527A0) : const Color(0xFFB7C3D6),
         fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
       ),
       visualDensity: VisualDensity.compact,

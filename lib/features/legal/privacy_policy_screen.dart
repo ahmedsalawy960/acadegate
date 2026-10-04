@@ -18,8 +18,8 @@ class PrivacyPolicyScreen extends StatelessWidget {
       children: [
         LegalIntro(
           text: isAr
-              ? 'توضح هذه السياسة كيف تجمع AcadeGate («المنصة»، «نحن») بياناتك الشخصية وتعالجها وتحميها عند استخدام التطبيق أو الخدمات المرتبطة به، بما في ذلك المتجر الأكاديمي، الضمان المالي (Escrow)، الرسائل، المجتمع، والمساعد الذكي.'
-              : 'This policy explains how AcadeGate (“the Platform”, “we”) collects, processes, and protects your personal data when you use the app or related services, including the academic store, escrow payments, messaging, community, and the AI advisor.',
+              ? 'توضح هذه السياسة كيف تجمع AcadeGate («المنصة»، «نحن») بياناتك الشخصية وتعالجها وتحميها عند استخدام التطبيق أو الخدمات المرتبطة به، بما في ذلك المتجر الأكاديمي، الضمان المالي (Escrow)، الرسائل، المجتمع، والمساعد الأكاديمي.'
+              : 'This policy explains how AcadeGate (“the Platform”, “we”) collects, processes, and protects your personal data when you use the app or related services, including the academic store, escrow payments, messaging, community, and the Academic Assistant.',
         ),
         LegalMeta(
           effectiveDate: isAr
@@ -45,21 +45,21 @@ class PrivacyPolicyScreen extends StatelessWidget {
               ? '• بيانات الحساب: الاسم المعروض، البريد الإلكتروني، معرّف Firebase، الدور (طالب، مشرف، تاجر، مسؤول مختبر، ناشر أفكار…)، وتوكن الإشعارات عند التفعيل.\n'
                   '• الملف الأكاديمي: الجامعة، التخصص، الاهتمام البحثي، المدينة، المهارات، المنهجية، ولغة البحث — إن أدخلتها.\n'
                   '• بيانات المعاملات: طلبات المتجر، حالة الدفع والضمان، طلبات عرض السعر (RFQ)، حجوزات المختبر، طلبات الكتابة والإشراف، وعناوين/ملاحظات التسليم إن لزم الأمر.\n'
-                  '• المحتوى الذي تنشره: منتجات، أفكار بحثية، منشورات وردود المجتمع، أسئلة المنتجات، ومرفقات المساعد الذكي.\n'
+                  '• المحتوى الذي تنشره: منتجات، أفكار بحثية، منشورات وردود المجتمع، أسئلة المنتجات، ومرفقات المساعد الأكاديمي.\n'
                   '• بيانات تقنية: نوع الجهاز/المنصة، سجلات أعطال وتشغيل أساسية، وعنوان IP عبر مزوّدي الاستضافة عند الاقتضاء.\n'
                   '• تسجيل الدخول الاجتماعي: عند استخدام Google أو Facebook أو Apple نستلم المعرّف الأساسي والبريد والاسم حسب إذن المزوّد.'
               : '• Account data: display name, email, Firebase UID, role (student, supervisor, merchant, lab manager, idea publisher…), and notification tokens when enabled.\n'
                   '• Academic profile: university, specialization, research interest, city, skills, methodology, and preferred language — if you provide them.\n'
                   '• Transaction data: store orders, payment/escrow status, RFQs, lab bookings, writing and supervision requests, and delivery notes when needed.\n'
-                  '• Content you publish: products, research ideas, community posts/replies, product Q&A, and AI advisor attachments.\n'
+                  '• Content you publish: products, research ideas, community posts/replies, product Q&A, and Academic Assistant attachments.\n'
                   '• Technical data: device/platform, basic crash/ops logs, and IP address via hosting providers where applicable.\n'
                   '• Social login: with Google, Facebook, or Apple we receive basic identity, email, and name as permitted by the provider.',
         ),
         LegalSection(
           title: isAr ? '4. أغراض المعالجة والأساس' : '4. Purposes and legal basis',
           body: isAr
-              ? 'نعالج البيانات لـ: إنشاء الحساب وتأمينه؛ تقديم الخدمات الأكاديمية والتجارية؛ مطابقة المشرفين/المختبرات/المنتجات؛ تنفيذ طلبات المتجر والضمان؛ تمكين الرسائل والإشعارات؛ تشغيل المساعد الذكي؛ مراجعة المحتوى ومنع الإساءة؛ تحسين المنصة؛ والامتثال للالتزامات القانونية. الأساس يشمل تنفيذ العقد (تقديم الخدمة)، والمصلحة المشروعة (الأمان ومنع الاحتيال)، والموافقة حيث يطلبها القانون (مثل بعض استخدامات التسويق أو التحليلات غير الأساسية).'
-              : 'We process data to: create and secure accounts; deliver academic and commerce services; match supervisors/labs/products; fulfil store orders and escrow; enable messaging and notifications; run the AI advisor; moderate content and prevent abuse; improve the Platform; and comply with law. Bases include contract performance, legitimate interests (security/fraud prevention), and consent where required (e.g. certain marketing or non-essential analytics).',
+              ? 'نعالج البيانات لـ: إنشاء الحساب وتأمينه؛ تقديم الخدمات الأكاديمية والتجارية؛ مطابقة المشرفين/المختبرات/المنتجات؛ تنفيذ طلبات المتجر والضمان؛ تمكين الرسائل والإشعارات؛ تشغيل المساعد الأكاديمي؛ مراجعة المحتوى ومنع الإساءة؛ تحسين المنصة؛ والامتثال للالتزامات القانونية. الأساس يشمل تنفيذ العقد (تقديم الخدمة)، والمصلحة المشروعة (الأمان ومنع الاحتيال)، والموافقة حيث يطلبها القانون (مثل بعض استخدامات التسويق أو التحليلات غير الأساسية).'
+              : 'We process data to: create and secure accounts; deliver academic and commerce services; match supervisors/labs/products; fulfil store orders and escrow; enable messaging and notifications; run the Academic Assistant; moderate content and prevent abuse; improve the Platform; and comply with law. Bases include contract performance, legitimate interests (security/fraud prevention), and consent where required (e.g. certain marketing or non-essential analytics).',
         ),
         LegalSection(
           title: isAr ? '5. المتجر والمدفوعات والضمان (Escrow)' : '5. Store, payments & escrow',
@@ -68,10 +68,10 @@ class PrivacyPolicyScreen extends StatelessWidget {
               : 'When you buy, we may process order details, amount, payment method, and escrow status (e.g. pending / held / released / refunded). Card payments are handled by gateways such as Paymob; manual transfers are confirmed by the seller under applicable rules. We do not store full card numbers in Firestore. Manual-transfer details you exchange with a seller remain the parties’ responsibility within Platform limits.',
         ),
         LegalSection(
-          title: isAr ? '6. المساعد الذكي (AI)' : '6. AI advisor',
+          title: isAr ? '6. المساعد الأكاديمي' : '6. Academic Assistant',
           body: isAr
-              ? 'عند استخدام AcadeGate AI قد تُرسل أسئلتك والمرفقات (نص/صورة/PDF ضمن الحدود) إلى مزوّد نماذج ذكاء اصطناعي (مثل Google Gemini عبر Cloud Functions) لتوليد الردود. لا تستخدم هذه المدخلات لبيع بياناتك الشخصية لأطراف إعلانية. تجنّب رفع بيانات حساسة غير ضرورية (هويات مرضى، أسرار تجارية، بيانات قاصرين). قد تُحفظ المحادثات لحسابك المسجّل لتحسين التجربة.'
-              : 'When you use AcadeGate AI, your prompts and attachments (text/image/PDF within limits) may be sent to an AI provider (e.g. Google Gemini via Cloud Functions) to generate replies. Inputs are not sold for advertising. Avoid uploading unnecessary sensitive data (patient identifiers, trade secrets, children’s data). Conversations may be stored for signed-in users to improve continuity.',
+              ? 'عند استخدام المساعد الأكاديمي قد تُرسل أسئلتك والمرفقات (نص/صورة/PDF ضمن الحدود) إلى Google Gemini لتوليد الردود. لا تُستخدم هذه المدخلات لبيع بياناتك الشخصية لأطراف إعلانية. تجنّب رفع بيانات حساسة غير ضرورية (هويات مرضى، أسرار تجارية، بيانات قاصرين). قد تُحفظ المحادثات لحسابك المسجّل لتحسين التجربة.'
+              : 'When you use the Academic Assistant, your prompts and attachments (text/image/PDF within limits) may be sent to Google Gemini to generate replies. Inputs are not sold for advertising. Avoid uploading unnecessary sensitive data (patient identifiers, trade secrets, children’s data). Conversations may be stored for signed-in users to improve continuity.',
         ),
         LegalSection(
           title: isAr ? '7. المشاركة والمعالجون' : '7. Sharing & processors',

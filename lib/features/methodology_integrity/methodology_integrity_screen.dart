@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
 import '../../core/locale/locale_extensions.dart';
+import '../../core/theme/acadegate_theme.dart';
 import '../profile/academic_profile_screen.dart';
 import '../profile/academic_profile_service.dart';
 import '../research_journey/thesis_progress.dart';
@@ -11,7 +12,21 @@ import 'methodology_integrity_service.dart';
 import 'methodology_pdf_service.dart';
 
 class MethodologyIntegrityScreen extends StatefulWidget {
-  const MethodologyIntegrityScreen({super.key});
+  /// Prefill from other studios (e.g. Law Lab / Research Tools).
+  final String? initialResearchQuestion;
+  final String? initialMethodologyText;
+  final String? initialStatedMethodology;
+  final String? initialTitle;
+  final String? initialAnalysisApproach;
+
+  const MethodologyIntegrityScreen({
+    super.key,
+    this.initialResearchQuestion,
+    this.initialMethodologyText,
+    this.initialStatedMethodology,
+    this.initialTitle,
+    this.initialAnalysisApproach,
+  });
 
   @override
   State<MethodologyIntegrityScreen> createState() =>
@@ -42,17 +57,35 @@ class _MethodologyIntegrityScreenState
   @override
   void initState() {
     super.initState();
+    _applyInitialPrefill();
     _loadProfile();
+  }
+
+  void _applyInitialPrefill() {
+    final q = widget.initialResearchQuestion?.trim() ?? '';
+    if (q.isNotEmpty) _questionController.text = q;
+    final m = widget.initialMethodologyText?.trim() ?? '';
+    if (m.isNotEmpty) _methodologyController.text = m;
+    final t = widget.initialTitle?.trim() ?? '';
+    if (t.isNotEmpty) _titleController.text = t;
+    final a = widget.initialAnalysisApproach?.trim() ?? '';
+    if (a.isNotEmpty) _analysisController.text = a;
+    final stated = widget.initialStatedMethodology?.trim() ?? '';
+    if (stated.isNotEmpty) {
+      _statedMethodology = stated;
+    }
   }
 
   Future<void> _loadProfile() async {
     final profile = await AcademicProfileService.instance.loadProfile();
     if (!mounted || profile == null) return;
+    // Do not overwrite explicit prefill from another studio.
     if (_questionController.text.isEmpty &&
         profile.researchInterest.isNotEmpty) {
       _questionController.text = profile.researchInterest;
     }
-    if (profile.methodology.isNotEmpty) {
+    if (widget.initialStatedMethodology == null &&
+        profile.methodology.isNotEmpty) {
       final m = profile.methodology;
       if (m.contains('نوع')) {
         _statedMethodology = 'نوعي';
@@ -106,8 +139,8 @@ class _MethodologyIntegrityScreenState
         SnackBar(
           content: Text(
             context.t(
-              'استخراج المنهجية من PDF يتطلب تسجيل الدخول أو الذكاء السحابي',
-              'Extracting methodology from PDF requires sign-in or cloud AI',
+              'استخراج المنهجية من PDF يتطلب تسجيل الدخول',
+              'Extracting methodology from a PDF requires sign-in',
             ),
           ),
         ),
@@ -302,7 +335,7 @@ class _MethodologyIntegrityScreenState
           children: [
             Row(
               children: [
-                const Icon(Icons.policy_outlined, color: _brand, size: 28),
+                Icon(Icons.policy_outlined, color: acadegateInk(_brand), size: 28),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -310,10 +343,10 @@ class _MethodologyIntegrityScreenState
                       'كاشف الانتحال المنهجي',
                       'Methodology Integrity Check',
                     ),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
-                      color: _brand,
+                      color: acadegateInk(_brand),
                     ),
                   ),
                 ),
@@ -327,7 +360,7 @@ class _MethodologyIntegrityScreenState
                 'Detects methodological inconsistencies, unjustified copying indicators, '
                 'and weak justification between your question, design, sample, and analysis.',
               ),
-              style: TextStyle(height: 1.5, color: Colors.grey[800]),
+              style: TextStyle(height: 1.5, color: const Color(0xFFB7C3D6)),
             ),
             if (!_service.isCloudEnabled) ...[
               const SizedBox(height: 8),
@@ -373,7 +406,7 @@ class _MethodologyIntegrityScreenState
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               child: Row(
                 children: [
-                  const Icon(Icons.attach_file, color: _brand, size: 20),
+                  Icon(Icons.attach_file, color: acadegateInk(_brand), size: 20),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Column(
@@ -395,7 +428,7 @@ class _MethodologyIntegrityScreenState
                             '${_methodologyController.text.length} / ${MethodologyPdfService.maxMethodologyChars} chars'
                             '${_pdfTruncated ? ' — full PDF will be analyzed' : ''}',
                           ),
-                          style: TextStyle(fontSize: 11, color: Colors.grey[700]),
+                          style: TextStyle(fontSize: 11, color: const Color(0xFFB7C3D6)),
                         ),
                       ],
                     ),
@@ -435,7 +468,7 @@ class _MethodologyIntegrityScreenState
         const SizedBox(height: 12),
         Text(
           context.t('المنهجية المعلنة', 'Stated methodology'),
-          style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+          style: TextStyle(fontSize: 13, color: const Color(0xFFB7C3D6)),
         ),
         const SizedBox(height: 8),
         SegmentedButton<String>(
@@ -554,8 +587,8 @@ class _MethodologyIntegrityScreenState
                 if (report.fromCloudAi) ...[
                   const SizedBox(height: 8),
                   Text(
-                    context.t('تحليل بالذكاء الاصطناعي', 'AI-powered analysis'),
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    context.t('تحليل المنهجية', 'Methodology analysis'),
+                    style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
                   ),
                 ],
                 if (report.note != null) ...[
@@ -609,7 +642,7 @@ class _MethodologyIntegrityScreenState
             'تنبيه: هذه أداة مساعدة للتحضير وليست بديلاً عن مراجعة المشرف أو لجنة الجودة.',
             'Note: This is a preparation aid, not a substitute for supervisor or quality committee review.',
           ),
-          style: TextStyle(fontSize: 11, color: Colors.grey[600], height: 1.4),
+          style: TextStyle(fontSize: 11, color: const Color(0xFFB7C3D6), height: 1.4),
           textAlign: TextAlign.center,
         ),
       ],
@@ -617,15 +650,16 @@ class _MethodologyIntegrityScreenState
   }
 
   Widget _sectionTitle(String title, IconData icon, Color color) {
+    final ink = acadegateInk(color);
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         children: [
-          Icon(icon, color: color, size: 20),
+          Icon(icon, color: ink, size: 20),
           const SizedBox(width: 8),
           Text(
             title,
-            style: TextStyle(fontWeight: FontWeight.bold, color: color),
+            style: TextStyle(fontWeight: FontWeight.bold, color: ink),
           ),
         ],
       ),
@@ -673,7 +707,7 @@ class _MethodologyIntegrityScreenState
                   child: Text(
                     label,
                     style: TextStyle(
-                      color: color,
+                      color: acadegateInk(color),
                       fontWeight: FontWeight.bold,
                       fontSize: 12,
                     ),
@@ -696,13 +730,13 @@ class _MethodologyIntegrityScreenState
                 context.t('اقتراح:', 'Suggestion:'),
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
-                  color: Colors.grey[700],
+                  color: const Color(0xFFB7C3D6),
                   fontSize: 13,
                 ),
               ),
               Text(
                 issue.suggestion,
-                style: TextStyle(height: 1.45, color: Colors.grey[800]),
+                style: TextStyle(height: 1.45, color: const Color(0xFFB7C3D6)),
               ),
             ],
           ],

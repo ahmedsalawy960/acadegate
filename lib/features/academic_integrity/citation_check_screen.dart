@@ -3,6 +3,7 @@ import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/locale/locale_extensions.dart';
+import '../../core/theme/acadegate_theme.dart';
 import '../research_journey/thesis_progress.dart';
 import '../research_journey/thesis_progress_activity.dart';
 import 'citation_check_service.dart';
@@ -147,7 +148,7 @@ class _CitationCheckScreenState extends State<CitationCheckScreen> {
               'السجل: Crossref updates + OpenAlex is_retracted — حتى ${CitationCheckService.maxReferences} مرجعاً. ليس تقرير Turnitin.',
               'Registry: Crossref updates + OpenAlex is_retracted — up to ${CitationCheckService.maxReferences} references. Not a Turnitin report.',
             ),
-            style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+            style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
           ),
           const SizedBox(height: 16),
           FilledButton.icon(
@@ -198,7 +199,7 @@ class _CitationCheckScreenState extends State<CitationCheckScreen> {
           children: [
             Row(
               children: [
-                const Icon(Icons.menu_book_outlined, color: _brand),
+                Icon(Icons.menu_book_outlined, color: acadegateInk(_brand)),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -206,9 +207,9 @@ class _CitationCheckScreenState extends State<CitationCheckScreen> {
                       'تقرير صحة الاستشهاد',
                       'Citation health report',
                     ),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      color: _brand,
+                      color: acadegateInk(_brand),
                     ),
                   ),
                 ),
@@ -265,7 +266,7 @@ class _CitationCheckScreenState extends State<CitationCheckScreen> {
                     '${report.notFoundCount} not found · ${report.invalidCount} invalid DOI',
                   ),
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+                  style: TextStyle(fontSize: 13, color: const Color(0xFFB7C3D6)),
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -281,7 +282,7 @@ class _CitationCheckScreenState extends State<CitationCheckScreen> {
                     fontWeight: FontWeight.w600,
                     color: report.retractedCount > 0 || report.concernCount > 0
                         ? Colors.red[800]
-                        : Colors.grey[800],
+                        : const Color(0xFFB7C3D6),
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -296,7 +297,7 @@ class _CitationCheckScreenState extends State<CitationCheckScreen> {
                           'Checked ${report.total} references from the list',
                         ),
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                  style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
                 ),
               ],
             ),
@@ -309,7 +310,7 @@ class _CitationCheckScreenState extends State<CitationCheckScreen> {
             'أداة مساعدة مجانية — ليست تقرير Turnitin.',
             'Free helper tool — not a Turnitin report.',
           ),
-          style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+          style: TextStyle(fontSize: 11, color: const Color(0xFFB7C3D6)),
           textAlign: TextAlign.center,
         ),
       ],
@@ -370,7 +371,7 @@ class _CitationCheckScreenState extends State<CitationCheckScreen> {
                   const SizedBox(width: 8),
                   Text(
                     sourceLabel,
-                    style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                    style: TextStyle(fontSize: 11, color: const Color(0xFFB7C3D6)),
                   ),
                 ],
                 if (match?.health?.hasAnyNotice == true) ...[
@@ -405,7 +406,7 @@ class _CitationCheckScreenState extends State<CitationCheckScreen> {
               item.citation.rawText,
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 12, color: Colors.grey[800], height: 1.4),
+              style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6), height: 1.4),
             ),
             if (match != null && match.matchedTitle.isNotEmpty) ...[
               const SizedBox(height: 8),
@@ -417,20 +418,20 @@ class _CitationCheckScreenState extends State<CitationCheckScreen> {
                 const SizedBox(height: 4),
                 Text(
                   match.matchedAuthors!,
-                  style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                  style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
                 ),
               ],
               if (match.year != null)
                 Text(
                   '${match.year}',
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
                 ),
             ],
             if (match?.note != null) ...[
               const SizedBox(height: 4),
               Text(
                 match!.note!,
-                style: TextStyle(fontSize: 11, color: Colors.orange[800]),
+                style: TextStyle(fontSize: 11, color: acadegateInk(Colors.orange.shade800)),
               ),
             ],
             if (match?.url != null) ...[
@@ -439,7 +440,7 @@ class _CitationCheckScreenState extends State<CitationCheckScreen> {
                 onTap: () => launchUrl(Uri.parse(match!.url!)),
                 child: Text(
                   context.t('فتح المصدر', 'Open source'),
-                  style: const TextStyle(color: _brand, fontSize: 12),
+                  style: TextStyle(color: acadegateInk(_brand), fontSize: 12),
                 ),
               ),
             ],
@@ -456,7 +457,7 @@ class _CitationCheckScreenState extends State<CitationCheckScreen> {
                     'Search on Google Scholar',
                   ),
                   style: TextStyle(
-                    color: Colors.grey[800],
+                    color: const Color(0xFFB7C3D6),
                     fontSize: 12,
                     decoration: TextDecoration.underline,
                   ),

@@ -3,6 +3,7 @@ import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/locale/locale_extensions.dart';
+import '../../core/theme/acadegate_theme.dart';
 import '../academic_integrity/bibliography_harvest.dart';
 import '../academic_integrity/citation_check_screen.dart';
 import 'citation_formatter.dart';
@@ -39,6 +40,7 @@ class _ManuscriptEditorScreenState extends State<ManuscriptEditorScreen>
   bool _loading = true;
   bool _saving = false;
   bool _uploading = false;
+  bool _openingFormat = false;
   late TabController _tabController;
 
   @override
@@ -46,7 +48,8 @@ class _ManuscriptEditorScreenState extends State<ManuscriptEditorScreen>
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(() {
-      if (mounted) setState(() {});
+      if (_tabController.indexIsChanging || !mounted) return;
+      setState(() {});
     });
     _load();
   }
@@ -495,34 +498,22 @@ class _ManuscriptEditorScreenState extends State<ManuscriptEditorScreen>
   }
 
   Future<void> _goToFormat() async {
-    await _save(quiet: true);
-    if (!mounted) return;
-
-    final m = _manuscript!;
-    if (m.references.isEmpty && m.attachments.isNotEmpty) {
-      await _extractFromAttachment(m.attachments.last);
+    if (_openingFormat || _manuscript == null) return;
+    setState(() => _openingFormat = true);
+    try {
+      await _save(quiet: true);
       if (!mounted) return;
-      if (_manuscript!.references.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.t(
-              'لا مراجع بعد — استخدم «استخراج من الملف» أو أضف مراجع يدوياً قبل التنسيق',
-              'No references yet — use "Extract from file" or add references before formatting',
-            )),
-            duration: const Duration(seconds: 5),
-          ),
-        );
-        return;
-      }
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) =>
+              ManuscriptFormatScreen(manuscriptId: widget.manuscriptId),
+        ),
+      );
+      if (mounted) _load();
+    } finally {
+      if (mounted) setState(() => _openingFormat = false);
     }
-
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => ManuscriptFormatScreen(manuscriptId: widget.manuscriptId),
-      ),
-    );
-    _load();
   }
 
   Future<void> _exportPdf() async {
@@ -625,19 +616,33 @@ class _ManuscriptEditorScreenState extends State<ManuscriptEditorScreen>
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: FilledButton(
-                  onPressed: _titleCtrl.text.trim().isEmpty &&
-                          m.bodyBlocks.isEmpty &&
-                          m.attachments.isEmpty &&
-                          m.references.isEmpty
+                  onPressed: _openingFormat ||
+                          (_titleCtrl.text.trim().isEmpty &&
+                              m.bodyBlocks.isEmpty &&
+                              m.attachments.isEmpty &&
+                              m.references.isEmpty)
                       ? null
                       : _goToFormat,
                   style: FilledButton.styleFrom(
-                    backgroundColor: _brand,
+                    backgroundColor: const Color(0xFFFBBF24),
+                    foregroundColor: const Color(0xFF071433),
                     minimumSize: const Size.fromHeight(48),
                   ),
-                  child: Text(
-                    context.t('التالي: التنسيق IEEE/APA', 'Next: IEEE/APA format'),
-                  ),
+                  child: _openingFormat
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Color(0xFF071433),
+                          ),
+                        )
+                      : Text(
+                          context.t(
+                            'التالي: التنسيق IEEE/APA',
+                            'Next: IEEE/APA format',
+                          ),
+                        ),
                 ),
               ),
             ),
@@ -680,7 +685,7 @@ class _ManuscriptEditorScreenState extends State<ManuscriptEditorScreen>
           Card(
             color: _brand.withValues(alpha: 0.08),
             child: ListTile(
-              leading: Icon(Icons.chat_outlined, color: _brand),
+              leading: Icon(Icons.chat_outlined, color: acadegateInk(_brand)),
               title: Text(context.t(
                 'اسأل هذه المسودة',
                 'Ask this draft',
@@ -702,18 +707,31 @@ class _ManuscriptEditorScreenState extends State<ManuscriptEditorScreen>
         ),
         if (m.attachments.isNotEmpty && m.references.isEmpty)
           Card(
-            color: Colors.amber.shade50,
+            color: AcadeGateColors.card,
             margin: const EdgeInsets.only(top: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: const BorderSide(color: AcadeGateColors.line),
+            ),
             child: ListTile(
-              leading: Icon(Icons.info_outline, color: Colors.amber.shade900),
-              title: Text(context.t(
-                'الملف مرفوع — المراجع لم تُستورد بعد',
-                'File uploaded — references not imported yet',
-              )),
-              subtitle: Text(context.t(
-                'اضغط «استخراج من الملف» أدناه',
-                'Tap "Extract from file" below',
-              )),
+              leading: const Icon(Icons.info_outline, color: AcadeGateColors.gold),
+              title: Text(
+                context.t(
+                  'الملف مرفوع — المراجع لم تُستورد بعد',
+                  'File uploaded — references not imported yet',
+                ),
+                style: const TextStyle(
+                  color: AcadeGateColors.text,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              subtitle: Text(
+                context.t(
+                  'اضغط «استخراج من الملف» أدناه',
+                  'Tap "Extract from file" below',
+                ),
+                style: const TextStyle(color: AcadeGateColors.muted),
+              ),
             ),
           ),
         const SizedBox(height: 16),
@@ -760,7 +778,7 @@ class _ManuscriptEditorScreenState extends State<ManuscriptEditorScreen>
               'ارفع PDF أو DOCX — يُستخرج قسم المراجع تلقائياً (حتى 24 MB)',
               'Upload PDF or DOCX — References section extracted automatically (up to 24 MB)',
             ),
-            style: TextStyle(color: Colors.grey[600], fontSize: 13),
+            style: TextStyle(color: const Color(0xFFB7C3D6), fontSize: 13),
           )
         else
           ...m.attachments.map((a) {
@@ -844,7 +862,7 @@ class _ManuscriptEditorScreenState extends State<ManuscriptEditorScreen>
                 'أضف مراجعك — يُنسَّق APA/IEEE فوراً',
                 'Add references — APA/IEEE formats instantly',
               ),
-              style: TextStyle(color: Colors.grey[600]),
+              style: TextStyle(color: const Color(0xFFB7C3D6)),
             ),
           )
         else ...[
@@ -856,7 +874,7 @@ class _ManuscriptEditorScreenState extends State<ManuscriptEditorScreen>
                   'عرض 12 من ${m.references.length} مرجع — الباقي في تبويب المعاينة',
                   'Showing 12 of ${m.references.length} references — rest in Preview tab',
                 ),
-                style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
               ),
             ),
           ...m.references.take(12).toList().asMap().entries.map((entry) {
@@ -899,7 +917,7 @@ class _ManuscriptEditorScreenState extends State<ManuscriptEditorScreen>
                     if (ref.authors.isNotEmpty)
                       Text(
                         ref.authors.join('; '),
-                        style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                        style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
                       ),
                     const Divider(height: 16),
                     SelectableText.rich(
@@ -951,7 +969,7 @@ class _ManuscriptEditorScreenState extends State<ManuscriptEditorScreen>
               'نفس ترتيب قائمة المراجع في الملف المستورد — الاقتباسات في النص تُطابق هذه القائمة',
               'Same order as the imported bibliography — in-text cites map to this list',
             ),
-            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
           ),
           const SizedBox(height: 8),
           ...CitationFormatter.buildBibliographyEntries(

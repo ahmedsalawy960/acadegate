@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
 import '../../core/locale/locale_extensions.dart';
+import '../../core/theme/acadegate_theme.dart';
 import '../supervision/supervision_requests_screen.dart';
 import 'supervisor_workload_service.dart';
 
@@ -111,7 +112,7 @@ class SupervisorWorkloadScreen extends StatelessWidget {
   }) {
     return Card(
       child: ListTile(
-        leading: Icon(icon, color: _brand),
+        leading: Icon(icon, color: acadegateInk(_brand)),
         title: Text(label),
         trailing: Text(
           value,

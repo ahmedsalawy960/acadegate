@@ -246,7 +246,7 @@ class _StudyCirclesTabState extends State<StudyCirclesTab> {
                       child: ListTile(
                         leading: const CircleAvatar(
                           backgroundColor: Color(0x1A00695C),
-                          child: Icon(Icons.school, color: Color(0xFF00695C)),
+                          child: Icon(Icons.school, color: const Color(0xFF5EEAD4)),
                         ),
                         title: Text(
                           circle.title,

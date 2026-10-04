@@ -257,6 +257,7 @@ class _ResearchRoomScreenState extends State<ResearchRoomScreen> {
                 }
               },
               backgroundColor: const Color(0xFF00695C),
+              foregroundColor: Colors.white,
               icon: const Icon(Icons.add),
               label: Text(context.t('مناقشة جديدة', 'New discussion')),
             )
@@ -311,7 +312,7 @@ class _ResearchRoomScreenState extends State<ResearchRoomScreen> {
               if (widget.room.description.isNotEmpty)
                 Text(
                   widget.room.description,
-                  style: TextStyle(color: Colors.grey[700], height: 1.4),
+                  style: TextStyle(color: const Color(0xFFB7C3D6), height: 1.4),
                 ),
               const SizedBox(height: 8),
               Text(
@@ -369,7 +370,7 @@ class _ResearchRoomScreenState extends State<ResearchRoomScreen> {
                       'تعذر تحميل المناقشات',
                       'Could not load discussions',
                     ),
-                    style: TextStyle(color: Colors.grey[700]),
+                    style: TextStyle(color: const Color(0xFFB7C3D6)),
                   ),
                 );
               }
@@ -394,7 +395,7 @@ class _ResearchRoomScreenState extends State<ResearchRoomScreen> {
                               'No results for "$_searchQuery"',
                             ),
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.grey[700], height: 1.5),
+                      style: TextStyle(color: const Color(0xFFB7C3D6), height: 1.5),
                     ),
                   ),
                 );

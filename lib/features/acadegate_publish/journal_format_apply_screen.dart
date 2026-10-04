@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/locale/app_translate.dart';
 import '../../core/locale/locale_extensions.dart';
+import '../../core/theme/acadegate_theme.dart';
 import 'journal_format_rules.dart';
 import 'citation_formatter.dart';
 import 'citation_style_picker.dart';
@@ -35,8 +36,6 @@ class JournalFormatApplyScreen extends StatefulWidget {
 }
 
 class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
-  static const _brand = Color(0xFF4A148C);
-
   PublishManuscript? _manuscript;
   bool _loading = true;
   bool _processing = false;
@@ -603,11 +602,11 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
   }
 
   Color _confidenceColor() {
-    if (_rules.extractedFromGuide) return const Color(0xFF1B5E20);
+    if (_rules.extractedFromGuide) return const Color(0xFF86EFAC);
     return switch (_rules.confidence) {
-      FormatRuleConfidence.partnerOfficial => const Color(0xFF1B5E20),
-      FormatRuleConfidence.publisherStandard => const Color(0xFF0D47A1),
-      FormatRuleConfidence.estimated => const Color(0xFFE65100),
+      FormatRuleConfidence.partnerOfficial => const Color(0xFF86EFAC),
+      FormatRuleConfidence.publisherStandard => const Color(0xFF93C5FD),
+      FormatRuleConfidence.estimated => AcadeGateColors.gold,
     };
   }
 
@@ -618,8 +617,8 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
     return Scaffold(
       appBar: AcadeGateAppBar(
         title: Text(context.t('تنسيق حسب المجلة', 'Journal formatting')),
-        backgroundColor: _brand,
-        foregroundColor: Colors.white,
+        backgroundColor: AcadeGateColors.appBar,
+        foregroundColor: AcadeGateColors.text,
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -644,28 +643,27 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
                   padding: const EdgeInsets.all(16),
                   children: [
                     Card(
-                      color: Colors.amber.shade50,
                       child: Padding(
                         padding: const EdgeInsets.all(14),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.info_outline, color: Colors.amber.shade900),
+                            const Icon(Icons.info_outline, color: AcadeGateColors.gold),
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
                                 context.t(
                                   'مواقع المجلات غالباً تمنع القراءة الآلية (صفحات ديناميكية، تسجيل دخول، أو PDF محمي). '
                                   'الأضمن: حمّل قالب Word الرسمي من موقع المجلة وارفعه هنا. '
-                                  'البحث التلقائي عبر الإنترنت يحتاج رصيد Gemini وليس اشتراك AcadeGate.',
+                                  'البحث التلقائي عبر الإنترنت غير متاح الآن.',
                                   'Journal sites often block automated reading (JavaScript pages, login, or protected PDFs). '
                                   'Most reliable: download the official Word template from the journal site and upload it here. '
-                                  'Automatic online search needs Gemini credits — not an AcadeGate subscription.',
+                                  'Automatic web search is not available right now.',
                                 ),
-                                style: TextStyle(
+                                style: const TextStyle(
                                   fontSize: 13,
                                   height: 1.45,
-                                  color: Colors.grey[900],
+                                  color: AcadeGateColors.text,
                                 ),
                               ),
                             ),
@@ -675,7 +673,6 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
                     ),
                     const SizedBox(height: 12),
                     Card(
-                      color: _brand.withValues(alpha: 0.08),
                       child: Padding(
                         padding: const EdgeInsets.all(16),
                         child: Column(
@@ -693,7 +690,7 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
                                 padding: const EdgeInsets.only(top: 4),
                                 child: Text(
                                   widget.journal.publisher,
-                                  style: TextStyle(color: Colors.grey[700]),
+                                  style: TextStyle(color: const Color(0xFFB7C3D6)),
                                 ),
                               ),
                             if (widget.journal.issn.isNotEmpty)
@@ -703,7 +700,7 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
                                   'ISSN: ${widget.journal.issn}',
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: Colors.grey[600],
+                                    color: const Color(0xFFB7C3D6),
                                   ),
                                 ),
                               ),
@@ -716,21 +713,24 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
                               ),
                               label: Text(
                                 _rules.confidenceLabel(isEnglish: isEnglish),
-                                style: TextStyle(
-                                  color: _confidenceColor(),
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 12,
-                                ),
+                              ),
+                              labelStyle: TextStyle(
+                                color: _confidenceColor(),
+                                fontWeight: FontWeight.w600,
+                                fontSize: 12,
                               ),
                               backgroundColor:
-                                  _confidenceColor().withValues(alpha: 0.1),
+                                  _confidenceColor().withValues(alpha: 0.16),
+                              side: BorderSide(
+                                color: _confidenceColor().withValues(alpha: 0.7),
+                              ),
                             ),
                             const SizedBox(height: 6),
                             Text(
                               _rules.basis(isEnglish: isEnglish),
                               style: TextStyle(
                                 fontSize: 13,
-                                color: Colors.grey[800],
+                                color: const Color(0xFFB7C3D6),
                                 height: 1.4,
                               ),
                             ),
@@ -740,7 +740,6 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
                     ),
                     const SizedBox(height: 12),
                     Card(
-                      color: Colors.green.shade50,
                       child: Padding(
                         padding: const EdgeInsets.all(14),
                         child: Column(
@@ -754,6 +753,7 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 15,
+                                color: AcadeGateColors.text,
                               ),
                             ),
                             const SizedBox(height: 6),
@@ -765,7 +765,7 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
                               style: TextStyle(
                                 fontSize: 13,
                                 height: 1.4,
-                                color: Colors.grey[800],
+                                color: const Color(0xFFB7C3D6),
                               ),
                             ),
                             const SizedBox(height: 10),
@@ -815,7 +815,6 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
                     ),
                     const SizedBox(height: 12),
                     Card(
-                      color: Colors.blue.shade50,
                       child: Padding(
                         padding: const EdgeInsets.all(14),
                         child: Column(
@@ -829,6 +828,7 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 15,
+                                color: AcadeGateColors.text,
                               ),
                             ),
                             const SizedBox(height: 6),
@@ -840,7 +840,7 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
                               style: TextStyle(
                                 fontSize: 13,
                                 height: 1.4,
-                                color: Colors.grey[800],
+                                color: const Color(0xFFB7C3D6),
                               ),
                             ),
                             const SizedBox(height: 10),
@@ -849,15 +849,17 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
                               minLines: 6,
                               maxLines: 14,
                               textInputAction: TextInputAction.newline,
+                              style: const TextStyle(color: AcadeGateColors.text),
+                              cursorColor: AcadeGateColors.gold,
                               onChanged: (_) => setState(() {}),
                               decoration: InputDecoration(
                                 labelText: context.t(
                                   'نص الدليل',
                                   'Guide text',
                                 ),
+                                labelStyle: const TextStyle(color: AcadeGateColors.muted),
+                                hintStyle: const TextStyle(color: AcadeGateColors.muted),
                                 border: const OutlineInputBorder(),
-                                filled: true,
-                                fillColor: Colors.white,
                               ),
                             ),
                             const SizedBox(height: 6),
@@ -868,7 +870,7 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
                               ),
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Colors.grey[700],
+                                color: const Color(0xFFB7C3D6),
                               ),
                             ),
                             const SizedBox(height: 10),
@@ -1009,7 +1011,7 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
                                         _extractionMessage!,
                                         style: TextStyle(
                                           fontSize: 13,
-                                          color: Colors.grey[700],
+                                          color: const Color(0xFFB7C3D6),
                                         ),
                                       ),
                                     ),
@@ -1045,7 +1047,7 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
                                     line,
                                     style: TextStyle(
                                       fontSize: 11,
-                                      color: Colors.grey[700],
+                                      color: const Color(0xFFB7C3D6),
                                       fontFamily: 'monospace',
                                     ),
                                   ),
@@ -1059,7 +1061,7 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
                                   ),
                                   style: TextStyle(
                                     fontSize: 11,
-                                    color: Colors.grey[600],
+                                    color: const Color(0xFFB7C3D6),
                                   ),
                                 ),
                             ],
@@ -1076,7 +1078,7 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
                                     line,
                                     style: TextStyle(
                                       fontSize: 12,
-                                      color: Colors.grey[700],
+                                      color: const Color(0xFFB7C3D6),
                                       fontFamily: 'monospace',
                                     ),
                                   ),
@@ -1096,7 +1098,7 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
                                 style: TextStyle(
                                   fontSize: 13,
                                   fontStyle: FontStyle.italic,
-                                  color: Colors.grey[800],
+                                  color: const Color(0xFFB7C3D6),
                                   height: 1.4,
                                 ),
                               ),
@@ -1192,7 +1194,9 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
                                 isPrimary
                                     ? Icons.link
                                     : Icons.open_in_new_outlined,
-                                color: isPrimary ? _brand : Colors.grey[600],
+                                color: isPrimary
+                                    ? AcadeGateColors.gold
+                                    : AcadeGateColors.muted,
                               ),
                               title: Text(
                                 link.label(isEnglish: isEnglish),
@@ -1225,7 +1229,6 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
                         (_rules.inTextExample ?? '').trim().isNotEmpty) ...[
                       const SizedBox(height: 12),
                       Card(
-                        color: const Color(0xFFF3E5F5),
                         child: Padding(
                           padding: const EdgeInsets.all(12),
                           child: Column(
@@ -1238,6 +1241,7 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
                                 ),
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
+                                  color: AcadeGateColors.text,
                                 ),
                               ),
                               if ((_rules.referenceExample ?? '')
@@ -1257,7 +1261,7 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
                                   ),
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: Colors.grey[700],
+                                    color: const Color(0xFFB7C3D6),
                                   ),
                                 ),
                                 SelectableText(_rules.inTextExample!.trim()),
@@ -1273,7 +1277,7 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
                         'التصدير يطبّق كل القواعد المستخرجة (خط، تباعد، أعمدة، عناوين) ويعيد كتابة المراجع بشكل الدليل أعلاه — وليس قالباً عاماً.',
                         'Export applies every extracted rule (font, spacing, columns, headings) and rewrites references to the sample above — not a generic template.',
                       ),
-                      style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                      style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
                     ),
                     if (_manuscript != null &&
                         _rules.abstractMaxWords != null &&
@@ -1319,7 +1323,7 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
                                       Icon(
                                         Icons.tune,
                                         size: 20,
-                                        color: Colors.grey[600],
+                                        color: const Color(0xFFB7C3D6),
                                       ),
                                       const SizedBox(width: 10),
                                       Expanded(child: Text(rule)),
@@ -1354,7 +1358,7 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
                                     style: TextStyle(
                                       fontSize: 13,
                                       height: 1.4,
-                                      color: Colors.grey[800],
+                                      color: const Color(0xFFB7C3D6),
                                     ),
                                   ),
                                 ),
@@ -1396,7 +1400,8 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
                     FilledButton.icon(
                       onPressed: _processing ? null : _applyAndExport,
                       style: FilledButton.styleFrom(
-                        backgroundColor: _brand,
+                        backgroundColor: AcadeGateColors.gold,
+                        foregroundColor: AcadeGateColors.page,
                         minimumSize: const Size.fromHeight(48),
                       ),
                       icon: _processing
@@ -1405,7 +1410,7 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
                               height: 20,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: Colors.white,
+                                color: AcadeGateColors.page,
                               ),
                             )
                           : const Icon(Icons.description),
@@ -1457,18 +1462,19 @@ class _AbstractLimitCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final words = abstractText.trim().split(RegExp(r'\s+')).length;
     final over = words > maxWords;
+    final tone = over ? const Color(0xFFFCA5A5) : const Color(0xFF86EFAC);
     return Card(
-      color: over ? Colors.red.shade50 : Colors.green.shade50,
       child: ListTile(
         leading: Icon(
           over ? Icons.warning_amber : Icons.check_circle_outline,
-          color: over ? Colors.red.shade800 : Colors.green.shade800,
+          color: tone,
         ),
         title: Text(
           context.t(
             'الملخص: $words / $maxWords كلمة',
             'Abstract: $words / $maxWords words',
           ),
+          style: TextStyle(color: tone, fontWeight: FontWeight.w700),
         ),
         subtitle: over
             ? Text(
@@ -1476,6 +1482,7 @@ class _AbstractLimitCard extends StatelessWidget {
                   'تجاوز حد المجلة — اختصر الملخص قبل التقديم.',
                   'Over the journal limit — shorten the abstract before submission.',
                 ),
+                style: const TextStyle(color: AcadeGateColors.muted),
               )
             : null,
       ),

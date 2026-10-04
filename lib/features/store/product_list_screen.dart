@@ -12,7 +12,10 @@ import '../auth/user_role.dart';
 import '../moderation/approval_status.dart';
 import 'add_product_screen.dart';
 import 'catalog_disclaimer.dart';
+import '../academic/faculty_categories.dart';
 import 'import/egypt_store_suppliers_catalog.dart';
+import 'seed/faculty_books_library_screen.dart';
+import 'seed/open_library_books_service.dart';
 import 'store_catalog_service.dart';
 import 'store_categories.dart';
 import 'store_product_navigation.dart';
@@ -627,7 +630,123 @@ class _ProductListScreenState extends State<ProductListScreen> {
                     style: TextStyle(
                       fontSize: 13,
                       height: 1.4,
-                      color: Colors.grey[850],
+                      color: StoreTheme.ink,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+              ],
+              if (category?.id == 'books')
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: accentColor.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: accentColor.withValues(alpha: 0.2),
+                        ),
+                      ),
+                      child: Text(
+                        context.t(
+                          'مكتبة حية لكل كلية عبر Open Library: آلاف العناوين، مع وضع '
+                          '«كتب مفتوحة/مجانية» من Internet Archive. اختر كليتك ثم صفّح بلا نهاية.',
+                          'Live faculty libraries via Open Library: thousands of titles, plus '
+                          '“free/open” mode from Internet Archive. Pick a faculty and scroll endlessly.',
+                        ),
+                        style: TextStyle(
+                          fontSize: 13,
+                          height: 1.4,
+                          color: StoreTheme.ink,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      context.t('مكتبة حسب الكلية', 'Library by faculty'),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    ...OpenLibraryBooksService.facultyQueries.keys.map((fid) {
+                      final faculty = facultyById(fid);
+                      final color = faculty?.color ?? accentColor;
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: color.withValues(alpha: 0.14),
+                            foregroundColor: color,
+                            child: Icon(
+                              faculty?.icon ?? Icons.menu_book,
+                              size: 22,
+                            ),
+                          ),
+                          title: Text(
+                            facultyTitleForCategory(fid),
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                          subtitle: Text(
+                            context.t(
+                              'آلاف الكتب · فتح حي من Open Library',
+                              'Thousands of books · live Open Library feed',
+                            ),
+                          ),
+                          trailing: const Icon(Icons.chevron_left),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => FacultyBooksLibraryScreen(
+                                  facultyId: fid,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      );
+                    }),
+                    const SizedBox(height: 12),
+                    Text(
+                      context.t(
+                        'دور نشر ومكتبات (شراء/اطلاع)',
+                        'Publishers & bookstores',
+                      ),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                ),
+              if (category?.id == 'humanities') ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: accentColor.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: accentColor.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  child: Text(
+                    context.t(
+                      'أدوات بحث إنساني: رسائل ودوريات (منظومة)، أرشيف ومخطوطات، إحصاء اجتماعي، بحوث تربوية — '
+                      'لشراء الكتب راجع قسم «كتب ومراجع علمية».',
+                      'Humanities research tools: theses/journals, archives/manuscripts, social statistics, education research — '
+                      'for buying books use “Scientific books & references”.',
+                    ),
+                    style: TextStyle(
+                      fontSize: 13,
+                      height: 1.4,
+                      color: StoreTheme.ink,
                     ),
                   ),
                 ),
@@ -650,7 +769,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
                     'بيانات عامة من مواقع معلنة — ليست اعتماداً من الشركة ما لم تظهر حالة Partner. تواصل مباشرة حتى لو لم تُدرج كل منتجاتهم.',
                     'Public website data — not a company endorsement unless Partner is shown. Contact directly even if not every product is listed.',
                   ),
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600], height: 1.35),
+                  style: TextStyle(fontSize: 12, color: StoreTheme.muted, height: 1.35),
                 ),
                 const SizedBox(height: 10),
                 ...suppliers.map(
@@ -742,7 +861,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
                           'No listed products in this section yet — use the suppliers above to contact them.',
                         ),
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.grey[700]),
+                        style: TextStyle(color: StoreTheme.muted),
                       ),
                       const SizedBox(height: 16),
                       StreamBuilder(
@@ -787,7 +906,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
                           'No products match the current filters.',
                         ),
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.grey[700]),
+                        style: TextStyle(color: StoreTheme.muted),
                       ),
                       const SizedBox(height: 12),
                       TextButton(

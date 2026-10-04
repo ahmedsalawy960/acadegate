@@ -101,7 +101,7 @@ class _SupervisionRequestDialogState extends State<_SupervisionRequestDialog> {
             if (widget.supervisor.university.isNotEmpty)
               Text(
                 widget.supervisor.university,
-                style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                style: TextStyle(color: const Color(0xFFB7C3D6), fontSize: 13),
               ),
             const SizedBox(height: 12),
             TextField(

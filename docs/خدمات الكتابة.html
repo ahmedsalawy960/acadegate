@@ -170,29 +170,81 @@
       }
       .cover { min-height: 100vh; }
     }
+  
+    .link-banner {
+      position: sticky; top: 8px; z-index: 30;
+      background: linear-gradient(105deg, #071433 0%, #0b1f4d 45%, #0f766e 100%);
+      color: #fff; padding: 14px 18px; border-radius: 16px;
+      margin: 0 0 18px; display: flex; flex-wrap: wrap; gap: 10px 18px;
+      align-items: center; justify-content: space-between;
+      box-shadow: 0 12px 32px rgba(11, 31, 77, 0.28);
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+    .link-banner .lb-title { font-weight: 800; font-size: 13pt; }
+    .link-banner .lb-meta { opacity: 0.9; font-size: 10.5pt; }
+    .link-banner a {
+      color: #fde68a; font-weight: 800; text-decoration: none;
+      border-bottom: 1px solid rgba(253,230,138,0.55);
+    }
+    .link-banner .lb-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+    .link-banner .lb-btn {
+      display: inline-block; background: #fbbf24; color: #071433 !important;
+      border: none; border-radius: 999px; padding: 8px 14px; font-weight: 800;
+      border-bottom: none !important; font-size: 11pt;
+    }
+    .link-banner .lb-btn.secondary {
+      background: rgba(255,255,255,0.12); color: #fff !important;
+      border: 1px solid rgba(255,255,255,0.28);
+    }
+    .link-banner .lb-brand { display: flex; align-items: center; gap: 12px; }
+    .link-banner .lb-logo {
+      width: 52px; height: 52px; border-radius: 50%; display: block; background: #fff;
+    }
+    .cover-logo {
+      width: 88px; height: 88px; border-radius: 50%; display: block; margin-bottom: 18px;
+    }
+    @media print { .link-banner { position: static; box-shadow: none; } }
+
   </style>
 </head>
 <body>
 <div class="deck">
 
+  <div class="link-banner" role="banner">
+    <div class="lb-brand">
+      <a href="https://acadegate-new--v20261002-tp9dbk1c.web.app" target="_blank" rel="noopener"><img class="lb-logo" src="../Assets/images/acadegate_logo.png" alt="AcadeGate" width="52" height="52" /></a>
+      <div>
+        <div class="lb-title">AcadeGate — عرض انضمام خبراء الكتابة</div>
+        <div class="lb-meta">منصة للباحثين · سجّلوا خدمتكم وابدأوا استقبال الطلبات</div>
+      </div>
+    </div>
+    <div class="lb-actions">
+      <a class="lb-btn" href="https://acadegate-new--v20261002-tp9dbk1c.web.app" target="_blank" rel="noopener">فتح المنصة</a>
+      <a class="lb-btn secondary" href="https://acadegate-new--v20261002-tp9dbk1c.web.app/register" target="_blank" rel="noopener">التسجيل</a>
+      <a class="lb-btn secondary" href="https://acadegate-new--v20261002-tp9dbk1c.web.app/login" target="_blank" rel="noopener">الدخول</a>
+      <a class="lb-btn secondary" href="tel:+201044339033">01044339033</a>
+      <a class="lb-btn secondary" href="https://acadegate-new.firebaseapp.com/register" target="_blank" rel="noopener">بديل واتساب</a>
+    </div>
+  </div>
+
   <section class="slide cover">
     <div>
+      <a href="https://acadegate-new--v20261002-tp9dbk1c.web.app" target="_blank" rel="noopener"><img class="cover-logo" src="../Assets/images/acadegate_logo.png" alt="AcadeGate" width="88" height="88" /></a>
       <div class="eyebrow">عرض انضمام · خبراء وخدمات الكتابة الأكاديمية</div>
       <h1>AcadeGate</h1>
       <div class="tagline">ادعُ خدمتك إلى منصة يصل فيها باحثو الماجستير والدكتوراه بطلبات حقيقية — مواصفات كاملة وضمان وتتبع</div>
       <p class="promise">
-        كتابة <strong style="color:#fff;">بشرية متخصصة</strong> داخل رحلة بحث متكاملة —
-        ليست سوقاً عشوائياً ولا بديلاً بالذكاء الاصطناعي.
-        هذا العرض يشرح فكرة المنصة، قسم الكتابة بالتطورات الحالية، وبنود الأرباح
-        <strong style="color:#fff;">حسب الاتفاق</strong> دون نسب أو أسعار مسبقة هنا.
+        كتابة <strong style="color:#fff;">بشرية متخصصة</strong> داخل رحلة بحث متكاملة.
+        الباحث يصل إليكم بطلب واضح، وأنتم تستقبلون العمل وتسعّرونه وتسلّمونه من داخل التطبيق.
+        بنود الأرباح <strong style="color:#fff;">حسب الاتفاق</strong> دون نسب أو أسعار مسبقة هنا.
       </p>
       <div style="margin-top:22px;">
         <span class="pill">٨ تخصصات كتابة</span>
         <span class="pill">مطابقة كاتب</span>
         <span class="pill">أدوات مساعدة بجانب الكاتب</span>
         <span class="pill">دور كاتب + طلبات واردة</span>
-        <span class="pill">ضمان Escrow</span>
-        <span class="pill">محدّث سبتمبر 2026 · https://acadegate-new.web.app</span>
+        <span class="pill">طلب بمواصفات كاملة</span>
+        <span class="pill">شراكة حسب الاتفاق</span>
       </div>
     </div>
     <div style="opacity:0.85;font-size:11pt;">
@@ -207,7 +259,7 @@
       <ol style="font-size:14pt;line-height:2;">
         <li>فكرة عامة عن AcadeGate</li>
         <li>لماذا ينضم الخبير الآن؟</li>
-        <li>قسم الكتابة بالتفصيل + مستجدات سبتمبر 2026</li>
+        <li>قسم الكتابة: التخصصات وملف الحجز</li>
         <li>دورة الحجز والضمان</li>
         <li>ماذا يفعل الكاتب داخل التطبيق؟</li>
         <li>بنود الأرباح والمشاركة — حسب الاتفاق</li>
@@ -238,11 +290,11 @@
         </div>
         <div class="card">
           <strong>قيمة قسم الكتابة</strong>
-          الباحث يصل إليك وهو داخل رحلته — طلب مقصود بملف واضح وضمان، لا رسالة عشوائية.
+          الباحث يصل إليك وهو داخل رحلته — طلب مقصود بملف واضح، لا رسالة عشوائية.
         </div>
         <div class="card">
-          <strong>الوضع الحالي</strong>
-          بيتا مغلقة مع شركاء حقيقيين. نملأ الأقسام الثمانية بملفات قوية قبل التوسع الواسع.
+          <strong>مكانكم في المنصة</strong>
+          حساب كاتب، ملف خدمة يظهر للباحثين، وطلبات واردة تتابعونها من بوابة مقدم الخدمة.
         </div>
       </div>
       <h3>خدمات المنصة (نظرة سريعة)</h3>
@@ -311,7 +363,7 @@
       <table>
         <tr><th>القسم</th><th>أمثلة ما يُطلب</th></tr>
         <tr><td>أوراق بحثية</td><td>مقالات، مؤتمرات، دعم النشر</td></tr>
-        <tr><td>رسائل علمية</td><td>ماجستير / دكتوراه / مشروع — فصول أو مراحل (Milestones)</td></tr>
+        <tr><td>رسائل علمية</td><td>ماجستير / دكتوراه / مشروع — فصل أو مرحلة، لا الرسالة كاملة دفعة واحدة بالضرورة</td></tr>
         <tr><td>إحصاء وتحليل</td><td>SPSS · R · Excel · STATA · AMOS · SmartPLS · تفسير نتائج</td></tr>
         <tr><td>مراجعة أدبيات</td><td>نقد، تلخيص، خريطة مفاهيمية</td></tr>
         <tr><td>مقترحات بحث</td><td>خطة، أهداف، منهجية</td></tr>
@@ -319,45 +371,6 @@
         <tr><td>تنسيق وتوثيق</td><td>APA · MLA · Harvard · Chicago · IEEE · Vancouver · ISO 690</td></tr>
         <tr><td>ترجمة علمية</td><td>عربي ↔ إنجليزي بمصطلحات دقيقة</td></tr>
       </table>
-    </div>
-  </section>
-
-  <section class="slide">
-    <div class="slide-inner">
-      <h2>٣ — مستجدات قسم الكتابة (سبتمبر 2026)</h2>
-      <p class="lead">ما أُضيف أو وُضّح في المنتج الحالي — ليست وعوداً مستقبلية فقط.</p>
-      <div class="grid-2">
-        <div class="card">
-          <strong>واجهة Writing Hub محدّثة</strong>
-          بحث عن نوع الخدمة · بانر «بشرية ليست AI» · دليل قسم خطوة بخطوة للمبتدئ.
-        </div>
-        <div class="card">
-          <strong>أدوات مساعدة بجانب الكاتب</strong>
-          مساعد أكاديمي (ملاحظات مسودة) · محاكي لجنة مناقشة · معالج افتراضات إحصائية (تطبيع / قوة عينة / SPSS-R).
-          <em>ليست بديلاً عنك — تُستخدم قبل أو أثناء الطلب.</em>
-        </div>
-        <div class="card">
-          <strong>مطابقة كاتب</strong>
-          اقتراح خبراء حسب ملف الباحث (تخصص، لغة، أدوات) مع فلتر بالقسم.
-        </div>
-        <div class="card">
-          <strong>دور الكاتب + طلبات واردة</strong>
-          عند نشر خدمتك يُفعَّل دور الكاتب؛ تظهر الطلبات في بوابة مقدم الخدمة وشاشة طلبات العملاء.
-        </div>
-        <div class="card">
-          <strong>طلب بمواصفات غنية</strong>
-          مستوى أكاديمي · توثيق · لغة · استعجال · أدوات إحصاء · إضافات · مراحل رسالة عند الحاجة.
-        </div>
-        <div class="card">
-          <strong>ربط برحلة المنصة</strong>
-          مسار البحث قد يوجّه لخبير كتابة · النزاهة والنشر واستوديو الرسالة تزيد الحاجة لخدماتك قبل التسليم.
-        </div>
-      </div>
-      <div class="callout callout-teal">
-        المنصة الحيّة:
-        <a href="https://acadegate-new.web.app" target="_blank" rel="noopener">https://acadegate-new.web.app</a>
-        — يُفضَّل فتحها بـ Ctrl+Shift+R بعد أي نشر جديد.
-      </div>
     </div>
   </section>
 
@@ -420,7 +433,7 @@
       <h2>٥ — ماذا تفعل داخل التطبيق؟</h2>
       <ol>
         <li>أنشئ حساباً وسجّل الدخول على
-          <a href="https://acadegate-new.web.app" target="_blank" rel="noopener">https://acadegate-new.web.app</a>
+          <a href="https://acadegate-new--v20261002-tp9dbk1c.web.app" target="_blank" rel="noopener">https://acadegate-new--v20261002-tp9dbk1c.web.app</a>
         </li>
         <li>افتح <strong>خدمات الكتابة الأكاديمية</strong></li>
         <li>اضغط إضافة خدمتك / التسجيل ككاتب أكاديمي واملأ الملف</li>
@@ -506,9 +519,9 @@
         <li>راسلوا <a href="mailto:acadegate@gmail.com">acadegate@gmail.com</a> بعنوان: «انضمام كاتب — [الاسم/الفريق] — [التخصص]».</li>
         <li>أرفقوا نبذة + الأقسام الأنسب + نطاق سعري تقريبي + عينة إن وُجدت.</li>
         <li>افتحوا المنصة ثم أنشئوا الحساب واملأوا ملف الخدمة للمراجعة:
-          <a href="https://acadegate-new.web.app/register" target="_blank" rel="noopener">https://acadegate-new.web.app/register</a>
+          <a href="https://acadegate-new--v20261002-tp9dbk1c.web.app/register" target="_blank" rel="noopener">https://acadegate-new--v20261002-tp9dbk1c.web.app/register</a>
           · المنصة:
-          <a href="https://acadegate-new.web.app" target="_blank" rel="noopener">https://acadegate-new.web.app</a>
+          <a href="https://acadegate-new--v20261002-tp9dbk1c.web.app" target="_blank" rel="noopener">https://acadegate-new--v20261002-tp9dbk1c.web.app</a>
         </li>
         <li>نثبت معاً بنود الأرباح والمشاركة في اتفاق واضح قبل أي تسوية ملزمة.</li>
       </ol>
@@ -534,10 +547,12 @@
       </p>
       <div class="cta-box">
         <p><strong>البريد:</strong> <a href="mailto:acadegate@gmail.com">acadegate@gmail.com</a></p>
-        <p><strong>المنصة:</strong> <a href="https://acadegate-new.web.app" target="_blank" rel="noopener">https://acadegate-new.web.app</a></p>
-        <p><strong>التسجيل:</strong> <a href="https://acadegate-new.web.app/register" target="_blank" rel="noopener">https://acadegate-new.web.app/register</a></p>
-        <p><strong>بديل واتساب:</strong> <a href="https://acadegate-new.firebaseapp.com" target="_blank" rel="noopener">https://acadegate-new.firebaseapp.com</a></p>
-        <p style="margin-bottom:0;">نرد خلال يوم عمل تقريباً في البيتا المغلقة.</p>
+        <p><strong>المنصة:</strong> <a href="https://acadegate-new--v20261002-tp9dbk1c.web.app" target="_blank" rel="noopener">https://acadegate-new--v20261002-tp9dbk1c.web.app</a></p>
+        <p><strong>التسجيل:</strong> <a href="https://acadegate-new--v20261002-tp9dbk1c.web.app/register" target="_blank" rel="noopener">https://acadegate-new--v20261002-tp9dbk1c.web.app/register</a></p>
+        <p><strong>الدخول:</strong> <a href="https://acadegate-new--v20261002-tp9dbk1c.web.app/login" target="_blank" rel="noopener">https://acadegate-new--v20261002-tp9dbk1c.web.app/login</a></p>
+        <p><strong>الدعم:</strong> <a href="tel:+201044339033">01044339033</a></p>
+        <p><strong>بديل واتساب:</strong> <a href="https://acadegate-new.firebaseapp.com/register" target="_blank" rel="noopener">https://acadegate-new.firebaseapp.com/register</a></p>
+        <p style="margin-bottom:0;">نرد خلال يوم عمل تقريباً.</p>
       </div>
       <p style="margin-top:28px;font-size:15pt;">
         الأرباح والمشاركة — <strong style="color:#fde68a;">حسب الاتفاق</strong> · بدون نسب أو أسعار مسبقة في هذا العرض.
@@ -551,17 +566,18 @@
       <table>
         <tr><th>البند</th><th>المحتوى</th></tr>
         <tr><td>المنصة</td><td>AcadeGate — رحلة دراسات عليا متكاملة</td></tr>
-        <tr><td>عرض الكاتب</td><td>٨ تخصصات + مطابقة + أدوات مساعدة + حجز + ضمان + طلبات واردة</td></tr>
-        <tr><td>التمييز</td><td>كتابة بشرية متخصصة — ليست ذكاء اصطناعي</td></tr>
-        <tr><td>مستجدات</td><td>Hub · بحث · دليل قسم · مطابقة · إحصاء/مناقشة/AI مساعد · دور كاتب</td></tr>
-        <tr><td>دورة الطلب</td><td>حجز → قبول+سعر → دفع محجوز → تسليم → إفراج</td></tr>
+        <tr><td>عرض الكاتب</td><td>٨ تخصصات، مطابقة، حجز بمواصفات، وطلبات واردة</td></tr>
+        <tr><td>التمييز</td><td>كتابة بشرية متخصصة</td></tr>
+        <tr><td>دورة الطلب</td><td>حجز، ثم قبول وتحديد السعر، ثم دفع، ثم تسليم، ثم تأكيد الباحث</td></tr>
         <tr><td>الأرباح والمشاركة</td><td><strong>بنود بالاتفاق — بلا نسب/أسعار في هذه الوثيقة</strong></td></tr>
-        <tr><td>المنصة</td><td><a href="https://acadegate-new.web.app">https://acadegate-new.web.app</a></td></tr>
-        <tr><td>التسجيل</td><td><a href="https://acadegate-new.web.app/register">https://acadegate-new.web.app/register</a></td></tr>
+        <tr><td>المنصة</td><td><a href="https://acadegate-new--v20261002-tp9dbk1c.web.app">https://acadegate-new--v20261002-tp9dbk1c.web.app</a></td></tr>
+        <tr><td>التسجيل</td><td><a href="https://acadegate-new--v20261002-tp9dbk1c.web.app/register">https://acadegate-new--v20261002-tp9dbk1c.web.app/register</a></td></tr>
+        <tr><td>الدخول</td><td><a href="https://acadegate-new--v20261002-tp9dbk1c.web.app/login">https://acadegate-new--v20261002-tp9dbk1c.web.app/login</a></td></tr>
+        <tr><td>الدعم</td><td><a href="tel:+201044339033">01044339033</a></td></tr>
         <tr><td>التواصل</td><td>acadegate@gmail.com</td></tr>
       </table>
       <p class="footer-note">
-        © 2026 AcadeGate · عرض انضمام خبراء الكتابة · مبني على وظائف Writing Hub الحالية في التطبيق.
+        © 2026 AcadeGate · عرض انضمام خبراء الكتابة.
         أي تفاصيل تجارية ملزمة تُحرَّر باتفاق منفصل بعد التفاوض.
       </p>
     </div>

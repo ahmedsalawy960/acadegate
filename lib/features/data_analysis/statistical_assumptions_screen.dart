@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
 import '../../core/locale/locale_extensions.dart';
+import '../../core/theme/acadegate_theme.dart';
 import '../../core/locale/locale_service.dart';
 import '../academic_writing/writing_categories.dart';
 import '../academic_writing/writing_expert_list_screen.dart';
@@ -369,6 +370,7 @@ class _StatisticalAssumptionsScreenState
           ? FloatingActionButton.extended(
               onPressed: _loadingFile ? null : _pickFile,
               backgroundColor: _brand,
+              foregroundColor: Colors.white,
               icon: const Icon(Icons.upload_file),
               label: Text(context.t('رفع ملف', 'Upload file')),
             )
@@ -407,7 +409,7 @@ class _StatisticalAssumptionsScreenState
       color: _brand.withValues(alpha: 0.08),
       child: Row(
         children: [
-          Icon(agent.icon, color: _brand),
+          Icon(agent.icon, color: acadegateInk(_brand)),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -415,7 +417,7 @@ class _StatisticalAssumptionsScreenState
                 'جداول بأي عدد أعمدة — ربط مرن + اقتراح اختبار + Shapiro/Levene/t/ANOVA + بدائل لا بارامترية',
                 'Any-width tables — flexible mapping + test suggestion + Shapiro/Levene/t/ANOVA + nonparametric alternatives',
               ),
-              style: TextStyle(fontSize: 13, color: Colors.grey[800], height: 1.4),
+              style: TextStyle(fontSize: 13, color: const Color(0xFFB7C3D6), height: 1.4),
             ),
           ),
         ],
@@ -475,7 +477,7 @@ class _StatisticalAssumptionsScreenState
             padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
             child: Column(
               children: [
-                Icon(Icons.cloud_upload_outlined, size: 48, color: _brand),
+                Icon(Icons.cloud_upload_outlined, size: 48, color: acadegateInk(_brand)),
                 const SizedBox(height: 8),
                 Text(
                   context.t(
@@ -485,7 +487,7 @@ class _StatisticalAssumptionsScreenState
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
-                    color: _brand,
+                    color: acadegateInk(_brand),
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -495,7 +497,7 @@ class _StatisticalAssumptionsScreenState
                     'Or use the ↑ icon in the app bar — or «Sample CSV»',
                   ),
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                  style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
                 ),
                 const SizedBox(height: 12),
                 OutlinedButton.icon(
@@ -533,7 +535,7 @@ class _StatisticalAssumptionsScreenState
                     '${i + 1}',
                     style: TextStyle(
                       fontSize: 10,
-                      color: active ? Colors.white : Colors.grey[700],
+                      color: active ? Colors.white : const Color(0xFFB7C3D6),
                     ),
                   ),
                 ),
@@ -542,7 +544,7 @@ class _StatisticalAssumptionsScreenState
                   labels[i],
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 9, color: Colors.grey[700]),
+                  style: const TextStyle(fontSize: 9, color: Color(0xFFB7C3D6)),
                 ),
               ],
             ),
@@ -568,7 +570,7 @@ class _StatisticalAssumptionsScreenState
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.upload_file, color: _brand, size: 28),
+                      Icon(Icons.upload_file, color: acadegateInk(_brand), size: 28),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
@@ -579,7 +581,7 @@ class _StatisticalAssumptionsScreenState
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 17,
-                            color: _brand,
+                            color: acadegateInk(_brand),
                           ),
                         ),
                       ),
@@ -629,7 +631,7 @@ class _StatisticalAssumptionsScreenState
                       'أي عدد أعمدة مدعوم · Word يحتاج جدولاً · Excel: .xlsx · ليس نص رسالة فقط',
                       'Any column count supported · Word needs a table · Excel: .xlsx · not prose-only',
                     ),
-                    style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                    style: TextStyle(fontSize: 11, color: const Color(0xFFB7C3D6)),
                   ),
                 ],
               ),
@@ -692,12 +694,12 @@ class _StatisticalAssumptionsScreenState
                       'اربط الأعمدة حسب التحليل — الجدول ليس مقيداً بعمودين',
                       'Map columns for your analysis — tables are not limited to 2 columns',
                     ),
-                    style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                    style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     context.t('معاينة (أول 5 صفوف)', 'Preview (first 5 rows)'),
-                    style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                    style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
                   ),
                   const SizedBox(height: 4),
                   SingleChildScrollView(
@@ -944,7 +946,7 @@ class _StatisticalAssumptionsScreenState
                 'عند انتهاك الطبيعية يظهر البديل اللا بارامتري تلقائياً في النتائج',
                 'When normality fails, nonparametric alternatives appear in results',
               ),
-              style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+              style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
             ),
             const SizedBox(height: 12),
             RadioGroup<StatisticalTestType>(
@@ -1149,10 +1151,10 @@ class _StatisticalAssumptionsScreenState
               children: [
                 Text(
                   report.displayRecommendedTest(isEnglish),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 17,
-                    color: _brand,
+                    color: acadegateInk(_brand),
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -1220,7 +1222,7 @@ class _StatisticalAssumptionsScreenState
           children: [
             Row(
               children: [
-                Icon(Icons.menu_book_outlined, color: _brand),
+                Icon(Icons.menu_book_outlined, color: acadegateInk(_brand)),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -1253,7 +1255,7 @@ class _StatisticalAssumptionsScreenState
                 'انسخها إلى فصل المنهج أو النتائج وعدّل أسماء المتغيرات إن لزم.',
                 'Copy into Methods/Results and adjust variable names if needed.',
               ),
-              style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+              style: TextStyle(fontSize: 11, color: const Color(0xFFB7C3D6)),
             ),
           ],
         ),
@@ -1274,7 +1276,7 @@ class _StatisticalAssumptionsScreenState
           children: [
             Row(
               children: [
-                Icon(Icons.account_tree_outlined, color: _brand),
+                Icon(Icons.account_tree_outlined, color: acadegateInk(_brand)),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -1296,7 +1298,7 @@ class _StatisticalAssumptionsScreenState
                 'لماذا هذا الاختبار؟ مسار واضح لغير المتخصص',
                 'Why this test? A clear path for non-specialists',
               ),
-              style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+              style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
             ),
             const SizedBox(height: 12),
             ...List.generate(steps.length, (i) {
@@ -1343,7 +1345,7 @@ class _StatisticalAssumptionsScreenState
                                 style: TextStyle(
                                   fontWeight: FontWeight.w600,
                                   fontSize: 13,
-                                  color: Colors.grey[800],
+                                  color: const Color(0xFFB7C3D6),
                                 ),
                               ),
                               const SizedBox(height: 2),
@@ -1403,8 +1405,8 @@ class _StatisticalAssumptionsScreenState
             const SizedBox(height: 6),
             Text(
               context.t(
-                'ربط فوري بالوكيل والكتابة البشرية — ليست مجرد حاسبة',
-                'Instant link to AI agents and human writing — not just a calculator',
+                'ربط بالمساعد الأكاديمي والكتابة البشرية — ليست مجرد حاسبة',
+                'Link to the Academic Assistant and human writing — not just a calculator',
               ),
               style: TextStyle(fontSize: 12, color: Colors.indigo.shade700),
             ),

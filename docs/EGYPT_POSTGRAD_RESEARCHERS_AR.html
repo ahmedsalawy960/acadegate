@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ملف بيانات الدراسات العليا في مصر — ماجستير ودكتوراه | AcadeGate</title>
+  <style>
+    :root {
+      --ink: #1a2332;
+      --muted: #5a6577;
+      --line: #d8dee8;
+      --bg: #f7f4ef;
+      --card: #ffffff;
+      --accent: #0b6e4f;
+      --accent-soft: #e6f3ee;
+      --warn: #8a5a00;
+      --warn-bg: #fff6e5;
+      --source: #1e4d8c;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, "Noto Naskh Arabic", Arial, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 500px at 100% 0%, #e8f0ea 0%, transparent 55%),
+        radial-gradient(900px 400px at 0% 20%, #efe8dc 0%, transparent 50%),
+        var(--bg);
+      line-height: 1.7;
+    }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+    header {
+      border-bottom: 2px solid var(--accent);
+      padding-bottom: 1.25rem;
+      margin-bottom: 1.75rem;
+    }
+    .brand {
+      font-size: 0.85rem;
+      letter-spacing: 0.04em;
+      color: var(--accent);
+      font-weight: 700;
+      margin: 0 0 0.35rem;
+    }
+    h1 { font-size: clamp(1.45rem, 3vw, 2rem); margin: 0 0 0.5rem; line-height: 1.35; }
+    .meta { color: var(--muted); font-size: 0.95rem; margin: 0; }
+    .callout {
+      background: var(--warn-bg);
+      border: 1px solid #f0d39a;
+      border-right: 4px solid var(--warn);
+      padding: 0.9rem 1rem;
+      margin: 1.25rem 0 1.75rem;
+      border-radius: 6px;
+      color: #5c3d00;
+    }
+    h2 {
+      font-size: 1.25rem;
+      margin: 2.25rem 0 0.75rem;
+      padding-bottom: 0.35rem;
+      border-bottom: 1px solid var(--line);
+      color: var(--accent);
+    }
+    h3 { font-size: 1.05rem; margin: 1.35rem 0 0.5rem; }
+    p, li { font-size: 0.98rem; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 0.75rem;
+      margin: 1rem 0 1.5rem;
+    }
+    .stat {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 0.9rem 1rem;
+    }
+    .stat .n { font-size: 1.45rem; font-weight: 700; color: var(--accent); display: block; }
+    .stat .l { font-size: 0.82rem; color: var(--muted); }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--card);
+      margin: 0.75rem 0 1.25rem;
+      font-size: 0.92rem;
+      overflow: hidden;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+    }
+    th, td {
+      padding: 0.55rem 0.7rem;
+      text-align: right;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+    }
+    th { background: var(--accent-soft); font-weight: 700; }
+    tr:last-child td { border-bottom: none; }
+    .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .note { font-size: 0.88rem; color: var(--muted); }
+    .src {
+      font-size: 0.82rem;
+      color: var(--source);
+      margin: 0.25rem 0 1rem;
+    }
+    .src a { color: var(--source); }
+    ol.refs { padding-right: 1.25rem; }
+    ol.refs li { margin-bottom: 0.55rem; font-size: 0.9rem; }
+    footer {
+      margin-top: 2.5rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+    code { background: #eee; padding: 0.1em 0.35em; border-radius: 3px; font-size: 0.88em; }
+    .tag {
+      display: inline-block;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+      margin-left: 0.35rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <p class="brand">ACADEGATE · ملف بيانات مرجعي</p>
+      <h1>أعداد الدراسات العليا في مصر:<br />الماجستير والدكتوراه والجامعات والتخصصات</h1>
+      <p class="meta">
+        تاريخ إعداد الملف: 20 سبتمبر 2026 ·
+        أحدث بيانات رسمية وطنية منشورة: سنة البيانات <strong>2024</strong>
+        (صدرت نشرة CAPMAS في 25 ديسمبر 2025)
+      </p>
+    </header>
+
+    <div class="callout">
+      <strong>لماذا 2024 وليس 2025/2026؟</strong>
+      الجهاز المركزي للتعبئة العامة والإحصاء يصدر النشرة السنوية لخريجي التعليم العالي والدرجات العلمية العليا
+      <em>بعد انتهاء العام بأشهر</em>. حتى تاريخ هذا الملف (سبتمبر 2026) لم تُنشر نشرة وطنية كاملة لعام 2025.
+      لذلك أرقام المقيدين والدرجات حسب الجامعة والمجال تعتمد على <strong>CAPMAS 2024</strong> مع مقارنة 2022–2023.
+      أما OpenAlex وSCImago فهما قواعد حيّة ويمكن قراءتهما حتى 2025/2026 (إنتاج بحثي وليس أعداد قيد).
+    </div>
+
+    <h2>1) الخلاصة التنفيذية</h2>
+    <div class="grid">
+      <div class="stat">
+        <span class="n">232.3 ألف</span>
+        <span class="l">مقيد دراسات عليا 2024 (كل الدرجات)</span>
+      </div>
+      <div class="stat">
+        <span class="n">≈ 97.8 ألف</span>
+        <span class="l">تقدير مقيدي الماجستير 2024 (42.1%)</span>
+      </div>
+      <div class="stat">
+        <span class="n">≈ 39.0 ألف</span>
+        <span class="l">تقدير مقيدي الدكتوراه 2024 (16.8%)</span>
+      </div>
+      <div class="stat">
+        <span class="n">≈ 136.8 ألف</span>
+        <span class="l">تقدير باحثين (ماجستير + دكتوراه) بدون دبلوم</span>
+      </div>
+    </div>
+    <p>
+      إجمالي الدرجات العليا الممنوحة للمصريين من جامعات مصر عام 2024:
+      <strong>122.9 ألف</strong> (دبلوم + ماجستير + دكتوراه)، بزيادة 22.2% عن 100.5 ألف في 2023.
+    </p>
+    <p class="note">
+      تنبيه منهجي مهم: نحو <strong>41%</strong> من المقيدين في 2024 على درجة <em>الدبلوم</em>
+      (غالباً دبلومات تربوية/مهنية). لإحصاء «الباحثين» يُفضَّل فصل الدبلوم عن الماجستير والدكتوراه.
+    </p>
+
+    <h2>2) المنهجية وحدود البيانات</h2>
+    <ul>
+      <li><strong>المصدر الرسمي للأعداد:</strong> النشرة السنوية لخريجي التعليم العالي والدرجات العلمية العليا — CAPMAS (بالتعاون مع الجامعات والمجلس الأعلى للجامعات ووزارة التعليم العالي).</li>
+      <li><strong>التصنيف المجالي:</strong> مجموعات ISCED التعليمية (تعليم، أعمال/قانون، صحة، …) وليست «كليات» بالمعنى الإداري المصري دائماً.</li>
+      <li><strong>الإنتاج البحثي (مكمّل):</strong> OpenAlex (أعمال ومؤلفون مرتبطون بمؤسسات مصر) وSCImago Institutions Rankings 2025/2026 — يقيسان النشر والاستشهاد لا أعداد المقيدين.</li>
+      <li><strong>ما لا يتوفر علناً مجزّأً:</strong> جدول كامل لكل جامعة × كل كلية × ماجستير/دكتوراه منفصل في البيانات الصحفية الملخّصة؛ التفصيل الكامل في ملفات النشرة المدفوعة/المؤرشفة لدى CAPMAS.</li>
+      <li><strong>التقديرات الحسابية</strong> في هذا الملف مُعلَّمة بـ <span class="tag">تقدير</span> وتُشتق من النسب الرسمية × الإجمالي.</li>
+    </ul>
+
+    <h2>3) المقيدون بالدراسات العليا (وطني)</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>سنة البيانات</th>
+          <th>إجمالي المقيدين</th>
+          <th>دبلوم</th>
+          <th>ماجستير</th>
+          <th>دكتوراه</th>
+          <th>ماجستير+دكتوراه <span class="tag">تقدير</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>2024</td>
+          <td class="num">232.3 ألف</td>
+          <td class="num">41.1% ≈ 95.5 ألف</td>
+          <td class="num">42.1% ≈ 97.8 ألف</td>
+          <td class="num">16.8% ≈ 39.0 ألف</td>
+          <td class="num">≈ 136.8 ألف</td>
+        </tr>
+        <tr>
+          <td>2023</td>
+          <td class="num">227.3 ألف</td>
+          <td class="num">56.7% ≈ 128.9 ألف</td>
+          <td class="num">31.3% ≈ 71.1 ألف</td>
+          <td class="num">12.0% ≈ 27.3 ألف</td>
+          <td class="num">≈ 98.4 ألف</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="src">المصدر: بيانات CAPMAS المنشورة عبر وكالات رسمية (الأهرام / بيان صحفي، 25 ديسمبر 2025 لنشرة 2024؛ بيانات 2023 من بيانات صحفيّة سابقة للجهاز).</p>
+    <p class="note">
+      ملاحظة: بين 2023 و2024 انخفضت نسبة الدبلوم وارتفعت نسبة الماجستير والدكتوراه — أي أن قاعدة «الباحثين» اتسعت حتى مع استقرار نسبي في الإجمالي.
+    </p>
+
+    <h2>4) الدرجات العلمية الممنوحة (وطني)</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>سنة البيانات</th>
+          <th>درجات ممنوحة للمصريين</th>
+          <th>التغير عن العام السابق</th>
+          <th>وافدون حاصلون على درجات عليا</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>2024</td>
+          <td class="num">122.9 ألف</td>
+          <td class="num">+22.2% عن 2023</td>
+          <td class="num">4,327 (+75.4% عن 2023)</td>
+        </tr>
+        <tr>
+          <td>2023</td>
+          <td class="num">100.5 ألف</td>
+          <td class="num">−17.6% عن 2022 (122 ألف)</td>
+          <td class="num">2,467</td>
+        </tr>
+        <tr>
+          <td>2022</td>
+          <td class="num">122 ألف</td>
+          <td class="num">—</td>
+          <td class="num">—</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="src">المصدر: CAPMAS — النشرة السنوية (ملخصات 2023 و2024).</p>
+
+    <h2>5) أكثر المجالات (حسب الدرجات العليا الممنوحة)</h2>
+    <p class="note">الأرقام أدناه = دبلوم + ماجستير + دكتوراه معاً حسب تصنيف CAPMAS المجالي.</p>
+
+    <h3>عام 2024</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>الترتيب</th>
+          <th>المجال (ISCED)</th>
+          <th>الدرجات</th>
+          <th>النسبة</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>1</td><td>التعليم</td><td class="num">53.3 ألف</td><td class="num">43.4%</td></tr>
+        <tr><td>2</td><td>الأعمال والإدارة والقانون</td><td class="num">24.9 ألف</td><td class="num">20.3%</td></tr>
+        <tr><td>3</td><td>الصحة والرفاه</td><td class="num">17.8 ألف</td><td class="num">14.5%</td></tr>
+        <tr><td>…</td><td>تكنولوجيا الاتصالات والمعلومات (الأخير في الملخص)</td><td class="num">361</td><td class="num">0.3%</td></tr>
+      </tbody>
+    </table>
+
+    <h3>عام 2023 (للمقارنة)</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>الترتيب</th>
+          <th>المجال</th>
+          <th>الدرجات</th>
+          <th>النسبة</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>1</td><td>التعليم</td><td class="num">49.7 ألف</td><td class="num">49.5%</td></tr>
+        <tr><td>2</td><td>الأعمال والإدارة والقانون</td><td class="num">14.8 ألف</td><td class="num">14.7%</td></tr>
+        <tr><td>3</td><td>الصحة والرفاه</td><td class="num">11.6 ألف</td><td class="num">11.5%</td></tr>
+        <tr><td>…</td><td>تكنولوجيا الاتصالات والمعلومات</td><td class="num">345</td><td class="num">0.3%</td></tr>
+      </tbody>
+    </table>
+    <p class="src">المصدر: CAPMAS عبر بياناته الصحفية الملخّصة.</p>
+    <p class="note">
+      تفسير AcadeGate: صدارة «التعليم» تعكس كثافة دبلومات الدراسات العليا التربوية أكثر من كثافة رسائل بحثية في كليات التربية وحدها.
+      للباحثين في العلوم التطبيقية، راقبوا أيضاً الصحة + الإنتاج البحثي (القسم 7).
+    </p>
+
+    <h2>6) أكثر الجامعات (حسب الدرجات العليا الممنوحة)</h2>
+
+    <h3>2024 — أعلى الجامعات في منح الدرجات العليا</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>الجامعة</th>
+          <th>درجات عليا ممنوحة</th>
+          <th>من الإجمالي الوطني</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>1</td><td>عين شمس</td><td class="num">10.1 ألف</td><td class="num">8.2%</td></tr>
+        <tr><td>2</td><td>القاهرة</td><td class="num">9.4 ألف</td><td class="num">7.6%</td></tr>
+        <tr><td>3</td><td>المنصورة</td><td class="num">8.8 ألف</td><td class="num">7.1%</td></tr>
+        <tr><td>4</td><td>الزقازيق</td><td class="num">8.3 ألف</td><td class="num">6.8%</td></tr>
+      </tbody>
+    </table>
+
+    <h3>2023 — أعلى الجامعات</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>الجامعة</th>
+          <th>درجات عليا ممنوحة</th>
+          <th>من الإجمالي الوطني</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>1</td><td>الزقازيق</td><td class="num">9.0 ألف</td><td class="num">9.0%</td></tr>
+        <tr><td>2</td><td>المنصورة</td><td class="num">7.8 ألف</td><td class="num">7.7%</td></tr>
+        <tr><td>3</td><td>عين شمس</td><td class="num">7.2 ألف</td><td class="num">7.1%</td></tr>
+        <tr><td>4</td><td>مدينة السادات</td><td class="num">7.1 ألف</td><td class="num">7.1%</td></tr>
+      </tbody>
+    </table>
+    <p class="src">المصدر: CAPMAS (ملخصات 2023 و2024).</p>
+    <p class="note">
+      جامعة مدينة السادات تظهر بقوة في منح الدرجات (غالباً برامج دبلوم/مهنية مكثفة) لكنها ليست في صدارة الإنتاج البحثي الدولي — لذلك نفصل مقياس «القيد/المنح» عن «النشر».
+    </p>
+
+    <h2>7) الإنتاج البحثي كمؤشر مكمّل (OpenAlex — محدّث 2026)</h2>
+    <p>
+      OpenAlex لا يعطي أعداد مقيدين، لكنه يقيس حجم المجتمع البحثي والنشر المرتبط بمصر.
+      الاستعلام بتاريخ إعداد الملف عبر API العام.
+    </p>
+
+    <h3>7.1 أكثر المجالات نشراً (أعمال مرتبطة بمؤسسات مصر)</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>المجال (OpenAlex Field)</th>
+          <th>عدد الأعمال</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>1</td><td>الطب Medicine</td><td class="num">206,373</td></tr>
+        <tr><td>2</td><td>الهندسة Engineering</td><td class="num">113,971</td></tr>
+        <tr><td>3</td><td>الزراعة والعلوم البيولوجية</td><td class="num">81,548</td></tr>
+        <tr><td>4</td><td>الكيمياء الحيوية / الوراثة / البيولوجيا الجزيئية</td><td class="num">50,137</td></tr>
+        <tr><td>5</td><td>علوم المواد</td><td class="num">44,094</td></tr>
+        <tr><td>6</td><td>علوم الحاسب</td><td class="num">38,688</td></tr>
+        <tr><td>7</td><td>الكيمياء</td><td class="num">35,191</td></tr>
+        <tr><td>8</td><td>العلوم البيئية</td><td class="num">34,746</td></tr>
+        <tr><td>9</td><td>العلوم الاجتماعية</td><td class="num">21,830</td></tr>
+        <tr><td>10</td><td>الفيزياء والفلك</td><td class="num">18,083</td></tr>
+      </tbody>
+    </table>
+    <p class="src">المصدر: <a href="https://api.openalex.org/works?filter=institutions.country_code:eg&amp;group_by=primary_topic.field.id" rel="noopener">OpenAlex API — works · country eg · group by field</a></p>
+
+    <h3>7.2 أكثر المؤسسات إنتاجاً (works_count)</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>المؤسسة</th>
+          <th>أعمال</th>
+          <th>استشهادات</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>1</td><td>جامعة القاهرة</td><td class="num">135,737</td><td class="num">3,847,454</td></tr>
+        <tr><td>2</td><td>جامعة عين شمس</td><td class="num">91,123</td><td class="num">2,004,974</td></tr>
+        <tr><td>3</td><td>جامعة الإسكندرية</td><td class="num">71,309</td><td class="num">1,890,217</td></tr>
+        <tr><td>4</td><td>جامعة المنصورة</td><td class="num">70,233</td><td class="num">2,040,533</td></tr>
+        <tr><td>5</td><td>جامعة الزقازيق</td><td class="num">51,019</td><td class="num">1,407,223</td></tr>
+        <tr><td>6</td><td>المركز القومي للبحوث</td><td class="num">50,699</td><td class="num">1,843,080</td></tr>
+        <tr><td>7</td><td>جامعة أسيوط</td><td class="num">48,016</td><td class="num">1,177,692</td></tr>
+        <tr><td>8</td><td>جامعة الأزهر</td><td class="num">47,832</td><td class="num">1,217,734</td></tr>
+        <tr><td>9</td><td>جامعة طنطا</td><td class="num">39,623</td><td class="num">1,065,393</td></tr>
+        <tr><td>10</td><td>جامعة المنوفية</td><td class="num">34,379</td><td class="num">800,847</td></tr>
+        <tr><td>11</td><td>جامعة بنها</td><td class="num">34,018</td><td class="num">626,135</td></tr>
+        <tr><td>12</td><td>مركز البحوث الزراعية</td><td class="num">30,686</td><td class="num">378,116</td></tr>
+        <tr><td>13</td><td>جامعة قناة السويس</td><td class="num">27,379</td><td class="num">653,681</td></tr>
+        <tr><td>14</td><td>جامعة حلوان</td><td class="num">26,889</td><td class="num">481,262</td></tr>
+        <tr><td>15</td><td>جامعة المنيا</td><td class="num">25,557</td><td class="num">674,800</td></tr>
+      </tbody>
+    </table>
+    <p class="src">المصدر: <a href="https://api.openalex.org/institutions?filter=country_code:eg&amp;sort=works_count:desc" rel="noopener">OpenAlex API — institutions · eg · sort works_count</a></p>
+
+    <h3>7.3 مؤلفون مرتبطون بآخر مؤسسة معروفة في مصر</h3>
+    <p>إجمالي تقريبي للمؤلفين في الفلتر: <strong>~409,929</strong>. أعلى الجامعات بعدد المؤلفين:</p>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>الجامعة / المؤسسة</th>
+          <th>مؤلفون (آخر مؤسسة معروفة)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>1</td><td>جامعة القاهرة</td><td class="num">45,904</td></tr>
+        <tr><td>2</td><td>جامعة عين شمس</td><td class="num">40,138</td></tr>
+        <tr><td>3</td><td>جامعة الإسكندرية</td><td class="num">26,508</td></tr>
+        <tr><td>4</td><td>جامعة المنصورة</td><td class="num">23,662</td></tr>
+        <tr><td>5</td><td>جامعة الأزهر</td><td class="num">23,526</td></tr>
+        <tr><td>6</td><td>جامعة الزقازيق</td><td class="num">21,008</td></tr>
+        <tr><td>7</td><td>جامعة أسيوط</td><td class="num">16,497</td></tr>
+        <tr><td>8</td><td>جامعة طنطا</td><td class="num">16,456</td></tr>
+        <tr><td>9</td><td>جامعة بنها</td><td class="num">14,940</td></tr>
+        <tr><td>10</td><td>جامعة المنوفية</td><td class="num">14,612</td></tr>
+      </tbody>
+    </table>
+    <p class="src">المصدر: <a href="https://api.openalex.org/authors?filter=last_known_institutions.country_code:eg&amp;group_by=last_known_institutions.id" rel="noopener">OpenAlex API — authors · last_known_institutions eg</a></p>
+    <p class="note">يشمل المؤلفين عبر الزمن وليس «المقيدين حالياً» فقط؛ مفيد لترتيب حجم القاعدة البحثية لا لحجم الدفعة السنوية.</p>
+
+    <h2>8) ترتيب SCImago للجامعات المصرية (إنتاج وبحث)</h2>
+    <h3>ترتيب الجامعات — إصدار 2026 (قطاع التعليم العالي)</h3>
+    <table>
+      <thead>
+        <tr>
+          <th># وطني</th>
+          <th>الجامعة</th>
+          <th>الترتيب العالمي (تقريبي)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>1</td><td>جامعة القاهرة</td><td class="num">997</td></tr>
+        <tr><td>2</td><td>جامعة عين شمس</td><td class="num">2,285</td></tr>
+        <tr><td>3</td><td>جامعة المنصورة</td><td class="num">2,314</td></tr>
+        <tr><td>4</td><td>جامعة الإسكندرية</td><td class="num">2,524</td></tr>
+        <tr><td>5</td><td>جامعة الزقازيق</td><td class="num">2,907</td></tr>
+        <tr><td>6</td><td>جامعة المستقبل</td><td class="num">3,445</td></tr>
+        <tr><td>7</td><td>جامعة المنيا</td><td class="num">3,557</td></tr>
+        <tr><td>8</td><td>جامعة كفر الشيخ</td><td class="num">3,829</td></tr>
+        <tr><td>9</td><td>جامعة أسيوط</td><td class="num">4,029</td></tr>
+        <tr><td>10</td><td>جامعة طنطا</td><td class="num">4,228</td></tr>
+      </tbody>
+    </table>
+    <p class="src">المصدر: <a href="https://www.scimagoir.com/rankings.php?area=all&amp;country=EGY&amp;sector=Higher+educ." rel="noopener">SCImago Institutions Rankings — Egypt · Higher education · 2026</a></p>
+
+    <h2>9) قراءة موحّدة لـ AcadeGate (من يُستهدف؟)</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>السؤال</th>
+          <th>الإجابة من البيانات</th>
+          <th>المقياس الأفضل</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>كم باحث دراسات عليا تقريباً؟</td>
+          <td>≈ <strong>137 ألف</strong> مقيد ماجستير+دكتوراه (2024، تقدير من نسب CAPMAS)</td>
+          <td>قيد CAPMAS بدون دبلوم</td>
+        </tr>
+        <tr>
+          <td>أكثر المجالات منحاً؟</td>
+          <td>التعليم ثم الأعمال/القانون ثم الصحة</td>
+          <td>درجات CAPMAS (تشمل دبلوم)</td>
+        </tr>
+        <tr>
+          <td>أكثر المجالات بحثاً منشوراً؟</td>
+          <td>الطب ثم الهندسة ثم الزراعة/الأحياء</td>
+          <td>OpenAlex fields</td>
+        </tr>
+        <tr>
+          <td>أكبر الجامعات حجماً بحثياً؟</td>
+          <td>القاهرة، عين شمس، الإسكندرية، المنصورة، الزقازيق</td>
+          <td>OpenAlex + SCImago</td>
+        </tr>
+        <tr>
+          <td>أكبر الجامعات منحاً لدرجات عليا 2024؟</td>
+          <td>عين شمس، القاهرة، المنصورة، الزقازيق</td>
+          <td>CAPMAS degrees</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>
+      توصية تشغيل سابقة متسقة مع هذه البيانات (لتركيز الإطلاق):
+      كليات علمية — <strong>الطب، الهندسة، العلوم</strong>؛
+      أدبية/تربوية — <strong>التربية، الآداب</strong>
+      (التربية ضخمة في المنح؛ الآداب ضمن الفنون والعلوم الإنسانية في خريجي التعليم العالي).
+    </p>
+
+    <h2>10) ما ينقص حتى يكتمل «كل الجامعات × كل التخصصات»</h2>
+    <ul>
+      <li>جداول CAPMAS التفصيلية داخل النشرة الكاملة (PDF/Excel المؤرشف) وليست الملخص الصحفي فقط.</li>
+      <li>إحصاءات المجلس الأعلى للجامعات / وزارة التعليم العالي حسب الكلية والدرجة — غالباً غير منشورة كـ API مفتوح.</li>
+      <li>نشرة 2025 عند صدورها (متوقع منطقياً أواخر 2026) لاستبدال صف 2024.</li>
+      <li>فصل صريح ماجستير vs دكتوراه لكل جامعة في الملخصات العامة (غير متوفر حالياً في البيانات الصحفية).</li>
+    </ul>
+
+    <h2>11) المراجع والروابط</h2>
+    <ol class="refs">
+      <li>
+        الجهاز المركزي للتعبئة العامة والإحصاء — النشرة السنوية لخريجي التعليم العالي والدرجات العلمية العليا عام 2024
+        (ملخص منشور 25/12/2025 عبر بوابة الأهرام وغيرها):
+        <a href="https://gate.ahram.org.eg/News/5368591.aspx">gate.ahram.org.eg/News/5368591.aspx</a>
+      </li>
+      <li>
+        ملخصات صحفيّة لنشرة 2023 (مقيدون 227.3 ألف؛ درجات 100.5 ألف؛ ترتيب الجامعات والمجالات)، مثال:
+        <a href="https://www.masrtimes.com/473800">masrtimes.com/473800</a>
+      </li>
+      <li>
+        فهرس بيانات CAPMAS للنشرات السابقة (2021/2022 وما يليها):
+        <a href="https://censusinfo.capmas.gov.eg/Metadata-ar-v4.2/index.php/catalog">censusinfo.capmas.gov.eg</a>
+      </li>
+      <li>
+        OpenAlex — أعمال ومؤسسات ومؤلفون (مصر):
+        <a href="https://openalex.org">openalex.org</a> · API:
+        <code>institutions.country_code:eg</code>
+      </li>
+      <li>
+        SCImago Institutions Rankings — مصر 2025/2026:
+        <a href="https://www.scimagoir.com/rankings.php?country=EGY">scimagoir.com · Egypt</a>
+      </li>
+    </ol>
+
+    <footer>
+      ملف داخلي لـ AcadeGate · لا يُعد بديلاً عن النشرة الرسمية الكاملة لـ CAPMAS ·
+      يُحدَّث عند صدور نشرة 2025 أو عند طلب مزامنة OpenAlex جديدة.
+      ملف رقمي مرافق: <code>docs/EGYPT_POSTGRAD_RESEARCHERS_AR.json</code>
+    </footer>
+  </div>
+</body>
+</html>

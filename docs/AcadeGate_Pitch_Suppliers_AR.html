@@ -268,14 +268,67 @@
       }
       .cover { min-height: 100vh; }
     }
+  
+    .link-banner {
+      position: sticky; top: 8px; z-index: 30;
+      background: linear-gradient(105deg, #071433 0%, #0b1f4d 45%, #0f766e 100%);
+      color: #fff; padding: 14px 18px; border-radius: 16px;
+      margin: 0 0 18px; display: flex; flex-wrap: wrap; gap: 10px 18px;
+      align-items: center; justify-content: space-between;
+      box-shadow: 0 12px 32px rgba(11, 31, 77, 0.28);
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+    .link-banner .lb-title { font-weight: 800; font-size: 13pt; }
+    .link-banner .lb-meta { opacity: 0.9; font-size: 10.5pt; }
+    .link-banner a {
+      color: #fde68a; font-weight: 800; text-decoration: none;
+      border-bottom: 1px solid rgba(253,230,138,0.55);
+    }
+    .link-banner .lb-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+    .link-banner .lb-btn {
+      display: inline-block; background: #fbbf24; color: #071433 !important;
+      border: none; border-radius: 999px; padding: 8px 14px; font-weight: 800;
+      border-bottom: none !important; font-size: 11pt;
+    }
+    .link-banner .lb-btn.secondary {
+      background: rgba(255,255,255,0.12); color: #fff !important;
+      border: 1px solid rgba(255,255,255,0.28);
+    }
+    .link-banner .lb-brand { display: flex; align-items: center; gap: 12px; }
+    .link-banner .lb-logo {
+      width: 52px; height: 52px; border-radius: 50%; display: block; background: #fff;
+    }
+    .cover-logo {
+      width: 88px; height: 88px; border-radius: 50%; display: block; margin-bottom: 18px;
+    }
+    @media print { .link-banner { position: static; box-shadow: none; } }
+
   </style>
 </head>
 <body>
 <div class="deck">
 
+  <div class="link-banner" role="banner">
+    <div class="lb-brand">
+      <a href="https://acadegate-new--v20261002-tp9dbk1c.web.app" target="_blank" rel="noopener"><img class="lb-logo" src="../Assets/images/acadegate_logo.png" alt="AcadeGate" width="52" height="52" /></a>
+      <div>
+        <div class="lb-title">AcadeGate — عرض شراكة الموردين والتجار</div>
+        <div class="lb-meta">منصة للباحثين · سجّلوا متجركم وابدأوا استقبال الطلبات</div>
+      </div>
+    </div>
+    <div class="lb-actions">
+      <a class="lb-btn" href="https://acadegate-new--v20261002-tp9dbk1c.web.app" target="_blank" rel="noopener">فتح المنصة</a>
+      <a class="lb-btn secondary" href="https://acadegate-new--v20261002-tp9dbk1c.web.app/register" target="_blank" rel="noopener">التسجيل</a>
+      <a class="lb-btn secondary" href="https://acadegate-new--v20261002-tp9dbk1c.web.app/login" target="_blank" rel="noopener">الدخول</a>
+      <a class="lb-btn secondary" href="tel:+201044339033">01044339033</a>
+      <a class="lb-btn secondary" href="https://acadegate-new.firebaseapp.com/register" target="_blank" rel="noopener">بديل واتساب</a>
+    </div>
+  </div>
+
   <!-- 1 غلاف -->
   <section class="slide cover">
     <div>
+      <a href="https://acadegate-new--v20261002-tp9dbk1c.web.app" target="_blank" rel="noopener"><img class="cover-logo" src="../Assets/images/acadegate_logo.png" alt="AcadeGate" width="88" height="88" /></a>
       <div class="eyebrow">عرض شراكة مخصص · فئة الموردين والتجار</div>
       <h1>AcadeGate</h1>
       <div class="tagline">بوابتك للوصول إلى باحثي وطلاب الدراسات العليا في مكان واحد</div>
@@ -286,8 +339,8 @@
       </p>
       <div class="cover-meta">
         <span class="pill">فكرة المنصة أولاً · ثم عرض المورد</span>
-        <span class="pill">مستجدات: Hub · عربة · RFQ</span>
-        <span class="pill">محدّث سبتمبر 2026 · https://acadegate-new.web.app</span>
+        <span class="pill">عربة وطلب عرض سعر</span>
+        <span class="pill">شراكة حسب الاتفاق</span>
       </div>
     </div>
     <div style="opacity:0.85;font-size:11pt;">
@@ -299,13 +352,13 @@
   <section class="slide">
     <div class="slide-inner toc">
       <h2>ماذا ستجد في هذا العرض؟</h2>
-      <p class="lead">نبدأ بفكرة التطبيق والجمهور — ثم المتجر والمستجدات — ثم الشراكة والإيرادات.</p>
+      <p class="lead">نبدأ بفكرة التطبيق والجمهور، ثم المتجر، ثم الشراكة.</p>
       <ol>
         <li>فكرة AcadeGate ورحلة الباحث (لماذا يوجد متجر أصلاً؟)</li>
         <li>لماذا هذه فرصة للمورد؟</li>
         <li>ماذا تقدّم المنصة ككل (البوابتان والخدمات)</li>
-        <li>مستجدات المتجر (Hub · عربة · RFQ · متاجر موردين…)</li>
-        <li>١٥ قسماً + ماذا تنشر كمنتج؟</li>
+        <li>أدوات المتجر: بحث، عربة، طلب عرض سعر، وصفحة المورد</li>
+        <li>١٦ قسماً + ماذا تنشر كمنتج؟</li>
         <li>دورة الطلب والضمان Escrow</li>
         <li>آلية الشراكة · ماذا تفعل داخل التطبيق</li>
         <li>نموذج الإيرادات + بدائل ومقترحات</li>
@@ -352,7 +405,7 @@
       <div class="grid-3">
         <div class="stat"><strong>عميل مقصود</strong><span>باحث يبحث عن منتج محدد، لا متصفح عشوائي</span></div>
         <div class="stat"><strong>ثقة أعلى</strong><span>ضمان حجز المبلغ حتى تأكيد الاستلام</span></div>
-        <div class="stat"><strong>ظهور متخصص</strong><span>١٥ قسماً أكاديمياً لا منافسة «سوبر ماركت»</span></div>
+        <div class="stat"><strong>ظهور متخصص</strong><span>١٦ قسماً أكاديمياً لا منافسة «سوبر ماركت»</span></div>
       </div>
       <div class="callout" style="margin-top:22px;">
         <strong>الجملة التي تهمّك:</strong>
@@ -408,14 +461,14 @@
     </div>
   </section>
 
-  <!-- مستجدات المتجر -->
+  <!-- أدوات المتجر -->
   <section class="slide">
     <div class="slide-inner">
-      <h2>٤ — مستجدات المتجر (ما تغيّر للمورد والمشتري)</h2>
-      <p class="lead">تطويرات حديثة تجعل تجربة السوق أقرب للمنصات التجارية — مع هوية أكاديمية.</p>
+      <h2>٤ — أدوات المتجر</h2>
+      <p class="lead">ما يراه الباحث، وما تديرونه أنتم من صفحة المتجر.</p>
       <div class="grid-2">
         <div class="why-card">
-          <h4>واجهة سوق (Store Hub)</h4>
+          <h4>واجهة السوق</h4>
           <p>بحث · الأكثر طلباً · جديد هذا الأسبوع · أقسام · موردون موثّقون</p>
         </div>
         <div class="why-card">
@@ -427,16 +480,16 @@
           <p>توفر · شحن · موثّق · نقاء · سعر · مدينة · صفحة كتالوج لكل بائع</p>
         </div>
         <div class="why-card">
-          <h4>عربة + RFQ + توصيات</h4>
-          <p>Escrow متعدد الموردين · طلب عرض سعر · «معدات تناسب رسالتك»</p>
+          <h4>عربة وطلب عرض سعر</h4>
+          <p>سلة من أكثر من مورد · طلب عرض سعر للكميات · اقتراح معدات تناسب البحث</p>
         </div>
         <div class="why-card">
           <h4>شارات ثقة</h4>
           <p>موثّق · مستورد رسمي · ملاءمة مختبر جامعي · كميات بحثية</p>
         </div>
         <div class="why-card">
-          <h4>تصميم + أمان + قانوني</h4>
-          <p>جلد ماركت بليس · قواعد طلبات مشدّدة · خصوصية وشروط محدّثة مع موافقة عند التسجيل</p>
+          <h4>مراجعة قبل الظهور</h4>
+          <p>المنتج يمر بمراجعة الإدارة قبل أن يراه الباحث، حتى يبقى القسم جاداً.</p>
         </div>
       </div>
     </div>
@@ -491,19 +544,19 @@
       <table>
         <tr><th>الحقل</th><th>إلزامي؟</th><th>التفاصيل</th></tr>
         <tr><td>اسم المنتج</td><td>نعم</td><td>يظهر في القائمة والبحث</td></tr>
-        <tr><td>السعر</td><td>نعم</td><td>بالجنيه المصري · يُثبَّت من الخادم عند إنشاء الطلب (لا تلاعب من العميل)</td></tr>
+        <tr><td>السعر</td><td>نعم</td><td>بالجنيه المصري · السعر الذي تنشرونه هو الذي يُثبَّت في الطلب</td></tr>
         <tr><td>القسم / التصنيف</td><td>نعم</td><td>أحد الأقسام الخمسة عشر أعلاه</td></tr>
         <tr><td>الوصف</td><td>مستحسن</td><td>مواصفات، وحدة، درجة نقاء، شروط الاستخدام</td></tr>
         <tr><td>اسم المتجر / العلامة</td><td>مستحسن</td><td>يبني تعرّف علامتك داخل المنصة</td></tr>
         <tr><td>وسائل التواصل</td><td>مستحسن</td><td>هاتف / واتساب / بريد — للتواصل والتنسيق</td></tr>
-        <tr><td>صورة المنتج</td><td>مستحسن جداً</td><td>رفع عبر التخزين السحابي للمنصة</td></tr>
+        <tr><td>صورة المنتج</td><td>مستحسن جداً</td><td>ترفعونها مع المنتج</td></tr>
       </table>
       <h3>٣.٤ حقول إضافية (للدليل والكتالوج المتقدم)</h3>
       <ul>
         <li>SKU · العلامة التجارية · العملة</li>
         <li>موقع إلكتروني · رابط مصدر · رقم واتساب مخصص</li>
         <li>شارة بائع موثّق · حالة التوفر</li>
-        <li>وضع «دليل موردين» (Directory Listing): عرض للتواصل دون شراء Escrow داخل التطبيق — مناسب للكتالوج الكبير أو الاستيراد من متجرك الحالي</li>
+        <li>وضع دليل الموردين: ظهور للتواصل دون إتمام الشراء داخل التطبيق — مناسب للكتالوج الكبير</li>
       </ul>
       <div class="callout">
         <strong>مراجعة الجودة:</strong>
@@ -516,7 +569,7 @@
         <li>يتصفح منتجات القسم المعتمدة</li>
         <li>يفتح صفحة المنتج: صورة، سعر، وصف، بيانات البائع</li>
         <li>ينشئ طلباً (بعد تسجيل الدخول) أو يتواصل معك عبر الرسائل / بيانات التواصل</li>
-        <li>يدفع عبر المسار المتاح (تحويل يدوي حالياً · Paymob جاهز تقنياً)</li>
+        <li>يدفع بتحويل يدوي الآن، والدفع الإلكتروني عند التفعيل المتفق عليه</li>
         <li>بعد الاستلام يؤكد التسليم ليُفرَج المبلغ المحجوز</li>
       </ol>
     </div>
@@ -532,9 +585,9 @@
       </p>
       <h3>٤.١ دورة الطلب كاملة</h3>
       <div class="flow">
-        <div class="flow-step"><span class="num">1</span><b>إنشاء طلب</b>المشتري يختار المنتج · السعر يُقرأ من قاعدة البيانات</div>
-        <div class="flow-step"><span class="num">2</span><b>دفع / تحويل</b>يدوي الآن أو Paymob عند التفعيل</div>
-        <div class="flow-step"><span class="num">3</span><b>حجز المبلغ</b>حالة paid_held · أنت تؤكد استلام التحويل اليدوي</div>
+        <div class="flow-step"><span class="num">1</span><b>إنشاء طلب</b>المشتري يختار المنتج بالسعر المنشور</div>
+        <div class="flow-step"><span class="num">2</span><b>دفع / تحويل</b>يدوي الآن · إلكتروني عند التفعيل</div>
+        <div class="flow-step"><span class="num">3</span><b>حجز المبلغ</b>أنتم تؤكدون استلام التحويل</div>
         <div class="flow-step"><span class="num">4</span><b>التنفيذ</b>تشحن / تسلّم المنتج وتتواصل داخل التطبيق</div>
         <div class="flow-step"><span class="num">5</span><b>الإفراج</b>المشتري يؤكد الاستلام · تُحرَّر القيمة للبائع</div>
       </div>
@@ -543,19 +596,19 @@
         <div>
           <h4>حالات الدفع</h4>
           <ul>
-            <li><strong>pending_payment</strong> — طلب أُنشئ ولم يُحجز بعد</li>
-            <li><strong>paid_held</strong> — محجوز / تحويل مؤكد</li>
-            <li><strong>released</strong> — أُفرج للبائع بعد تأكيد الاستلام</li>
-            <li><strong>refunded</strong> — مسار استرداد عند الحاجة</li>
+            <li><strong>بانتظار الدفع</strong> — طلب أُنشئ ولم يُؤكد التحويل</li>
+            <li><strong>محجوز</strong> — التحويل مؤكد والمبلغ في مسار الضمان</li>
+            <li><strong>مُفرج</strong> — بعد تأكيد الاستلام</li>
+            <li><strong>مسترد</strong> — عند الحاجة وفق الاتفاق</li>
           </ul>
         </div>
         <div>
           <h4>حالات الطلب</h4>
           <ul>
-            <li><strong>pending</strong> — بانتظار الدفع/التأكيد</li>
-            <li><strong>paid</strong> — البائع أكّد التحويل اليدوي</li>
-            <li><strong>delivered</strong> — المشتري أكّد الاستلام</li>
-            <li><strong>cancelled</strong> — إلغاء وفق القواعد</li>
+            <li><strong>بانتظار التأكيد</strong> — الطلب جديد</li>
+            <li><strong>مدفوع</strong> — البائع أكّد التحويل</li>
+            <li><strong>تم التسليم</strong> — المشتري أكّد الاستلام</li>
+            <li><strong>ملغى</strong> — وفق الاتفاق</li>
           </ul>
         </div>
       </div>
@@ -564,14 +617,14 @@
         <tr><th>الإجراء</th><th>المسؤول</th><th>لماذا؟</th></tr>
         <tr><td>إنشاء الطلب</td><td>المشتري</td><td>لا يمر طلب بدون حساب مسجّل</td></tr>
         <tr><td>تأكيد استلام التحويل اليدوي</td><td><strong>أنت (البائع)</strong></td><td>أنت من يستلم التحويل البنكي/إنستاباي</td></tr>
-        <tr><td>الدفع الإلكتروني Paymob</td><td>المشتري + النظام</td><td>لا يمكن تزوير حالة الدفع من التطبيق</td></tr>
-        <tr><td>تأكيد التسليم وإفراج الضمان</td><td>المشتري (دالة سحابية)</td><td>يحميك من إفراج مبكر غير مشروع</td></tr>
+        <tr><td>الدفع الإلكتروني</td><td>المشتري</td><td>عند التفعيل المتفق عليه</td></tr>
+        <tr><td>تأكيد التسليم وإفراج الضمان</td><td>المشتري</td><td>الإفراج بعد تأكيد الاستلام</td></tr>
         <tr><td>المراسلة</td><td>الطرفان</td><td>محادثات داخل المنصة بسجل واضح</td></tr>
       </table>
       <div class="callout callout-gold">
         <strong>رسالة تطمئن المورد:</strong>
-        السعر لا يُؤخذ من شاشة العميل كما يشاء — النظام يثبّت سعر المنتج من قاعدتك.
-        والإفراج النهائي مربوط بتأكيد الاستلام، لا برغبة طرف واحد بلا أثر.
+        السعر في الطلب هو السعر الذي نشرتموه.
+        والإفراج النهائي بعد تأكيد الاستلام.
       </div>
     </div>
   </section>
@@ -584,12 +637,12 @@
       <h3>٥.١ ماذا نقدّم نحن</h3>
       <ul>
         <li>قناة وصول مباشرة لطلاب الدراسات العليا والباحثين ومسؤولي المختبرات</li>
-        <li>١٥ قسماً تصنيفياً أكاديمياً + بحث داخل المنصة</li>
+        <li>١٦ قسماً تصنيفياً أكاديمياً + بحث داخل المنصة</li>
         <li>بوابة مقدم خدمة: منتجاتك + الطلبات الواردة + الرسائل</li>
         <li>نظام ضمان Escrow يقلل اعتراضات «دفعت ولم يصل» / «وصلت ولم أدفع»</li>
         <li>مراجعة محتوى قبل النشر (حماية سمعة الجميع)</li>
         <li>إمكانية الظهور ضمن مسار البحث الذكي كجزء من حزمة الباحث</li>
-        <li>إمكانية استيراد/مزامنة كتالوج (مسار إداري — WooCommerce وغيره حسب الاتفاق)</li>
+        <li>إمكانية استيراد كتالوج جاهز بالتنسيق معنا</li>
         <li>مساحات إعلان على الصفحة الرئيسية (للشركاء المميزين — عبر إدارة المنصة)</li>
       </ul>
       <h3>٥.٢ ماذا تقدّم أنت</h3>
@@ -603,12 +656,12 @@
       <h3>٥.٣ نموذج العلاقة</h3>
       <table>
         <tr><th>البند</th><th>الوضع الحالي / المقترح</th></tr>
-        <tr><td>التسجيل</td><td>حساب بدور <strong>تاجر (merchant)</strong> من التطبيق → بوابة مقدم الخدمة</td></tr>
+        <tr><td>التسجيل</td><td>حساب بدور تاجر من التطبيق، ثم بوابة مقدم الخدمة</td></tr>
         <tr><td>نشر المنتجات</td><td>حرّ داخل بوابة المورد · يظهر بعد موافقة الإدارة</td></tr>
         <tr><td>ملكية العميل</td><td>الطلب والرسالة داخل المنصة · علامتك ظاهرة على المنتج</td></tr>
         <tr><td>التسعير</td><td>أنت تسعّر بالكامل · لا تسعير إجباري من المنصة</td></tr>
         <tr><td>العمولة</td><td>مقترح تشغيلي <strong>٥–١٥٪</strong> على قيمة الطلب (انظر الشريحة التالية) — غير مخصومة تلقائياً من بوابة الدفع حالياً</td></tr>
-        <tr><td>المدة</td><td>شراكة مرنة للتجربة (Pilot) ثم عقد أوضح عند التوسع</td></tr>
+        <tr><td>المدة</td><td>فترة تجربة ثم اتفاق أوضح عند التوسع</td></tr>
       </table>
     </div>
   </section>
@@ -617,21 +670,17 @@
   <section class="slide">
     <div class="slide-inner">
       <h2>٨ — ماذا تفعل داخل التطبيق عملياً؟</h2>
-      <h3>٦.١ مسار المورد: مطالبة الملف ثم إدارة الكتالوج</h3>
+      <h3>٦.١ مسار المورد</h3>
       <ol>
-        <li>إنشاء حساب واختيار دور <strong>تاجر / مورد (merchant)</strong> — بدون هذا الدور لن يظهر زر المطالبة</li>
-        <li>من المتجر افتح <strong>صفحة موردك في الدليل</strong> (ابحث باسم شركتك)</li>
-        <li>اضغط <strong>مطالبة هذا الملف (Claim this profile)</strong></li>
-        <li>عبّئ الاسم القانوني وصفتك والبريد الرسمي، وارفع <strong>إثبات تمثيل إلزامي</strong> (سجل تجاري / خطاب / بطاقة)</li>
-        <li>انتظر مراجعة AcadeGate — يصلك إشعار عند الموافقة أو الرفض</li>
-        <li>بعد الاعتماد تظهر حالة <strong>موثّق ومُدار (Managed Verified)</strong></li>
-        <li>من زر <strong>ترتيب بيانات الملف</strong> حدّث التواصل والوصف، ثم <strong>أضف منتجات/صوراً</strong> (ترتبط تلقائياً بصفحة موردك)</li>
-        <li>بديل/مكمل: بوابة مقدم الخدمة → <strong>متجري</strong> لإدارة المنتجات والطلبات الواردة</li>
-        <li>التواصل مع المشتري · تأكيد التحويل اليدوي · تجهيز الشحنة · إغلاق الضمان بعد الاستلام</li>
+        <li>إنشاء حساب واختيار دور تاجر</li>
+        <li>إن ظهرت شركتكم في الدليل، افتحوا الصفحة وطالبوا بالملف، ثم أرسلوا إثبات التمثيل (سجل تجاري أو خطاب أو بطاقة)</li>
+        <li>بعد المراجعة تظهر شارة موثّق، وتحدّثون التواصل والوصف وتضيفون المنتجات</li>
+        <li>من بوابة مقدم الخدمة افتحوا «متجري» لإدارة المنتجات والطلبات الواردة</li>
+        <li>راسلوا المشتري، وأكّدوا التحويل، وجهّزوا الشحنة</li>
       </ol>
       <div class="callout" style="margin-top:14px;">
         <strong>مهم:</strong>
-        الدليل العام ليس اعتماداً. شارة «موثّق» تظهر فقط بعد التحقق من تمثيلك للمنشأة (Managed Verified).
+        وجود الاسم في الدليل لا يعني الاعتماد. شارة «موثّق» تظهر بعد التحقق من أنكم تمثّلون المنشأة.
       </div>
       <h3>٦.٢ شاشة «متجري» تتضمن</h3>
       <div class="grid-2">
@@ -655,8 +704,7 @@
       </div>
       <div class="callout" style="margin-top:18px;">
         <strong>لا تحتاج موقعاً جديداً من الصفر:</strong>
-        إن كان لديك متجر WooCommerce أو كتالوج جاهز، يمكن بحث مسار استيراد/مزامنة عبر الإدارة
-        لملء المنصة بسرعة بدل الإدخال اليدوي لكل صنف.
+        إن كان لديكم كتالوج جاهز، ننسّق استيراده بدل إدخال كل صنف يدوياً.
       </div>
     </div>
   </section>
@@ -664,20 +712,20 @@
   <!-- الإيرادات -->
   <section class="slide">
     <div class="slide-inner">
-      <h2>٩ — نموذج الإيرادات بشفافية (الوضع والمقترح الأساسي)</h2>
-      <p class="lead">نوضح الوضع كما هو في المنتج اليوم، وما هو مقترح للشراكة التجارية — بلا مبالغة.</p>
-      <h3>٩.١ ما يعمل اليوم</h3>
+      <h2>٩ — نموذج الإيرادات (مقترح للشراكة)</h2>
+      <p class="lead">المقترح التجاري قابل للنقاش، ويُثبَّت في الاتفاق قبل أي خصم.</p>
+      <h3>٩.١ الدفع الآن</h3>
       <ul>
-        <li>إنشاء منتجات وطلبات داخل Firestore + عربة متعددة الموردين</li>
-        <li>تحويل يدوي + تأكيد البائع + ضمان حتى تأكيد الاستلام</li>
-        <li>تكامل Paymob موجود في البنية ويمكن تفعيله بعد الترتيبات القانونية</li>
+        <li>منتجات وطلبات وعربة من أكثر من مورد</li>
+        <li>تحويل يدوي تؤكدونه، ثم تسليم، ثم تأكيد الاستلام</li>
+        <li>الدفع الإلكتروني عند التفعيل المتفق عليه</li>
       </ul>
       <h3>٩.٢ المقترح التجاري الأساسي</h3>
       <table>
         <tr><th>البند</th><th>المقترح</th><th>ملاحظات للمورد</th></tr>
         <tr><td>عمولة على طلب Escrow ناجح</td><td>٥–١٥٪ من قيمة المنتج</td><td>تُناقش حسب حجم الكتالوج ومعدل الدوران</td></tr>
         <tr><td>مثال توضيحي</td><td>طلب ٨٠٠ ج.م × ٨٪ ≈ ٦٤ ج.م</td><td>للمنصة · صافيك بعد الاتفاق</td></tr>
-        <tr><td>دليل Directory (تواصل فقط)</td><td>مجاني أو اشتراك خفيف</td><td>لا عمولة شراء إن لم يمر عبر Escrow</td></tr>
+        <tr><td>دليل للتواصل فقط</td><td>مجاني أو اشتراك خفيف</td><td>لا عمولة شراء إن لم يمر الطلب عبر المنصة</td></tr>
         <tr><td>استيراد كتالوج</td><td>رسوم مشروع لمرة واحدة (اختياري)</td><td>عند مزامنة متجر كبير</td></tr>
       </table>
       <div class="callout callout-gold">
@@ -692,7 +740,7 @@
   <section class="slide">
     <div class="slide-inner">
       <h2>٩ — مقترحات إضافية لنموذج الإيرادات</h2>
-      <p class="lead">لا نعتمد على عمولة واحدة فقط — مزيج Marketplace + SaaS أنسب للنمو والاستدامة.</p>
+      <p class="lead">يمكن الجمع بين أكثر من بند، حسب حجم الكتالوج ونوع الحركة.</p>
       <table>
         <tr><th>المقترح</th><th>الفكرة</th><th>لماذا؟</th></tr>
         <tr>
@@ -701,24 +749,24 @@
           <td>أقرب لواقع الهوامش في السوق الأكاديمي</td>
         </tr>
         <tr>
-          <td><strong>اشتراك مورد مميّز (SaaS)</strong></td>
-          <td>ظهور أعلى في Hub · شارة · تحليلات · أولوية مراجعة</td>
+          <td><strong>اشتراك مورد مميّز</strong></td>
+          <td>ظهور أعلى · شارة · أولوية مراجعة</td>
           <td>دخل شهري متكرر للمنصة + قيمة واضحة للمورد</td>
         </tr>
         <tr>
-          <td><strong>رسوم تحويل RFQ</strong></td>
+          <td><strong>رسوم تحويل طلب عرض السعر</strong></td>
           <td>فتح الطلب مجاني · عمولة ١٢–١٨٪ عند التحويل لطلب مدفوع</td>
           <td>يكافئ المنصة على توليد فرص بيع كبيرة</td>
         </tr>
         <tr>
           <td><strong>إعلانات داخل المتجر</strong></td>
-          <td>راعي قسم / بنر Hub / منتج مموّل (محدود)</td>
+          <td>رعاية قسم أو ظهور ممول محدود</td>
           <td>قناة إضافية دون الاعتماد فقط على العمولة</td>
         </tr>
         <tr>
           <td><strong>باقة مختبر / جامعة (B2B)</strong></td>
-          <td>عقد سنوي لمشتريات متكررة + فاتورة مجمّعة</td>
-          <td>يرفع متوسط قيمة الطلب (AOV)</td>
+          <td>عقد سنوي لمشتريات متكررة وفاتورة مجمّعة</td>
+          <td>يرفع قيمة الطلب المتكرر</td>
         </tr>
         <tr>
           <td><strong>تجربة شراكة مبكرة</strong></td>
@@ -748,15 +796,15 @@
         </div>
         <div class="why-card">
           <h4>٣) الدفع الإلكتروني قيد التفعيل التشغيلي</h4>
-          <p>المسار اليدوي يعمل الآن. Paymob جاهز في الكود وينتظر الترخيص/الإعداد — نخبرك بجدول التفعيل عند الشراكة.</p>
+          <p>التحويل اليدوي هو المسار الحالي. الدفع الإلكتروني يُفعَّل حسب الاتفاق، ونوضح موعده عند الشراكة.</p>
         </div>
         <div class="why-card">
           <h4>٤) الدليل مقابل الشراء داخل المنصة</h4>
-          <p>يمكن إدراجك كدليل تواصل (Directory) أو كبائع طلبات Escrow — أو الاثنين حسب استراتيجية مبيعاتك.</p>
+          <p>يمكن إدراجكم كدليل تواصل، أو كبائع يستقبل الطلبات داخل المنصة، أو الاثنين.</p>
         </div>
         <div class="why-card">
           <h4>٥) المنصات</h4>
-          <p>التطبيق متعدد المنصات (Windows · Web · Android · iOS). عميلك قد يطلب من أي جهاز.</p>
+          <p>الباحث يطلب من الجوال أو من المتصفح. لا يحتاج موقعاً منفصلاً للوصول إليكم.</p>
         </div>
         <div class="why-card">
           <h4>٦) البيانات والملكية</h4>
@@ -807,13 +855,15 @@
         <ul>
           <li>نبذة عن نشاطك والمناطق التي تغطيها</li>
           <li>عينة كتالوج (PDF / Excel / رابط متجر)</li>
-          <li>الأقسام الأنسب من قائمة الـ ١٥</li>
+          <li>الأقسام الأنسب من قائمة الـ ١٦</li>
           <li>شخص تواصل للطلبات اليومية</li>
         </ul>
         <p style="margin-top:14px;"><strong>البريد:</strong> <a href="mailto:acadegate@gmail.com" style="color:#fde68a;">acadegate@gmail.com</a></p>
-        <p><strong>المنصة:</strong> <a href="https://acadegate-new.web.app" style="color:#fde68a;" target="_blank" rel="noopener">https://acadegate-new.web.app</a></p>
-        <p><strong>التسجيل:</strong> <a href="https://acadegate-new.web.app/register" style="color:#fde68a;" target="_blank" rel="noopener">https://acadegate-new.web.app/register</a></p>
-        <p style="margin-bottom:0;"><strong>بديل واتساب:</strong> <a href="https://acadegate-new.firebaseapp.com" style="color:#fde68a;" target="_blank" rel="noopener">https://acadegate-new.firebaseapp.com</a></p>
+        <p><strong>المنصة:</strong> <a href="https://acadegate-new--v20261002-tp9dbk1c.web.app" style="color:#fde68a;" target="_blank" rel="noopener">https://acadegate-new--v20261002-tp9dbk1c.web.app</a></p>
+        <p><strong>التسجيل:</strong> <a href="https://acadegate-new--v20261002-tp9dbk1c.web.app/register" style="color:#fde68a;" target="_blank" rel="noopener">https://acadegate-new--v20261002-tp9dbk1c.web.app/register</a></p>
+        <p><strong>الدخول:</strong> <a href="https://acadegate-new--v20261002-tp9dbk1c.web.app/login" style="color:#fde68a;" target="_blank" rel="noopener">https://acadegate-new--v20261002-tp9dbk1c.web.app/login</a></p>
+        <p><strong>الدعم:</strong> <a href="tel:+201044339033" style="color:#fde68a;">01044339033</a></p>
+        <p style="margin-bottom:0;"><strong>بديل واتساب:</strong> <a href="https://acadegate-new.firebaseapp.com/register" style="color:#fde68a;" target="_blank" rel="noopener">https://acadegate-new.firebaseapp.com/register</a></p>
       </div>
       <p style="margin-top:28px;font-size:18pt;font-weight:700;">
         عميلك الأكاديمي يبحث الآن عن حل منظم.
@@ -829,16 +879,18 @@
       <table>
         <tr><th>البند</th><th>المحتوى</th></tr>
         <tr><td>فكرة المنصة</td><td>رحلة دراسات عليا متكاملة — المتجر نقطة التنفيذ المادي</td></tr>
-        <tr><td>عرض المورد</td><td>قناة بيع + Escrow + Hub + عربة + RFQ + متجر مورد</td></tr>
-        <tr><td>الأقسام</td><td>١٥ قسماً متخصصاً من الكواشف إلى الكتب والأجهزة</td></tr>
-        <tr><td>الدور المطلوب</td><td>merchant (تاجر)</td></tr>
+        <tr><td>عرض المورد</td><td>قناة بيع، ضمان، عربة، طلب عرض سعر، وصفحة متجر</td></tr>
+        <tr><td>الأقسام</td><td>١٦ قسماً متخصصاً من الكواشف إلى الكتب والأجهزة</td></tr>
+        <tr><td>الدور المطلوب</td><td>تاجر</td></tr>
         <tr><td>الظهور</td><td>بعد موافقة الإدارة على المنتج</td></tr>
-        <tr><td>الدفع</td><td>تحويل يدوي الآن · Paymob جاهز للتفعيل</td></tr>
+        <tr><td>الدفع</td><td>تحويل يدوي الآن · إلكتروني عند التفعيل المتفق عليه</td></tr>
         <tr><td>إيراد أساسي</td><td>عمولة ٥–١٥٪ على طلب ناجح (بالاتفاق · غير خصم تلقائي حالياً)</td></tr>
-        <tr><td>إيرادات مقترحة</td><td>اشتراك مميّز · RFQ · إعلان · B2B · عمولة متدرجة</td></tr>
-        <tr><td>الخطوة التالية</td><td>حساب تجريبي + أول كتالوج صغير + اجتماع تشغيل</td></tr>
-        <tr><td>المنصة</td><td><a href="https://acadegate-new.web.app">https://acadegate-new.web.app</a></td></tr>
-        <tr><td>التسجيل</td><td><a href="https://acadegate-new.web.app/register">https://acadegate-new.web.app/register</a></td></tr>
+        <tr><td>إيرادات مقترحة</td><td>اشتراك مميّز · طلب عرض سعر · إعلان · عقود جهات · عمولة متدرجة</td></tr>
+        <tr><td>الخطوة التالية</td><td>حساب تاجر + أول كتالوج صغير + اتفاق مكتوب</td></tr>
+        <tr><td>المنصة</td><td><a href="https://acadegate-new--v20261002-tp9dbk1c.web.app">https://acadegate-new--v20261002-tp9dbk1c.web.app</a></td></tr>
+        <tr><td>التسجيل</td><td><a href="https://acadegate-new--v20261002-tp9dbk1c.web.app/register">https://acadegate-new--v20261002-tp9dbk1c.web.app/register</a></td></tr>
+        <tr><td>الدخول</td><td><a href="https://acadegate-new--v20261002-tp9dbk1c.web.app/login">https://acadegate-new--v20261002-tp9dbk1c.web.app/login</a></td></tr>
+        <tr><td>الدعم</td><td><a href="tel:+201044339033">01044339033</a></td></tr>
       </table>
       <p class="footer-note">
         AcadeGate — عرض شراكة الموردين · مبني على وظائف التطبيق الفعلية (المتجر، الطلبات، الضمان، بوابة مقدم الخدمة).

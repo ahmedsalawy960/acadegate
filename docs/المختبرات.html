@@ -170,13 +170,66 @@
       }
       .cover { min-height: 100vh; }
     }
+  
+    .link-banner {
+      position: sticky; top: 8px; z-index: 30;
+      background: linear-gradient(105deg, #071433 0%, #0b1f4d 45%, #0f766e 100%);
+      color: #fff; padding: 14px 18px; border-radius: 16px;
+      margin: 0 0 18px; display: flex; flex-wrap: wrap; gap: 10px 18px;
+      align-items: center; justify-content: space-between;
+      box-shadow: 0 12px 32px rgba(11, 31, 77, 0.28);
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+    .link-banner .lb-title { font-weight: 800; font-size: 13pt; }
+    .link-banner .lb-meta { opacity: 0.9; font-size: 10.5pt; }
+    .link-banner a {
+      color: #fde68a; font-weight: 800; text-decoration: none;
+      border-bottom: 1px solid rgba(253,230,138,0.55);
+    }
+    .link-banner .lb-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+    .link-banner .lb-btn {
+      display: inline-block; background: #fbbf24; color: #071433 !important;
+      border: none; border-radius: 999px; padding: 8px 14px; font-weight: 800;
+      border-bottom: none !important; font-size: 11pt;
+    }
+    .link-banner .lb-btn.secondary {
+      background: rgba(255,255,255,0.12); color: #fff !important;
+      border: 1px solid rgba(255,255,255,0.28);
+    }
+    .link-banner .lb-brand { display: flex; align-items: center; gap: 12px; }
+    .link-banner .lb-logo {
+      width: 52px; height: 52px; border-radius: 50%; display: block; background: #fff;
+    }
+    .cover-logo {
+      width: 88px; height: 88px; border-radius: 50%; display: block; margin-bottom: 18px;
+    }
+    @media print { .link-banner { position: static; box-shadow: none; } }
+
   </style>
 </head>
 <body>
 <div class="deck">
 
+  <div class="link-banner" role="banner">
+    <div class="lb-brand">
+      <a href="https://acadegate-new--v20261002-tp9dbk1c.web.app" target="_blank" rel="noopener"><img class="lb-logo" src="../Assets/images/acadegate_logo.png" alt="AcadeGate" width="52" height="52" /></a>
+      <div>
+        <div class="lb-title">AcadeGate — عرض انضمام المختبرات</div>
+        <div class="lb-meta">منصة للباحثين · سجّلوا مختبركم وابدأوا استقبال الحجوزات وطلبات التحليل</div>
+      </div>
+    </div>
+    <div class="lb-actions">
+      <a class="lb-btn" href="https://acadegate-new--v20261002-tp9dbk1c.web.app" target="_blank" rel="noopener">فتح المنصة</a>
+      <a class="lb-btn secondary" href="https://acadegate-new--v20261002-tp9dbk1c.web.app/register" target="_blank" rel="noopener">التسجيل</a>
+      <a class="lb-btn secondary" href="https://acadegate-new--v20261002-tp9dbk1c.web.app/login" target="_blank" rel="noopener">الدخول</a>
+      <a class="lb-btn secondary" href="tel:+201044339033">01044339033</a>
+      <a class="lb-btn secondary" href="https://acadegate-new.firebaseapp.com/register" target="_blank" rel="noopener">بديل واتساب</a>
+    </div>
+  </div>
+
   <section class="slide cover">
     <div>
+      <a href="https://acadegate-new--v20261002-tp9dbk1c.web.app" target="_blank" rel="noopener"><img class="cover-logo" src="../Assets/images/acadegate_logo.png" alt="AcadeGate" width="88" height="88" /></a>
       <div class="eyebrow">عرض انضمام · المختبرات ومراكز تحليل العينات</div>
       <h1>AcadeGate</h1>
       <div class="tagline">وصّل أجهزة مختبرك وخدمات التحليل بباحثي الماجستير والدكتوراه داخل مسار بحث حقيقي</div>
@@ -191,11 +244,11 @@
         <span class="pill">حجز أجهزة</span>
         <span class="pill">فلاتر مدينة/جامعة/كلية</span>
         <span class="pill">دليل قسم للباحث</span>
-        <span class="pill">https://acadegate-new.web.app</span>
+        <span class="pill">https://acadegate-new--v20261002-tp9dbk1c.web.app</span>
       </div>
     </div>
     <div style="opacity:0.85;font-size:11pt;">
-      وثيقة غير سرية للشركاء المحتملين · acadegate@gmail.com · سبتمبر 2026
+      وثيقة غير سرية للشركاء المحتملين · acadegate@gmail.com
     </div>
   </section>
 
@@ -205,7 +258,7 @@
       <ol style="font-size:14pt;line-height:2;">
         <li>فكرة عامة عن AcadeGate</li>
         <li>لماذا ينضم المختبر الآن؟</li>
-        <li>قسم المختبرات بالتفصيل (التبويبان + المستجدات)</li>
+        <li>قسم المختبرات: تحليل العينات وحجز الأجهزة</li>
         <li>ماذا يفعل المختبر داخل التطبيق؟</li>
         <li>بنود الأرباح والمشاركة — حسب الاتفاق</li>
         <li>خطوات الانضمام والتواصل</li>
@@ -238,8 +291,8 @@
           ظهور ضمن مسار البحث والمطابقة و«لك اليوم» — طلب مقصود لا زيارة عشوائية.
         </div>
         <div class="card">
-          <strong>الوضع الحالي</strong>
-          بيتا مغلقة مع شركاء حقيقيين. نملأ المختبرات الجادة قبل التوسع الواسع.
+          <strong>مكانكم في المنصة</strong>
+          حساب مسؤول مختبر، ملف أجهزة وخدمات، وحجوزات وطلبات تحليل تصل إلى بوابة مقدم الخدمة.
         </div>
       </div>
       <h3>خدمات المنصة (نظرة سريعة)</h3>
@@ -309,7 +362,7 @@
       <ul>
         <li>مدينة · جامعة · كلية · بحث باسم المختبر أو الجهاز</li>
         <li>اقتراحات حسب تخصص الباحث عند اكتمال ملفه</li>
-        <li>رابط سجل NBSLE الرسمي للاطلاع الخارجي (لا نحمّل السجل كاملاً دفعة واحدة داخل التطبيق)</li>
+        <li>رابط سجل NBSLE الرسمي للاطلاع على الجهاز عند الحاجة</li>
       </ul>
       <h3>٣.٢ أمثلة أجهزة/خدمات شائعة</h3>
       <div>
@@ -323,6 +376,14 @@
         <span class="chip">تحاليل بيولوجية</span>
         <span class="chip">اختبارات مواد</span>
       </div>
+      <h3>مسار الباحث</h3>
+      <div class="flow">
+        <div class="flow-step"><span class="num">1</span><b>يفتح القسم</b>من الرئيسية</div>
+        <div class="flow-step"><span class="num">2</span><b>يختار تبويباً</b>تحليل أو حجز</div>
+        <div class="flow-step"><span class="num">3</span><b>يصفّي</b>مدينة · كلية · جهاز</div>
+        <div class="flow-step"><span class="num">4</span><b>يرسل طلباً</b>عينة أو جلسة</div>
+        <div class="flow-step"><span class="num">5</span><b>يتابع</b>طلباته وحجوزاته</div>
+      </div>
       <div class="callout callout-teal">
         ابدأوا بقائمة أجهزة/خدمات أساسية (٨–١٥ بنداً) واضحة المواصفات والتوفر — ثم وسّعوا.
       </div>
@@ -331,43 +392,11 @@
 
   <section class="slide">
     <div class="slide-inner">
-      <h2>٣ — مستجدات القسم (سبتمبر 2026)</h2>
-      <div class="grid-2">
-        <div class="card">
-          <strong>دليل قسم للمبتدئ</strong>
-          شريط «كيف يعمل؟» وزر مساعدة يشرح للباحث الخطوة بخطوة — يقلل الأسئلة العشوائية عليكم.
-        </div>
-        <div class="card">
-          <strong>واجهة تبويبين واضحة</strong>
-          فصل تحليل العينات عن حجز الأجهزة حتى لا يختلط الطلب.
-        </div>
-        <div class="card">
-          <strong>تسجيل مختبر من التطبيق</strong>
-          زر عائم «سجّل مختبر» لمسؤولي المعامل المساهمين.
-        </div>
-        <div class="card">
-          <strong>ربط بمسار البحث والمطابقة</strong>
-          ظهور محتمل عند بناء حزمة هدف بحثي أو اقتراحات «لك اليوم».
-        </div>
-      </div>
-      <h3>مسار الباحث باختصار</h3>
-      <div class="flow">
-        <div class="flow-step"><span class="num">1</span><b>يفتح القسم</b>من الرئيسية</div>
-        <div class="flow-step"><span class="num">2</span><b>يختار تبويباً</b>تحليل أو حجز</div>
-        <div class="flow-step"><span class="num">3</span><b>يصفّي/يبحث</b>مدينة · كلية · جهاز</div>
-        <div class="flow-step"><span class="num">4</span><b>يرسل طلباً</b>عينة أو حجز جلسة</div>
-        <div class="flow-step"><span class="num">5</span><b>يتابع</b>طلباتي / حجوزاتي</div>
-      </div>
-    </div>
-  </section>
-
-  <section class="slide">
-    <div class="slide-inner">
       <h2>٤ — ماذا يفعل المختبر داخل التطبيق؟</h2>
       <ol>
-        <li>التسجيل على <a href="https://acadegate-new.web.app/register" target="_blank" rel="noopener">https://acadegate-new.web.app/register</a>
-          · المنصة <a href="https://acadegate-new.web.app" target="_blank" rel="noopener">https://acadegate-new.web.app</a></li>
-        <li>دور مسؤول مختبر / بوابة مقدم الخدمة (أو طالب ثم ترقية عبر الدعم)</li>
+        <li>التسجيل على <a href="https://acadegate-new--v20261002-tp9dbk1c.web.app/register" target="_blank" rel="noopener">https://acadegate-new--v20261002-tp9dbk1c.web.app/register</a>
+          · المنصة <a href="https://acadegate-new--v20261002-tp9dbk1c.web.app" target="_blank" rel="noopener">https://acadegate-new--v20261002-tp9dbk1c.web.app</a></li>
+        <li>دور مسؤول مختبر، ثم بوابة مقدم الخدمة</li>
         <li>إضافة مختبر جديد أو المطالبة بملف موجود بعد تحقق</li>
         <li>تعبئة الأجهزة/خدمات التحليل، المدينة، الجامعة، التواصل</li>
         <li>استقبال الطلبات والحجوزات ومتابعتها داخل المنصة</li>
@@ -380,7 +409,7 @@
         </tr>
         <tr>
           <td>شخص تواصل للحجوزات اليومية</td>
-          <td>دعم انضمام البيتا وتسهيل أول ملف</td>
+          <td>دعم الانضمام وتسهيل أول ملف</td>
         </tr>
       </table>
       <div class="callout">
@@ -436,7 +465,7 @@
       <ul>
         <li>أنتم تسعّرون الجلسات/التحاليل؛ المنصة لا تفرض سعراً في هذا العرض.</li>
         <li>أي رقم شفهي في اجتماع غير ملزم حتى يُؤكَّد كتابياً.</li>
-        <li>مسار الدفع قد يكون تحويلاً يدوياً في البيتا ثم إلكترونياً عند التفعيل المتفق عليه.</li>
+        <li>الدفع تحويل يدوي الآن، والإلكتروني عند التفعيل المتفق عليه.</li>
       </ul>
     </div>
   </section>
@@ -447,8 +476,8 @@
       <ol>
         <li>راسلوا <a href="mailto:acadegate@gmail.com">acadegate@gmail.com</a> بعنوان: «انضمام مختبر — [اسم المختبر] — [المدينة]».</li>
         <li>أرفقوا: اسم الجهة، المدينة، قائمة أجهزة/خدمات أساسية، بريد أو واتساب مسؤول الحجوزات.</li>
-        <li>افتحوا <a href="https://acadegate-new.web.app/register" target="_blank" rel="noopener">https://acadegate-new.web.app/register</a> وسجّلوا / أضيفوا ملف المختبر.
-          (المنصة: <a href="https://acadegate-new.web.app" target="_blank" rel="noopener">https://acadegate-new.web.app</a>)</li>
+        <li>افتحوا <a href="https://acadegate-new--v20261002-tp9dbk1c.web.app/register" target="_blank" rel="noopener">https://acadegate-new--v20261002-tp9dbk1c.web.app/register</a> وسجّلوا / أضيفوا ملف المختبر.
+          (المنصة: <a href="https://acadegate-new--v20261002-tp9dbk1c.web.app" target="_blank" rel="noopener">https://acadegate-new--v20261002-tp9dbk1c.web.app</a>)</li>
         <li>نثبت معاً بنود الأرباح والمشاركة في اتفاق واضح قبل أي تسوية ملزمة.</li>
       </ol>
       <h3>ماذا نحتاج في أول اجتماع؟</h3>
@@ -473,10 +502,12 @@
       </p>
       <div class="cta-box">
         <p><strong>البريد:</strong> <a href="mailto:acadegate@gmail.com">acadegate@gmail.com</a></p>
-        <p><strong>المنصة:</strong> <a href="https://acadegate-new.web.app" target="_blank" rel="noopener">https://acadegate-new.web.app</a></p>
-        <p><strong>التسجيل:</strong> <a href="https://acadegate-new.web.app/register" target="_blank" rel="noopener">https://acadegate-new.web.app/register</a></p>
-        <p><strong>بديل واتساب:</strong> <a href="https://acadegate-new.firebaseapp.com" target="_blank" rel="noopener">https://acadegate-new.firebaseapp.com</a></p>
-        <p style="margin-bottom:0;">نرد خلال يوم عمل تقريباً في مرحلة البيتا المغلقة.</p>
+        <p><strong>المنصة:</strong> <a href="https://acadegate-new--v20261002-tp9dbk1c.web.app" target="_blank" rel="noopener">https://acadegate-new--v20261002-tp9dbk1c.web.app</a></p>
+        <p><strong>التسجيل:</strong> <a href="https://acadegate-new--v20261002-tp9dbk1c.web.app/register" target="_blank" rel="noopener">https://acadegate-new--v20261002-tp9dbk1c.web.app/register</a></p>
+        <p><strong>الدخول:</strong> <a href="https://acadegate-new--v20261002-tp9dbk1c.web.app/login" target="_blank" rel="noopener">https://acadegate-new--v20261002-tp9dbk1c.web.app/login</a></p>
+        <p><strong>الدعم:</strong> <a href="tel:+201044339033">01044339033</a></p>
+        <p><strong>بديل واتساب:</strong> <a href="https://acadegate-new.firebaseapp.com/register" target="_blank" rel="noopener">https://acadegate-new.firebaseapp.com/register</a></p>
+        <p style="margin-bottom:0;">نرد خلال يوم عمل تقريباً.</p>
       </div>
       <p style="margin-top:28px;font-size:15pt;">
         الأرباح والمشاركة — <strong style="color:#fde68a;">حسب الاتفاق</strong> · بدون نسب أو أسعار مسبقة في هذا العرض.
@@ -493,12 +524,14 @@
         <tr><td>عرض المختبر</td><td>تحليل عينات + حجز أجهزة + فلاتر + طلبات/حجوزات</td></tr>
         <tr><td>الانضمام</td><td>تسجيل / إضافة مختبر / مطالبة ملف بعد تحقق</td></tr>
         <tr><td>الأرباح والمشاركة</td><td><strong>بنود بالاتفاق — بلا نسب/أسعار في هذه الوثيقة</strong></td></tr>
-        <tr><td>المنصة</td><td><a href="https://acadegate-new.web.app">https://acadegate-new.web.app</a></td></tr>
-        <tr><td>التسجيل</td><td><a href="https://acadegate-new.web.app/register">https://acadegate-new.web.app/register</a></td></tr>
+        <tr><td>المنصة</td><td><a href="https://acadegate-new--v20261002-tp9dbk1c.web.app">https://acadegate-new--v20261002-tp9dbk1c.web.app</a></td></tr>
+        <tr><td>التسجيل</td><td><a href="https://acadegate-new--v20261002-tp9dbk1c.web.app/register">https://acadegate-new--v20261002-tp9dbk1c.web.app/register</a></td></tr>
+        <tr><td>الدخول</td><td><a href="https://acadegate-new--v20261002-tp9dbk1c.web.app/login">https://acadegate-new--v20261002-tp9dbk1c.web.app/login</a></td></tr>
+        <tr><td>الدعم</td><td><a href="tel:+201044339033">01044339033</a></td></tr>
         <tr><td>التواصل</td><td>acadegate@gmail.com</td></tr>
       </table>
       <p class="footer-note">
-        © 2026 AcadeGate · عرض انضمام المختبرات · مبني على وظائف Labs الحالية في التطبيق.
+        © 2026 AcadeGate · عرض انضمام المختبرات.
         أي تفاصيل تجارية ملزمة تُحرَّر باتفاق منفصل بعد التفاوض.
       </p>
     </div>

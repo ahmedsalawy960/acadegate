@@ -168,9 +168,9 @@ class _PublishKnowledgeAssetScreenState
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFF8E1),
+                  color: StoreTheme.surface,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFFFE082)),
+                  border: Border.all(color: StoreTheme.border),
                 ),
                 child: Text(
                   context.t(
@@ -179,7 +179,11 @@ class _PublishKnowledgeAssetScreenState
                     'The file is encrypted before upload. Buyers use it inside AcadeGate per license. '
                     'Protection reduces leakage; it is not an absolute anti-copy guarantee.',
                   ),
-                  style: const TextStyle(fontSize: 13, height: 1.45),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    height: 1.45,
+                    color: StoreTheme.ink,
+                  ),
                 ),
               ),
               const SizedBox(height: 16),

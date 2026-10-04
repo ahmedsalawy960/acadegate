@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 
 import '../../core/locale/app_translate.dart';
 import '../academic_integrity/bibliography_harvest.dart';
@@ -45,7 +46,7 @@ class VivaPdfService {
       type: FileType.custom,
       allowedExtensions: allowedExtensions,
       withData: !readFromPath,
-      lockParentWindow: true,
+      lockParentWindow: false,
     );
     if (result == null || result.files.isEmpty) return null;
     final file = result.files.first;
@@ -91,12 +92,57 @@ class VivaPdfService {
     final safeName = fileName.replaceAll(RegExp(r'[^\w.\-]+'), '_');
     final path =
         'uploads/${user.uid}/viva/${DateTime.now().millisecondsSinceEpoch}_$safeName';
+    // The Windows firebase_storage plugin delivers task events off the
+    // platform thread and that exits the desktop process.
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
+      await _uploadViaStorageRest(
+        path: path,
+        bytes: bytes,
+        contentType: 'application/pdf',
+        idToken: await user.getIdToken() ?? '',
+      );
+      return path;
+    }
     final ref = FirebaseStorage.instance.ref().child(path);
     await ref.putData(
       Uint8List.fromList(bytes),
       SettableMetadata(contentType: 'application/pdf'),
     );
     return path;
+  }
+
+  Future<void> _uploadViaStorageRest({
+    required String path,
+    required List<int> bytes,
+    required String contentType,
+    required String idToken,
+  }) async {
+    if (idToken.isEmpty) {
+      throw Exception(appTr(
+        'انتهت الجلسة — سجّل الدخول ثم أعد رفع الرسالة',
+        'Session expired — sign in and upload the thesis again',
+      ));
+    }
+    const bucket = 'acadegate-new.firebasestorage.app';
+    final uri = Uri.parse(
+      'https://firebasestorage.googleapis.com/v0/b/$bucket/o'
+      '?uploadType=media&name=${Uri.encodeComponent(path)}',
+    );
+    final response = await http
+        .post(
+          uri,
+          headers: {
+            'Authorization': 'Firebase $idToken',
+            'Content-Type': contentType,
+          },
+          body: bytes,
+        )
+        .timeout(const Duration(minutes: 4));
+    if (response.statusCode >= 200 && response.statusCode < 300) return;
+    throw Exception(appTr(
+      'تعذر رفع الرسالة (${response.statusCode}). أعد المحاولة.',
+      'Could not upload the thesis (${response.statusCode}). Try again.',
+    ));
   }
 
   Future<VivaPdfExtractionResult> extractFromThesis({

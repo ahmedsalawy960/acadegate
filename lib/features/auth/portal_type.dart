@@ -14,8 +14,8 @@ class PortalType {
   static String description(String? portal) {
     if (portal == provider) {
       return appTr(
-        'تاجر، مختبر، كاتب أكاديمي، ناشر أفكار، مشرف يقدّم خدماته',
-        'Merchant, lab, academic writer, idea publisher, or supervisor offering services',
+        'تاجر، مختبر، مستشار كتابة، ناشر أفكار، مشرف يقدّم خدماته',
+        'Merchant, lab, writing consultant, idea publisher, or supervisor offering services',
       );
     }
     return appTr(

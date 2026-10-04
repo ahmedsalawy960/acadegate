@@ -107,7 +107,7 @@ class _ReportProblemSheetState extends State<_ReportProblemSheet> {
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF1A237E),
+              color: const Color(0xFFF4F7FB),
             ),
           ),
           const SizedBox(height: 6),
@@ -116,7 +116,7 @@ class _ReportProblemSheetState extends State<_ReportProblemSheet> {
               'صف ما حدث وما كنت تحاول فعله. نسجّل أيضاً أخطاء التطبيق تلقائياً.',
               'Describe what happened and what you were trying to do. App crashes are also logged automatically.',
             ),
-            style: TextStyle(color: Colors.grey[700], fontSize: 13),
+            style: TextStyle(color: const Color(0xFFB7C3D6), fontSize: 13),
           ),
           const SizedBox(height: 14),
           DropdownButtonFormField<String>(

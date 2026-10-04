@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
 import '../../core/locale/locale_extensions.dart';
+import '../../core/theme/acadegate_theme.dart';
 import '../../core/storage/storage_service.dart';
 import '../../core/widgets/safe_network_avatar.dart';
 import '../auth/user_account.dart';
@@ -208,7 +209,7 @@ class _AccountProfileScreenState extends State<AccountProfileScreen> {
                         style: const TextStyle(
                           fontSize: 36,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF1A237E),
+                          color: const Color(0xFFF4F7FB),
                         ),
                       ),
                     ),
@@ -259,15 +260,14 @@ class _AccountProfileScreenState extends State<AccountProfileScreen> {
                   'Your photo appears in the app bar instead of the person icon.',
                 ),
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
               ),
               const SizedBox(height: 24),
               Card(
                 elevation: 0,
-                color: Colors.grey.shade50,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
-                  side: BorderSide(color: Colors.grey.shade300),
+                  side: const BorderSide(color: AcadeGateColors.line),
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -279,6 +279,7 @@ class _AccountProfileScreenState extends State<AccountProfileScreen> {
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
+                          color: AcadeGateColors.text,
                         ),
                       ),
                       const SizedBox(height: 14),
@@ -365,7 +366,7 @@ class _AccountProfileScreenState extends State<AccountProfileScreen> {
                       ListTile(
                         leading: const Icon(
                           Icons.school_outlined,
-                          color: Color(0xFF1A237E),
+                          color: Color(0xFFF4F7FB),
                         ),
                         title: Text(
                           context.t('الملف الأكاديمي', 'Academic profile'),

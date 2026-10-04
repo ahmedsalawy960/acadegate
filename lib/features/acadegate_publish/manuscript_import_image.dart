@@ -53,7 +53,7 @@ class ManuscriptImportImage extends StatelessWidget {
               size: 40, color: Colors.blue.shade700),
           Text(
             'Structure (EMF)',
-            style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+            style: TextStyle(fontSize: 10, color: const Color(0xFFB7C3D6)),
           ),
           Padding(
             padding: const EdgeInsets.only(top: 2),

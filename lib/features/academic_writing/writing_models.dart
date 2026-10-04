@@ -71,7 +71,7 @@ class WritingExpert {
   factory WritingExpert.fromMap(Map<String, dynamic> map, {String? id}) {
     return WritingExpert(
       id: id,
-      name: map['name']?.toString() ?? appTr('كاتب أكاديمي', 'Academic writer'),
+      name: map['name']?.toString() ?? appTr('مستشار كتابة', 'Writing consultant'),
       category: map['category']?.toString() ?? '',
       speciality: map['speciality']?.toString() ?? '',
       bio: map['bio']?.toString() ?? '',

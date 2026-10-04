@@ -43,8 +43,8 @@ class WritingExpertListScreen extends StatelessWidget {
                 const SizedBox(height: 16),
                 Text(
                   context.t(
-                    'خبراء تحرير بشريون',
-                    'Human editing experts',
+                    'مستشارو التدقيق اللغوي',
+                    'Language-review consultants',
                   ),
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
@@ -58,15 +58,15 @@ class WritingExpertListScreen extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(vertical: 32),
                   child: Text(
                     context.t(
-                      'لا يوجد كتاب متاح في «${category.localizedTitle}» حالياً.\n'
-                      'يمكنك التسجيل ككاتب من الزر في الأسفل'
-                      '${_isEditingCategory ? '، أو استخدم أدوات التحرير أعلاه.' : '.'}',
-                      'No writers available in «${category.localizedTitle}» yet.\n'
-                      'You can register as a writer using the button below'
-                      '${_isEditingCategory ? ', or use the editing tools above.' : '.'}',
+                      'لا يوجد مستشار متاح في «${category.localizedTitle}» حالياً.\n'
+                      'يمكنك التسجيل كمستشار كتابة من الزر في الأسفل'
+                      '${_isEditingCategory ? '، أو استخدم أدوات التدقيق أعلاه.' : '.'}',
+                      'No consultant is available in «${category.localizedTitle}» yet.\n'
+                      'You can register as a writing consultant using the button below'
+                      '${_isEditingCategory ? ', or use the review tools above.' : '.'}',
                     ),
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey[600]),
+                    style: TextStyle(color: const Color(0xFFB7C3D6)),
                   ),
                 )
               else
@@ -136,7 +136,7 @@ class _ExpertCard extends StatelessWidget {
                     ),
                     Text(
                       expert.speciality,
-                      style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                      style: TextStyle(color: const Color(0xFFB7C3D6), fontSize: 13),
                     ),
                     const SizedBox(height: 6),
                     Row(

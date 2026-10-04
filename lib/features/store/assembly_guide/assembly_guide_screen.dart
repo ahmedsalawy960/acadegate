@@ -182,9 +182,9 @@ class _AssemblyGuideScreenState extends State<AssemblyGuideScreen> {
             ),
             child: Text(
               context.t(
-                'إرشاد عبر الهاتف + صوت + فحص صورة بالذكاء الاصطناعي. '
+                'إرشاد عبر الهاتف مع صوت وفحص صورة للخطوة. '
                 'ليس نظارات واقع مختلط كاملة — يوجّهك في مكان استخدام المنتج الفعلي.',
-                'Phone coaching + voice + AI photo check. '
+                'Phone coaching with voice and a photo check of the step. '
                 'Not full mixed-reality glasses — guides you where the product is actually used.',
               ),
               style: const TextStyle(fontSize: 13, height: 1.4),
@@ -241,7 +241,7 @@ class _AssemblyGuideScreenState extends State<AssemblyGuideScreen> {
               'Step ${_index + 1} of ${steps.length}'
               '${_passedSteps.contains(_index) ? ' · verified' : ''}',
             ),
-            style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+            style: TextStyle(color: StoreTheme.muted, fontSize: 13),
           ),
           const SizedBox(height: 16),
           Text(
@@ -308,8 +308,8 @@ class _AssemblyGuideScreenState extends State<AssemblyGuideScreen> {
                 : const Icon(Icons.camera_alt_outlined),
             label: Text(
               context.t(
-                'صوّر الخطوة للتحقق الذكي',
-                'Photograph this step for AI check',
+                'صوّر الخطوة للتحقق',
+                'Photograph this step to check it',
               ),
             ),
           ),
@@ -353,7 +353,10 @@ class _AssemblyGuideScreenState extends State<AssemblyGuideScreen> {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  Text(_lastCheck!.feedback, style: const TextStyle(height: 1.4)),
+                  Text(
+                    _lastCheck!.feedback,
+                    style: const TextStyle(height: 1.4, color: Color(0xFF3E2723)),
+                  ),
                   if ((_lastCheck!.tip ?? '').trim().isNotEmpty) ...[
                     const SizedBox(height: 6),
                     Text(
@@ -361,7 +364,7 @@ class _AssemblyGuideScreenState extends State<AssemblyGuideScreen> {
                         'نصيحة: ${_lastCheck!.tip}',
                         'Tip: ${_lastCheck!.tip}',
                       ),
-                      style: const TextStyle(height: 1.4),
+                      style: const TextStyle(height: 1.4, color: Color(0xFF3E2723)),
                     ),
                   ],
                 ],
@@ -399,7 +402,7 @@ class _AssemblyGuideScreenState extends State<AssemblyGuideScreen> {
                 'You finished the guide steps. If unsure, review the video or contact the seller.',
               ),
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey.shade700),
+              style: TextStyle(color: StoreTheme.muted),
             ),
           ],
         ],

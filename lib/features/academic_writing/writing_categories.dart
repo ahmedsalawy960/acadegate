@@ -31,7 +31,7 @@ const List<WritingCategory> writingCategories = [
   WritingCategory(
     id: 'research_paper',
     title: 'أوراق بحثية',
-    subtitle: 'مقالات، أوراق مؤتمرات، نشر علمي',
+    subtitle: 'ملاحظات على مقالك أو ورقة المؤتمر',
     icon: Icons.article_outlined,
     color: Color(0xFF1565C0),
     imageUrl:
@@ -40,7 +40,7 @@ const List<WritingCategory> writingCategories = [
   WritingCategory(
     id: 'thesis',
     title: 'رسائل علمية',
-    subtitle: 'ماجستير، دكتوراه، مشروع تخرج',
+    subtitle: 'توجيه ومراجعة لفصول يكتبها الباحث',
     icon: Icons.menu_book_outlined,
     color: Color(0xFF6A1B9A),
     imageUrl:
@@ -49,7 +49,7 @@ const List<WritingCategory> writingCategories = [
   WritingCategory(
     id: 'statistics',
     title: 'إحصاء وتحليل',
-    subtitle: 'SPSS، R، Excel، تفسير النتائج',
+    subtitle: 'اختيار الاختبار وتفسير النتائج',
     icon: Icons.bar_chart_rounded,
     color: Color(0xFF00838F),
     imageUrl:
@@ -58,7 +58,7 @@ const List<WritingCategory> writingCategories = [
   WritingCategory(
     id: 'literature_review',
     title: 'مراجعة أدبيات',
-    subtitle: 'نقد، تلخيص، خريطة مفاهيمية',
+    subtitle: 'نقد وتلخيص انطلاقاً من قراءاتك',
     icon: Icons.library_books_outlined,
     color: Color(0xFFEF6C00),
     imageUrl:
@@ -67,7 +67,7 @@ const List<WritingCategory> writingCategories = [
   WritingCategory(
     id: 'proposal',
     title: 'مقترحات بحث',
-    subtitle: 'خطة بحث، أهداف، منهجية',
+    subtitle: 'مراجعة الأهداف والمنهجية في خطتك',
     icon: Icons.lightbulb_outline,
     color: Color(0xFF558B2F),
     imageUrl:
@@ -76,7 +76,7 @@ const List<WritingCategory> writingCategories = [
   WritingCategory(
     id: 'editing',
     title: 'تحرير وتدقيق',
-    subtitle: 'لغة، أسلوب، إعادة صياغة',
+    subtitle: 'لغة وأسلوب على نصك',
     icon: Icons.spellcheck_outlined,
     color: Color(0xFFAD1457),
     imageUrl:
@@ -85,7 +85,7 @@ const List<WritingCategory> writingCategories = [
   WritingCategory(
     id: 'formatting',
     title: 'تنسيق وتوثيق',
-    subtitle: 'APA، MLA، Harvard، IEEE',
+    subtitle: 'تنسيق وتوثيق وفق دليل جامعتك',
     icon: Icons.format_align_right,
     color: Color(0xFF4527A0),
     imageUrl:
@@ -94,7 +94,7 @@ const List<WritingCategory> writingCategories = [
   WritingCategory(
     id: 'translation',
     title: 'ترجمة علمية',
-    subtitle: 'عربي ↔ إنجليزي، مصطلحات دقيقة',
+    subtitle: 'ترجمة نص أعددته أنت',
     icon: Icons.translate,
     color: Color(0xFF283593),
     imageUrl:

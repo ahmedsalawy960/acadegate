@@ -14,6 +14,7 @@ import '../auth/auth_navigation.dart';
 import '../auth/language_switcher_button.dart';
 import '../auth/portal_switch_button.dart';
 import '../../core/config/feature_flags.dart';
+import '../../core/theme/acadegate_theme.dart';
 import '../../core/locale/l10n_lookup.dart';
 import '../../core/locale/locale_extensions.dart';
 import '../../core/layout/responsive_layout.dart';
@@ -52,6 +53,7 @@ import '../store/store_hub_screen.dart';
 import '../academic/supervisor_profile_screen.dart';
 import '../guides/section_guide_catalog.dart';
 import '../guides/section_guide_screen.dart';
+import '../humanities/humanities_hub_screen.dart';
 import '../moderation/delete_content_button.dart';
 import '../acadegate_publish/publish_hub_screen.dart';
 import '../research_fund/research_fund_screen.dart';
@@ -211,6 +213,20 @@ class _HomeScreenState extends State<HomeScreen> {
         "lab", "labs", "equipment", "nano", "analysis", "samples", "research center", "chemistry", "medicine",
       ],
       "screen": const SmartLabsScreen(),
+    },
+    {
+      "id": "humanities",
+      "title": context.t('بحث إنساني وتربوي', 'Humanities & education'),
+      "icon": Icons.auto_stories_rounded,
+      "color": const Color(0xFF5D4037),
+      "imageUrl": HomeServiceImages.humanities,
+      "assetFallback": "assets/images/weekly/services/svc_writing_w1.png",
+      "tags": [
+        "إنساني", "تربوي", "تربية", "آداب", "حقوق", "قانون", "ميدان", "استبانة",
+        "دبلوم", "خطة بحث", "humanities", "education", "arts", "law", "survey",
+        "field", "أدبي", "اجتماعي",
+      ],
+      "screen": const HumanitiesHubScreen(),
     },
     {
       "id": "store",
@@ -531,7 +547,7 @@ class _HomeScreenState extends State<HomeScreen> {
             // ================= شريط البحث المطور =================
             Container(
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: const Color(0xFF12284F),
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
@@ -546,10 +562,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 textAlign: TextAlign.start,
                 decoration: InputDecoration(
                   hintText: l10n.homeSearchHint,
-                  hintStyle: TextStyle(color: Colors.grey[400], fontSize: 15),
+                  hintStyle: const TextStyle(color: Color(0xFFB7C3D6), fontSize: 15),
                   prefixIcon: const Icon(
                     Icons.search,
-                    color: Color(0xFF1A237E),
+                    color: Color(0xFFFBBF24),
                   ),
                   suffixIcon: _searchQuery.isNotEmpty
                       ? IconButton(
@@ -561,7 +577,11 @@ class _HomeScreenState extends State<HomeScreen> {
                           },
                         )
                       : null,
+                  filled: true,
+                  fillColor: const Color(0xFF12284F),
                   border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 16,
                     vertical: 15,
@@ -575,7 +595,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
                   L10nLookup.searchMinCharsHint,
-                  style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                  style: TextStyle(color: const Color(0xFFB7C3D6), fontSize: 13),
                 ),
               ),
             if (isSearching) ...[
@@ -585,7 +605,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF1A237E),
+                  color: const Color(0xFFF4F7FB),
                 ),
               ),
             ],
@@ -1500,7 +1520,7 @@ class FacultyCard extends StatelessWidget {
                   color: color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(icon, color: color, size: 30),
+                child: Icon(icon, color: acadegateInk(color), size: 30),
               ),
               const SizedBox(width: 20),
               Expanded(
@@ -1519,7 +1539,7 @@ class FacultyCard extends StatelessWidget {
                       subtitle,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                      style: TextStyle(color: const Color(0xFFB7C3D6), fontSize: 13),
                     ),
                   ],
                 ),
@@ -1677,7 +1697,7 @@ class SupervisorListCard extends StatelessWidget {
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
-      color: Colors.white,
+      color: const Color(0xFF12284F),
       child: Padding(
         padding: const EdgeInsets.all(12.0),
         child: Row(
@@ -1735,7 +1755,7 @@ class SupervisorListCard extends StatelessWidget {
                           Text(
                             facultyLine,
                             style: TextStyle(
-                              color: Colors.grey[800],
+                              color: const Color(0xFFB7C3D6),
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
                             ),
@@ -1745,7 +1765,10 @@ class SupervisorListCard extends StatelessWidget {
                                     supervisor.faculty.isNotEmpty
                                 ? '${supervisor.speciality}\n${supervisor.university}'
                                 : supervisor.university,
-                            style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                            style: const TextStyle(
+                              color: Color(0xFFB7C3D6),
+                              fontSize: 13,
+                            ),
                           ),
                           const SizedBox(height: 6),
                           SupervisorMetricsChipRow(supervisor: supervisor),

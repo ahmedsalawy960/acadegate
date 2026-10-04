@@ -252,6 +252,10 @@ class BugReportService {
     return q.orderBy('createdAt', descending: true).limit(limit).snapshots();
   }
 
+  Future<void> deleteReport(String id) async {
+    await _col.doc(id).delete();
+  }
+
   Future<void> updateStatus({
     required String id,
     required String status,

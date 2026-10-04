@@ -140,7 +140,7 @@ class _ResearchPartnershipDetailScreenState
       backgroundColor: StoreTheme.bg,
       appBar: AcadeGateAppBar(
         title: Text(context.t('تفاصيل الشراكة', 'Partnership details')),
-        backgroundColor: StoreTheme.ink,
+        backgroundColor: StoreTheme.appBar,
         foregroundColor: Colors.white,
         actions: [
           IconButton(
@@ -324,7 +324,7 @@ class _ResearchPartnershipDetailScreenState
                 FilledButton.icon(
                   onPressed: _busy ? null : _placeOrders,
                   style: FilledButton.styleFrom(
-                    backgroundColor: StoreTheme.ink,
+                    backgroundColor: StoreTheme.accent,
                     minimumSize: const Size.fromHeight(48),
                   ),
                   icon: const Icon(Icons.shopping_bag_outlined),

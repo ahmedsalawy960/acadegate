@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../core/locale/locale_extensions.dart';
 import '../../core/storage/storage_service.dart';
+import '../../core/theme/acadegate_theme.dart';
 import '../../core/widgets/acadegate_app_bar.dart';
 import '../admin/admin_access_gate.dart';
 import 'home_feed_models.dart';
@@ -134,7 +135,7 @@ class _AdminHomeFeedScreenState extends State<AdminHomeFeedScreen> {
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
             children: [
               Card(
-                color: const Color(0xFFE8EAF6),
+                color: AcadeGateColors.card,
                 child: Padding(
                   padding: const EdgeInsets.all(14),
                   child: Text(
@@ -148,7 +149,10 @@ class _AdminHomeFeedScreenState extends State<AdminHomeFeedScreen> {
                       'In-app section is optional, not required.\n'
                       'Old demo ads pointed to in-app sections — change them to your URL.',
                     ),
-                    style: TextStyle(height: 1.45, color: Colors.grey[900]),
+                    style: const TextStyle(
+                      height: 1.45,
+                      color: AcadeGateColors.text,
+                    ),
                   ),
                 ),
               ),
@@ -158,7 +162,7 @@ class _AdminHomeFeedScreenState extends State<AdminHomeFeedScreen> {
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 17,
-                  color: Color(0xFF1A237E),
+                  color: const Color(0xFFF4F7FB),
                 ),
               ),
               const SizedBox(height: 8),
@@ -176,7 +180,7 @@ class _AdminHomeFeedScreenState extends State<AdminHomeFeedScreen> {
                       'لا توجد إعلانات بعد. اضغط «إعلان جديد» أو ازرع الافتراضي.',
                       'No ads yet. Tap “New ad” or seed defaults.',
                     ),
-                    style: TextStyle(color: Colors.grey[700]),
+                    style: TextStyle(color: const Color(0xFFB7C3D6)),
                   ),
                 )
               else
@@ -259,7 +263,7 @@ class _AdminHomeFeedScreenState extends State<AdminHomeFeedScreen> {
               ],
               if (_message != null) ...[
                 const SizedBox(height: 12),
-                Text(_message!, style: const TextStyle(color: Color(0xFF1A237E))),
+                Text(_message!, style: const TextStyle(color: const Color(0xFFF4F7FB))),
               ],
             ],
           );
@@ -545,7 +549,7 @@ class _PromoBannerEditorScreenState extends State<_PromoBannerEditorScreen> {
               'للمعلنين: ضع رابط موقعك أو صفحتك. القسم داخل التطبيق اختياري فقط.',
               'For advertisers: paste your website/page URL. In-app section is optional.',
             ),
-            style: TextStyle(color: Colors.grey[700], height: 1.35, fontSize: 13),
+            style: TextStyle(color: const Color(0xFFB7C3D6), height: 1.35, fontSize: 13),
           ),
           const SizedBox(height: 10),
           SegmentedButton<String>(

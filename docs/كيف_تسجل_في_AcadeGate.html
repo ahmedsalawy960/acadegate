@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      width: 1080px;
+      background: #f4f6fb;
+      color: #0b1f4d;
+      font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+      padding: 36px 40px 32px;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      margin-bottom: 22px;
+    }
+    header img { width: 78px; height: 78px; border-radius: 50%; background: #fff; }
+    h1 { font-size: 34px; line-height: 1.15; }
+    .sub { margin-top: 6px; font-size: 16px; color: #334155; }
+    .link {
+      margin-top: 8px;
+      font-size: 15px;
+      font-weight: 800;
+      color: #0f766e;
+    }
+    h2 { font-size: 18px; margin: 8px 0 12px; }
+    .shared {
+      background: #071433;
+      color: #fff;
+      border-radius: 22px;
+      padding: 18px 18px 16px;
+      margin-bottom: 18px;
+    }
+    .shared h2 { color: #fde68a; }
+    .row { display: flex; gap: 12px; align-items: stretch; }
+    .arrow {
+      align-self: center;
+      color: #fbbf24;
+      font-size: 28px;
+      font-weight: 800;
+    }
+    .step {
+      flex: 1;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.16);
+      border-radius: 16px;
+      padding: 12px 12px 14px;
+      min-height: 168px;
+    }
+    .num {
+      display: inline-flex;
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      background: #fbbf24;
+      color: #071433;
+      font-weight: 800;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+    .phone {
+      margin: 10px auto 8px;
+      width: 92px; height: 64px;
+      border-radius: 10px;
+      background: #fff;
+      color: #1A237E;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+    }
+    .step b { display: block; font-size: 16px; margin-bottom: 4px; }
+    .step span { display: block; font-size: 13px; line-height: 1.45; color: rgba(255,255,255,0.88); }
+    .split { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .track {
+      background: #fff;
+      border-radius: 22px;
+      padding: 16px;
+      border: 1px solid #e2e8f0;
+    }
+    .track.user { border-top: 6px solid #1565C0; }
+    .track.provider { border-top: 6px solid #0f766e; }
+    .track h2 { display: flex; align-items: center; gap: 8px; }
+    .badge {
+      font-size: 12px;
+      background: #eff6ff;
+      color: #1565C0;
+      border-radius: 999px;
+      padding: 3px 8px;
+      font-weight: 800;
+    }
+    .track.provider .badge { background: #f0fdfa; color: #0f766e; }
+    .vstep {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      margin-top: 10px;
+    }
+    .vstep .n {
+      width: 28px; height: 28px; flex: 0 0 28px;
+      border-radius: 50%;
+      color: #fff;
+      font-weight: 800;
+      display: flex; align-items: center; justify-content: center;
+      margin-top: 8px;
+    }
+    .user .n { background: #1565C0; }
+    .provider .n { background: #0f766e; }
+    .card {
+      flex: 1;
+      background: #f8fafc;
+      border-radius: 14px;
+      padding: 10px 12px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .ico {
+      width: 46px; height: 46px; flex: 0 0 46px;
+      border-radius: 12px;
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px;
+    }
+    .card b { display: block; font-size: 15px; }
+    .card span { display: block; font-size: 13px; color: #475569; line-height: 1.4; margin-top: 2px; }
+    footer {
+      margin-top: 16px;
+      font-size: 13px;
+      color: #64748b;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <img src="../Assets/images/acadegate_logo.png" alt="AcadeGate" />
+    <div>
+      <h1>كيف تسجّل في AcadeGate</h1>
+      <p class="sub">نفس البداية للباحث ولمقدم الخدمة، ثم يفترق المسار عند اختيار الدور.</p>
+      <p class="link">https://acadegate-new--v20261002-tp9dbk1c.web.app/register</p>
+    </div>
+  </header>
+
+  <section class="shared">
+    <h2>البداية للجميع</h2>
+    <div class="row">
+      <div class="step">
+        <div class="num">1</div>
+        <div class="phone">🌐</div>
+        <b>افتح الرابط</b>
+        <span>من المتصفح على الجوال أو الكمبيوتر.</span>
+      </div>
+      <div class="arrow">←</div>
+      <div class="step">
+        <div class="num">2</div>
+        <div class="phone">文A</div>
+        <b>اختر اللغة</b>
+        <span>العربية أو English قبل المتابعة.</span>
+      </div>
+      <div class="arrow">←</div>
+      <div class="step">
+        <div class="num">3</div>
+        <div class="phone">🚪</div>
+        <b>صفحة الدخول</b>
+        <span>اضغط «إنشاء حساب» وليس «تسجيل الدخول» إن كان الحساب جديداً.</span>
+      </div>
+    </div>
+  </section>
+
+  <div class="split">
+    <section class="track user">
+      <h2>مسار الباحث <span class="badge">بوابة المستخدم</span></h2>
+      <div class="vstep">
+        <div class="n">4</div>
+        <div class="card">
+          <div class="ico">🎓</div>
+          <div><b>اختر الدور: طالب / باحث</b><span>أول خيار في صفحة إنشاء الحساب.</span></div>
+        </div>
+      </div>
+      <div class="vstep">
+        <div class="n">5</div>
+        <div class="card">
+          <div class="ico">✍️</div>
+          <div><b>املأ البيانات</b><span>الاسم، البريد، كلمة المرور.</span></div>
+        </div>
+      </div>
+      <div class="vstep">
+        <div class="n">6</div>
+        <div class="card">
+          <div class="ico">📄</div>
+          <div><b>الملف الأكاديمي</b><span>الجامعة، الدرجة، الكلية، التخصص، والاهتمام البحثي.</span></div>
+        </div>
+      </div>
+      <div class="vstep">
+        <div class="n">7</div>
+        <div class="card">
+          <div class="ico">✅</div>
+          <div><b>الموافقة ثم إنشاء الحساب</b><span>شروط الاستخدام وسياسة الخصوصية، ثم زر إنشاء الحساب.</span></div>
+        </div>
+      </div>
+      <div class="vstep">
+        <div class="n">8</div>
+        <div class="card">
+          <div class="ico">✉️</div>
+          <div><b>أكّد البريد</b><span>افتح الرابط من الرسالة ثم اضغط «تحقّقت». راجع مجلد الرسائل غير المرغوب فيها إن لم تصل.</span></div>
+        </div>
+      </div>
+      <div class="vstep">
+        <div class="n">9</div>
+        <div class="card">
+          <div class="ico">🏠</div>
+          <div><b>تدخل بوابة المستخدم</b><span>من هنا تبحث عن مشرف ومختبر ومتجر وكتابة.</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="track provider">
+      <h2>مسار مقدم الخدمة <span class="badge">بوابة المقدم</span></h2>
+      <div class="vstep">
+        <div class="n">4</div>
+        <div class="card">
+          <div class="ico">🏪</div>
+          <div><b>اختر دورك</b><span>تاجر / مورد، أو مسؤول مختبر، أو كاتب أكاديمي. حسب نشاطك فقط.</span></div>
+        </div>
+      </div>
+      <div class="vstep">
+        <div class="n">5</div>
+        <div class="card">
+          <div class="ico">✍️</div>
+          <div><b>املأ البيانات</b><span>الاسم، البريد، كلمة المرور. لا يُطلب ملف أكاديمي لهذا الدور.</span></div>
+        </div>
+      </div>
+      <div class="vstep">
+        <div class="n">6</div>
+        <div class="card">
+          <div class="ico">✅</div>
+          <div><b>الموافقة ثم إنشاء الحساب</b><span>شروط الاستخدام وسياسة الخصوصية، ثم زر إنشاء الحساب.</span></div>
+        </div>
+      </div>
+      <div class="vstep">
+        <div class="n">7</div>
+        <div class="card">
+          <div class="ico">✉️</div>
+          <div><b>أكّد البريد</b><span>افتح الرابط من الرسالة ثم اضغط «تحقّقت».</span></div>
+        </div>
+      </div>
+      <div class="vstep">
+        <div class="n">8</div>
+        <div class="card">
+          <div class="ico">🏬</div>
+          <div><b>تدخل بوابة مقدم الخدمة</b><span>من هنا تضيف منتجاتك أو مختبرك أو خدمة الكتابة وتستقبل الطلبات.</span></div>
+        </div>
+      </div>
+    </section>
+  </div>
+  <footer>AcadeGate · أرسل هذه الصورة مع الرابط: https://acadegate-new--v20261002-tp9dbk1c.web.app/register</footer>
+</body>
+</html>

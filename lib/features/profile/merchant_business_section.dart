@@ -2,6 +2,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/directory/directory_trust_status.dart';
+import '../../core/theme/acadegate_theme.dart';
 import '../../core/locale/locale_extensions.dart';
 import '../../core/storage/storage_service.dart';
 import '../auth/merchant_business_profile.dart';
@@ -159,10 +160,9 @@ class _MerchantBusinessSectionState extends State<MerchantBusinessSection> {
     final profile = _draft();
     return Card(
       elevation: 0,
-      color: Colors.teal.shade50.withValues(alpha: 0.45),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: Colors.teal.shade200),
+        side: const BorderSide(color: AcadeGateColors.line),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -171,7 +171,11 @@ class _MerchantBusinessSectionState extends State<MerchantBusinessSection> {
           children: [
             Text(
               context.t('بيانات المنشأة (تاجر)', 'Business entity (merchant)'),
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                color: AcadeGateColors.text,
+              ),
             ),
             const SizedBox(height: 8),
             StreamBuilder<bool>(
@@ -200,7 +204,7 @@ class _MerchantBusinessSectionState extends State<MerchantBusinessSection> {
                       style: TextStyle(
                         fontSize: 12,
                         height: 1.35,
-                        color: Colors.grey[800],
+                        color: const Color(0xFFB7C3D6),
                       ),
                     ),
                     if (!managed && profile.hasCoreIdentity) ...[

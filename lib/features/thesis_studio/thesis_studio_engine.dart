@@ -1132,7 +1132,7 @@ class ThesisStudioEngine {
   static String get _progressGate =>
       appTr(
         'جارٍ تصفية المرشحين حسب كليتك وقسمك فقط...',
-        'AI is keeping only papers from your faculty and department...',
+        'Keeping only papers from your faculty and department...',
       );
   static String get _progressOutline =>
       appTr('جارٍ بناء هيكل الفصول حسب التخصص...', 'Building the disciplinary outline...');

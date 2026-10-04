@@ -30,6 +30,7 @@ import 'store_cart_service.dart';
 import 'store_catalog_service.dart';
 import 'store_categories.dart';
 import 'store_product_navigation.dart';
+import 'ai_compare/store_ai_compare_screen.dart';
 import 'custom_fit/store_custom_fit_screen.dart';
 import 'custom_fit/store_product_discover_screen.dart';
 import 'research_partnership/research_partnerships_list_screen.dart';
@@ -123,13 +124,42 @@ class _StoreHubScreenState extends State<StoreHubScreen> {
       return;
     }
     setState(() => _searching = true);
-    _debounce = Timer(const Duration(milliseconds: 450), () async {
-      final result = await StoreProductSearchService.instance.search(q);
+    _debounce = Timer(const Duration(milliseconds: 280), () async {
+      final local = StoreProductSearchService.instance.rankLoaded(
+        _catalog.products,
+        q,
+      );
       if (!mounted || _searchQuery.trim() != q) return;
       setState(() {
-        _productHits = result;
-        _searching = false;
+        _productHits = StoreProductSearchResult(local: local);
+        _searching = !kIsWeb;
       });
+      if (kIsWeb) return;
+      try {
+        final remote = await StoreProductSearchService.instance
+            .searchSupplierSites(q)
+            .timeout(const Duration(seconds: 18));
+        if (!mounted || _searchQuery.trim() != q) return;
+        final seen = <String>{
+          for (final hit in local)
+            (hit.sourceUrl ?? '').trim().isNotEmpty
+                ? hit.sourceUrl!.toLowerCase()
+                : '${hit.supplierId}|${hit.name.toLowerCase()}',
+        };
+        final extra = remote.where((hit) {
+          final key = (hit.sourceUrl ?? '').trim().isNotEmpty
+              ? hit.sourceUrl!.toLowerCase()
+              : '${hit.supplierId}|${hit.name.toLowerCase()}';
+          return seen.add(key);
+        }).toList();
+        setState(() {
+          _productHits = StoreProductSearchResult(local: local, remote: extra);
+          _searching = false;
+        });
+      } catch (_) {
+        if (!mounted || _searchQuery.trim() != q) return;
+        setState(() => _searching = false);
+      }
     });
   }
 
@@ -316,6 +346,42 @@ class _StoreHubScreenState extends State<StoreHubScreen> {
             accent: StoreTheme.accent,
           ),
           IconButton(
+            tooltip: context.t('توافق مخصص', 'Custom fit'),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const StoreCustomFitScreen()),
+              );
+            },
+            icon: const Icon(Icons.design_services_outlined),
+          ),
+          IconButton(
+            tooltip: context.t('بحث بالمواصفات', 'Search by specs'),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const StoreProductDiscoverScreen(),
+                ),
+              );
+            },
+            icon: const Icon(Icons.travel_explore),
+          ),
+          IconButton(
+            tooltip: context.t('بحث ومقارنة الأسعار', 'Search and compare prices'),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => StoreAiCompareScreen(
+                    initialQuery: _searchQuery,
+                  ),
+                ),
+              );
+            },
+            icon: const Icon(Icons.price_check),
+          ),
+          IconButton(
             tooltip: context.t('شراكات بحثية', 'Research partnerships'),
             onPressed: () {
               Navigator.push(
@@ -326,6 +392,69 @@ class _StoreHubScreenState extends State<StoreHubScreen> {
               );
             },
             icon: const Icon(Icons.handshake_outlined),
+          ),
+          StreamBuilder(
+            stream: UserAccountService.instance.watchCurrentAccount(),
+            builder: (context, snapshot) {
+              final account = snapshot.data;
+              final canSell = UserRole.canSellProducts(account?.role);
+              final isAdmin = account?.isAdmin == true;
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (canSell)
+                    IconButton(
+                      tooltip: context.t(
+                        'نشر أصل معرفي',
+                        'Publish knowledge asset',
+                      ),
+                      onPressed: () async {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const PublishKnowledgeAssetScreen(),
+                          ),
+                        );
+                        if (mounted) _loadCatalog();
+                      },
+                      icon: const Icon(Icons.enhanced_encryption),
+                    ),
+                  if (account != null)
+                    IconButton(
+                      tooltip: context.t(
+                        'تراخيص الأصول المعرفية',
+                        'My knowledge licenses',
+                      ),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const MyKnowledgeLicensesScreen(),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.vpn_key_outlined),
+                    ),
+                  if (isAdmin)
+                    IconButton(
+                      tooltip: context.t(
+                        'استيراد / مزامنة الموردين',
+                        'Import / sync suppliers',
+                      ),
+                      onPressed: () async {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const AdminStoreImportScreen(),
+                          ),
+                        );
+                        if (mounted) _loadCatalog();
+                      },
+                      icon: const Icon(Icons.cloud_sync_outlined),
+                    ),
+                ],
+              );
+            },
           ),
           ListenableBuilder(
             listenable: StoreCartService.instance,
@@ -361,34 +490,8 @@ class _StoreHubScreenState extends State<StoreHubScreen> {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
             child: Column(
               children: [
-                const SectionGuideBanner(
-                  guideId: SectionGuideCatalog.store,
-                  accent: StoreTheme.accent,
-                ),
-                const SizedBox(height: 8),
-                const _HubHero(),
-                const SizedBox(height: 8),
-                const _SmartToolsRow(),
-                const SizedBox(height: 8),
                 _HubActions(
                   onAddProduct: _openSupplierAdd,
-                  onPublishKnowledge: () async {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const PublishKnowledgeAssetScreen(),
-                      ),
-                    );
-                    if (mounted) _loadCatalog();
-                  },
-                  onMyLicenses: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const MyKnowledgeLicensesScreen(),
-                      ),
-                    );
-                  },
                   onMyStore: () {
                     Navigator.push(
                       context,
@@ -399,15 +502,6 @@ class _StoreHubScreenState extends State<StoreHubScreen> {
                       if (mounted) _loadCatalog();
                     });
                   },
-                  onAdminImport: () async {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const AdminStoreImportScreen(),
-                      ),
-                    );
-                    if (mounted) _loadCatalog();
-                  },
                 ),
                 const SizedBox(height: 8),
                 SectionSearchField(
@@ -415,8 +509,8 @@ class _StoreHubScreenState extends State<StoreHubScreen> {
                   onChanged: _onSearchChanged,
                   onClear: _clearSearch,
                   hint: context.t(
-                    'ابحث عن منتج أو قسم: إيثانول، Arduino، ELISA...',
-                    'Search product or section: ethanol, Arduino, ELISA...',
+                    'ابحث عن منتج أو قسم',
+                    'Search product or section',
                   ),
                 ),
                 if (kIsWeb && showProductSearch) ...[
@@ -467,143 +561,13 @@ class _StoreHubScreenState extends State<StoreHubScreen> {
   }
 }
 
-class _HubHero extends StatelessWidget {
-  const _HubHero();
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      context.t(
-        'معدات · كواشف · أجهزة — ضمان Escrow حتى تأكيد الاستلام',
-        'Equipment · reagents · instruments — Escrow until delivery confirmation',
-      ),
-      style: const TextStyle(
-        color: StoreTheme.muted,
-        height: 1.3,
-        fontSize: 12.5,
-      ),
-    );
-  }
-}
-
-class _SmartToolsRow extends StatelessWidget {
-  const _SmartToolsRow();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _SmartToolChip(
-            icon: Icons.precision_manufacturing_outlined,
-            label: context.t('توافق مخصص', 'Custom fit'),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const StoreCustomFitScreen()),
-              );
-            },
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _SmartToolChip(
-            icon: Icons.travel_explore,
-            label: context.t('بحث بالمواصفات', 'Search by specs'),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const StoreProductDiscoverScreen(),
-                ),
-              );
-            },
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _SmartToolChip(
-            icon: Icons.handshake_outlined,
-            label: context.t('شراكة بحثية', 'Partnership'),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const ResearchPartnershipsListScreen(),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SmartToolChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  const _SmartToolChip({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: StoreTheme.accentSoft,
-      borderRadius: BorderRadius.circular(10),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(10),
-        onTap: onTap,
-        child: Container(
-          height: 40,
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: StoreTheme.border),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 18, color: StoreTheme.accent),
-              const SizedBox(width: 6),
-              Flexible(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 12.5,
-                    color: StoreTheme.ink,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _HubActions extends StatelessWidget {
   final VoidCallback onAddProduct;
-  final VoidCallback onPublishKnowledge;
-  final VoidCallback onMyLicenses;
   final VoidCallback onMyStore;
-  final VoidCallback onAdminImport;
 
   const _HubActions({
     required this.onAddProduct,
-    required this.onPublishKnowledge,
-    required this.onMyLicenses,
     required this.onMyStore,
-    required this.onAdminImport,
   });
 
   @override
@@ -613,117 +577,42 @@ class _HubActions extends StatelessWidget {
       builder: (context, snapshot) {
         final account = snapshot.data;
         final canSell = UserRole.canSellProducts(account?.role);
-        final isAdmin = account?.isAdmin == true;
-        final signedIn = account != null;
 
-        return Column(
+        if (!canSell) return const SizedBox.shrink();
+        return Row(
           children: [
-            if (canSell)
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: onAddProduct,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: StoreTheme.ink,
-                        side: const BorderSide(color: StoreTheme.hairline),
-                        minimumSize: const Size.fromHeight(36),
-                        visualDensity: VisualDensity.compact,
-                      ),
-                      icon: const Icon(Icons.add_business_outlined, size: 16),
-                      label: Text(
-                        context.t('أضف منتجاً', 'Add product'),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: onMyStore,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: StoreTheme.accent,
-                        minimumSize: const Size.fromHeight(36),
-                        visualDensity: VisualDensity.compact,
-                      ),
-                      icon: const Icon(Icons.storefront_outlined, size: 16),
-                      label: Text(
-                        context.t('متجري', 'My store'),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            if (canSell) ...[
-              const SizedBox(height: 6),
-              SizedBox(
-                width: double.infinity,
-                height: 36,
-                child: OutlinedButton.icon(
-                  onPressed: onPublishKnowledge,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF4527A0),
-                    side: const BorderSide(color: Color(0xFFD1C4E9)),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  icon: const Icon(Icons.lock_outline, size: 16),
-                  label: Text(
-                    context.t(
-                      'نشر أصل معرفي مشفّر (كود / 3D / بيانات)',
-                      'Publish encrypted knowledge asset',
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: onAddProduct,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: StoreTheme.ink,
+                  side: const BorderSide(color: StoreTheme.hairline),
+                  minimumSize: const Size.fromHeight(36),
+                  visualDensity: VisualDensity.compact,
+                ),
+                icon: const Icon(Icons.add_business_outlined, size: 16),
+                label: Text(
+                  context.t('أضف منتجاً', 'Add product'),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-            ],
-            if (signedIn) ...[
-              const SizedBox(height: 6),
-              SizedBox(
-                width: double.infinity,
-                height: 36,
-                child: OutlinedButton.icon(
-                  onPressed: onMyLicenses,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: StoreTheme.ink,
-                    side: const BorderSide(color: StoreTheme.hairline),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  icon: const Icon(Icons.vpn_key_outlined, size: 16),
-                  label: Text(
-                    context.t(
-                      'تراخيص الأصول المعرفية',
-                      'My knowledge licenses',
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: FilledButton.icon(
+                onPressed: onMyStore,
+                style: FilledButton.styleFrom(
+                  backgroundColor: StoreTheme.accent,
+                  minimumSize: const Size.fromHeight(36),
+                  visualDensity: VisualDensity.compact,
+                ),
+                icon: const Icon(Icons.sell_outlined, size: 16),
+                label: Text(
+                  context.t('متجري', 'My store'),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-            ],
-            if (isAdmin) ...[
-              const SizedBox(height: 6),
-              SizedBox(
-                width: double.infinity,
-                height: 36,
-                child: OutlinedButton.icon(
-                  onPressed: onAdminImport,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: StoreTheme.ink,
-                    side: const BorderSide(color: StoreTheme.hairline),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  icon: const Icon(Icons.cloud_sync_outlined, size: 16),
-                  label: Text(
-                    context.t(
-                      'استيراد / مزامنة الموردين',
-                      'Import / sync suppliers',
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ),
-            ],
+            ),
           ],
         );
       },
@@ -759,7 +648,7 @@ class _CatalogError extends StatelessWidget {
             Text(
               detail,
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey[600], fontSize: 12),
+              style: TextStyle(color: StoreTheme.muted, fontSize: 12),
             ),
             const SizedBox(height: 16),
             FilledButton(
@@ -936,7 +825,7 @@ class _BrowseBody extends StatelessWidget {
                   'الدليل العام ليس اعتماداً من الشركات ما لم تظهر حالة Partner.',
                   'Public directory is not a company endorsement unless Partner is shown.',
                 ),
-                style: TextStyle(fontSize: 12, color: Colors.grey[700], height: 1.35),
+                style: TextStyle(fontSize: 12, color: StoreTheme.muted, height: 1.35),
               ),
             ),
           ),
@@ -1021,7 +910,7 @@ class _BrowseBody extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             sliver: SliverGrid(
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 4,
+                crossAxisCount: 8,
                 crossAxisSpacing: 6,
                 mainAxisSpacing: 6,
                 childAspectRatio: 1.35,
@@ -1278,7 +1167,7 @@ class _HubProductCard extends StatelessWidget {
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: StoreTheme.ink.withValues(alpha: 0.88),
+                            color: const Color(0xFF0B1F4D).withValues(alpha: 0.88),
                             borderRadius: BorderRadius.circular(5),
                           ),
                           child: Text(
@@ -1336,8 +1225,8 @@ class _HubProductCard extends StatelessWidget {
       );
     }
     return Container(
-      color: Colors.grey.shade200,
-      child: const Icon(Icons.shopping_bag_outlined),
+      color: StoreTheme.surface,
+      child: const Icon(Icons.shopping_bag_outlined, color: StoreTheme.muted),
     );
   }
 }
@@ -1470,12 +1359,12 @@ class _CategoryCoverTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(3),
+                    padding: const EdgeInsets.all(2),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.94),
-                      borderRadius: BorderRadius.circular(5),
+                      borderRadius: BorderRadius.circular(4),
                     ),
-                    child: Icon(category.icon, color: StoreTheme.ink, size: 11),
+                    child: Icon(category.icon, color: const Color(0xFF18181B), size: 8),
                   ),
                   const Spacer(),
                   Text(
@@ -1588,7 +1477,7 @@ class _SearchBody extends StatelessWidget {
                     'لا نتائج محلية لهذا البحث. جرّب كلمات أطول أو قسماً مختلفاً.',
                     'No in-app products for this search. Try longer keywords or another category.',
                   ),
-            style: TextStyle(color: Colors.grey[600], fontSize: 13),
+            style: TextStyle(color: StoreTheme.muted, fontSize: 13),
           )
         else
           ...hits.local.map(
@@ -1629,7 +1518,7 @@ class _SearchBody extends StatelessWidget {
               'لا نتائج من المواقع لهذه الكلمة، أو المواقع غير متاحة حالياً.',
               'No site results for this query, or sites are unavailable right now.',
             ),
-            style: TextStyle(color: Colors.grey[600], fontSize: 13),
+            style: TextStyle(color: StoreTheme.muted, fontSize: 13),
           )
         else
           ...hits.remote.map(

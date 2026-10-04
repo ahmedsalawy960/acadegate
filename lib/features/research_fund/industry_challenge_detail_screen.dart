@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
 import '../../core/escrow/payment_status.dart';
+import '../../core/theme/acadegate_theme.dart';
 import '../../core/locale/locale_extensions.dart';
 import 'industry_challenge_models.dart';
 import 'industry_challenge_ops.dart';
@@ -97,7 +98,7 @@ class _ChallengeBody extends StatelessWidget {
             if (challenge.deadline != null)
               '${challenge.deadline!.year}/${challenge.deadline!.month}/${challenge.deadline!.day}',
           ].join(' · '),
-          style: TextStyle(color: Colors.grey[700]),
+          style: TextStyle(color: const Color(0xFFB7C3D6)),
         ),
         const SizedBox(height: 12),
         Card(
@@ -108,7 +109,7 @@ class _ChallengeBody extends StatelessWidget {
                       challenge.paymentStatus == PaymentStatus.released
                   ? Icons.lock_outlined
                   : Icons.lock_open_outlined,
-              color: _brand,
+              color: acadegateInk(_brand),
             ),
             title: Text(context.t(
               IndustryChallengeOps.escrowStepLabelAr(
@@ -235,7 +236,7 @@ class _ChallengeBody extends StatelessWidget {
                 'التقديم يُفتح بعد أن تحجز الشركة العربون.',
                 'Submissions open after the company holds the deposit.',
               ),
-              style: TextStyle(color: Colors.grey[700]),
+              style: TextStyle(color: const Color(0xFFB7C3D6)),
             ),
           ),
         const SizedBox(height: 24),
@@ -262,13 +263,13 @@ class _ChallengeBody extends StatelessWidget {
                       ? 'No protocols yet'
                       : '${challenge.protocolsCount} protocol(s) submitted',
                 ),
-                style: TextStyle(color: Colors.grey[700]),
+                style: TextStyle(color: const Color(0xFFB7C3D6)),
               );
             }
             if (rows.isEmpty) {
               return Text(
                 context.t('لا بروتوكولات بعد', 'No protocols yet'),
-                style: TextStyle(color: Colors.grey[700]),
+                style: TextStyle(color: const Color(0xFFB7C3D6)),
               );
             }
             return Column(

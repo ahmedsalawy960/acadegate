@@ -101,7 +101,7 @@ class _HomeFeaturesCarouselState extends State<HomeFeaturesCarousel> {
           style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF1A237E),
+            color: const Color(0xFFF4F7FB),
           ),
         ),
         const SizedBox(height: 4),
@@ -110,7 +110,7 @@ class _HomeFeaturesCarouselState extends State<HomeFeaturesCarousel> {
             'استخدم الأسهم يميناً ويساراً لاكتشاف أهم إمكانيات المنصة',
             'Use the left and right arrows to explore the top capabilities',
           ),
-          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+          style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
         ),
         const SizedBox(height: 12),
         SizedBox(
@@ -154,7 +154,7 @@ class _HomeFeaturesCarouselState extends State<HomeFeaturesCarousel> {
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
                               height: 1.25,
-                              color: Colors.grey[900],
+                              color: const Color(0xFFB7C3D6),
                             ),
                           ),
                           if (feature.subtitle(arabic).isNotEmpty) ...[
@@ -166,7 +166,7 @@ class _HomeFeaturesCarouselState extends State<HomeFeaturesCarousel> {
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontSize: 11,
-                                color: Colors.grey[600],
+                                color: const Color(0xFFB7C3D6),
                               ),
                             ),
                           ],
@@ -248,7 +248,7 @@ class _FeatureImage extends StatelessWidget {
     return Container(
       color: const Color(0xFF1A237E).withValues(alpha: 0.12),
       alignment: Alignment.center,
-      child: const Icon(Icons.auto_awesome, color: Color(0xFF1A237E)),
+      child: const Icon(Icons.image_outlined, color: const Color(0xFFF4F7FB)),
     );
   }
 }

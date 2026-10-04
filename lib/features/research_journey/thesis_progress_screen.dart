@@ -5,77 +5,60 @@ import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
 
 import '../../core/locale/locale_extensions.dart';
-
 import '../../core/locale/locale_service.dart';
-
+import '../humanities/humanities_faculties.dart';
+import '../profile/academic_profile_service.dart';
 import 'thesis_progress.dart';
-
+import 'thesis_progress_activity.dart';
 import 'thesis_progress_engine.dart';
-
 import 'thesis_progress_navigation.dart';
-
 import 'thesis_progress_templates.dart';
 
-
-
 class ThesisProgressScreen extends StatefulWidget {
-
   const ThesisProgressScreen({super.key});
 
-
-
   @override
-
   State<ThesisProgressScreen> createState() => _ThesisProgressScreenState();
-
 }
 
-
-
 class _ThesisProgressScreenState extends State<ThesisProgressScreen> {
-
   static const _brand = Color(0xFF1A237E);
 
-
-
   final _engine = ThesisProgressEngine.instance;
-
   ThesisProgress? _progress;
-
   bool _loading = true;
-
   bool _syncing = false;
-
-
+  bool _fieldMode = false;
 
   @override
-
   void initState() {
-
     super.initState();
-
     _load();
-
   }
 
-
-
   Future<void> _load() async {
-
     setState(() => _loading = true);
-
     final progress = await ThesisProgressService.instance.load();
-
+    final profile = await AcademicProfileService.instance.loadProfile();
     if (!mounted) return;
-
     setState(() {
-
       _progress = progress;
-
+      _fieldMode =
+          HumanitiesFaculties.isHumanities(profile?.resolvedFacultyCategory);
       _loading = false;
-
     });
+  }
 
+  String _titleFor(ThesisProgressItem item) {
+    if (item.activityId == ThesisActivityId.dataCollection.name) {
+      return _fieldMode
+          ? context.t('جمع البيانات الميدانية', 'Field data collection')
+          : context.t(
+              'جمع البيانات (ميدان أو مختبر)',
+              'Data collection (field or lab)',
+            );
+    }
+    return item.title;
   }
 
 
@@ -306,7 +289,7 @@ class _ThesisProgressScreenState extends State<ThesisProgressScreen> {
 
                   )
 
-                : const Icon(Icons.auto_awesome),
+                : const Icon(Icons.sync),
 
           ),
 
@@ -315,15 +298,11 @@ class _ThesisProgressScreenState extends State<ThesisProgressScreen> {
       ),
 
       floatingActionButton: FloatingActionButton.extended(
-
         onPressed: _addCustomItem,
-
         backgroundColor: _brand,
-
+        foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
-
         label: Text(context.t('بند مخصص', 'Custom item')),
-
       ),
 
       body: _loading
@@ -418,7 +397,7 @@ class _ThesisProgressScreenState extends State<ThesisProgressScreen> {
 
                   ThesisProgressTemplates.label(progress.templateId, isEnglish),
 
-                  style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                  style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
 
                 ),
 
@@ -458,7 +437,7 @@ class _ThesisProgressScreenState extends State<ThesisProgressScreen> {
 
                   children: [
 
-                    const Icon(Icons.lightbulb_outline, color: Color(0xFF00695C)),
+                    const Icon(Icons.lightbulb_outline, color: const Color(0xFF5EEAD4)),
 
                     const SizedBox(width: 8),
 
@@ -504,7 +483,7 @@ class _ThesisProgressScreenState extends State<ThesisProgressScreen> {
 
                   step.advice.tip(isEnglish),
 
-                  style: TextStyle(color: Colors.grey[800], height: 1.45),
+                  style: TextStyle(color: const Color(0xFFB7C3D6), height: 1.45),
 
                 ),
 
@@ -562,7 +541,7 @@ class _ThesisProgressScreenState extends State<ThesisProgressScreen> {
 
           ),
 
-          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+          style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
 
         ),
 
@@ -582,7 +561,7 @@ class _ThesisProgressScreenState extends State<ThesisProgressScreen> {
 
                 children: [
 
-                  Expanded(child: Text(item.title)),
+                  Expanded(child: Text(_titleFor(item))),
 
                   if (item.autoTracked && item.done)
 
@@ -590,7 +569,7 @@ class _ThesisProgressScreenState extends State<ThesisProgressScreen> {
 
                       message: context.t('اكتمل تلقائياً', 'Auto-completed'),
 
-                      child: const Icon(Icons.auto_awesome, size: 16, color: Colors.teal),
+                      child: const Icon(Icons.task_alt, size: 16, color: Colors.teal),
 
                     ),
 

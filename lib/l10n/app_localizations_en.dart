@@ -124,7 +124,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get portalUserItem3 => 'Research ideas and academic community';
 
   @override
-  String get portalUserItem4 => 'AI advisor and smart matchmaking';
+  String get portalUserItem4 => 'Academic Assistant and matching';
 
   @override
   String get portalProviderItem1 => 'Academic merchant / supplier';
@@ -133,7 +133,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get portalProviderItem2 => 'Lab and sample analysis';
 
   @override
-  String get portalProviderItem3 => 'Academic writer and expert';
+  String get portalProviderItem3 => 'Academic writing consultant';
 
   @override
   String get portalProviderItem4 => 'Idea publisher and service supervisor';
@@ -203,7 +203,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get serviceIntegrity => 'AcadeGate Integrity';
 
   @override
-  String get serviceWriting => 'Writing services';
+  String get serviceWriting => 'Writing help';
 
   @override
   String get serviceThesisStudio => 'Thesis Studio';
@@ -348,10 +348,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get manageLabSub => 'Lab manager';
 
   @override
-  String get offerWriting => 'Offer academic writing services';
+  String get offerWriting => 'Offer writing help and consultation';
 
   @override
-  String get offerWritingSub => 'Writer / expert';
+  String get offerWritingSub => 'Writing consultant';
 
   @override
   String get publishIdeasGuest => 'Publish research ideas';
@@ -464,7 +464,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get portalProviderDesc =>
-      'Merchant, lab, academic writer, idea publisher, or supervisor offering services';
+      'Merchant, lab, writing consultant, idea publisher, or supervisor offering services';
 
   @override
   String get portalUserDesc =>

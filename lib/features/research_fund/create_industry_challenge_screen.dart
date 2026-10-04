@@ -101,7 +101,7 @@ class _CreateIndustryChallengeScreenState
                 'العربون يبقى معلّقاً حتى تؤكد إيداعه. الباحثون لا يقدّمون قبل الحجز.',
                 'The deposit stays pending until you confirm it. Researchers cannot submit before it is held.',
               ),
-              style: TextStyle(color: Colors.grey[700], height: 1.4),
+              style: const TextStyle(color: Color(0xFFB7C3D6), height: 1.4),
             ),
             const SizedBox(height: 16),
             TextFormField(

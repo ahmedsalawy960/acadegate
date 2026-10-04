@@ -147,16 +147,20 @@ class DirectoryTrustChip extends StatelessWidget {
     final label = DirectoryTrustStatus.label(s, isAr: isAr);
     final managed = (lastManagedLabel ?? '').trim();
     return Chip(
-      avatar: Icon(DirectoryTrustStatus.icon(s), size: 16, color: c),
+      avatar: Icon(DirectoryTrustStatus.icon(s), size: 16, color: Colors.white),
       label: Text(
         managed.isEmpty
             ? label
             : (isAr ? '$label · آخر ترتيب $managed' : '$label · Updated $managed'),
-        style: TextStyle(fontSize: compact ? 11 : 12, color: c),
+        style: TextStyle(
+          fontSize: compact ? 11 : 12,
+          color: Colors.white,
+          fontWeight: FontWeight.w600,
+        ),
       ),
       visualDensity: VisualDensity.compact,
-      backgroundColor: c.withValues(alpha: 0.1),
-      side: BorderSide(color: c.withValues(alpha: 0.35)),
+      backgroundColor: c,
+      side: BorderSide(color: c),
       padding: EdgeInsets.zero,
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
     );

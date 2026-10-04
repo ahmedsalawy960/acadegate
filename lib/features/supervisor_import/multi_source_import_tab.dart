@@ -102,7 +102,7 @@ class _MultiSourceImportTabState extends State<MultiSourceImportTab> {
             'Search does not rely on OpenAlex alone: ORCID + official university '
             'sites (directory + Wikidata) + Semantic Scholar + OpenAlex.',
           ),
-          style: TextStyle(color: Colors.grey[800], height: 1.4),
+          style: TextStyle(color: const Color(0xFFB7C3D6), height: 1.4),
         ),
         const SizedBox(height: 12),
         TextField(

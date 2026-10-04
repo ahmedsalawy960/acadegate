@@ -95,7 +95,7 @@ class _PortalGatewayState extends State<PortalGateway> {
     if (_loading) {
       return const Scaffold(
         body: Center(
-          child: CircularProgressIndicator(color: Color(0xFF1A237E)),
+          child: CircularProgressIndicator(color: Color(0xFFF4F7FB)),
         ),
       );
     }

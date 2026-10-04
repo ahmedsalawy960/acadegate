@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
 import '../../core/locale/locale_extensions.dart';
+import '../../core/theme/acadegate_theme.dart';
 import '../research_marketplace/research_marketplace_screen.dart';
 import 'research_fund_models.dart';
 
@@ -79,7 +80,10 @@ class MyFundedIdeasScreen extends StatelessWidget {
               final date = a.createdAt;
               return Card(
                 child: ListTile(
-                  leading: const Icon(Icons.volunteer_activism, color: _brand),
+                  leading: Icon(
+                    Icons.volunteer_activism,
+                    color: acadegateInk(_brand),
+                  ),
                   title: Text(a.ideaTitle),
                   subtitle: Text(
                     [

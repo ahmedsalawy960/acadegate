@@ -175,7 +175,7 @@ class AdvisorOrchestrator {
               '**رد احتياطي (محرك محلي):**\n\n'
               '$local\n\n'
               '---\n'
-              'لتفعيل الذكاء السحابي:\n'
+              'لتفعيل المساعد الأكاديمي:\n'
               '1. سجّل الدخول على Chrome/Web\n'
               '2. أو شغّل على Windows مع `dart_defines.json`',
           '⚠️ **Could not connect to ${AdvisorBranding.cloudBadge}**\n'
@@ -184,7 +184,7 @@ class AdvisorOrchestrator {
               '**Fallback response (local engine):**\n\n'
               '$local\n\n'
               '---\n'
-              'To enable cloud AI:\n'
+              'To turn on the Academic Assistant:\n'
               '1. Sign in on Chrome/Web\n'
               '2. Or run on Windows with `dart_defines.json`',
         ),
@@ -203,13 +203,13 @@ class AdvisorOrchestrator {
         '$local\n\n'
             '---\n'
             '⚠️ أنت على **الوضع الأساسي** (قوالب محلية). '
-            'لتفعيل الذكاء السحابي:\n'
+            'لتفعيل المساعد الأكاديمي:\n'
             '1. سجّل الدخول على Chrome/Web\n'
             '2. أو انسخ `dart_defines.example.json` إلى `dart_defines.json` على Windows',
         '$local\n\n'
             '---\n'
             '⚠️ You are on **${AdvisorBranding.localBadge} mode** (local templates). '
-            'To enable cloud AI:\n'
+            'To turn on the Academic Assistant:\n'
             '1. Sign in on Chrome/Web\n'
             '2. Or copy `dart_defines.example.json` to `dart_defines.json` on Windows',
       ),

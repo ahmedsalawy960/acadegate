@@ -19,7 +19,7 @@ class ResearchPartnershipsListScreen extends StatelessWidget {
         backgroundColor: StoreTheme.bg,
         appBar: AcadeGateAppBar(
           title: Text(context.t('شراكات بحثية', 'Research partnerships')),
-          backgroundColor: StoreTheme.ink,
+          backgroundColor: StoreTheme.appBar,
           foregroundColor: Colors.white,
           bottom: TabBar(
             indicatorColor: StoreTheme.accent,

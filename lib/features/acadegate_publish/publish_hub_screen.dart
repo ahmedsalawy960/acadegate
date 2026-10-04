@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
 import '../../core/locale/locale_extensions.dart';
+import '../../core/theme/acadegate_theme.dart';
 import '../auth/auth_guard.dart';
 import '../auth/user_account_service.dart';
 import '../guides/section_guide_catalog.dart';
@@ -71,7 +72,7 @@ class PublishHubScreen extends StatelessWidget {
                     Text(
                       '${snapshot.error}',
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
                     ),
                   ],
                 ),
@@ -120,7 +121,7 @@ class PublishHubScreen extends StatelessWidget {
                             return Card(
                               margin: const EdgeInsets.only(bottom: 12),
                               child: ListTile(
-                                leading: Icon(_statusIcon(m.status), color: _brand),
+                                leading: Icon(_statusIcon(m.status), color: acadegateInk(_brand)),
                                 title: Text(
                                   m.title.trim().isEmpty
                                       ? context.t(
@@ -176,6 +177,7 @@ class PublishHubScreen extends StatelessWidget {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _createDraft(context),
         backgroundColor: _brand,
+        foregroundColor: Colors.white,
         icon: const Icon(Icons.note_add_outlined),
         label: Text(context.t('مسودة جديدة', 'New draft')),
       ),
@@ -205,7 +207,7 @@ class PublishHubScreen extends StatelessWidget {
                 'Start a draft → pick a reference style → choose a journal',
               ),
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey[600], height: 1.4),
+              style: TextStyle(color: const Color(0xFFB7C3D6), height: 1.4),
             ),
           ],
         ),

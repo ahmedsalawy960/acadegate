@@ -148,7 +148,7 @@ class ExternalWritingToolsPanel extends StatelessWidget {
                 'اختصارات لمواقع خارجية (قد تحتاج حساباً) + فحص داخل AcadeGate',
                 'Shortcuts to external sites (may need an account) + in-app AcadeGate check',
               ),
-              style: TextStyle(fontSize: 12, color: Colors.grey[700], height: 1.35),
+              style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6), height: 1.35),
             ),
             const SizedBox(height: 12),
             FilledButton.icon(
@@ -185,7 +185,7 @@ class ExternalWritingToolsPanel extends StatelessWidget {
                       ),
                       Text(
                         context.t(tool.subtitleAr, tool.subtitleEn),
-                        style: TextStyle(fontSize: 10, color: Colors.grey[700]),
+                        style: TextStyle(fontSize: 10, color: const Color(0xFFB7C3D6)),
                       ),
                     ],
                   ),
@@ -200,7 +200,7 @@ class ExternalWritingToolsPanel extends StatelessWidget {
                 'هذه الأدوات لا تعمل داخل التطبيق كامتداد — تُفتح خارجياً.',
                 'These tools are not in-app extensions — they open externally.',
               ),
-              style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+              style: TextStyle(fontSize: 11, color: const Color(0xFFB7C3D6)),
             ),
           ],
         ),

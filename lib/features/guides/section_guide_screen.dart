@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
 import '../../core/locale/locale_extensions.dart';
+import '../../core/theme/acadegate_theme.dart';
 import 'section_guide_catalog.dart';
 import 'section_guide_models.dart';
 
@@ -20,6 +21,7 @@ class SectionGuideScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final guide = SectionGuideCatalog.byId(guideId);
     final en = Localizations.localeOf(context).languageCode == 'en';
+    final ink = acadegateInk(accent);
 
     if (guide == null) {
       return Scaffold(
@@ -55,7 +57,7 @@ class SectionGuideScreen extends StatelessWidget {
                     style: TextStyle(
                       fontWeight: FontWeight.w800,
                       fontSize: 16,
-                      color: accent,
+                      color: ink,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -73,7 +75,7 @@ class SectionGuideScreen extends StatelessWidget {
             style: TextStyle(
               fontWeight: FontWeight.w800,
               fontSize: 16,
-              color: accent,
+              color: ink,
             ),
           ),
           const SizedBox(height: 10),
@@ -91,7 +93,7 @@ class SectionGuideScreen extends StatelessWidget {
               style: TextStyle(
                 fontWeight: FontWeight.w800,
                 fontSize: 16,
-                color: accent,
+                color: ink,
               ),
             ),
             const SizedBox(height: 8),
@@ -99,7 +101,7 @@ class SectionGuideScreen extends StatelessWidget {
               Card(
                 margin: const EdgeInsets.only(bottom: 10),
                 child: ListTile(
-                  leading: Icon(Icons.info_outline, color: accent),
+                  leading: Icon(Icons.info_outline, color: ink),
                   title: Text(
                     note.title(en),
                     style: const TextStyle(fontWeight: FontWeight.w700),
@@ -145,6 +147,7 @@ class _StepCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ink = acadegateInk(accent);
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
@@ -158,7 +161,7 @@ class _StepCard extends StatelessWidget {
               child: Text(
                 '$index',
                 style: TextStyle(
-                  color: accent,
+                  color: ink,
                   fontWeight: FontWeight.w800,
                   fontSize: 13,
                 ),
@@ -171,7 +174,7 @@ class _StepCard extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Icon(step.icon, size: 18, color: accent),
+                      Icon(step.icon, size: 18, color: ink),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
@@ -190,7 +193,7 @@ class _StepCard extends StatelessWidget {
                     style: TextStyle(
                       height: 1.55,
                       fontSize: 13.5,
-                      color: Colors.grey.shade800,
+                      color: const Color(0xFFB7C3D6),
                     ),
                   ),
                 ],
@@ -246,66 +249,5 @@ class SectionGuideBanner extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final guide = SectionGuideCatalog.byId(guideId);
-    if (guide == null) return const SizedBox.shrink();
-    final en = Localizations.localeOf(context).languageCode == 'en';
-
-    return Material(
-      color: accent.withValues(alpha: 0.08),
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => SectionGuideScreen(
-                guideId: guideId,
-                accent: accent,
-              ),
-            ),
-          );
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              Icon(Icons.menu_book_outlined, color: accent),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      context.t(
-                        'جديد هنا؟ اقرأ الدليل الكامل',
-                        'New here? Read the full guide',
-                      ),
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        color: accent,
-                        fontSize: 13,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      en
-                          ? 'Step-by-step: ${guide.titleEn}'
-                          : 'خطوة بخطوة: ${guide.titleAr}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(Icons.arrow_forward_ios, size: 14, color: accent),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => const SizedBox.shrink();
 }

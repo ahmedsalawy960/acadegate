@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'core/locale/locale_service.dart';
+import 'core/theme/acadegate_theme.dart';
 import 'core/video/register_video_player_desktop.dart';
 import 'core/widgets/beta_shell.dart';
 import 'core/notifications/push_notification_bootstrap.dart';
@@ -48,7 +49,7 @@ void main() async {
       stack: stack.toString(),
       severity: 'critical',
     );
-    return false;
+    return true;
   };
 
   runApp(const AcadeGateApp());
@@ -82,35 +83,7 @@ class AcadeGateApp extends StatelessWidget {
             GlobalWidgetsLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
           ],
-          theme: ThemeData(
-            useMaterial3: true,
-            visualDensity: VisualDensity.standard,
-            colorScheme: ColorScheme.fromSeed(
-              seedColor: const Color(0xFF1A237E),
-            ).copyWith(
-              surface: Colors.white,
-              surfaceTint: Colors.transparent,
-            ),
-            scaffoldBackgroundColor: const Color(0xFFF5F5F5),
-            canvasColor: const Color(0xFFF5F5F5),
-            cardTheme: const CardThemeData(
-              color: Colors.white,
-              surfaceTintColor: Colors.transparent,
-              shadowColor: Color(0x1A000000),
-            ),
-            appBarTheme: const AppBarTheme(
-              surfaceTintColor: Colors.transparent,
-              scrolledUnderElevation: 0,
-            ),
-            dialogTheme: const DialogThemeData(
-              backgroundColor: Colors.white,
-              surfaceTintColor: Colors.transparent,
-            ),
-            bottomSheetTheme: const BottomSheetThemeData(
-              backgroundColor: Colors.white,
-              surfaceTintColor: Colors.transparent,
-            ),
-          ),
+          theme: acadegateTheme(),
           builder: (context, child) {
             return Directionality(
               textDirection: textDirection,

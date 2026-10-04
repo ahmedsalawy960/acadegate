@@ -1,7 +1,12 @@
+import 'dart:convert';
+
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
 import '../../core/locale/locale_extensions.dart';
+import '../../core/theme/acadegate_theme.dart';
 import '../../core/voice/readable_text.dart';
 import '../../core/locale/l10n_lookup.dart';
 import '../academic/faculty_categories.dart';
@@ -78,21 +83,32 @@ class _VivaSimulatorScreenState extends State<VivaSimulatorScreen> {
   void initState() {
     super.initState();
     _loadProfile();
-    _tts.init();
-    _initStt();
-  }
-
-  Future<void> _initStt() async {
     _stt.onStateChanged = () {
       if (mounted) setState(() {});
     };
-    final available = await _stt.init();
-    if (!mounted) return;
-    setState(() => _sttAvailable = available);
   }
 
   Future<void> _toggleVoiceAnswer() async {
     if (_isLoading || _stt.isTranscribing) return;
+
+    if (!_sttAvailable) {
+      final available = await _stt.init();
+      if (!mounted) return;
+      setState(() => _sttAvailable = available);
+      if (!available) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              context.t(
+                'التعرف على الصوت غير متاح على هذا الجهاز',
+                'Speech recognition is unavailable on this device',
+              ),
+            ),
+          ),
+        );
+        return;
+      }
+    }
 
     if (_stt.isListening) {
       await _stt.stopListening();
@@ -119,8 +135,8 @@ class _VivaSimulatorScreenState extends State<VivaSimulatorScreen> {
           content: Text(
             needsGemini && !_service.isCloudEnabled
                 ? context.t(
-                    'التعرف على العربية يحتاج تسجيل الدخول لتفعيل الذكاء السحابي',
-                    'Arabic speech recognition needs sign-in to enable cloud AI',
+                    'التعرف على العربية يحتاج تسجيل الدخول',
+                    'Arabic speech recognition needs sign-in',
                   )
                 : context.t(
                     'التعرف على الصوت غير متاح — تحقق من الميكروفون',
@@ -144,7 +160,76 @@ class _VivaSimulatorScreenState extends State<VivaSimulatorScreen> {
       _methodology = config.methodology;
       _facultyCategoryId = config.facultyCategoryId;
     }
+    await _restoreThesisDraft();
+    if (!mounted) return;
     setState(() => _profileLoaded = true);
+  }
+
+  String get _thesisDraftKey {
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? 'local';
+    return 'viva_thesis_draft_$uid';
+  }
+
+  Future<void> _saveThesisDraft() async {
+    if ((_pdfFileName ?? '').isEmpty &&
+        _extractedQuestions.isEmpty &&
+        _issues.isEmpty) {
+      return;
+    }
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_thesisDraftKey, jsonEncode(_config.toMap()));
+    } catch (_) {}
+  }
+
+  Future<void> _restoreThesisDraft() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_thesisDraftKey);
+      if (raw == null || raw.isEmpty) return;
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return;
+      final saved = VivaSessionConfig.fromMap(
+        Map<String, dynamic>.from(decoded),
+      );
+      final hasFile = (saved.pdfFileName ?? '').trim().isNotEmpty ||
+          saved.extractedQuestions.isNotEmpty ||
+          saved.issues.isNotEmpty;
+      if (!hasFile) return;
+      if (saved.thesisTitle.trim().length >= 5) {
+        _titleController.text = saved.thesisTitle;
+      }
+      if (saved.thesisSummary.trim().length >= 40) {
+        _summaryController.text = saved.thesisSummary;
+      }
+      if (saved.specialization.trim().isNotEmpty) {
+        _specializationController.text = saved.specialization;
+      }
+      if (saved.university.trim().isNotEmpty) {
+        _universityController.text = saved.university;
+      }
+      _degree = saved.degree;
+      _methodology = saved.methodology;
+      _questionCount = saved.resolvedQuestionCount;
+      _answerMode = saved.answerMode;
+      _facultyCategoryId = saved.facultyCategoryId ?? _facultyCategoryId;
+      _pdfFileName = saved.pdfFileName;
+      _thesisExcerpt = saved.thesisExcerpt;
+      _defenseContext = saved.defenseContext;
+      _extractedQuestions = List.of(saved.extractedQuestions);
+      _issues = List.of(saved.issues);
+      _supervisorFromThesis = saved.supervisorFromThesis;
+      _supervisorsFromThesis = List.of(saved.supervisorsFromThesis);
+      _bibliographyText = saved.bibliographyText;
+      _citationHealth = saved.citationHealth;
+    } catch (_) {}
+  }
+
+  Future<void> _clearThesisDraft() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_thesisDraftKey);
+    } catch (_) {}
   }
 
   VivaSessionConfig get _config => VivaSessionConfig(
@@ -203,8 +288,8 @@ class _VivaSimulatorScreenState extends State<VivaSimulatorScreen> {
             title: Text(ctx.t('تسجيل الدخول مطلوب', 'Sign-in required')),
             content: Text(
               ctx.t(
-                'رفع PDF أو Word واستخراج بيانات الرسالة يعمل عبر الذكاء السحابي بعد تسجيل الدخول — بدون مفتاح محلي.',
-                'PDF or Word upload and thesis extraction uses cloud AI after you sign in — no local API key needed.',
+                'رفع PDF أو Word واستخراج بيانات الرسالة يعمل بعد تسجيل الدخول.',
+                'PDF or Word upload and thesis extraction works after you sign in.',
               ),
             ),
             actions: [
@@ -297,6 +382,7 @@ class _VivaSimulatorScreenState extends State<VivaSimulatorScreen> {
           );
         }
       });
+      await _saveThesisDraft();
       final qn = extracted.extractedQuestions.length;
       final inCount = extracted.issues.length;
       final supervisors = extracted.supervisorsFromThesis.isNotEmpty
@@ -339,7 +425,7 @@ class _VivaSimulatorScreenState extends State<VivaSimulatorScreen> {
     }
   }
 
-  void _clearPdf() {
+  Future<void> _clearPdf() async {
     setState(() {
       _pdfFileName = null;
       _thesisExcerpt = null;
@@ -351,6 +437,7 @@ class _VivaSimulatorScreenState extends State<VivaSimulatorScreen> {
       _bibliographyText = null;
       _citationHealth = null;
     });
+    await _clearThesisDraft();
   }
 
   Future<void> _runCitationHealth(String? bibliography) async {
@@ -392,6 +479,7 @@ class _VivaSimulatorScreenState extends State<VivaSimulatorScreen> {
           }
         }
       });
+      await _saveThesisDraft();
     } catch (_) {
       if (!mounted) return;
       setState(() => _checkingCitations = false);
@@ -436,29 +524,46 @@ class _VivaSimulatorScreenState extends State<VivaSimulatorScreen> {
       return;
     }
 
-    _sessionId = await _store.createSession(
-      config: _config,
-      phase: VivaPhase.session,
-    );
-    _sessionCreatedAt = DateTime.now();
+    try {
+      _sessionId = await _store.createSession(
+        config: _config,
+        phase: VivaPhase.session,
+      );
+      _sessionCreatedAt = DateTime.now();
 
-    setState(() {
-      _phase = VivaPhase.session;
-      _messages.clear();
-      _questionIndex = 0;
-      _report = null;
-      _voiceEnabled = _config.isOralMode;
-      _tts.setEnabled(_voiceEnabled);
-      _messages.add(_service.systemMessage(_service.introMessage(_config)));
-      _isLoading = true;
-    });
+      setState(() {
+        _phase = VivaPhase.session;
+        _messages.clear();
+        _questionIndex = 0;
+        _report = null;
+        _voiceEnabled = _config.isOralMode;
+        _tts.setEnabled(_voiceEnabled);
+        _messages.add(_service.systemMessage(_service.introMessage(_config)));
+        _isLoading = true;
+      });
 
-    await _askNextQuestion();
-    await _persistSession();
+      await _askNextQuestion();
+      await _persistSession();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            context.t(
+              'تعذر بدء المحاكاة. حاول مرة أخرى.',
+              'Could not start the simulation. Try again.',
+            ),
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _askNextQuestion() async {
-    await _stt.stopListening();
+    try {
+      await _stt.stopListening();
+    } catch (_) {}
     final member = _service.memberForQuestionIndex(
       _questionIndex,
       supervisorFromThesis: _supervisorFromThesis,
@@ -475,7 +580,9 @@ class _VivaSimulatorScreenState extends State<VivaSimulatorScreen> {
       _isLoading = false;
     });
     _scrollToBottom();
-    await _tts.speakCommitteeQuestion(member: member, question: question);
+    try {
+      await _tts.speakCommitteeQuestion(member: member, question: question);
+    } catch (_) {}
   }
 
   Future<void> _submitAnswer() async {
@@ -710,7 +817,7 @@ class _VivaSimulatorScreenState extends State<VivaSimulatorScreen> {
                     'يستخرج أسئلة مناقشة وأخطاء/ملاحظات من نص الرسالة — بدون اختلاق أسماء مشرفين (يفضّل ملف Word)',
                     'Extracts viva questions and errors/comments from your thesis — no invented supervisor names (Word works best)',
                   ),
-                  style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                  style: TextStyle(fontSize: 13, color: const Color(0xFFB7C3D6)),
                 ),
                 const SizedBox(height: 12),
                 if (_pdfFileName != null)
@@ -928,7 +1035,7 @@ class _VivaSimulatorScreenState extends State<VivaSimulatorScreen> {
                   'الوضع الكتابي: اكتب إجاباتك — مناسب للتدريب الهادئ ومراجعة الصياغة.',
                   'Written mode: type your answers — good for calm practice and wording review.',
                 ),
-          style: TextStyle(fontSize: 12, color: Colors.grey[700], height: 1.35),
+          style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6), height: 1.35),
         ),
         const SizedBox(height: 16),
         OutlinedButton.icon(
@@ -969,7 +1076,7 @@ class _VivaSimulatorScreenState extends State<VivaSimulatorScreen> {
             '3 committee members • $_questionCount questions • ${_answerMode == VivaAnswerMode.oral ? 'oral' : 'written'} • real-viva style questions',
           ),
           textAlign: TextAlign.center,
-          style: TextStyle(color: Colors.grey[600], fontSize: 13),
+          style: TextStyle(color: const Color(0xFFB7C3D6), fontSize: 13),
         ),
       ],
     );
@@ -1014,33 +1121,38 @@ class _VivaSimulatorScreenState extends State<VivaSimulatorScreen> {
                           'لم يُستخرج اسم مشرف من الغلاف — اللجنة بأدوار فقط دون أسماء مختلقة.',
                           'No supervisor name found on the cover — committee uses roles only, no invented names.',
                         )),
-              style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+              style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
             ),
             if (_extractedQuestions.isNotEmpty)
-              ExpansionTile(
-                tilePadding: EdgeInsets.zero,
-                title: Text(
-                  context.t(
-                    'أسئلة مستخرجة (${_extractedQuestions.length})',
-                    'Extracted questions (${_extractedQuestions.length})',
-                  ),
+              _thesisExpandTile(
+                icon: Icons.quiz_outlined,
+                title: context.t(
+                  'أسئلة مستخرجة (${_extractedQuestions.length})',
+                  'Extracted questions (${_extractedQuestions.length})',
                 ),
                 children: [
                   for (var i = 0; i < _extractedQuestions.length; i++)
                     ListTile(
                       dense: true,
-                      contentPadding: EdgeInsets.zero,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 8),
                       leading: CircleAvatar(
                         radius: 12,
-                        backgroundColor: _brand.withValues(alpha: 0.12),
+                        backgroundColor: AcadeGateColors.gold,
                         child: Text(
                           '${i + 1}',
-                          style: const TextStyle(fontSize: 11, color: _brand),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AcadeGateColors.page,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                       title: Text(
                         _extractedQuestions[i],
-                        style: const TextStyle(fontSize: 13),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AcadeGateColors.text,
+                        ),
                       ),
                     ),
                 ],
@@ -1050,19 +1162,17 @@ class _VivaSimulatorScreenState extends State<VivaSimulatorScreen> {
                 (_bibliographyText?.trim().isNotEmpty ?? false))
               _citationHealthTile(),
             if (_issues.isNotEmpty)
-              ExpansionTile(
-                tilePadding: EdgeInsets.zero,
-                title: Text(
-                  context.t(
-                    'أخطاء وملاحظات (${_issues.length})',
-                    'Errors and comments (${_issues.length})',
-                  ),
+              _thesisExpandTile(
+                icon: Icons.fact_check_outlined,
+                title: context.t(
+                  'أخطاء وملاحظات (${_issues.length})',
+                  'Errors and comments (${_issues.length})',
                 ),
                 children: [
                   for (final issue in _issues)
                     ListTile(
                       dense: true,
-                      contentPadding: EdgeInsets.zero,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 8),
                       leading: Icon(
                         switch (issue.kind.toLowerCase()) {
                           'error' => Icons.error_outline,
@@ -1072,11 +1182,11 @@ class _VivaSimulatorScreenState extends State<VivaSimulatorScreen> {
                           _ => Icons.comment_outlined,
                         },
                         color: switch (issue.kind.toLowerCase()) {
-                          'error' => Colors.red[700],
-                          'gap' => Colors.orange[800],
-                          'inconsistency' => Colors.purple[700],
-                          'citation' => Colors.indigo[800],
-                          _ => _brand,
+                          'error' => const Color(0xFFFCA5A5),
+                          'gap' => const Color(0xFFFDBA74),
+                          'inconsistency' => const Color(0xFFE9D5FF),
+                          'citation' => const Color(0xFF93C5FD),
+                          _ => AcadeGateColors.gold,
                         },
                       ),
                       title: Text(
@@ -1094,6 +1204,39 @@ class _VivaSimulatorScreenState extends State<VivaSimulatorScreen> {
                 ],
               ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _thesisExpandTile({
+    required IconData icon,
+    required String title,
+    required List<Widget> children,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Material(
+        color: const Color(0xFF1E3358),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: const BorderSide(color: AcadeGateColors.gold),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: ExpansionTile(
+          iconColor: AcadeGateColors.gold,
+          collapsedIconColor: AcadeGateColors.gold,
+          backgroundColor: const Color(0xFF1E3358),
+          collapsedBackgroundColor: const Color(0xFF1E3358),
+          leading: Icon(icon, color: AcadeGateColors.gold),
+          title: Text(
+            title,
+            style: const TextStyle(
+              color: AcadeGateColors.text,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          children: children,
         ),
       ),
     );
@@ -1226,20 +1369,20 @@ class _VivaSimulatorScreenState extends State<VivaSimulatorScreen> {
   }
 
   Widget _heroCard() {
+    const chipInk = Color(0xFF1C1917);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [_brand, _brand.withValues(alpha: 0.75)],
-        ),
+        color: AcadeGateColors.card,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AcadeGateColors.line),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.gavel, color: Colors.white, size: 32),
+              const Icon(Icons.gavel, color: AcadeGateColors.gold, size: 32),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
@@ -1248,7 +1391,7 @@ class _VivaSimulatorScreenState extends State<VivaSimulatorScreen> {
                     'Practice your defense before the real date',
                   ),
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: AcadeGateColors.text,
                     fontSize: 17,
                     fontWeight: FontWeight.bold,
                   ),
@@ -1263,12 +1406,16 @@ class _VivaSimulatorScreenState extends State<VivaSimulatorScreen> {
             children: _committee
                 .map(
                   (m) => Chip(
-                    avatar: Icon(m.icon, size: 16, color: m.color),
-                    label: Text(
-                      m.displayName,
-                      style: const TextStyle(fontSize: 11),
+                    avatar: Icon(m.icon, size: 16, color: chipInk),
+                    label: Text(m.displayName),
+                    labelStyle: const TextStyle(
+                      fontSize: 11,
+                      color: chipInk,
+                      fontWeight: FontWeight.w600,
                     ),
                     backgroundColor: Colors.white,
+                    surfaceTintColor: Colors.transparent,
+                    side: const BorderSide(color: Color(0xFFE7E5E4)),
                   ),
                 )
                 .toList(),
@@ -1375,7 +1522,7 @@ class _VivaSimulatorScreenState extends State<VivaSimulatorScreen> {
               'السؤال ${(_questionIndex + 1).clamp(1, _maxQuestions)} من $_maxQuestions',
               'Question ${(_questionIndex + 1).clamp(1, _maxQuestions)} of $_maxQuestions',
             ),
-            style: TextStyle(color: Colors.grey[700], fontSize: 13),
+            style: TextStyle(color: const Color(0xFFB7C3D6), fontSize: 13),
           ),
         ),
         Expanded(
@@ -1450,7 +1597,7 @@ class _VivaSimulatorScreenState extends State<VivaSimulatorScreen> {
     final transcribing = _stt.isTranscribing;
     final busy = listening || transcribing;
     final oral = _answerMode == VivaAnswerMode.oral;
-    final showMic = _sttAvailable;
+    final showMic = true;
 
     return SafeArea(
       child: Padding(
@@ -1471,7 +1618,7 @@ class _VivaSimulatorScreenState extends State<VivaSimulatorScreen> {
                     'وضع شفهي: اضغط الميكروفون وأجب بصوتك (يمكنك تصحيح النص قبل الإرسال).',
                     'Oral mode: tap the mic and answer aloud (you can edit the text before send).',
                   ),
-                  style: TextStyle(fontSize: 12, color: Colors.grey[800]),
+                  style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
                 ),
               ),
             if (_sttAvailable)
@@ -1534,6 +1681,11 @@ class _VivaSimulatorScreenState extends State<VivaSimulatorScreen> {
                   child: TextField(
                     controller: _answerController,
                     enabled: !_isLoading && !transcribing,
+                    style: const TextStyle(
+                      color: Color(0xFF1C1917),
+                      fontSize: 15,
+                    ),
+                    cursorColor: const Color(0xFF1C1917),
                     minLines: oral ? 2 : 1,
                     maxLines: 4,
                     decoration: InputDecoration(
@@ -1557,7 +1709,8 @@ class _VivaSimulatorScreenState extends State<VivaSimulatorScreen> {
                         borderRadius: BorderRadius.circular(24),
                       ),
                       filled: true,
-                      fillColor: Colors.white,
+                      fillColor: const Color(0xFFF4F7FB),
+                      hintStyle: const TextStyle(color: Color(0xFF57534E)),
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 16,
                         vertical: 12,
@@ -1607,7 +1760,7 @@ class _VivaSimulatorScreenState extends State<VivaSimulatorScreen> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.assignment_turned_in, color: _brand),
+                    Icon(Icons.assignment_turned_in, color: acadegateInk(_brand)),
                     const SizedBox(width: 8),
                     Text(
                       context.t(
@@ -1633,7 +1786,7 @@ class _VivaSimulatorScreenState extends State<VivaSimulatorScreen> {
                       'عبر ${AdvisorBranding.cloudBadge}',
                       'via ${AdvisorBranding.cloudBadge}',
                     ),
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
                   ),
                 ],
               ],
@@ -1707,14 +1860,14 @@ class _VivaSimulatorScreenState extends State<VivaSimulatorScreen> {
           children: [
             Row(
               children: [
-                Icon(icon, color: color, size: 22),
+                Icon(icon, color: acadegateInk(color), size: 22),
                 const SizedBox(width: 8),
                 Text(
                   title,
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
-                    color: color,
+                    color: acadegateInk(color),
                   ),
                 ),
               ],
@@ -1729,7 +1882,7 @@ class _VivaSimulatorScreenState extends State<VivaSimulatorScreen> {
                     Text(
                       '• ',
                       style: TextStyle(
-                        color: color,
+                        color: acadegateInk(color),
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -1783,7 +1936,7 @@ class _SessionsDrawer extends StatelessWidget {
                     'سجّل الدخول لحفظ الجلسات في السحابة. بدون دخول تُحفظ محلياً في الجلسة الحالية فقط.',
                     'Sign in to save sessions to the cloud. Without sign-in, only the current session is kept locally.',
                   ),
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
                 ),
               ),
             if (!canPersist)
@@ -1874,13 +2027,18 @@ class _MessageBubble extends StatelessWidget {
           margin: const EdgeInsets.symmetric(vertical: 8),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
-            color: Colors.grey.shade200,
+            color: const Color(0xFFE8EAF6),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Text(
             message.content,
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 13, color: Colors.grey[800]),
+            style: const TextStyle(
+              fontSize: 14,
+              color: Color(0xFF1C1917),
+              fontWeight: FontWeight.w600,
+              height: 1.45,
+            ),
           ),
         ),
       );
@@ -1912,15 +2070,16 @@ class _MessageBubble extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(member.icon, size: 16, color: member.color),
+                    const Icon(Icons.school_outlined,
+                        size: 16, color: Color(0xFF93C5FD)),
                     const SizedBox(width: 4),
                     Flexible(
                       child: Text(
                         '${member.displayName} — ${member.displayRole}',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: member.color,
-                          fontWeight: FontWeight.w600,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF93C5FD),
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ),
@@ -1928,10 +2087,10 @@ class _MessageBubble extends StatelessWidget {
                       const SizedBox(width: 4),
                       InkWell(
                         onTap: onSpeak,
-                        child: Icon(
+                        child: const Icon(
                           Icons.volume_up_outlined,
-                          size: 16,
-                          color: member.color,
+                          size: 18,
+                          color: AcadeGateColors.gold,
                         ),
                       ),
                     ],
@@ -1941,7 +2100,7 @@ class _MessageBubble extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: isStudent ? const Color(0xFF880E4F) : Colors.white,
+                color: isStudent ? const Color(0xFF880E4F) : const Color(0xFFF4F7FB),
                 borderRadius: BorderRadius.circular(14),
                 border:
                     isStudent ? null : Border.all(color: Colors.grey.shade300),
@@ -1956,7 +2115,9 @@ class _MessageBubble extends StatelessWidget {
               child: Text(
                 ReadableText.forDisplay(message.content),
                 style: TextStyle(
-                  color: isStudent ? Colors.white : Colors.black87,
+                  color: isStudent ? Colors.white : const Color(0xFF1C1917),
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
                   height: 1.5,
                 ),
               ),
@@ -1987,7 +2148,7 @@ class _SttLanguageChip extends StatelessWidget {
       onSelected: onSelected == null ? null : (_) => onSelected!(),
       selectedColor: const Color(0xFF880E4F).withValues(alpha: 0.15),
       labelStyle: TextStyle(
-        color: selected ? const Color(0xFF880E4F) : Colors.grey[800],
+        color: selected ? const Color(0xFFF9A8D4) : const Color(0xFFB7C3D6),
         fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
       ),
       visualDensity: VisualDensity.compact,

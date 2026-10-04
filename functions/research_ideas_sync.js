@@ -12,6 +12,8 @@ const { fetchScienceNewsForIngest } = require("./science_news_rss");
 const OPENALEX_MAILTO = "mailto:acadegate@acadegate.app";
 const MAX_OPENALEX = 14;
 const MAX_RSS = 12;
+const MAX_OPENALEX_HUMANITIES = 28;
+const MAX_RSS_HUMANITIES = 8;
 const MAX_GEMINI_BATCH = 4;
 const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"];
 
@@ -27,6 +29,46 @@ const FACULTY_QUERIES = [
   { category: "Law", query: "cyber law data protection comparative legislation" },
   { category: "Architecture", query: "sustainable architecture urban resilience" },
 ];
+
+/** OpenAlex queries focused on humanities / social / legal / education gaps. */
+const HUMANITIES_FACULTY_QUERIES = [
+  { category: "Education", query: "inclusive education assistive technology Universal Design for Learning" },
+  { category: "Education", query: "digital divide rural education learning outcomes Egypt" },
+  { category: "Education", query: "artificial intelligence teacher education special education" },
+  { category: "Education", query: "formative assessment digital exams secondary education" },
+  { category: "Education", query: "climate education curriculum secondary schools" },
+  { category: "Law", query: "artificial intelligence criminal justice due process data protection" },
+  { category: "Law", query: "electronic litigation civil procedure digital courts" },
+  { category: "Law", query: "personal data protection AI training regulation comparative law" },
+  { category: "Law", query: "algorithmic administrative decisions accountability transparency" },
+  { category: "Law", query: "digital evidence mobile forensics fair trial rights" },
+  { category: "Arts", query: "digital humanities Arabic text mining intertextuality" },
+  { category: "Arts", query: "digital literary studies interactive fiction hypertext" },
+  { category: "Arts", query: "documentary heritage digitization archives preservation" },
+  { category: "Arts", query: "oral history digital archive intangible cultural heritage" },
+  { category: "Arts", query: "information literacy libraries deepfake media literacy" },
+  { category: "Business", query: "digital transformation productivity medium enterprises" },
+  { category: "Business", query: "startup governance founders investors agency costs" },
+  { category: "Business", query: "green microfinance women entrepreneurship alternative credit data" },
+  { category: "MassCommunication", query: "health misinformation social media crisis communication" },
+  { category: "MassCommunication", query: "data journalism environmental justice local media" },
+  { category: "MassCommunication", query: "influencer marketing sustainable consumption youth" },
+  { category: "Tourism", query: "heritage tourism digital storytelling sustainable destinations" },
+  { category: "FineArts", query: "digital art curation cultural heritage visualization" },
+  { category: "PhysicalEducation", query: "physical education inclusion school sports pedagogy" },
+];
+
+const HUMANITIES_FACULTY_IDS = new Set([
+  "Education",
+  "Law",
+  "Arts",
+  "Business",
+  "MassCommunication",
+  "Tourism",
+  "PhysicalEducation",
+  "FineArts",
+  "ProfessionalStudies",
+]);
 
 const RSS_CATEGORY_TO_FACULTY = {
   medicine: "Medicine",
@@ -160,14 +202,18 @@ function reconstructAbstract(inverted) {
   return pairs.map((p) => p[1]).join(" ").trim();
 }
 
-async function collectOpenAlexCandidates() {
+async function collectOpenAlexCandidates(scope = "all") {
+  const queries =
+    scope === "humanities" ? HUMANITIES_FACULTY_QUERIES : FACULTY_QUERIES;
+  const max =
+    scope === "humanities" ? MAX_OPENALEX_HUMANITIES : MAX_OPENALEX;
   const out = [];
-  for (const item of FACULTY_QUERIES) {
-    if (out.length >= MAX_OPENALEX) break;
+  for (const item of queries) {
+    if (out.length >= max) break;
     try {
-      const works = await fetchOpenAlexWorks(item.query, 2);
+      const works = await fetchOpenAlexWorks(item.query, scope === "humanities" ? 2 : 2);
       for (const work of works) {
-        if (out.length >= MAX_OPENALEX) break;
+        if (out.length >= max) break;
         out.push({ ...work, categoryHint: item.category });
       }
     } catch (_) {
@@ -178,37 +224,57 @@ async function collectOpenAlexCandidates() {
   return out;
 }
 
-async function collectRssCandidates() {
+async function collectRssCandidates(scope = "all") {
+  const limit = scope === "humanities" ? MAX_RSS_HUMANITIES : MAX_RSS;
   try {
-    const items = await fetchScienceNewsForIngest({ language: "en", limit: MAX_RSS });
-    return items.map((item) => ({
-      source: "science_rss",
-      externalId: `rss:${contentHash(item.url || item.title, item.summary || "").slice(0, 20)}`,
-      title: item.title,
-      summary: item.summary || "",
-      url: item.url || "",
-      categoryHint: RSS_CATEGORY_TO_FACULTY[item.category] || "Science",
-      tags: [item.source, item.category].filter(Boolean),
-      citedByCount: 0,
-      publishedYear: item.publishedAt ? new Date(item.publishedAt).getFullYear() : null,
-    }));
+    const items = await fetchScienceNewsForIngest({ language: "en", limit });
+    return items
+      .map((item) => ({
+        source: "science_rss",
+        externalId: `rss:${contentHash(item.url || item.title, item.summary || "").slice(0, 20)}`,
+        title: item.title,
+        summary: item.summary || "",
+        url: item.url || "",
+        categoryHint: RSS_CATEGORY_TO_FACULTY[item.category] || "Science",
+        tags: [item.source, item.category].filter(Boolean),
+        citedByCount: 0,
+        publishedYear: item.publishedAt ? new Date(item.publishedAt).getFullYear() : null,
+      }))
+      .filter((item) =>
+        scope === "humanities"
+          ? HUMANITIES_FACULTY_IDS.has(item.categoryHint) ||
+            ["psychology", "general", "environment"].includes(
+              String(item.tags?.[1] || "").toLowerCase(),
+            )
+          : true,
+      );
   } catch (_) {
     return [];
   }
 }
 
-function heuristicIdea(raw) {
-  const category = normalizeCategory(raw.categoryHint, "Science");
+function heuristicIdea(raw, scope = "all") {
+  const fallbackCat =
+    scope === "humanities"
+      ? normalizeCategory(raw.categoryHint, "Education")
+      : normalizeCategory(raw.categoryHint, "Science");
+  const category =
+    scope === "humanities" && !HUMANITIES_FACULTY_IDS.has(fallbackCat)
+      ? "Education"
+      : fallbackCat;
   const degreeLevel =
     Number(raw.citedByCount || 0) >= 40 || /review|framework|theory/i.test(raw.title)
       ? "phd"
       : "masters";
   const tags = [...(raw.tags || [])].slice(0, 8);
   if (!tags.includes(degreeLevel)) tags.push(degreeLevel === "phd" ? "دكتوراه" : "ماجستير");
+  if (scope === "humanities" && !tags.includes("إنسانيات")) tags.push("فجوة بحثية");
 
   const details = [
     "المشكلة: " + (raw.summary || raw.title).slice(0, 280),
-    "الفجوة البحثية: بناءً على اتجاهات حديثة في الأدبيات/الأخبار العلمية، ما زالت هناك حاجة لدراسة تطبيقية في السياق العربي/المصري.",
+    scope === "humanities"
+      ? "الفجوة البحثية: الأدبيات الحديثة تشير إلى حاجة لدراسة تطبيقية في السياق المصري/العربي (تربية، قانون، آداب، علوم اجتماعية) تستغل ثغرة منهجية أو تشريعية أو تربوية واضحة."
+      : "الفجوة البحثية: بناءً على اتجاهات حديثة في الأدبيات/الأخبار العلمية، ما زالت هناك حاجة لدراسة تطبيقية في السياق العربي/المصري.",
     "الأهداف: (1) تحليل الظاهرة (2) اقتراح نموذج أو تدخل (3) تقييم الأثر.",
     "المنهجية المقترحة: مراجعة أدبيات منهجية + دراسة تطبيقية (كمية/نوعية/مختلطة) مناسبة للتخصص.",
     "المخرجات المتوقعة: إطار نظري، نتائج قابلة للنشر، وتوصيات لصنّاع القرار أو الممارسين.",
@@ -274,16 +340,26 @@ async function callGemini(apiKey, prompt) {
   throw new Error(lastError);
 }
 
-async function geminiNormalize(apiKey, raw) {
+async function geminiNormalize(apiKey, raw, scope = "all") {
+  const humanitiesHint =
+    scope === "humanities"
+      ? `
+Focus ONLY on humanities / education / law / arts / media / social-business thesis ideas.
+Emphasize a clear RESEARCH GAP (what is missing in Egypt/Arab literature vs global 2023-2026 trends).
+Prefer field methods (survey, interview, doctrinal analysis, archive, discourse) — not lab samples.
+Allowed categories: ${[...HUMANITIES_FACULTY_IDS].join(", ")}.
+`
+      : "";
+
   const prompt = `You are an academic research coach for Egyptian/Arab postgraduate students.
 Convert the source into ONE research idea suitable for a Master's or PhD thesis marketplace.
-
+${humanitiesHint}
 Return ONLY JSON with keys:
 title (Arabic preferred, concise),
 provider (short Arabic/English credit),
 details (Arabic, multiline with: المشكلة / الفجوة البحثية / الأهداف / المنهجية المقترحة / المخرجات المتوقعة),
 tags (array of 4-8 short Arabic/English keywords),
-category (one of: ${[...FACULTY_IDS].join(", ")}),
+category (one of: ${[...(scope === "humanities" ? HUMANITIES_FACULTY_IDS : FACULTY_IDS)].join(", ")}),
 degreeLevel ("masters" | "phd" | "both"),
 feasibilityScore (0-1),
 budget (optional short Arabic note or empty string).
@@ -301,18 +377,27 @@ Rules:
 - Do NOT invent fake data sources or universities.
 - Keep the idea actionable for a thesis (not a news paraphrase).
 - Prefer Egyptian/Arab application context when sensible.
+- Explicitly state the gap in «الفجوة البحثية».
 - If source is a review/highly cited paper, lean toward phd; applied news gaps may be masters.`;
 
   const text = await callGemini(apiKey, prompt);
   const parsed = extractJsonObject(text);
+  let category = normalizeCategory(
+    parsed.category,
+    raw.categoryHint || (scope === "humanities" ? "Education" : "Science"),
+  );
+  if (scope === "humanities" && !HUMANITIES_FACULTY_IDS.has(category)) {
+    category = normalizeCategory(raw.categoryHint, "Education");
+    if (!HUMANITIES_FACULTY_IDS.has(category)) category = "Education";
+  }
   return {
     title: String(parsed.title || raw.title).slice(0, 180),
     provider: String(parsed.provider || "AcadeGate Sync").slice(0, 120),
-    details: String(parsed.details || "").trim() || heuristicIdea(raw).details,
+    details: String(parsed.details || "").trim() || heuristicIdea(raw, scope).details,
     tags: Array.isArray(parsed.tags)
       ? parsed.tags.map((t) => String(t).trim()).filter(Boolean).slice(0, 10)
-      : heuristicIdea(raw).tags,
-    category: normalizeCategory(parsed.category, raw.categoryHint || "Science"),
+      : heuristicIdea(raw, scope).tags,
+    category,
     degreeLevel: normalizeDegreeLevel(parsed.degreeLevel),
     feasibilityScore: Math.max(
       0,
@@ -322,15 +407,15 @@ Rules:
   };
 }
 
-async function normalizeCandidate(apiKey, raw) {
+async function normalizeCandidate(apiKey, raw, scope = "all") {
   if (apiKey) {
     try {
-      return await geminiNormalize(apiKey, raw);
+      return await geminiNormalize(apiKey, raw, scope);
     } catch (_) {
-      return heuristicIdea(raw);
+      return heuristicIdea(raw, scope);
     }
   }
-  return heuristicIdea(raw);
+  return heuristicIdea(raw, scope);
 }
 
 async function writeRawIngest(db, batchId, candidates) {
@@ -355,10 +440,12 @@ async function writeRawIngest(db, batchId, candidates) {
   }
 }
 
-async function upsertIdeas(db, { candidates, normalized, adminUid, autoApprove, batchId }) {
+async function upsertIdeas(db, { candidates, normalized, adminUid, autoApprove, batchId, scope = "all" }) {
   let imported = 0;
   let updated = 0;
   let skipped = 0;
+  const seedSource =
+    scope === "humanities" ? "research_ideas_sync_humanities" : "research_ideas_sync";
 
   for (let i = 0; i < candidates.length; i++) {
     const raw = candidates[i];
@@ -368,7 +455,12 @@ async function upsertIdeas(db, { candidates, normalized, adminUid, autoApprove, 
       continue;
     }
 
-    const docId = stableId(raw.externalId);
+    if (scope === "humanities" && !HUMANITIES_FACULTY_IDS.has(idea.category)) {
+      skipped += 1;
+      continue;
+    }
+
+    const docId = stableId(`${scope}:${raw.externalId}`);
     const ref = db.collection("research_ideas").doc(docId);
     const snap = await ref.get();
     const hash = contentHash(idea.title, idea.details);
@@ -385,7 +477,8 @@ async function upsertIdeas(db, { candidates, normalized, adminUid, autoApprove, 
       importSource: raw.source === "openalex" ? "openalex" : "science_rss",
       externalId: raw.externalId,
       sourceUrl: raw.url || "",
-      seedSource: "research_ideas_sync",
+      seedSource,
+      syncScope: scope,
       contentHash: hash,
       ingestBatchId: batchId,
       publisherId: adminUid || "system_ideas_sync",
@@ -407,11 +500,9 @@ async function upsertIdeas(db, { candidates, normalized, adminUid, autoApprove, 
       imported += 1;
     } else {
       const data = snap.data() || {};
-      // Never overwrite an active student claim / engagement counters blindly.
       const patch = {
         ...base,
       };
-      // Keep human-edited approval if already reviewed and not sync-owned pending.
       if (data.approvalStatus === "rejected") {
         delete patch.approvalStatus;
       }
@@ -422,10 +513,11 @@ async function upsertIdeas(db, { candidates, normalized, adminUid, autoApprove, 
       updated += 1;
     }
 
-    await db.collection("idea_ingest_raw").doc(stableId(`raw:${raw.externalId}`)).set(
+    await db.collection("idea_ingest_raw").doc(stableId(`raw:${scope}:${raw.externalId}`)).set(
       {
         status: "published",
         researchIdeaId: docId,
+        syncScope: scope,
         normalizedAt: FieldValue.serverTimestamp(),
       },
       { merge: true },
@@ -445,13 +537,15 @@ async function runResearchIdeasSync({
   adminUid = "system_ideas_sync",
   apiKey = "",
   autoApprove = true,
+  scope = "all",
 } = {}) {
   const db = getFirestore();
-  const batchId = `batch_${Date.now()}`;
+  const normalizedScope = scope === "humanities" ? "humanities" : "all";
+  const batchId = `batch_${normalizedScope}_${Date.now()}`;
 
   const [openalex, rss] = await Promise.all([
-    collectOpenAlexCandidates(),
-    collectRssCandidates(),
+    collectOpenAlexCandidates(normalizedScope),
+    collectRssCandidates(normalizedScope),
   ]);
 
   const seen = new Set();
@@ -466,7 +560,7 @@ async function runResearchIdeasSync({
 
   const normalized = [];
   for (let i = 0; i < candidates.length; i++) {
-    normalized.push(await normalizeCandidate(apiKey, candidates[i]));
+    normalized.push(await normalizeCandidate(apiKey, candidates[i], normalizedScope));
     if (apiKey && apiKeyThrottleNeeded(i)) await sleep(400);
   }
 
@@ -476,12 +570,14 @@ async function runResearchIdeasSync({
     adminUid,
     autoApprove,
     batchId,
+    scope: normalizedScope,
   });
 
   const summary = {
     syncedAt: FieldValue.serverTimestamp(),
     syncedBy: adminUid,
     batchId,
+    scope: normalizedScope,
     candidates: candidates.length,
     openalex: openalex.length,
     rss: rss.length,
@@ -492,10 +588,22 @@ async function runResearchIdeasSync({
     source: "cloud_function",
   };
 
-  await db.doc("app_meta/research_ideas_sync").set(summary, { merge: true });
+  const metaPath =
+    normalizedScope === "humanities"
+      ? "app_meta/research_ideas_sync_humanities"
+      : "app_meta/research_ideas_sync";
+  await db.doc(metaPath).set(summary, { merge: true });
+  // Keep a pointer on the general meta doc when humanities runs.
+  if (normalizedScope === "humanities") {
+    await db.doc("app_meta/research_ideas_sync").set(
+      { lastHumanitiesSyncAt: FieldValue.serverTimestamp(), lastHumanitiesBatchId: batchId },
+      { merge: true },
+    );
+  }
 
   return {
     batchId,
+    scope: normalizedScope,
     candidates: candidates.length,
     openalex: openalex.length,
     rss: rss.length,
@@ -520,6 +628,25 @@ function createResearchIdeasSyncHandlers(geminiApiKey) {
         adminUid: "system_weekly_ideas_sync",
         apiKey: geminiApiKey.value(),
         autoApprove: true,
+        scope: "all",
+      });
+    },
+  );
+
+  const researchIdeasSyncHumanitiesWeekly = onSchedule(
+    {
+      schedule: "every friday 05:00",
+      timeZone: "Africa/Cairo",
+      timeoutSeconds: 540,
+      memory: "1GiB",
+      secrets: [geminiApiKey],
+    },
+    async () => {
+      await runResearchIdeasSync({
+        adminUid: "system_weekly_humanities_ideas_sync",
+        apiKey: geminiApiKey.value(),
+        autoApprove: true,
+        scope: "humanities",
       });
     },
   );
@@ -540,15 +667,24 @@ function createResearchIdeasSyncHandlers(geminiApiKey) {
         throw new HttpsError("permission-denied", "Admin only");
       }
       const autoApprove = request.data?.autoApprove !== false;
+      const scope =
+        String(request.data?.scope || "all").toLowerCase() === "humanities"
+          ? "humanities"
+          : "all";
       return runResearchIdeasSync({
         adminUid: request.auth.uid,
         apiKey: geminiApiKey.value(),
         autoApprove,
+        scope,
       });
     },
   );
 
-  return { researchIdeasSyncWeekly, researchIdeasSyncNow };
+  return {
+    researchIdeasSyncWeekly,
+    researchIdeasSyncHumanitiesWeekly,
+    researchIdeasSyncNow,
+  };
 }
 
 module.exports = {

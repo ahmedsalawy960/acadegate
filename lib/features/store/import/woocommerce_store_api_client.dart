@@ -183,7 +183,7 @@ class WooCommerceStoreApiClient {
               'Accept': 'application/json',
             },
           )
-          .timeout(const Duration(seconds: 20));
+          .timeout(const Duration(seconds: 8));
       if (response.statusCode < 200 || response.statusCode >= 300) {
         return const [];
       }

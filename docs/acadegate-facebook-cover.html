@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 1640px; height: 624px; overflow: hidden; background: #06122e; }
+    .photo {
+      position: absolute;
+      left: -80px;
+      top: 50%;
+      transform: translateY(-48%);
+      height: 1380px;
+      width: auto;
+      opacity: 0.42;
+    }
+    .scrim {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        90deg,
+        rgba(6, 18, 46, 0.08) 0%,
+        rgba(6, 18, 46, 0.22) 42%,
+        rgba(6, 18, 46, 0.62) 72%,
+        rgba(6, 18, 46, 0.78) 100%
+      );
+    }
+    .wrap {
+      position: relative;
+      z-index: 2;
+      width: 1640px;
+      height: 624px;
+      padding: 54px 72px 42px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      direction: rtl;
+      font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+      color: #fff;
+    }
+    .eyebrow {
+      color: #fde68a;
+      font-size: 26px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+    h1 {
+      font-size: 84px;
+      line-height: 0.95;
+      font-weight: 800;
+      letter-spacing: 0.6px;
+    }
+    .en {
+      margin-top: 28px;
+      max-width: 1100px;
+      font-size: 46px;
+      line-height: 1.2;
+      letter-spacing: 1.4px;
+      font-weight: 800;
+      color: #fff;
+      text-transform: uppercase;
+      direction: ltr;
+      text-align: right;
+    }
+    .sections { display: flex; flex-direction: column; gap: 12px; }
+    .row { display: flex; gap: 10px; flex-wrap: nowrap; }
+    .chip {
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.3);
+      color: #fff;
+      border-radius: 999px;
+      padding: 10px 16px;
+      font-size: 20px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .chip.gold { background: #fbbf24; color: #071433; border-color: #fbbf24; }
+  </style>
+</head>
+<body>
+  <img class="photo" src="../Assets/images/cover_logo_fade.png" alt="" />
+  <div class="scrim"></div>
+  <div class="wrap">
+    <div>
+      <div class="eyebrow">منصة الباحثين في مصر</div>
+      <h1>AcadeGate</h1>
+      <p class="en">Your gateway to excellence<br />in postgraduate studies</p>
+    </div>
+    <div class="sections">
+      <div class="row">
+        <span class="chip gold">مسار البحث</span>
+        <span class="chip">المشرفون</span>
+        <span class="chip">المختبرات</span>
+        <span class="chip">المتجر</span>
+        <span class="chip">الكتابة</span>
+        <span class="chip">أفكار بحثية</span>
+      </div>
+      <div class="row">
+        <span class="chip">استوديو الرسالة</span>
+        <span class="chip">إنسانيات</span>
+        <span class="chip">النزاهة</span>
+        <span class="chip">النشر</span>
+        <span class="chip">المجتمع</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 import '../../core/locale/l10n_lookup.dart';
 import '../../core/locale/locale_extensions.dart';
+import '../../core/theme/acadegate_theme.dart';
 import '../auth/user_account.dart';
 import '../auth/user_account_service.dart';
 import '../auth/user_role.dart';
@@ -185,7 +186,7 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
                                   field.key,
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFF1A237E),
+                                    color: const Color(0xFFF4F7FB),
                                   ),
                                 ),
                                 const SizedBox(height: 4),
@@ -202,7 +203,7 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
                             L10nLookup.ownerIdLabel(item.ownerId),
                             style: TextStyle(
                               fontSize: 12,
-                              color: Colors.grey[600],
+                              color: const Color(0xFFB7C3D6),
                             ),
                           ),
                       ],
@@ -677,7 +678,7 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
                       ),
                       style: TextStyle(
                         fontWeight: FontWeight.w600,
-                        color: Colors.grey[800],
+                        color: const Color(0xFFB7C3D6),
                       ),
                     ),
                   ),
@@ -722,16 +723,16 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
                                 '${when.hour.toString().padLeft(2, '0')}:${when.minute.toString().padLeft(2, '0')}';
                         return Card(
                           elevation: 0,
-                          color: Colors.white,
+                          color: AcadeGateColors.card,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                             side: BorderSide(
-                              color: color.withValues(alpha: 0.25),
+                              color: color.withValues(alpha: 0.45),
                             ),
                           ),
                           child: ListTile(
                             leading: CircleAvatar(
-                              backgroundColor: color.withValues(alpha: 0.12),
+                              backgroundColor: color.withValues(alpha: 0.18),
                               child: Icon(
                                 _activityIcon(e.type),
                                 color: color,
@@ -756,17 +757,17 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
                               ]
                                   .where((s) => s.trim().isNotEmpty)
                                   .join(' · '),
-                              style: TextStyle(
+                              style: const TextStyle(
                                 height: 1.35,
-                                color: Colors.grey[700],
+                                color: AcadeGateColors.muted,
                               ),
                             ),
                             isThreeLine: true,
                             trailing: IconButton(
                               tooltip: context.t('حذف', 'Delete'),
-                              icon: Icon(
+                              icon: const Icon(
                                 Icons.delete_outline,
-                                color: Colors.red[700],
+                                color: Color(0xFFFCA5A5),
                               ),
                               onPressed: () => _deleteActivityEvent(e),
                             ),
@@ -942,16 +943,16 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
 
   Color _activityColor(String type) {
     return switch (type) {
-      AdminActivityService.login => const Color(0xFF1565C0),
-      AdminActivityService.register => const Color(0xFF2E7D32),
-      AdminActivityService.logout => const Color(0xFF6A1B9A),
-      AdminActivityService.roleSetup => const Color(0xFF00695C),
-      AdminActivityService.portalSwitch => const Color(0xFFEF6C00),
-      AdminActivityService.providerApplication => const Color(0xFF2E7D32),
-      AdminActivityService.contentSubmit => const Color(0xFF4527A0),
-      AdminActivityService.contentDecision => const Color(0xFFC62828),
-      AdminActivityService.profileClaim => const Color(0xFF00838F),
-      _ => const Color(0xFF546E7A),
+      AdminActivityService.login => const Color(0xFF93C5FD),
+      AdminActivityService.register => const Color(0xFF86EFAC),
+      AdminActivityService.logout => const Color(0xFFE9D5FF),
+      AdminActivityService.roleSetup => const Color(0xFF5EEAD4),
+      AdminActivityService.portalSwitch => const Color(0xFFFDBA74),
+      AdminActivityService.providerApplication => const Color(0xFF86EFAC),
+      AdminActivityService.contentSubmit => const Color(0xFFE9D5FF),
+      AdminActivityService.contentDecision => const Color(0xFFFCA5A5),
+      AdminActivityService.profileClaim => const Color(0xFF67E8F9),
+      _ => AcadeGateColors.muted,
     };
   }
 
@@ -1052,7 +1053,7 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
                   'لا توجد بيانات مستخدمين بعد',
                   'No user data yet',
                 ),
-                style: TextStyle(color: Colors.grey[600]),
+                style: TextStyle(color: const Color(0xFFB7C3D6)),
               ),
           ],
         );
@@ -1144,7 +1145,7 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
                         'إن ظهر نفس الإيميل مرتين فغالباً ملف قديم يتيم بعد الحذف وإعادة التسجيل.',
                         'If the same email appears twice, it is usually an orphan profile after delete + re-register.',
                       ),
-                      style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                      style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
                     ),
                   ),
                   FilledButton.tonalIcon(
@@ -1431,7 +1432,7 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
                     children: [
                       Text(
                         user.email,
-                        style: TextStyle(color: Colors.grey[700], fontSize: 13),
+                        style: TextStyle(color: const Color(0xFFB7C3D6), fontSize: 13),
                       ),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
@@ -1501,8 +1502,8 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
                         keyboardType: TextInputType.number,
                         decoration: InputDecoration(
                           labelText: context.t(
-                            'حد AI يومي',
-                            'Daily AI limit',
+                            'حد المساعد اليومي',
+                            'Daily assistant limit',
                           ),
                           hintText: tier == SubscriptionTier.pro ? '100' : '20',
                         ),

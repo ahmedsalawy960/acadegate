@@ -69,8 +69,8 @@ class MethodologyPdfService {
   }) async {
     if (!GeminiAdvisorClient.isAvailable) {
       throw Exception(appTr(
-        'استخراج المنهجية من PDF يتطلب تسجيل الدخول أو تفعيل الذكاء السحابي',
-        'Extracting methodology from PDF requires sign-in or cloud AI',
+        'استخراج المنهجية من PDF يتطلب تسجيل الدخول',
+        'Extracting methodology from a PDF requires sign-in',
       ));
     }
 

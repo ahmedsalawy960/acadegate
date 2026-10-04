@@ -22,8 +22,8 @@ class ResearchPathAiService {
         bundle,
         profile,
         note: appTr(
-          'سجّل الدخول لتفعيل AcadeGate AI (Gemini) لخطة ودراسات على نفس النقطة.',
-          'Sign in to enable AcadeGate AI (Gemini) for a plan and studies on the same topic.',
+          'سجّل الدخول لبناء خطة ودراسات على نفس النقطة.',
+          'Sign in to build a plan and studies on the same topic.',
         ),
       );
     }
@@ -101,7 +101,7 @@ ${headers.next}
       bundle,
       profile,
       note: result.error ??
-          appTr('تعذر الاتصال بالذكاء الاصطناعي', 'Could not reach AI'),
+          appTr('تعذر إكمال التحليل', 'Could not finish the analysis'),
     );
   }
 
@@ -290,7 +290,7 @@ Rules: do not invent a paper, DOI, supervisor, lab, or company. field_en must be
       }
     } else {
       buffer.writeln(
-        appTr('كاتب أكاديمي: غير متوفر', 'Academic writer: not available'),
+        appTr('مستشار كتابة: غير متوفر', 'Writing consultant: not available'),
       );
     }
 

@@ -236,7 +236,7 @@ class _HomePromoCarouselState extends State<HomePromoCarousel> {
           alignment: AlignmentDirectional.centerStart,
           child: Text(
             context.t('عروض مميزة تتجدد يومياً', 'Featured offers refresh daily'),
-            style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+            style: TextStyle(fontSize: 11, color: const Color(0xFFB7C3D6)),
           ),
         ),
       ],

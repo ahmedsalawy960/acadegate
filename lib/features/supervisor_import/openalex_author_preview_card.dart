@@ -58,7 +58,7 @@ class OpenAlexAuthorPreviewCard extends StatelessWidget {
                           faculty: inferred.facultyTitle,
                           institution: institutionLabel,
                         ),
-                        style: TextStyle(color: Colors.grey[700], fontSize: 13),
+                        style: TextStyle(color: const Color(0xFFB7C3D6), fontSize: 13),
                       ),
                     ],
                   ),
@@ -110,7 +110,7 @@ class OpenAlexAuthorPreviewCard extends StatelessWidget {
               Text(
                 context.t('مجالات ذات صلة: ', 'Related fields: ') +
                     author.tags.skip(1).take(5).join(' • '),
-                style: TextStyle(color: Colors.grey[700], fontSize: 12),
+                style: TextStyle(color: const Color(0xFFB7C3D6), fontSize: 12),
               ),
             ],
             if (author.institutionNames.length > 1) ...[
@@ -118,7 +118,7 @@ class OpenAlexAuthorPreviewCard extends StatelessWidget {
               Text(
                 context.t('جهات أخرى: ', 'Other affiliations: ') +
                     author.institutionNames.skip(1).take(2).join(' • '),
-                style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                style: TextStyle(color: const Color(0xFFB7C3D6), fontSize: 12),
               ),
             ],
             const SizedBox(height: 8),

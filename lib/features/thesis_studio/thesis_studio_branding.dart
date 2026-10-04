@@ -16,8 +16,8 @@ class ThesisStudioBranding {
       );
 
   static String get description => appTr(
-        'التخطيط حسب نوع الرسالة يبقى أسفل الهدف. كل فقرة تُولَّد وحدها من أمر تكتبه تحتها، مع أداة تجلب دراسات ورسائل ذات DOI من الفهارس العالمية. تصدير PDF وWord وLaTeX/BibTeX. المسودة للمراجعة وليست نسخة تسليم، ولا نلتف على كاشفات الذكاء الاصطناعي.',
-        'Thesis-type controls stay under your goal. Each paragraph is generated from the command you type beneath it, with a tool that fetches DOI-confirmed papers and theses from global indexes. Export PDF, Word, and LaTeX/BibTeX. A draft to verify — not a submission copy, and not AI-detector evasion.',
+        'التخطيط حسب نوع الرسالة يبقى أسفل الهدف. كل فقرة تُولَّد وحدها من أمر تكتبه تحتها، مع أداة تجلب دراسات ورسائل ذات DOI من الفهارس العالمية. تصدير PDF وWord وLaTeX/BibTeX. المسودة للمراجعة وليست نسخة تسليم، ولا نلتف على كاشفات الانتحال.',
+        'Thesis-type controls stay under your goal. Each paragraph is generated from the command you type beneath it, with a tool that fetches DOI-confirmed papers and theses from global indexes. Export PDF, Word, and LaTeX/BibTeX. A draft to verify — not a submission copy, and not plagiarism-detector evasion.',
       );
 
   static String get buildButton => appTr(
@@ -26,7 +26,7 @@ class ThesisStudioBranding {
       );
 
   static String get integrityBanner => appTr(
-        'لا نكتب الرسالة دفعة واحدة. كل فقرة تُولَّد من أمرها ومن مراجع ذلك الأمر فقط. النتائج المعملية تبقى جداول فارغة. لا نختلق مصادر ولا نلتف على كاشفات الذكاء الاصطناعي.',
-        'We do not write the thesis in one shot. Each paragraph is generated from its own command and that command’s sources. Lab results stay empty tables. We do not invent sources or evade AI detectors.',
+        'لا نكتب الرسالة دفعة واحدة. كل فقرة تُولَّد من أمرها ومن مراجع ذلك الأمر فقط. النتائج المعملية تبقى جداول فارغة. لا نختلق مصادر ولا نلتف على كاشفات الانتحال.',
+        'We do not write the thesis in one shot. Each paragraph is generated from its own command and that command’s sources. Lab results stay empty tables. We do not invent sources or evade plagiarism detectors.',
       );
 }

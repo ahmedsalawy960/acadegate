@@ -99,7 +99,7 @@ class _PrivacyRightsScreenState extends State<PrivacyRightsScreen> {
                   'you may request access, correction, erasure, restriction, or objection. '
                   'We may verify identity. Requests are logged, admins are notified, and a copy goes to ${AppContactInfo.supportEmail}.',
                 ),
-                style: TextStyle(height: 1.45, color: Colors.grey[900]),
+                style: TextStyle(height: 1.45, color: const Color(0xFFB7C3D6)),
               ),
             ),
           ),
