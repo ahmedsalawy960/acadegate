@@ -3343,6 +3343,7 @@ class ManuscriptDocumentParser {
       if (val.toLowerCase().contains('heading')) return true;
     }
     final text = _paragraphPlainText(paragraph).trim();
+    if (_isTableCaption(text) || _isFigureCaption(text)) return false;
     if (CitationStyleShapes.looksLikeSectionHeading(text)) return true;
     return text.length < 80 && !text.endsWith('.') && text == text.toUpperCase();
   }
