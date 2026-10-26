@@ -266,28 +266,28 @@ class ManuscriptDocxExportService {
     final documentRelsXml = _documentRelsXml(embeddedImages, rules);
 
     final archive = Archive()
-      ..addFile(ArchiveFile('[Content_Types].xml', contentTypesXml.length,
+      ..addFile(ArchiveFile('[Content_Types].xml', utf8.encode(contentTypesXml).length,
           utf8.encode(contentTypesXml)))
       ..addFile(ArchiveFile(
-          '_rels/.rels', rootRelsXml.length, utf8.encode(rootRelsXml)))
-      ..addFile(ArchiveFile('word/document.xml', documentXml.length,
+          '_rels/.rels', utf8.encode(rootRelsXml).length, utf8.encode(rootRelsXml)))
+      ..addFile(ArchiveFile('word/document.xml', utf8.encode(documentXml).length,
           utf8.encode(documentXml)))
-      ..addFile(ArchiveFile('word/styles.xml', stylesXml.length,
+      ..addFile(ArchiveFile('word/styles.xml', utf8.encode(stylesXml).length,
           utf8.encode(stylesXml)))
       ..addFile(ArchiveFile('word/_rels/document.xml.rels',
-          documentRelsXml.length, utf8.encode(documentRelsXml)));
+          utf8.encode(documentRelsXml).length, utf8.encode(documentRelsXml)));
     if (rules.runningHeader) {
       final headerXml = _headerXml(
         rules,
         runningTitle: cleanTitle,
       );
       archive.addFile(ArchiveFile(
-          'word/header1.xml', headerXml.length, utf8.encode(headerXml)));
+          'word/header1.xml', utf8.encode(headerXml).length, utf8.encode(headerXml)));
     }
     if (rules.pageNumbers) {
       final footerXml = _footerXml(rules);
       archive.addFile(ArchiveFile(
-          'word/footer1.xml', footerXml.length, utf8.encode(footerXml)));
+          'word/footer1.xml', utf8.encode(footerXml).length, utf8.encode(footerXml)));
     }
 
     for (final img in embeddedImages) {
