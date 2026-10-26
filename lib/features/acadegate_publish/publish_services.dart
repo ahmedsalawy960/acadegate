@@ -6,6 +6,7 @@ import '../moderation/approval_status.dart';
 import '../research_journey/thesis_progress.dart';
 import '../research_journey/thesis_progress_activity.dart';
 import 'manuscript_document_parser.dart';
+import 'manuscript_structure_advisor.dart';
 import 'manuscript_upload_service.dart';
 import 'publish_models.dart';
 
@@ -34,16 +35,60 @@ class ManuscriptService {
         );
   }
 
-  Future<PublishManuscript?> getById(String id) async {
+  Future<PublishManuscript?> getById(
+    String id, {
+    bool restoreMedia = true,
+  }) async {
     final doc = await _manuscripts.doc(id).get();
     if (!doc.exists || doc.data() == null) return null;
     final manuscript = PublishManuscript.fromMap(doc.data()!, id: doc.id);
     if (manuscript.bodyBlocks.isEmpty) return manuscript;
-    return manuscript.copyWith(
+    final hydrated = manuscript.copyWith(
       bodyBlocks: ManuscriptDocumentParser.hydratePersistedImageUris(
         manuscript.bodyBlocks,
       ),
     );
+    if (!restoreMedia) {
+      return hydrated.copyWith(
+        bodyBlocks: ManuscriptStructureAdvisor.demoteCatalogHeadings(
+          hydrated.bodyBlocks,
+        ),
+      );
+    }
+    final restored = await _restoreMediaFromSource(hydrated);
+    return restored.copyWith(
+      bodyBlocks: ManuscriptStructureAdvisor.demoteCatalogHeadings(
+        restored.bodyBlocks,
+      ),
+    );
+  }
+
+  Future<PublishManuscript> _restoreMediaFromSource(
+    PublishManuscript manuscript,
+  ) async {
+    if (!ManuscriptDocumentParser.needsSourceMediaRestore(
+      manuscript.bodyBlocks,
+    )) {
+      return manuscript;
+    }
+    final attachment = preferredSourceDocx(manuscript.attachments);
+    if (attachment == null || manuscript.id == null) return manuscript;
+    try {
+      final parsed = await ManuscriptDocumentParser.parseFromUrl(
+        url: attachment.url,
+        filename: attachment.name,
+        manuscriptId: manuscript.id,
+      );
+      if (parsed.bodyBlocks.isEmpty) return manuscript;
+      return manuscript.copyWith(
+        bodyBlocks: ManuscriptDocumentParser.restoreMediaFromParsed(
+          saved: manuscript.bodyBlocks,
+          parsed: parsed.bodyBlocks,
+        ),
+      );
+    } catch (_) {
+      return manuscript;
+    }
   }
 
   Future<PublishManuscript?> latestWithContent() async {
@@ -64,6 +109,7 @@ class ManuscriptService {
               manuscript.bodyBlocks,
             ),
           );
+          manuscript = await _restoreMediaFromSource(manuscript);
         }
         return manuscript;
       }
@@ -98,11 +144,15 @@ class ManuscriptService {
     }
     var toSave = manuscript;
     if (manuscript.bodyBlocks.isNotEmpty) {
-      final withStorageUrls =
-          await ManuscriptUploadService.instance.persistDataUriImages(
-        manuscriptId: manuscript.id!,
-        blocks: manuscript.bodyBlocks,
-      );
+      // skipImportImageUpload keeps figures in memory for this session.
+      // Uploading each one here is what leaves the draft spinning after the
+      // file name has already appeared.
+      final withStorageUrls = ManuscriptDocumentParser.skipImportImageUpload
+          ? manuscript.bodyBlocks
+          : await ManuscriptUploadService.instance.persistDataUriImages(
+              manuscriptId: manuscript.id!,
+              blocks: manuscript.bodyBlocks,
+            );
       toSave = manuscript.copyWith(
         bodyBlocks: ManuscriptDocumentParser.stripDataUrisForPersistence(
           withStorageUrls,
@@ -143,7 +193,7 @@ class ManuscriptService {
       throw Exception(appTr('يجب تسجيل الدخول', 'Sign in required'));
     }
 
-    final manuscript = await getById(id);
+    final manuscript = await getById(id, restoreMedia: false);
     if (manuscript != null && manuscript.userId != user.uid) {
       throw Exception(appTr('غير مصرح بحذف هذه المسودة', 'Not allowed to delete this draft'));
     }

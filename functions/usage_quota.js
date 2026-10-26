@@ -5,16 +5,17 @@
  * Enforced only in Cloud Functions (Admin SDK).
  *
  * Defaults can be overridden by:
- * - config/quotas: { free: { gemini, scholar }, pro: { gemini, scholar } }
- * - users/{uid}.quotaGeminiDaily / quotaScholarDaily (per-user)
+ * - config/quotas: { free: { gemini, scholar, consensus }, pro: { ... } }
+ * - users/{uid}.quotaGeminiDaily / quotaScholarDaily / quotaConsensusDaily
+ * - config/quotas.consensusMonthly caps the shared Consensus API key
  */
 
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 
 const DEFAULT_LIMITS = {
-  free: { gemini: 20, scholar: 6 },
-  pro: { gemini: 100, scholar: 30 },
-  admin: { gemini: 100000, scholar: 100000 },
+  free: { gemini: 20, scholar: 6, consensus: 3 },
+  pro: { gemini: 100, scholar: 30, consensus: 15 },
+  admin: { gemini: 100000, scholar: 100000, consensus: 100000 },
 };
 
 /** @deprecated use DEFAULT_LIMITS — kept for require() callers */
@@ -76,7 +77,7 @@ async function resolveTier(uid) {
 
 /**
  * @param {string} uid
- * @returns {Promise<{ tier: string, gemini: number, scholar: number }>}
+ * @returns {Promise<{ tier: string, gemini: number, scholar: number, consensus: number }>}
  */
 async function resolveLimits(uid) {
   const userSnap = await db().collection('users').doc(uid).get();
@@ -85,6 +86,7 @@ async function resolveLimits(uid) {
 
   let gemini = DEFAULT_LIMITS[tier]?.gemini ?? DEFAULT_LIMITS.free.gemini;
   let scholar = DEFAULT_LIMITS[tier]?.scholar ?? DEFAULT_LIMITS.free.scholar;
+  let consensus = DEFAULT_LIMITS[tier]?.consensus ?? DEFAULT_LIMITS.free.consensus;
 
   try {
     const cfgSnap = await db().collection('config').doc('quotas').get();
@@ -95,6 +97,9 @@ async function resolveLimits(uid) {
         if (tierCfg.gemini != null) gemini = positiveInt(tierCfg.gemini, gemini);
         if (tierCfg.scholar != null) {
           scholar = positiveInt(tierCfg.scholar, scholar);
+        }
+        if (tierCfg.consensus != null) {
+          consensus = positiveInt(tierCfg.consensus, consensus);
         }
       }
     }
@@ -108,8 +113,11 @@ async function resolveLimits(uid) {
   if (data.quotaScholarDaily != null) {
     scholar = positiveInt(data.quotaScholarDaily, scholar);
   }
+  if (data.quotaConsensusDaily != null) {
+    consensus = positiveInt(data.quotaConsensusDaily, consensus);
+  }
 
-  return { tier, gemini, scholar };
+  return { tier, gemini, scholar, consensus };
 }
 
 function allowDegraded(reason) {
@@ -127,10 +135,10 @@ function allowDegraded(reason) {
 
 /**
  * Atomically consume one unit of daily quota.
- * @param {{ uid: string, kind: 'gemini'|'scholar' }} opts
+ * @param {{ uid: string, kind: 'gemini'|'scholar'|'consensus' }} opts
  */
 async function consumeQuota({ uid, kind }) {
-  if (!uid || (kind !== 'gemini' && kind !== 'scholar')) {
+  if (!uid || (kind !== 'gemini' && kind !== 'scholar' && kind !== 'consensus')) {
     return {
       ok: false,
       code: 'invalid-argument',
@@ -146,7 +154,12 @@ async function consumeQuota({ uid, kind }) {
     return allowDegraded(e.message || e);
   }
 
-  const limit = kind === 'gemini' ? limits.gemini : limits.scholar;
+  const limit =
+    kind === 'gemini'
+      ? limits.gemini
+      : kind === 'scholar'
+        ? limits.scholar
+        : limits.consensus;
   const tier = limits.tier;
   const day = utcDayKey();
   const ref = db().collection('usage').doc(uid).collection('daily').doc(day);
@@ -165,6 +178,7 @@ async function consumeQuota({ uid, kind }) {
           tier,
           limitGemini: limits.gemini,
           limitScholar: limits.scholar,
+          limitConsensus: limits.consensus,
           updatedAt: FieldValue.serverTimestamp(),
         },
         { merge: true },
@@ -217,6 +231,7 @@ async function consumeQuota({ uid, kind }) {
           tier,
           limitGemini: limits.gemini,
           limitScholar: limits.scholar,
+          limitConsensus: limits.consensus,
           updatedAt: FieldValue.serverTimestamp(),
         },
         { merge: true },
@@ -245,7 +260,12 @@ async function consumeQuota({ uid, kind }) {
 }
 
 function quotaExceededHttpPayload(q, kind) {
-  const label = kind === 'scholar' ? 'Google Scholar' : 'AcadeGate AI';
+  const label =
+    kind === 'scholar'
+      ? 'Google Scholar'
+      : kind === 'consensus'
+        ? 'Consensus'
+        : 'AcadeGate AI';
   const tier = q.tier || 'free';
   const ar = `وصلت للحد اليومي لـ ${label} (${q.used}/${q.limit}). عدّل الحد من لوحة الإدارة أو حاول غداً.`;
   const en = `Daily ${label} limit reached (${q.used}/${q.limit}). Adjust the limit in admin or try tomorrow.`;

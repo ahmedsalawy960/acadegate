@@ -77,7 +77,16 @@ class _JournalSelectionScreenState extends State<JournalSelectionScreen> {
     try {
       await ScimagoQuartileService.instance.ensureLoaded();
       if (!mounted) return;
-      setState(() => _loadingCatalog = false);
+      final missing = ScimagoQuartileService.instance.catalogCount == 0;
+      setState(() {
+        _loadingCatalog = false;
+        _loadError = missing
+            ? context.t(
+                'تعذّر تحميل كتالوج المجلات. أعد المحاولة.',
+                'The journal catalog did not load. Try again.',
+              )
+            : null;
+      });
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -243,8 +252,7 @@ class _JournalSelectionScreenState extends State<JournalSelectionScreen> {
             });
           }
           final recs = _recommendations;
-          final items =
-              _loadingCatalog ? <JournalPickItem>[] : _buildItems(partners);
+          final items = _buildItems(partners);
           final showRecs =
               _searchQuery.trim().isEmpty && recs.isNotEmpty && !_loadingCatalog;
 
@@ -291,6 +299,11 @@ class _JournalSelectionScreenState extends State<JournalSelectionScreen> {
                 ),
               ),
               if (_loadingCatalog)
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 4, 16, 0),
+                  child: LinearProgressIndicator(minHeight: 2),
+                ),
+              if (_loadingCatalog && items.isEmpty)
                 const Expanded(
                   child: Center(child: CircularProgressIndicator()),
                 )

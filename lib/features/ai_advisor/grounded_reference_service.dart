@@ -1,4 +1,5 @@
 import '../../core/locale/app_translate.dart';
+import '../academic_integrity/consensus_client.dart';
 import '../academic_integrity/crossref_client.dart';
 import '../academic_integrity/europe_pmc_client.dart';
 import '../academic_integrity/google_scholar_client.dart';
@@ -8,7 +9,8 @@ import 'advisor_intent.dart';
 import 'grounded_work.dart';
 import 'literature_relevance.dart';
 
-/// Live bibliography from OpenAlex + Crossref + Semantic Scholar. Never invent a DOI.
+/// Live bibliography from OpenAlex, Crossref, Semantic Scholar, Europe PMC,
+/// Google Scholar, and Consensus. Never invent a DOI.
 class GroundedReferenceService {
   GroundedReferenceService._();
 
@@ -164,6 +166,26 @@ class GroundedReferenceService {
       if (e.code != 'quota_exceeded') rethrow;
     } catch (_) {}
 
+    try {
+      final consensus = await ConsensusClient.instance.search(
+        topic,
+        limit: limit,
+      );
+      for (final work in consensus) {
+        _offer(
+          byDoi,
+          work.doi,
+          work.title,
+          work.year,
+          work.authors,
+          'Consensus',
+          journal: work.journal,
+          abstractText: work.groundedAbstract,
+          externalUrl: work.url,
+        );
+      }
+    } catch (_) {}
+
     var works = byDoi.values.toList()
       ..sort((a, b) => (b.year ?? 0).compareTo(a.year ?? 0));
     final tokens = mustMatchTokens
@@ -182,7 +204,7 @@ class GroundedReferenceService {
     );
   }
 
-  /// Global index search (OpenAlex + Semantic Scholar + Crossref + Europe PMC).
+  /// Global index search (OpenAlex, Semantic Scholar, Crossref, Europe PMC, Consensus).
   /// DOI is preferred but not required — title/author/year records are kept.
   Future<GroundedReferenceBundle> searchScientific({
     required List<String> queries,
@@ -342,6 +364,30 @@ class GroundedReferenceService {
     } on ScholarSearchException catch (e) {
       // Free indexes already ran; don't abort the whole harvest on Scholar caps.
       if (e.code != 'quota_exceeded') rethrow;
+    } catch (_) {}
+
+    // One Consensus request per harvest so the shared monthly key is not spent
+    // once for every query variant.
+    try {
+      final consensus = await ConsensusClient.instance.search(
+        cleaned.first,
+        limit: perSource.clamp(8, 20),
+        fromYear: minYear > 0 ? minYear : null,
+      );
+      for (final work in consensus) {
+        _offer(
+          byKey,
+          work.doi,
+          work.title,
+          work.year,
+          work.authors,
+          'Consensus',
+          journal: work.journal,
+          abstractText: work.groundedAbstract,
+          requireDoi: requireDoi,
+          externalUrl: work.url,
+        );
+      }
     } catch (_) {}
 
     List<GroundedWork> ranked = LiteratureRelevance.rank(

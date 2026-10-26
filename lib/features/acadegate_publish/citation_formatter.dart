@@ -71,15 +71,17 @@ class CitationFormatter {
     bool plainNumberList = false,
   }) {
     final prepared = _prepareForStyle(reference);
+    final plain = plainNumberList || style == PublishCitationStyle.acs;
     final fromOriginal = _authorDateEntryFromOriginal(reference, style);
     if (fromOriginal != null) return fromOriginal;
     if (_qualityOk(prepared) && !_authorsLookMangled(prepared.authors)) {
-      return _structuredEntry(
+      final structured = _structuredEntry(
         prepared,
         style: style,
         index: index,
-        plainNumberList: plainNumberList,
+        plainNumberList: plain,
       );
+      if (_entryKeepsSource(reference, structured.plain)) return structured;
     }
     final raw = AcademicText.sanitize(reference.rawText.trim());
     if (raw.isNotEmpty) {
@@ -87,14 +89,14 @@ class CitationFormatter {
         raw,
         style: style,
         index: index,
-        plainNumberList: plainNumberList,
+        plainNumberList: plain,
       );
     }
     return _structuredEntry(
       prepared,
       style: style,
       index: index,
-      plainNumberList: plainNumberList,
+      plainNumberList: plain,
     );
   }
 
@@ -213,7 +215,7 @@ class CitationFormatter {
       PublishCitationStyle.harvard => _buildHarvardEntry(reference),
       PublishCitationStyle.chicago => _buildChicagoEntry(reference),
       PublishCitationStyle.acs =>
-        _buildIeeeEntry(reference, index, plainNumberList: true),
+        _buildIeeeEntry(reference, index, plainNumberList: plainNumberList),
     };
   }
 
@@ -471,6 +473,39 @@ class CitationFormatter {
     return styleLabel(style);
   }
 
+  /// A rebuilt line that drops the surname or prints a broken DOI is discarded.
+  static bool _entryKeepsSource(PublishReference reference, String formatted) {
+    final raw = AcademicText.sanitize(reference.rawText).trim();
+    if (raw.length < 20) return true;
+    if (RegExp(r'doi:\s*(?!10\.)', caseSensitive: false).hasMatch(formatted)) {
+      return false;
+    }
+    if (formatted.contains('https://doi,')) return false;
+    final rawDoi = RegExp(r'10\.\d{4,}/[^\s]+').firstMatch(raw)?.group(0);
+    if (rawDoi != null && !formatted.contains(rawDoi.split('/').first)) {
+      return false;
+    }
+    final lead = RegExp(
+      r'^(?:\[[0-9]+\]\s*|\d+\.\s*)?([A-Z][a-zA-Z]{3,})',
+    ).firstMatch(raw);
+    if (lead == null) return true;
+    final surname = lead.group(1)!;
+    if (!formatted.toLowerCase().contains(surname.toLowerCase())) return false;
+    final body = formatted.replaceFirst(
+      RegExp(r'^(?:\[[0-9]+\]\s*|\d+\.\s*)'),
+      '',
+    );
+    final rawBody = raw.replaceFirst(
+      RegExp(r'^(?:\[[0-9]+\]\s*|\d+\.\s*)'),
+      '',
+    );
+    if (RegExp(r'^[A-Z]\.\s').hasMatch(body) &&
+        !RegExp(r'^[A-Z]\.\s').hasMatch(rawBody)) {
+      return false;
+    }
+    return true;
+  }
+
   static BibliographyEntry _rawBibliographyEntry(
     String raw, {
     required PublishCitationStyle style,
@@ -482,13 +517,13 @@ class CitationFormatter {
       return BibliographyEntry([BibliographySpan(_listPrefix(index, plainNumberList).trim())]);
     }
     if (isNumberedStyle(style)) {
-      var line = body;
-      if (!RegExp(r'^\[\d+\]').hasMatch(line)) {
-        line = '${_listPrefix(index, plainNumberList)}$line';
-      } else {
-        line = line.replaceFirst(RegExp(r'^\[\d+\]\s*'), _listPrefix(index, plainNumberList));
-      }
-      return BibliographyEntry([BibliographySpan(line)]);
+      final bodyOnly = body.replaceFirst(
+        RegExp(r'^(?:\[\d+\]|\d+\.)\s*'),
+        '',
+      );
+      return BibliographyEntry([
+        BibliographySpan('${_listPrefix(index, plainNumberList)}$bodyOnly'),
+      ]);
     }
     return BibliographyEntry([BibliographySpan(body)]);
   }
@@ -1140,7 +1175,8 @@ class CitationFormatter {
           }
           if (year.isNotEmpty) spans.add(BibliographySpan(', $year'));
           spans.add(const BibliographySpan('.'));
-          if (ref.doi.isNotEmpty) {
+          if (ref.doi.isNotEmpty &&
+              RegExp(r'^10\.\d{4,}').hasMatch(ref.doi.trim())) {
             spans.add(BibliographySpan(' doi: ${ref.doi.trim()}.'));
           }
           return BibliographyEntry(spans);

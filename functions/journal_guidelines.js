@@ -30,17 +30,46 @@ function extractLinks(html, baseUrl) {
   return [...links];
 }
 
+function extractAnchors(html, baseUrl) {
+  const found = [];
+  const seen = new Set();
+  const re = /<a\b[^>]*href\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+  let match;
+  while ((match = re.exec(String(html || ""))) !== null) {
+    try {
+      const url = new URL(match[1], baseUrl).href.split("#")[0];
+      if (!url.startsWith("http") || seen.has(url)) continue;
+      seen.add(url);
+      const text = stripHtml(match[2]).slice(0, 180);
+      found.push({ url, text });
+    } catch (_) {}
+  }
+  return found;
+}
+
+function scoreAnchor(url, text) {
+  const raw = String(text || "").toLowerCase();
+  const label = raw.replace(/[^\p{L}\p{N}]+/gu, "-");
+  return scoreGuideLink(url) + scoreGuideLink(label) + scoreGuideLink(raw);
+}
+
 function scoreGuideLink(url) {
   const lower = url.toLowerCase();
   let score = 0;
   if (lower.includes("about/submissions")) score += 7;
   if (lower.includes("information/authors")) score += 7;
   if (lower.includes("author-instructions")) score += 6;
-  if (lower.includes("for-authors")) score += 6;
   if (lower.includes("author-guideline")) score += 6;
   if (lower.includes("author-guidelines")) score += 6;
   if (lower.includes("instructions-for-authors")) score += 6;
   if (lower.includes("guide-for-authors")) score += 6;
+  if (lower.includes("/instructions")) score += 6;
+  if (lower.includes("submission-guidelines")) score += 6;
+  if (lower.includes("author_guidelines")) score += 6;
+  if (lower.includes("for-authors")) score += 6;
+  if (/\.pdf(?:$|\?)/.test(lower) && /author|guide|instruction|template/.test(lower)) {
+    score += 6;
+  }
   if (lower.includes("author")) score += 3;
   if (lower.includes("guide")) score += 2;
   if (lower.includes("instruction")) score += 2;
@@ -48,6 +77,9 @@ function scoreGuideLink(url) {
   if (lower.includes("submission")) score += 2;
   if (lower.includes("ejol.info") || lower.includes("ajol.info")) score += 4;
   if (lower.includes("ethiopian")) score += 2;
+  if (lower.includes("تعليمات") || lower.includes("للمؤلفين") || lower.includes("دليل المؤلف")) {
+    score += 6;
+  }
   return score;
 }
 
@@ -556,6 +588,147 @@ async function searchOpenAlexHomepages(journalName, issn) {
   }
 }
 
+function specificGuideUrls(homepage) {
+  const raw = String(homepage || "").trim();
+  if (!raw.startsWith("http")) return [];
+  let parsed;
+  try {
+    parsed = new URL(raw);
+  } catch (_) {
+    return [];
+  }
+  const origin = parsed.origin;
+  const path = parsed.pathname.replace(/\/+$/, "");
+  const full = origin + path;
+  const host = parsed.hostname.toLowerCase();
+  const urls = [];
+
+  if (host.includes("sciencedirect.com")) {
+    const journalPath = path
+      .replace(/\/publish\/guide-for-authors$/, "")
+      .replace(/\/home$/, "");
+    urls.push(`${origin}${journalPath}/publish/guide-for-authors`);
+  }
+  if (host.includes("mdpi.com")) {
+    const match = path.match(/\/journal\/([^/]+)/i);
+    if (match) urls.push(`${origin}/journal/${match[1]}/instructions`);
+  }
+  if (host.includes("springer.com") || host.includes("springernature.com")) {
+    if (path.includes("/journal/")) urls.push(`${full}/submission-guidelines`);
+  }
+  if (host.includes("frontiersin.org")) {
+    const match = path.match(/\/journals\/([^/]+)/i);
+    if (match) {
+      urls.push(`${origin}/journals/${match[1]}/for-authors/author-guidelines`);
+    }
+  }
+  if (host.includes("tandfonline.com")) {
+    const code =
+      parsed.searchParams.get("journalCode") ||
+      path.split("/").filter(Boolean).pop();
+    if (code) {
+      urls.push(
+        `https://www.tandfonline.com/action/authorSubmission?show=instructions&journalCode=${encodeURIComponent(code)}`,
+      );
+    }
+  }
+  if (host.includes("wiley.com")) {
+    urls.push(`${full}/author-guidelines`);
+  }
+  if (host.includes("plos.org")) urls.push(`${full}/s/submission-guidelines`);
+  if (host.includes("biomedcentral.com") || host.includes("springeropen.com")) {
+    urls.push(`${full}/submission-guidelines`);
+  }
+  return [...new Set(urls)];
+}
+
+function specificityBonus(url) {
+  const lower = String(url || "").toLowerCase();
+  let bonus = 0;
+  if (
+    lower.includes("guide-for-authors") ||
+    lower.includes("author-guidelines") ||
+    lower.includes("instructions-for-authors") ||
+    lower.includes("/instructions") ||
+    lower.includes("submission-guidelines")
+  ) {
+    bonus += 20;
+  }
+  if (
+    lower.includes("policies-and-guidelines") ||
+    lower.includes("how-to-publish") ||
+    lower.includes("author-resources")
+  ) {
+    bonus -= 12;
+  }
+  return bonus;
+}
+
+async function lookupJournalIdentity(journalName, issn) {
+  const identity = { homepage: "", publisher: "", issn: String(issn || "") };
+  const name = String(journalName || "").trim();
+  if (name.length < 4 && identity.issn.replace(/[^0-9Xx]/gi, "").length < 8) {
+    return identity;
+  }
+  try {
+    const query = name || identity.issn;
+    const response = await fetch(
+      `https://api.crossref.org/journals?query=${encodeURIComponent(query)}&rows=3`,
+      {
+        headers: {
+          Accept: "application/json",
+          "User-Agent": "AcadeGate/1.0 (mailto:support@acadegate.app)",
+        },
+      },
+    );
+    if (response.ok) {
+      const data = await response.json();
+      const item = (data?.message?.items || [])[0];
+      if (item) {
+        if (item.URL) identity.homepage = String(item.URL);
+        if (item.publisher) identity.publisher = String(item.publisher);
+        if (!identity.issn && Array.isArray(item.ISSN) && item.ISSN[0]) {
+          identity.issn = String(item.ISSN[0]);
+        }
+      }
+    }
+  } catch (_) {}
+
+  if (!identity.homepage) {
+    try {
+      const cleanIssn = identity.issn.replace(/[^0-9Xx]/gi, "");
+      const url =
+        cleanIssn.length >= 8
+          ? `https://api.openalex.org/sources?filter=issn:${encodeURIComponent(cleanIssn)}&per_page=1`
+          : `https://api.openalex.org/sources?search=${encodeURIComponent(name)}&per_page=1`;
+      const response = await fetch(url, {
+        headers: {
+          Accept: "application/json",
+          "User-Agent": "AcadeGate/1.0 (mailto:support@acadegate.app)",
+        },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const item = (data?.results || [])[0];
+        if (item?.homepage_url) identity.homepage = String(item.homepage_url);
+        if (!identity.publisher && item?.host_organization_name) {
+          identity.publisher = String(item.host_organization_name);
+        }
+      }
+    } catch (_) {}
+  }
+  return identity;
+}
+
+function childGuideLinks(html, baseUrl) {
+  if (!html) return [];
+  return extractAnchors(html, baseUrl)
+    .map((item) => ({ url: item.url, score: scoreAnchor(item.url, item.text) }))
+    .filter((item) => item.score >= 3)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 6);
+}
+
 async function addHomepageCandidates({ homepage, source, candidates, attempted }) {
   if (!homepage) return;
   attempted.push(homepage);
@@ -564,12 +737,16 @@ async function addHomepageCandidates({ homepage, source, candidates, attempted }
 
   const html = fetched.html;
   if (html) {
-    const links = extractLinks(html, homepage)
-      .map((url) => ({ url, score: scoreGuideLink(url) }))
-      .filter((item) => item.score >= 4)
+    const links = extractAnchors(html, homepage)
+      .map((item) => ({ url: item.url, score: scoreAnchor(item.url, item.text) }))
+      .filter((item) => item.score >= 3)
       .sort((a, b) => b.score - a.score);
-    for (const link of links.slice(0, 5)) {
+    for (const link of links.slice(0, 8)) {
       candidates.push({ url: link.url, source });
+    }
+    for (const guideUrl of specificGuideUrls(homepage)) {
+      candidates.push({ url: guideUrl, source: `${source}_guide` });
+      attempted.push(guideUrl);
     }
     if (stripHtml(html).length > 400 && scoreGuideLink(homepage) >= 4) {
       candidates.push({ url: homepage, source });
@@ -647,7 +824,21 @@ async function resolveGuidePages({
     addCandidate(item.url, item.source);
   }
 
-  const publisherHub = publisherAuthorHub(publisher);
+  const identity = await lookupJournalIdentity(journalName, issn);
+  const resolvedPublisher = publisher || identity.publisher || "";
+  if (identity.homepage) {
+    await addHomepageCandidates({
+      homepage: identity.homepage,
+      source: "journal_lookup",
+      candidates,
+      attempted,
+    });
+    for (const guideUrl of specificGuideUrls(identity.homepage)) {
+      addCandidate(guideUrl, "journal_specific_guide");
+    }
+  }
+
+  const publisherHub = publisherAuthorHub(resolvedPublisher);
   if (publisherHub) {
     addCandidate(publisherHub, "publisher_hub");
   }
@@ -659,7 +850,13 @@ async function resolveGuidePages({
     seen.add(item.url);
     unique.push(item);
   }
-  return { candidates: unique.slice(0, 20), attempted };
+  unique.sort(
+    (a, b) =>
+      scoreGuideLink(b.url) +
+      specificityBonus(b.url) -
+      (scoreGuideLink(a.url) + specificityBonus(a.url)),
+  );
+  return { candidates: unique.slice(0, 12), attempted };
 }
 
 function publisherAuthorHub(publisher) {
@@ -1026,7 +1223,43 @@ async function runExtraction(data, apiKey) {
         url: candidate.url,
         source: candidate.source,
         text,
-        score: scoreGuideText(text) + scoreGuideLink(candidate.url),
+        html: fetched.html || "",
+        score:
+          scoreGuideText(text) +
+          scoreGuideLink(candidate.url) +
+          specificityBonus(candidate.url),
+      });
+    }
+  }
+
+  const seenUrls = new Set(candidates.map((item) => item.url));
+  const extraUrls = [];
+  for (const page of [...fetchedPages].sort((a, b) => b.score - a.score).slice(0, 4)) {
+    for (const link of childGuideLinks(page.html, page.url)) {
+      if (seenUrls.has(link.url)) continue;
+      seenUrls.add(link.url);
+      extraUrls.push(link.url);
+    }
+  }
+  for (const url of extraUrls.slice(0, 5)) {
+    const fetched = await fetchPage(url);
+    const text = pageTextFromFetch(fetched);
+    fetchLog.push({
+      url,
+      source: "guide_follow",
+      fetched: fetched.status === 200,
+      status: fetched.status || 0,
+      textLength: text.length,
+      contentType: fetched.contentType || "",
+      error: fetched.error || "",
+    });
+    if (fetched.status === 200 && text.length >= 120) {
+      fetchedPages.push({
+        url,
+        source: "guide_follow",
+        text,
+        html: fetched.html || "",
+        score: scoreGuideText(text) + scoreGuideLink(url) + specificityBonus(url),
       });
     }
   }
@@ -1044,16 +1277,21 @@ async function runExtraction(data, apiKey) {
   }
 
   if (fetchedPages.length > 0 && !quotaHit) {
-    const best = fetchedPages[0];
+    const topPages = fetchedPages.slice(0, 3);
+    const best = topPages[0];
+    const combined = topPages
+      .map((page) => `SOURCE ${page.url}\n${page.text.slice(0, 22000)}`)
+      .join("\n\n")
+      .slice(0, MAX_TEXT_FOR_AI);
     const ai = await extractRulesWithGemini({
       apiKey,
       journalName,
       publisher,
-      sourceUrl: best.url,
-      pageText: best.text,
+      sourceUrl: topPages.map((page) => page.url).join(" | "),
+      pageText: combined,
     });
     if (ai.quotaHit) quotaHit = true;
-    const pageHeuristic = extractRulesHeuristic(best.text, best.url) || bestHeuristic;
+    const pageHeuristic = extractRulesHeuristic(combined, best.url) || bestHeuristic;
     const merged = mergeExtractedRules(pageHeuristic, ai.error ? null : ai.rules);
     if (merged && isDistinctiveExtract(merged)) {
       return {
@@ -1108,27 +1346,54 @@ async function runExtraction(data, apiKey) {
       }
     } else {
       const rules = grounded.rules || {};
-      if (rules.found === true) {
-        const sourceUrl =
-          grounded.guidelinesUrl ||
+      const sourceUrl = String(
+        grounded.guidelinesUrl ||
           rules.guidelinesUrl ||
           (grounded.groundingUrls && grounded.groundingUrls[0]) ||
-          "google_search";
-        return {
-          success: true,
-          sourceUrl: String(sourceUrl),
-          sourceType: "google_search_grounding",
-          model: grounded.model,
-          rules,
-          attemptedUrls: [
-            ...attempted,
-            ...(grounded.groundingUrls || []),
-          ],
-          fetchLog,
-          searchQueries: grounded.searchQueries || [],
-        };
+          "",
+      );
+      if (rules.found === true && sourceUrl.startsWith("http")) {
+        const fetched = await fetchPage(sourceUrl);
+        const text = pageTextFromFetch(fetched);
+        fetchLog.push({
+          url: sourceUrl,
+          source: "grounding_refetch",
+          fetched: fetched.status === 200,
+          status: fetched.status || 0,
+          textLength: text.length,
+          contentType: fetched.contentType || "",
+          error: fetched.error || "",
+        });
+        if (fetched.status === 200 && text.length >= 120 && !quotaHit) {
+          const ai = await extractRulesWithGemini({
+            apiKey,
+            journalName,
+            publisher,
+            sourceUrl,
+            pageText: text.slice(0, MAX_TEXT_FOR_AI),
+          });
+          if (ai.quotaHit) quotaHit = true;
+          const pageHeuristic = extractRulesHeuristic(text, sourceUrl);
+          const merged = mergeExtractedRules(
+            pageHeuristic,
+            ai.error ? null : ai.rules,
+          );
+          if (merged && isDistinctiveExtract(merged)) {
+            return {
+              success: true,
+              sourceUrl,
+              sourceType: "grounding_refetch",
+              model: (ai && ai.model) || grounded.model,
+              rules: merged,
+              attemptedUrls: [...attempted, ...(grounded.groundingUrls || [])],
+              fetchLog,
+              searchQueries: grounded.searchQueries || [],
+            };
+          }
+        }
       }
-      fetchLog[fetchLog.length - 1].error = "no_rules_in_search_result";
+      fetchLog[fetchLog.length - 1].error =
+        fetchLog[fetchLog.length - 1].error || "guidelines_url_not_verified";
     }
   }
 
@@ -1156,7 +1421,7 @@ function createJournalGuidelinesHandlers(geminiApiKey) {
   const journalGuidelinesExtract = onCall(
     {
       secrets: [geminiApiKey],
-      timeoutSeconds: 180,
+      timeoutSeconds: 240,
       cors: true,
     },
     callHandler,
@@ -1166,7 +1431,7 @@ function createJournalGuidelinesHandlers(geminiApiKey) {
     {
       secrets: [geminiApiKey],
       cors: true,
-      timeoutSeconds: 180,
+      timeoutSeconds: 240,
       memory: "512MiB",
     },
     async (req, res) => {

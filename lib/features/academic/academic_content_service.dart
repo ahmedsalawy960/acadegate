@@ -18,6 +18,11 @@ class AcademicContentService {
   Stream<AcademicContent>? _cachedWatchCore;
   Stream<List<AcademicResearchIdea>>? _ideasBroadcast;
   List<AcademicLab> _cachedLabs = const [];
+  int _readsInFlight = 0;
+  final List<Completer<void>> _readWaiters = [];
+  Future<List<AcademicSupervisor>>? _supervisorsOnceInFlight;
+  Future<List<AcademicResearchIdea>>? _ideasOnceInFlight;
+  Future<List<AcademicLab>>? _crciInFlight;
   Future<AcademicContent>? _fetchAllInFlight;
   DateTime? _fetchAllCachedAt;
   AcademicContent? _fetchAllCached;
@@ -25,6 +30,60 @@ class AcademicContentService {
 
   /// Last labs from a browse/search call (capped). Never the full NBSLE dump.
   List<AcademicLab> get cachedLabs => _cachedLabs;
+
+  /// Home opens supervisors, ideas, and labs together. On Windows those
+  /// parallel Firestore reads stall and every one hits the timeout.
+  Future<T> _withReadSlot<T>(Future<T> Function() action) async {
+    if (_readsInFlight >= 2) {
+      final waiter = Completer<void>();
+      _readWaiters.add(waiter);
+      await waiter.future;
+    }
+    _readsInFlight++;
+    try {
+      return await action();
+    } finally {
+      _readsInFlight--;
+      if (_readWaiters.isNotEmpty) {
+        _readWaiters.removeAt(0).complete();
+      }
+    }
+  }
+
+  Future<QuerySnapshot<Map<String, dynamic>>> _serverGet(
+    Query<Map<String, dynamic>> query,
+  ) async {
+    try {
+      return await query
+          .get(const GetOptions(source: Source.server))
+          .timeout(const Duration(seconds: 25));
+    } on TimeoutException {
+      return query
+          .get(const GetOptions(source: Source.server))
+          .timeout(const Duration(seconds: 25));
+    }
+  }
+
+  Future<QuerySnapshot<Map<String, dynamic>>> _readQuery(
+    Query<Map<String, dynamic>> query,
+  ) {
+    return _withReadSlot(() async {
+      try {
+        final cached = await query
+            .get(const GetOptions(source: Source.cache))
+            .timeout(const Duration(seconds: 2));
+        if (cached.docs.isNotEmpty) {
+          unawaited(() async {
+            try {
+              await _withReadSlot(() => _serverGet(query));
+            } catch (_) {}
+          }());
+          return cached;
+        }
+      } catch (_) {}
+      return _serverGet(query);
+    });
+  }
 
   List<AcademicSupervisor> _applyHiddenDemos(
     List<AcademicSupervisor> supervisors,
@@ -199,10 +258,15 @@ class AcademicContentService {
     }
     // Cap home/search listeners — high enough for search, still bounded.
     if (category == null) {
-      query = query.limit(800);
+      query = query.limit(200);
     }
 
     try {
+      final first = await _fetchSupervisorsOnce(
+        category: category,
+        limit: category == null ? 200 : 250,
+      );
+      yield first;
       await for (final snapshot in query.snapshots()) {
         yield _parseSupervisors(
           snapshot,
@@ -226,9 +290,23 @@ class AcademicContentService {
     }
     query = query.limit(limit);
 
+    if (category == null && _supervisorsOnceInFlight != null) {
+      return _supervisorsOnceInFlight!;
+    }
+    final run = _loadSupervisorsOnce(query, category);
+    if (category != null) return run;
+    _supervisorsOnceInFlight = run.whenComplete(() {
+      _supervisorsOnceInFlight = null;
+    });
+    return _supervisorsOnceInFlight!;
+  }
+
+  Future<List<AcademicSupervisor>> _loadSupervisorsOnce(
+    Query<Map<String, dynamic>> query,
+    String? category,
+  ) async {
     try {
-      final snapshot =
-          await query.get().timeout(const Duration(seconds: 12));
+      final snapshot = await _readQuery(query);
       final hiddenIds = await DemoSupervisorHideService.instance.loadHiddenIds();
       return _applyHiddenDemos(
         _parseSupervisors(snapshot, category: category),
@@ -240,18 +318,23 @@ class AcademicContentService {
     }
   }
 
-  Future<List<AcademicResearchIdea>> _fetchIdeasOnce({int limit = 500}) async {
-    try {
-      final snapshot = await _db
-          .collection('research_ideas')
-          .limit(limit)
-          .get()
-          .timeout(const Duration(seconds: 12));
-      return _parseIdeas(snapshot);
-    } catch (error) {
-      debugPrint('ideas once error: $error');
-      return const [];
-    }
+  Future<List<AcademicResearchIdea>> _fetchIdeasOnce({int limit = 200}) async {
+    if (_ideasOnceInFlight != null) return _ideasOnceInFlight!;
+    final run = () async {
+      try {
+        final snapshot = await _readQuery(
+          _db.collection('research_ideas').limit(limit),
+        );
+        return _parseIdeas(snapshot);
+      } catch (error) {
+        debugPrint('ideas once error: $error');
+        return const <AcademicResearchIdea>[];
+      }
+    }();
+    _ideasOnceInFlight = run.whenComplete(() {
+      _ideasOnceInFlight = null;
+    });
+    return _ideasOnceInFlight!;
   }
 
   Stream<List<AcademicResearchIdea>> researchIdeasStream() {
@@ -269,26 +352,27 @@ class AcademicContentService {
         // Unblock StreamBuilders immediately (snapshots often hang on web).
         controller.add(const []);
 
-        // One-shot with timeout, then live snapshots.
+        // One read first. A live listener on the same collection at the same
+        // moment is what makes the Windows client stall.
         () async {
           final once = await _fetchIdeasOnce();
           if (controller.isClosed) return;
           if (once.isNotEmpty) controller.add(once);
+          if (sub != null || controller.isClosed) return;
+          sub = _db.collection('research_ideas').limit(200).snapshots().listen(
+            (snapshot) {
+              if (!controller.isClosed) {
+                controller.add(_parseIdeas(snapshot));
+              }
+            },
+            onError: (Object error) {
+              debugPrint('researchIdeasStream error: $error');
+              if (!controller.isClosed) {
+                controller.add(const []);
+              }
+            },
+          );
         }();
-
-        sub = _db.collection('research_ideas').limit(500).snapshots().listen(
-          (snapshot) {
-            if (!controller.isClosed) {
-              controller.add(_parseIdeas(snapshot));
-            }
-          },
-          onError: (Object error) {
-            debugPrint('researchIdeasStream error: $error');
-            if (!controller.isClosed) {
-              controller.add(const []);
-            }
-          },
-        );
       },
       onCancel: () async {
         if (controller.hasListener) return;
@@ -396,7 +480,7 @@ class AcademicContentService {
       if (cursor != null) {
         page = page.startAfterDocument(cursor);
       }
-      final snap = await page.get().timeout(const Duration(seconds: 20));
+      final snap = await _readQuery(page);
       if (snap.docs.isEmpty) break;
       collected.addAll(_parseLabs(snap, lightweight: true));
       cursor = snap.docs.last;
@@ -524,7 +608,7 @@ class AcademicContentService {
       if (cursor != null) {
         page = page.startAfterDocument(cursor);
       }
-      final snap = await page.get().timeout(const Duration(seconds: 20));
+      final snap = await _readQuery(page);
       if (snap.docs.isEmpty) break;
 
       scanned += snap.docs.length;
@@ -546,25 +630,27 @@ class AcademicContentService {
     return matches;
   }
 
-  Future<List<AcademicLab>> fetchCrciCenters({int limit = 40}) async {
+  Future<List<AcademicLab>> fetchCrciCenters({int limit = 40}) {
+    if (_crciInFlight != null) return _crciInFlight!;
+    final run = _loadCrciCenters(limit);
+    _crciInFlight = run.whenComplete(() {
+      _crciInFlight = null;
+    });
+    return _crciInFlight!;
+  }
+
+  Future<List<AcademicLab>> _loadCrciCenters(int limit) async {
     try {
-      final snap = await _db
-          .collection('labs')
-          .where('importSource', isEqualTo: 'crci')
-          .limit(limit)
-          .get()
-          .timeout(const Duration(seconds: 12));
+      final snap = await _readQuery(
+        _db.collection('labs').where('importSource', isEqualTo: 'crci').limit(limit),
+      );
       return _parseLabs(snap, lightweight: true);
     } catch (e) {
       debugPrint('fetchCrciCenters error: $e');
-      // Fallback: some older docs may only have crciCenterId.
       try {
-        final snap = await _db
-            .collection('labs')
-            .where('crciCenterId', isNotEqualTo: '')
-            .limit(limit)
-            .get()
-            .timeout(const Duration(seconds: 12));
+        final snap = await _readQuery(
+          _db.collection('labs').where('crciCenterId', isNotEqualTo: '').limit(limit),
+        );
         return _parseLabs(snap, lightweight: true)
             .where((l) => l.importSource == 'crci' || l.tags.contains('CRCI'))
             .toList();
@@ -835,22 +921,14 @@ class AcademicContentService {
   }
 
   Future<AcademicContent> _fetchAllImpl({required bool includeLabs}) async {
-    final supervisorsFuture = _fetchSupervisorsOnce();
-    final ideasFuture = _fetchIdeasOnce();
-    final labsFuture = includeLabs
-        ? searchLabs(limit: 80)
-        : Future<List<AcademicLab>>.value(const []);
-
-    final results = await Future.wait([
-      supervisorsFuture,
-      ideasFuture,
-      labsFuture,
-    ]);
+    final supervisors = await _fetchSupervisorsOnce();
+    final ideas = await _fetchIdeasOnce();
+    final labs = includeLabs ? await searchLabs(limit: 80) : const <AcademicLab>[];
 
     return AcademicContent(
-      supervisors: results[0] as List<AcademicSupervisor>,
-      ideas: results[1] as List<AcademicResearchIdea>,
-      labs: results[2] as List<AcademicLab>,
+      supervisors: supervisors,
+      ideas: ideas,
+      labs: labs,
     );
   }
 }

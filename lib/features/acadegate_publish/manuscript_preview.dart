@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'manuscript_citation_helper.dart';
 import 'manuscript_document_parser.dart';
+import 'manuscript_image_session_cache.dart';
 import 'manuscript_import_image.dart';
 import 'publish_models.dart';
 
@@ -50,31 +51,7 @@ class ManuscriptBlockPreview extends StatelessWidget {
             textDirection: TextDirection.ltr,
           ),
         ),
-      ManuscriptBlockType.equation => Container(
-          width: double.infinity,
-          margin: const EdgeInsets.symmetric(vertical: 6),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.grey.shade100,
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: Colors.grey.shade300),
-          ),
-          child: Column(
-            children: [
-              if (block.imageUrl != null && block.imageUrl!.isNotEmpty)
-                ManuscriptImportImage(url: block.imageUrl!, height: 48),
-              Text(
-                block.text,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontFamily: 'Cambria Math',
-                  fontSize: 15,
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-            ],
-          ),
-        ),
+      ManuscriptBlockType.equation => _EquationPreview(block: block),
       ManuscriptBlockType.image => Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -122,6 +99,57 @@ class ManuscriptPreview extends StatelessWidget {
               (b) => ManuscriptBlockPreview(block: b, manuscript: manuscript),
             )
             .toList(),
+      ),
+    );
+  }
+}
+
+class _EquationPreview extends StatelessWidget {
+  final ManuscriptBlock block;
+
+  const _EquationPreview({required this.block});
+
+  @override
+  Widget build(BuildContext context) {
+    final formula = block.text.trim();
+    final imageUrl = (block.imageUrl ?? '').trim();
+    final resolved = ManuscriptImageSessionCache.instance.resolve(imageUrl);
+    final showImage = imageUrl.startsWith('data:') ||
+        imageUrl.startsWith('http') ||
+        (resolved != null && resolved.isNotEmpty);
+
+    if (formula.isEmpty && !showImage) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF4F7FB),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: const Color(0xFFD5DEEA)),
+      ),
+      child: Column(
+        children: [
+          if (showImage)
+            ManuscriptImportImage(
+              url: resolved ?? imageUrl,
+              height: 72,
+              fit: BoxFit.contain,
+            ),
+          if (formula.isNotEmpty)
+            Text(
+              formula,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontFamily: 'Cambria Math',
+                fontSize: 16,
+                height: 1.35,
+                fontStyle: FontStyle.italic,
+                color: Color(0xFF102033),
+              ),
+            ),
+        ],
       ),
     );
   }

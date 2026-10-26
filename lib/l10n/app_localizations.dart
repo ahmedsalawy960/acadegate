@@ -335,7 +335,7 @@ abstract class AppLocalizations {
   /// No description provided for @portalProviderItem3.
   ///
   /// In en, this message translates to:
-  /// **'Academic writer and expert'**
+  /// **'Academic writing consultant'**
   String get portalProviderItem3;
 
   /// No description provided for @portalProviderItem4.
@@ -473,7 +473,7 @@ abstract class AppLocalizations {
   /// No description provided for @serviceWriting.
   ///
   /// In en, this message translates to:
-  /// **'Writing services'**
+  /// **'Writing help'**
   String get serviceWriting;
 
   /// No description provided for @serviceThesisStudio.
@@ -755,13 +755,13 @@ abstract class AppLocalizations {
   /// No description provided for @offerWriting.
   ///
   /// In en, this message translates to:
-  /// **'Offer academic writing services'**
+  /// **'Offer writing help and consultation'**
   String get offerWriting;
 
   /// No description provided for @offerWritingSub.
   ///
   /// In en, this message translates to:
-  /// **'Writer / expert'**
+  /// **'Writing consultant'**
   String get offerWritingSub;
 
   /// No description provided for @publishIdeasGuest.
@@ -983,7 +983,7 @@ abstract class AppLocalizations {
   /// No description provided for @portalProviderDesc.
   ///
   /// In en, this message translates to:
-  /// **'Merchant, lab, academic writer, idea publisher, or supervisor offering services'**
+  /// **'Merchant, lab, writing consultant, idea publisher, or supervisor offering services'**
   String get portalProviderDesc;
 
   /// No description provided for @portalUserDesc.

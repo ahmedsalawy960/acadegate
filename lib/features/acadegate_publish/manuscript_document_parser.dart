@@ -15,6 +15,7 @@ import 'citation_style_shapes.dart';
 import 'docx_list_numbering.dart';
 import 'docx_scientific_extractor.dart';
 import 'manuscript_image_session_cache.dart';
+import 'manuscript_structure_advisor.dart';
 import 'manuscript_upload_service.dart';
 import 'publish_models.dart';
 import 'scholarly_layout.dart';
@@ -63,7 +64,8 @@ class ManuscriptDocumentParser {
       final text = _extractDocxText(bytes);
       final blocks = _extractDocxBlocks(bytes);
       if (text.trim().length >= 40 || blocks.isNotEmpty) {
-        return _resultFromText(text, blocks: blocks);
+        final labeled = await ManuscriptStructureAdvisor.align(blocks);
+        return _resultFromText(text, blocks: labeled);
       }
     }
 
@@ -1248,7 +1250,11 @@ class ManuscriptDocumentParser {
   static List<ManuscriptBlock> _finalizeBodyBlocks(List<ManuscriptBlock> blocks) {
     if (blocks.isEmpty) return blocks;
     final structured = sanitizeImportedBlocks(
-      mergeSectionParagraphs(structureImportedBlocks(blocks)),
+      mergeSectionParagraphs(
+        structureImportedBlocks(
+          ManuscriptStructureAdvisor.demoteCatalogHeadings(blocks),
+        ),
+      ),
     );
     final repaired = _pairTableCaptions(
       _mergeContinuedTables(_extractInlineCaptions(structured)),
@@ -1327,6 +1333,7 @@ class ManuscriptDocumentParser {
       final t = b.text.trim();
       if (t.isEmpty || _isJunkTextFragment(t)) return false;
       if (_isPrintedHeading(t)) return false;
+      if (ManuscriptStructureAdvisor.isCatalogLine(t)) return false;
       if (ScholarlyLayout.isFloatCaption(t)) return false;
       if (DocxScientificExtractor.isEquationFragment(t)) return false;
       if (_isStandaloneBibliographyEntry(t)) return false;
@@ -1689,6 +1696,7 @@ class ManuscriptDocumentParser {
     final t = AcademicText.stripBidi(line).trim();
     if (t.isEmpty) return false;
     if (_isFigureCaption(t) || _isTableCaption(t)) return false;
+    if (ManuscriptStructureAdvisor.isCatalogLine(t)) return false;
     if (_isMajorSectionHeading(t)) return true;
     return CitationStyleShapes.looksLikeSectionHeading(t);
   }
@@ -3338,14 +3346,34 @@ class ManuscriptDocumentParser {
   }
 
   static bool _isHeadingParagraph(XmlElement paragraph) {
+    final text = _paragraphPlainText(paragraph).trim();
+    if (text.isEmpty) return false;
+    if (_isTableCaption(text) || _isFigureCaption(text)) return false;
+    if (ManuscriptStructureAdvisor.isCatalogLine(text)) return false;
+    if (_isMajorSectionHeading(text)) return true;
+    if (CitationStyleShapes.looksLikeSectionHeading(text) &&
+        !text.contains('(') &&
+        ','.allMatches(text).length < 2) {
+      return true;
+    }
+    var styled = false;
     for (final style in paragraph.findAllElements('pStyle')) {
       final val = style.getAttribute('val') ?? style.getAttribute('w:val') ?? '';
-      if (val.toLowerCase().contains('heading')) return true;
+      if (val.toLowerCase().contains('heading')) styled = true;
     }
-    final text = _paragraphPlainText(paragraph).trim();
-    if (_isTableCaption(text) || _isFigureCaption(text)) return false;
-    if (CitationStyleShapes.looksLikeSectionHeading(text)) return true;
-    return text.length < 80 && !text.endsWith('.') && text == text.toUpperCase();
+    if (!styled) {
+      return text.length < 80 &&
+          text.length > 3 &&
+          !text.endsWith('.') &&
+          !text.contains('(') &&
+          text == text.toUpperCase();
+    }
+    final words = text.split(RegExp(r'\s+')).length;
+    return words <= 6 &&
+        text.length <= 70 &&
+        !text.contains('(') &&
+        ','.allMatches(text).length < 2 &&
+        !text.endsWith('.');
   }
 
   static ({
@@ -3768,6 +3796,78 @@ class ManuscriptDocumentParser {
     return resolved;
   }
 
+  /// True when a saved draft still points at in-memory images that did not
+  /// survive a restart. Works for any manuscript, not a particular file.
+  static bool needsSourceMediaRestore(List<ManuscriptBlock> blocks) {
+    bool unresolved(String url) {
+      final trimmed = url.trim();
+      if (!trimmed.startsWith('{{img:')) return false;
+      return ManuscriptImageSessionCache.instance.resolve(trimmed) == null;
+    }
+
+    for (final block in blocks) {
+      if (block.type == ManuscriptBlockType.image ||
+          block.type == ManuscriptBlockType.equation) {
+        if (unresolved(block.imageUrl ?? '')) return true;
+      }
+      if (block.type == ManuscriptBlockType.table) {
+        for (final row in block.rowCellImages) {
+          for (final cell in row) {
+            if (unresolved(cell)) return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
+
+  /// Copy figures, equation pictures, and table-cell pictures from a fresh
+  /// read of the original file onto the saved blocks. Text the researcher
+  /// already has is kept.
+  static List<ManuscriptBlock> restoreMediaFromParsed({
+    required List<ManuscriptBlock> saved,
+    required List<ManuscriptBlock> parsed,
+  }) {
+    final pictures = parsed
+        .where(
+          (block) =>
+              block.type == ManuscriptBlockType.image ||
+              block.type == ManuscriptBlockType.equation,
+        )
+        .toList();
+    final tables = parsed
+        .where((block) => block.type == ManuscriptBlockType.table)
+        .toList();
+    var pictureIndex = 0;
+    var tableIndex = 0;
+
+    return saved.map((block) {
+      if (block.type == ManuscriptBlockType.table) {
+        if (tableIndex >= tables.length) return block;
+        final source = tables[tableIndex++];
+        if (source.rowCellImages.isEmpty) return block;
+        return block.copyWith(rowCellImages: source.rowCellImages);
+      }
+      if (block.type != ManuscriptBlockType.image &&
+          block.type != ManuscriptBlockType.equation) {
+        return block;
+      }
+      if (pictureIndex >= pictures.length) return block;
+      final source = pictures[pictureIndex++];
+      final url = (source.imageUrl ?? '').trim();
+      final keptText = block.text.trim().isNotEmpty ? block.text : source.text;
+      final keptOmml =
+          (block.ommlXml ?? '').trim().isNotEmpty ? block.ommlXml : source.ommlXml;
+      return block.copyWith(
+        imageUrl: url.isNotEmpty ? url : block.imageUrl,
+        text: keptText,
+        ommlXml: keptOmml,
+        imageWidthEmu: source.imageWidthEmu ?? block.imageWidthEmu,
+        imageHeightEmu: source.imageHeightEmu ?? block.imageHeightEmu,
+      );
+    }).toList();
+  }
+
   /// Firestore cannot store large base64 data URIs — strip before persistence.
   static List<ManuscriptBlock> stripDataUrisForPersistence(
     List<ManuscriptBlock> blocks,
@@ -3943,9 +4043,11 @@ class ManuscriptDocumentParser {
         );
       } else if (parsed.bodyText.trim().length > 80) {
         next = next.copyWith(
-          bodyBlocks: sanitizeImportedBlocks(
-            mergeSectionParagraphs(
-              _buildAcademicLayout(parsed.bodyText),
+          bodyBlocks: await ManuscriptStructureAdvisor.align(
+            sanitizeImportedBlocks(
+              mergeSectionParagraphs(
+                _buildAcademicLayout(parsed.bodyText),
+              ),
             ),
           ),
         );

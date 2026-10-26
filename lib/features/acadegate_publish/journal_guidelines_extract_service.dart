@@ -202,13 +202,13 @@ Rules: found=false if no formatting instructions. Extract EVERY layout rule stat
       return CallableHttpClient.call(
         name: 'journalGuidelinesExtractHttp',
         data: payload,
-        timeout: const Duration(minutes: 3),
+        timeout: const Duration(minutes: 4),
       );
     }
 
     final callable = FirebaseFunctions.instance.httpsCallable(
       'journalGuidelinesExtract',
-      options: HttpsCallableOptions(timeout: const Duration(minutes: 2)),
+      options: HttpsCallableOptions(timeout: const Duration(minutes: 4)),
     );
     final response = await callable.call<Map<String, dynamic>>(payload);
     return Map<String, dynamic>.from(response.data);

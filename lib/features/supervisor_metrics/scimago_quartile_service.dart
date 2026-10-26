@@ -1,6 +1,9 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+
+import 'scimago_catalog_cache.dart';
 
 /// تصنيف Scimago الرسمي (Q1–Q4) من بيانات SJR العامة.
 class ScimagoJournalInfo {
@@ -91,9 +94,15 @@ class ScimagoQuartileService {
   }
 
   Future<void> ensureLoaded() async {
-    if (_loaded) return;
+    if (_loaded && _catalog.isNotEmpty) return;
     _loading ??= _load();
-    await _loading;
+    try {
+      await _loading;
+    } catch (_) {
+      _loading = null;
+      rethrow;
+    }
+    if (!_loaded) _loading = null;
   }
 
   ScimagoJournalInfo? lookup({
@@ -115,60 +124,34 @@ class ScimagoQuartileService {
 
   Future<void> _load() async {
     try {
-      final response = await http.get(Uri.parse(_csvUrl)).timeout(
-            const Duration(minutes: 3),
-          );
-      if (response.statusCode != 200) return;
+      final body = await _readCatalogText();
+      if (body == null) return;
 
-      final body = utf8.decode(response.bodyBytes);
-      final lines = const LineSplitter().convert(body);
-      if (lines.isEmpty) return;
+      final rows = await compute(parseScimagoCsvRows, body);
+      if (rows.isEmpty) {
+        debugPrint('scimago catalog: parsed zero journals');
+        return;
+      }
 
-      final header = _parseLine(lines.first);
-      final rankIdx = _indexOf(header, 'Rank');
-      final titleIdx = _indexOf(header, 'Title');
-      final issnIdx = _indexOf(header, 'Issn');
-      final quartileIdx = _indexOf(header, 'SJR Best Quartile');
-      final sjrIdx = _indexOf(header, 'SJR');
-      final publisherIdx = _indexOf(header, 'Publisher');
-      final countryIdx = _indexOf(header, 'Country');
-      final categoriesIdx = _indexOf(header, 'Categories');
-      if (titleIdx < 0 || quartileIdx < 0) return;
-
-      for (var i = 1; i < lines.length; i++) {
-        final cols = _parseLine(lines[i]);
-        if (cols.length <= quartileIdx) continue;
-
-        final journalTitle = cols[titleIdx].trim();
-        final quartile = cols[quartileIdx].trim().toUpperCase();
-        if (journalTitle.isEmpty || !_isQuartile(quartile)) continue;
-
-        final sjr = sjrIdx >= 0 && sjrIdx < cols.length
-            ? _parseSjr(cols[sjrIdx])
-            : null;
-        final rank = rankIdx >= 0 && rankIdx < cols.length
-            ? int.tryParse(cols[rankIdx].trim()) ?? 0
-            : 0;
+      _catalog.clear();
+      _byIssn.clear();
+      _byTitle.clear();
+      for (final row in rows) {
         final info = ScimagoJournalInfo(
-          title: journalTitle,
-          quartile: quartile,
-          sjr: sjr,
-          publisher: _col(cols, publisherIdx),
-          country: _col(cols, countryIdx),
-          categories: _col(cols, categoriesIdx),
-          issn: issnIdx >= 0 && issnIdx < cols.length
-              ? cols[issnIdx].trim()
-              : '',
-          rank: rank,
+          title: row['title']?.toString() ?? '',
+          quartile: row['quartile']?.toString() ?? '',
+          sjr: row['sjr'] is num ? (row['sjr'] as num).toDouble() : null,
+          publisher: row['publisher']?.toString() ?? '',
+          country: row['country']?.toString() ?? '',
+          categories: row['categories']?.toString() ?? '',
+          issn: row['issn']?.toString() ?? '',
+          rank: row['rank'] is int ? row['rank'] as int : 0,
         );
-
+        if (info.title.isEmpty) continue;
         _catalog.add(info);
-        _byTitle[_normalizeTitle(journalTitle)] = info;
-
-        if (issnIdx >= 0 && issnIdx < cols.length) {
-          for (final issn in _splitIssns(cols[issnIdx])) {
-            _byIssn[issn] = info;
-          }
+        _byTitle[_normalizeTitle(info.title)] = info;
+        for (final issn in _splitIssns(info.issn)) {
+          _byIssn[issn] = info;
         }
       }
 
@@ -177,20 +160,47 @@ class ScimagoQuartileService {
         return a.title.compareTo(b.title);
       });
 
-      _loaded = true;
-    } catch (_) {
-      if (_catalog.isEmpty) {
-        _loaded = true;
-      }
+      _loaded = _catalog.isNotEmpty;
+    } catch (e) {
+      debugPrint('scimago catalog: $e');
+      _loaded = false;
     }
   }
 
-  static String _col(List<String> cols, int index) {
+  Future<String?> _readCatalogText() async {
+    Object? lastError;
+    for (var attempt = 0; attempt < 2; attempt++) {
+      try {
+        final response = await http.get(Uri.parse(_csvUrl)).timeout(
+              const Duration(seconds: 90),
+            );
+        if (response.statusCode == 200 && response.bodyBytes.length > 1000) {
+          final text = utf8.decode(response.bodyBytes);
+          await writeScimagoCatalogCache(text);
+          return text;
+        }
+        lastError = 'HTTP ${response.statusCode}';
+      } catch (e) {
+        lastError = e;
+      }
+    }
+    final cached = await readScimagoCatalogCache();
+    if (cached != null) {
+      debugPrint('scimago catalog: using saved file after $lastError');
+      return cached;
+    }
+    debugPrint('scimago catalog: download failed: $lastError');
+    return null;
+  }
+
+  static List<String> parseHeader(String line) => parseCsvLine(line);
+
+  static String columnValue(List<String> cols, int index) {
     if (index < 0 || index >= cols.length) return '';
     return cols[index].trim();
   }
 
-  static int _indexOf(List<String> header, String name) {
+  static int columnIndex(List<String> header, String name) {
     final target = name.toLowerCase();
     for (var i = 0; i < header.length; i++) {
       if (header[i].trim().toLowerCase() == target) return i;
@@ -198,7 +208,7 @@ class ScimagoQuartileService {
     return -1;
   }
 
-  static List<String> _parseLine(String line) {
+  static List<String> parseCsvLine(String line) {
     final result = <String>[];
     final current = StringBuffer();
     var inQuotes = false;
@@ -218,11 +228,11 @@ class ScimagoQuartileService {
     return result;
   }
 
-  static bool _isQuartile(String value) {
+  static bool isQuartile(String value) {
     return value == 'Q1' || value == 'Q2' || value == 'Q3' || value == 'Q4';
   }
 
-  static double? _parseSjr(String raw) {
+  static double? parseSjr(String raw) {
     final cleaned = raw.trim().replaceAll('.', '').replaceAll(',', '.');
     return double.tryParse(cleaned);
   }
@@ -245,4 +255,48 @@ class ScimagoQuartileService {
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
   }
+}
+
+/// Runs off the UI isolate so opening the journal list stays responsive
+/// for every manuscript, not one catalog file.
+List<Map<String, Object?>> parseScimagoCsvRows(String body) {
+  final lines = const LineSplitter().convert(body);
+  if (lines.isEmpty) return const [];
+
+  final header = ScimagoQuartileService.parseHeader(lines.first);
+  final rankIdx = ScimagoQuartileService.columnIndex(header, 'Rank');
+  final titleIdx = ScimagoQuartileService.columnIndex(header, 'Title');
+  final issnIdx = ScimagoQuartileService.columnIndex(header, 'Issn');
+  final quartileIdx =
+      ScimagoQuartileService.columnIndex(header, 'SJR Best Quartile');
+  final sjrIdx = ScimagoQuartileService.columnIndex(header, 'SJR');
+  final publisherIdx = ScimagoQuartileService.columnIndex(header, 'Publisher');
+  final countryIdx = ScimagoQuartileService.columnIndex(header, 'Country');
+  final categoriesIdx =
+      ScimagoQuartileService.columnIndex(header, 'Categories');
+  if (titleIdx < 0 || quartileIdx < 0) return const [];
+
+  final rows = <Map<String, Object?>>[];
+  for (var i = 1; i < lines.length; i++) {
+    final cols = ScimagoQuartileService.parseCsvLine(lines[i]);
+    if (cols.length <= quartileIdx) continue;
+    final title = cols[titleIdx].trim();
+    final quartile = cols[quartileIdx].trim().toUpperCase();
+    if (title.isEmpty || !ScimagoQuartileService.isQuartile(quartile)) continue;
+    rows.add({
+      'title': title,
+      'quartile': quartile,
+      'sjr': sjrIdx >= 0 && sjrIdx < cols.length
+          ? ScimagoQuartileService.parseSjr(cols[sjrIdx])
+          : null,
+      'publisher': ScimagoQuartileService.columnValue(cols, publisherIdx),
+      'country': ScimagoQuartileService.columnValue(cols, countryIdx),
+      'categories': ScimagoQuartileService.columnValue(cols, categoriesIdx),
+      'issn': issnIdx >= 0 && issnIdx < cols.length ? cols[issnIdx].trim() : '',
+      'rank': rankIdx >= 0 && rankIdx < cols.length
+          ? int.tryParse(cols[rankIdx].trim()) ?? 0
+          : 0,
+    });
+  }
+  return rows;
 }

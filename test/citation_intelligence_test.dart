@@ -2365,6 +2365,33 @@ References
     expect(apa, contains('Dotto'));
   });
 
+  test('a surname-first reference is not reprinted as an initial', () {
+    const ref = PublishReference(
+      id: 'b',
+      type: ReferenceType.journal,
+      authors: ['J. Banerjee'],
+      title: 'Estimation of genetic divergence',
+      year: '2023',
+      volume: '41',
+      pages: '1960-1968',
+      doi: '.org',
+      container: 'Environment and Ecology',
+      rawText:
+          'Banerjee, J., Shrivastava, M. K., Singh, Y., and Amrate, P. K. (2023). '
+          'Estimation of genetic divergence in soybean. Environment and Ecology, 41, '
+          '1960-1968. https://doi.org/10.60151/envec/VYWE5744',
+    );
+    final entry = CitationFormatter.buildBibliographyEntry(
+      reference: ref,
+      style: PublishCitationStyle.acs,
+      index: 3,
+    );
+    expect(entry.plain, startsWith('3. '));
+    expect(entry.plain, contains('Banerjee'));
+    expect(entry.plain, isNot(contains('doi: .org')));
+    expect(entry.plain, isNot(startsWith('3. J. Banerjee')));
+  });
+
   test('Vancouver compact initials keep the family name in APA in-text', () {
     const ref = PublishReference(
       id: 'ref_6',

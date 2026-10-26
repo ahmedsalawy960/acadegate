@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../core/locale/app_translate.dart';
 import 'academic_text.dart';
+import 'bibliography_style_advisor.dart';
 import 'citation_formatter.dart';
 import 'citation_linker.dart';
 import 'citation_style_converter.dart';
@@ -15,6 +16,7 @@ import 'manuscript_image_session_cache.dart';
 import 'journal_format_rules.dart';
 import 'manuscript_citation_helper.dart';
 import 'manuscript_document_parser.dart';
+import 'manuscript_structure_advisor.dart';
 import 'manuscript_upload_service.dart';
 import 'publish_models.dart';
 
@@ -72,8 +74,11 @@ class ManuscriptDocxExportService {
         manuscript.bodyBlocks,
       ),
     );
-    final cleanTitle = AcademicText.stripTrailingAuthorFromTitle(
-      AcademicText.sanitize(manuscript.title.trim()),
+    final cleanTitle = ManuscriptStructureAdvisor.readingTitle(
+      title: AcademicText.stripTrailingAuthorFromTitle(
+        AcademicText.sanitize(manuscript.title.trim()),
+      ),
+      blocks: manuscript.bodyBlocks,
     );
 
     if (cleanTitle.isNotEmpty) {
@@ -229,11 +234,24 @@ class ManuscriptDocxExportService {
         spacingBefore: 240,
         spacingAfter: 120,
       ));
-      final entries = CitationFormatter.buildBibliographyEntries(
+      final aiLines = await BibliographyStyleAdvisor.restyle(
         references: bibRefs,
         style: style,
-        plainNumberList: rules.referenceListPlainNumber,
+        referenceExample: rules.referenceExample,
+        inTextExample: rules.inTextExample,
+        plainNumbers: rules.referenceListPlainNumber ||
+            style == PublishCitationStyle.acs,
       );
+      final entries = aiLines == null
+          ? CitationFormatter.buildBibliographyEntries(
+              references: bibRefs,
+              style: style,
+              plainNumberList: rules.referenceListPlainNumber,
+            )
+          : [
+              for (final line in aiLines)
+                BibliographyEntry([BibliographySpan(line)]),
+            ];
       for (final entry in entries) {
         bodyXml.write(_bibliographyParagraph(entry, rules));
       }

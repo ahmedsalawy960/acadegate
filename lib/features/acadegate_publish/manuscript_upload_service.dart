@@ -6,6 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:flutter/scheduler.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -315,6 +316,13 @@ class ManuscriptUploadService {
       final cached = ManuscriptFileBytesCache.read(manuscriptId, filename);
       if (cached != null && cached.isNotEmpty) return cached;
     }
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
+      return _downloadViaHttp(
+        url,
+        manuscriptId: manuscriptId,
+        filename: filename,
+      );
+    }
     try {
       final data = await _storage.refFromURL(url).getData(maxDocumentBytes);
       if (data != null && data.isNotEmpty) {
@@ -332,12 +340,40 @@ class ManuscriptUploadService {
     final trimmed = url.trim();
     if (trimmed.isEmpty) return null;
     try {
+      if (!kIsWeb &&
+          defaultTargetPlatform == TargetPlatform.windows &&
+          trimmed.startsWith('http')) {
+        return _downloadViaHttp(trimmed);
+      }
       if (trimmed.startsWith('http') || trimmed.startsWith('gs://')) {
         final data = await _storage.refFromURL(trimmed).getData(maxDocumentBytes);
         if (data != null && data.isNotEmpty) return data;
       }
     } catch (_) {}
     return null;
+  }
+
+  Future<Uint8List?> _downloadViaHttp(
+    String url, {
+    String? manuscriptId,
+    String? filename,
+  }) async {
+    try {
+      final response =
+          await http.get(Uri.parse(url)).timeout(const Duration(minutes: 4));
+      if (response.statusCode < 200 ||
+          response.statusCode >= 300 ||
+          response.bodyBytes.isEmpty) {
+        return null;
+      }
+      final data = Uint8List.fromList(response.bodyBytes);
+      if (manuscriptId != null && filename != null) {
+        ManuscriptFileBytesCache.store(manuscriptId, filename, data);
+      }
+      return data;
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<XFile?> pickImageFromGallery() =>
@@ -564,6 +600,15 @@ class ManuscriptUploadService {
 
       final path = 'publish/${user.uid}/$manuscriptId/$safeName';
 
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
+        return _uploadViaStorageRest(
+          path: path,
+          bytes: await file.readAsBytes(),
+          contentType: contentType,
+          idToken: await user.getIdToken() ?? '',
+        );
+      }
+
       final ref = _storage.ref().child(path);
 
       await ref.putFile(file, SettableMetadata(contentType: contentType));
@@ -608,6 +653,15 @@ class ManuscriptUploadService {
 
       final path = 'publish/${user.uid}/$manuscriptId/$safeName';
 
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
+        return _uploadViaStorageRest(
+          path: path,
+          bytes: bytes,
+          contentType: contentType,
+          idToken: await user.getIdToken() ?? '',
+        );
+      }
+
       final ref = _storage.ref().child(path);
 
       await ref.putData(bytes, SettableMetadata(contentType: contentType));
@@ -631,6 +685,58 @@ class ManuscriptUploadService {
   }
 
 
+
+  /// Windows firebase_storage task events never complete. Upload over REST
+  /// with a deadline, then keep using the bytes already read on device.
+  Future<String> _uploadViaStorageRest({
+    required String path,
+    required List<int> bytes,
+    required String contentType,
+    required String idToken,
+  }) async {
+    if (idToken.isEmpty) {
+      throw Exception(appTr(
+        'انتهت الجلسة — سجّل الدخول ثم أعد رفع الملف',
+        'Session expired — sign in and upload the file again',
+      ));
+    }
+    const bucket = 'acadegate-new.firebasestorage.app';
+    final uri = Uri.parse(
+      'https://firebasestorage.googleapis.com/v0/b/$bucket/o'
+      '?uploadType=media&name=${Uri.encodeComponent(path)}',
+    );
+    final response = await http
+        .post(
+          uri,
+          headers: {
+            'Authorization': 'Firebase $idToken',
+            'Content-Type': contentType,
+          },
+          body: bytes,
+        )
+        .timeout(const Duration(minutes: 4));
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(appTr(
+        'تعذر رفع الملف (${response.statusCode}). أعد المحاولة.',
+        'Could not upload the file (${response.statusCode}). Try again.',
+      ));
+    }
+    final decoded = jsonDecode(response.body);
+    final tokenField =
+        decoded is Map ? decoded['downloadTokens']?.toString() : null;
+    final token = tokenField?.split(',').first.trim() ?? '';
+    if (token.isEmpty) {
+      throw Exception(appTr(
+        'رُفع الملف دون رابط تنزيل. أعد المحاولة.',
+        'The file uploaded without a download link. Try again.',
+      ));
+    }
+    final name = decoded is Map && decoded['name'] is String
+        ? decoded['name'] as String
+        : path;
+    return 'https://firebasestorage.googleapis.com/v0/b/$bucket/o/'
+        '${Uri.encodeComponent(name)}?alt=media&token=$token';
+  }
 
   String _mimeForName(String name) {
 

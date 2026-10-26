@@ -13,6 +13,7 @@ import 'manuscript_docx_export_service.dart';
 import 'manuscript_draft_chat_panel.dart';
 import 'manuscript_export_service.dart';
 import 'manuscript_preview.dart';
+import 'manuscript_structure_advisor.dart';
 import 'manuscript_upload_service.dart';
 import 'manuscript_reference_styler.dart';
 import 'publish_models.dart';
@@ -80,6 +81,7 @@ class _ManuscriptFormatScreenState extends State<ManuscriptFormatScreen> {
         _style = m.effectiveStyle;
         _loading = false;
       });
+      _refineStructure(m);
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
@@ -88,6 +90,31 @@ class _ManuscriptFormatScreenState extends State<ManuscriptFormatScreen> {
       );
       Navigator.pop(context);
     }
+  }
+
+  Future<void> _refineStructure(PublishManuscript loaded) async {
+    final refined =
+        await ManuscriptStructureAdvisor.align(loaded.bodyBlocks);
+    if (!mounted) return;
+    final current = _manuscript;
+    if (current == null ||
+        current.bodyBlocks.length != loaded.bodyBlocks.length) {
+      return;
+    }
+    for (var i = 0; i < current.bodyBlocks.length; i++) {
+      if (current.bodyBlocks[i].text != loaded.bodyBlocks[i].text) return;
+    }
+    var changed = false;
+    for (var i = 0; i < refined.length; i++) {
+      if (refined[i].type != current.bodyBlocks[i].type) {
+        changed = true;
+        break;
+      }
+    }
+    if (!changed) return;
+    setState(() {
+      _manuscript = current.copyWith(bodyBlocks: refined);
+    });
   }
 
   String get _bibliography {

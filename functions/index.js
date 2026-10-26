@@ -28,6 +28,10 @@ const serpapiKey = defineSecret("SERPAPI_API_KEY");
 const { createGoogleScholarSearchHandler } = require("./scholar_search");
 exports.googleScholarSearchHttp = createGoogleScholarSearchHandler(serpapiKey);
 
+const consensusApiKey = defineSecret("CONSENSUS_API_KEY");
+const { createConsensusSearchHandler } = require("./consensus_search");
+exports.consensusSearchHttp = createConsensusSearchHandler(consensusApiKey);
+
 const { createResearchRoom, joinResearchRoom } = createResearchRoomHandlers();
 exports.createResearchRoom = createResearchRoom;
 exports.joinResearchRoom = joinResearchRoom;

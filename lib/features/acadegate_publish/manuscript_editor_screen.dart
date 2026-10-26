@@ -15,6 +15,7 @@ import 'manuscript_draft_chat_panel.dart';
 import 'manuscript_export_service.dart';
 import 'manuscript_format_screen.dart';
 import 'manuscript_preview.dart';
+import 'manuscript_structure_advisor.dart';
 import 'manuscript_upload_service.dart';
 import 'publish_models.dart';
 import 'publish_reference_form.dart';
@@ -83,6 +84,7 @@ class _ManuscriptEditorScreenState extends State<ManuscriptEditorScreen>
         _manuscript = m;
         _loading = false;
       });
+      _refineStructure(m);
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
@@ -91,6 +93,30 @@ class _ManuscriptEditorScreenState extends State<ManuscriptEditorScreen>
       );
       Navigator.pop(context);
     }
+  }
+
+  Future<void> _refineStructure(PublishManuscript loaded) async {
+    final refined =
+        await ManuscriptStructureAdvisor.align(loaded.bodyBlocks);
+    if (!mounted) return;
+    final current = _manuscript;
+    if (current == null || current.bodyBlocks.length != loaded.bodyBlocks.length) {
+      return;
+    }
+    for (var i = 0; i < current.bodyBlocks.length; i++) {
+      if (current.bodyBlocks[i].text != loaded.bodyBlocks[i].text) return;
+    }
+    var changed = false;
+    for (var i = 0; i < refined.length; i++) {
+      if (refined[i].type != current.bodyBlocks[i].type) {
+        changed = true;
+        break;
+      }
+    }
+    if (!changed) return;
+    setState(() {
+      _manuscript = current.copyWith(bodyBlocks: refined);
+    });
   }
 
   PublishManuscript _buildDraft() {
@@ -358,8 +384,8 @@ class _ManuscriptEditorScreenState extends State<ManuscriptEditorScreen>
                 const SizedBox(width: 16),
                 Expanded(
                   child: Text(context.t(
-                    'جاري استخراج المراجع والنص…',
-                    'Extracting references and text…',
+                    'جاري قراءة الملف بالنموذج: نص، عناوين، وصور…',
+                    'The model is reading the file: text, headings, and figures…',
                   )),
                 ),
               ],

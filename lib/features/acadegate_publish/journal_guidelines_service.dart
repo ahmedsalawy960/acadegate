@@ -185,13 +185,18 @@ class JournalGuidelinesService {
       }
     }
 
-    final publisherGuide = _publisherAuthorGuideUrl(publisher);
-    if (publisherGuide != null) {
-      add(publisherGuide, 'publisher hub');
-    }
-
-    for (final pattern in _ojsPatternUrls(journalName)) {
-      add(pattern, 'OJS pattern');
+    final publisherLower = publisher.toLowerCase();
+    final majorPublisher = publisherLower.contains('elsevier') ||
+        publisherLower.contains('springer') ||
+        publisherLower.contains('wiley') ||
+        publisherLower.contains('mdpi') ||
+        publisherLower.contains('frontiers') ||
+        publisherLower.contains('taylor') ||
+        publisherLower.contains('ieee');
+    if (!majorPublisher) {
+      for (final pattern in _ojsPatternUrls(journalName)) {
+        add(pattern, 'OJS pattern');
+      }
     }
 
     final primary = urls.isNotEmpty
@@ -295,9 +300,57 @@ class JournalGuidelinesService {
     ];
   }
 
+  List<String> _publisherSpecificGuides(String homepage) {
+    final uri = Uri.tryParse(homepage.trim());
+    if (uri == null || !uri.hasScheme) return const [];
+    final host = uri.host.toLowerCase();
+    final path = uri.path.replaceAll(RegExp(r'/+$'), '');
+    final origin = '${uri.scheme}://${uri.host}';
+    final full = '$origin$path';
+    final urls = <String>[];
+
+    if (host.contains('sciencedirect.com')) {
+      final journalPath = path
+          .replaceAll(RegExp(r'/publish/guide-for-authors$'), '')
+          .replaceAll(RegExp(r'/home$'), '');
+      urls.add('$origin$journalPath/publish/guide-for-authors');
+    }
+    if (host.contains('mdpi.com')) {
+      final match = RegExp(r'/journal/([^/]+)', caseSensitive: false).firstMatch(path);
+      if (match != null) urls.add('$origin/journal/${match.group(1)}/instructions');
+    }
+    if ((host.contains('springer.com') || host.contains('springernature.com')) &&
+        path.contains('/journal/')) {
+      urls.add('$full/submission-guidelines');
+    }
+    if (host.contains('frontiersin.org')) {
+      final match = RegExp(r'/journals/([^/]+)', caseSensitive: false).firstMatch(path);
+      if (match != null) {
+        urls.add('$origin/journals/${match.group(1)}/for-authors/author-guidelines');
+      }
+    }
+    if (host.contains('tandfonline.com')) {
+      final parts = path.split('/').where((part) => part.isNotEmpty).toList();
+      final code = uri.queryParameters['journalCode'] ??
+          (parts.isEmpty ? null : parts.last);
+      if (code != null && code.isNotEmpty) {
+        urls.add(
+          'https://www.tandfonline.com/action/authorSubmission?show=instructions&journalCode=${Uri.encodeComponent(code)}',
+        );
+      }
+    }
+    if (host.contains('wiley.com')) urls.add('$full/author-guidelines');
+    if (host.contains('plos.org')) urls.add('$full/s/submission-guidelines');
+    if (host.contains('biomedcentral.com') || host.contains('springeropen.com')) {
+      urls.add('$full/submission-guidelines');
+    }
+    return urls;
+  }
+
   List<String> _guidePathsFromHomepage(String homepage) {
     final base = homepage.trim().replaceAll(RegExp(r'/+$'), '');
     final paths = <String>[
+      ..._publisherSpecificGuides(base),
       '$base/about/submissions',
       '$base/information/authors',
       '$base/about',

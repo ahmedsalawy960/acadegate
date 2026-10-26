@@ -9,12 +9,14 @@ import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../core/locale/app_translate.dart';
+import 'bibliography_style_advisor.dart';
 import 'citation_formatter.dart';
 import 'citation_style_converter.dart';
 import 'journal_format_rules.dart';
 import 'manuscript_citation_helper.dart';
 import 'manuscript_document_parser.dart';
 import 'manuscript_upload_service.dart';
+import 'manuscript_structure_advisor.dart';
 import 'publish_models.dart';
 
 class ManuscriptExportService {
@@ -48,7 +50,25 @@ class ManuscriptExportService {
     final font = await PdfGoogleFonts.notoNaskhArabicRegular();
     final fontBold = await PdfGoogleFonts.notoNaskhArabicBold();
     final style = manuscript.effectiveStyle;
-    final blockWidgets = await _pdfBlocks(manuscript, style, font);
+    final exportTitle = ManuscriptStructureAdvisor.readingTitle(
+      title: manuscript.title,
+      blocks: manuscript.bodyBlocks,
+    );
+    final blockWidgets = await _pdfBlocks(
+      manuscript,
+      style,
+      font,
+      skipTitle: exportTitle,
+    );
+    final bibRefs = ManuscriptCitationHelper.bibliographyReferences(manuscript);
+    final styledRefs = bibRefs.isEmpty
+        ? null
+        : await BibliographyStyleAdvisor.restyle(
+            references: bibRefs,
+            style: style,
+            plainNumbers: style == PublishCitationStyle.acs ||
+                style == PublishCitationStyle.vancouver,
+          );
     final doc = pw.Document();
 
     doc.addPage(
@@ -56,7 +76,7 @@ class ManuscriptExportService {
         theme: pw.ThemeData.withFont(base: font, bold: fontBold),
         build: (context) => [
           pw.Text(
-            manuscript.title,
+            exportTitle,
             style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold),
           ),
           if (manuscript.abstractText.trim().isNotEmpty &&
@@ -79,12 +99,11 @@ class ManuscriptExportService {
             ),
             pw.SizedBox(height: 8),
             pw.Text(
-              CitationFormatter.formatBibliography(
-                references: ManuscriptCitationHelper.bibliographyReferences(
-                  manuscript,
-                ),
-                style: style,
-              ),
+              styledRefs?.join('\n\n') ??
+                  CitationFormatter.formatBibliography(
+                    references: bibRefs,
+                    style: style,
+                  ),
               style: const pw.TextStyle(fontSize: 10),
             ),
           ],
@@ -108,10 +127,16 @@ class ManuscriptExportService {
   Future<List<pw.Widget>> _pdfBlocks(
     PublishManuscript manuscript,
     PublishCitationStyle style,
-    pw.Font font,
-  ) async {
+    pw.Font font, {
+    required String skipTitle,
+  }) async {
     final widgets = <pw.Widget>[];
     for (final block in manuscript.bodyBlocks) {
+      final plain = block.text.trim();
+      if (skipTitle.length > 20 &&
+          (plain == skipTitle || plain.startsWith(skipTitle))) {
+        continue;
+      }
       switch (block.type) {
         case ManuscriptBlockType.heading:
           widgets.add(
