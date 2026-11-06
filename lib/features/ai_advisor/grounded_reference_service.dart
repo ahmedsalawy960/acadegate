@@ -225,14 +225,14 @@ class GroundedReferenceService {
     final cleaned = queries
         .map((q) => q.replaceAll(RegExp(r'\s+'), ' ').trim())
         .where((q) => q.length >= 4)
-        .take(6)
+        .take(10)
         .toList();
     if (cleaned.isEmpty) {
       return const GroundedReferenceBundle(topic: '');
     }
 
     final byKey = <String, GroundedWork>{};
-    final perSource = limit.clamp(16, 50);
+    final perSource = limit.clamp(20, 80);
 
     Future<void> harvestOpenAlex(
       String query, {
@@ -520,16 +520,16 @@ class GroundedReferenceService {
   String promptBlock(GroundedReferenceBundle bundle) {
     if (bundle.isEmpty) {
       return appTr(
-        'لا توجد أعمال موثّقة من OpenAlex/Crossref لهذا الموضوع بعد. '
+        'لا توجد أعمال موثّقة عبر فهارس AcadeGate لهذا الموضوع بعد. '
         'لا تكتب قائمة مراجع ولا تخترع DOI. اطلب موضوعاً أدق أو قل إن المصدر غير مؤكد.',
-        'No OpenAlex/Crossref works were found for this topic yet. '
+        'No AcadeGate-indexed works were found for this topic yet. '
         'Do not write a reference list or invent a DOI. Ask for a clearer topic or say the source is unverified.',
       );
     }
     final buffer = StringBuffer(
       appTr(
-        'أعمال موثّقة فقط (OpenAlex/Crossref). لا تستشهد بغيرها ولا تخترع DOI:\n',
-        'Verified works only (OpenAlex/Crossref). Cite none others and never invent a DOI:\n',
+        'أعمال موثّقة فقط عبر فهارس AcadeGate. لا تستشهد بغيرها ولا تخترع DOI:\n',
+        'Verified works only via AcadeGate indexes. Cite none others and never invent a DOI:\n',
       ),
     );
     for (var i = 0; i < bundle.works.length; i++) {
@@ -614,19 +614,17 @@ class GroundedReferenceService {
     if (topic.length < 4) {
       return appTr(
         'حدد موضوع البحث (مثلاً: adsorption of heavy metals) أو الصق قائمة مراجع فيها DOI '
-        'لأتحقق منها عبر OpenAlex وCrossref. لن أختلق مصادر.',
+        'لأتحقق منها عبر فهارس AcadeGate. لن أختلق مصادر.',
         'Give a research topic (e.g. adsorption of heavy metals) or paste a reference list with DOIs '
-        'and I will verify them via OpenAlex and Crossref. I will not invent sources.',
+        'and I will verify them via AcadeGate indexes. I will not invent sources.',
       );
     }
     if (bundle.isEmpty) {
       return appTr(
-        'لم يُعثر على أعمال مطابقة في OpenAlex / Crossref / Semantic Scholar / Europe PMC عن «$topic». '
-        'لم أختلق أي مرجع. جرّب صياغة أدق أو مصطلحات إنجليزية للمجال. '
-        '(ملاحظة: Google Scholar لا يتوفر عبر واجهة رسمية للتطبيق.)',
-        'No matching works were found in OpenAlex / Crossref / Semantic Scholar / Europe PMC for «$topic». '
-        'No sources were invented. Try a clearer phrasing or English field terms. '
-        '(Note: Google Scholar has no official API for apps.)',
+        'لم يُعثر على أعمال مطابقة عبر فهارس AcadeGate عن «$topic». '
+        'لم أختلق أي مرجع. جرّب صياغة أدق أو مصطلحات إنجليزية للمجال.',
+        'No matching works were found via AcadeGate indexes for «$topic». '
+        'No sources were invented. Try a clearer phrasing or English field terms.',
       );
     }
     return bibliographySection(bundle);

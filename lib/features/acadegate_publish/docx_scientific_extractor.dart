@@ -219,8 +219,10 @@ class DocxScientificExtractor {
 
   static String formatChemicalFormula(String text) {
     if (text.isEmpty) return text;
+    // Stoichiometry is one to three digits (H2, C60). Four or more digits
+    // stay on the baseline: catalog numbers and years, in any paper.
     var out = text.replaceAllMapped(
-      RegExp(r'([A-Z][a-z]?)([0-9٠-٩]+)'),
+      RegExp(r'([A-Z][a-z]?)([0-9٠-٩]{1,3})(?![0-9٠-٩])'),
       (m) => '${m.group(1)}${_toSubscriptUnicode(m.group(2)!)}',
     );
     out = formatVariableSubscripts(out);

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
+import 'package:acadegate/core/widgets/acadegate_selectable.dart';
 
 import '../../core/assets/weekly_image_rotator.dart';
 import '../../core/locale/locale_extensions.dart';
@@ -27,6 +28,7 @@ import '../research_supply_chain/research_goal.dart';
 import '../guides/section_guide_catalog.dart';
 import '../guides/section_guide_screen.dart';
 import 'arabic_thesis_catalogs.dart';
+import 'thesis_library_service.dart';
 import 'thesis_studio_ai_service.dart';
 import 'thesis_studio_branding.dart';
 import 'thesis_studio_citation_report.dart';
@@ -39,6 +41,7 @@ import 'thesis_studio_discipline.dart';
 import 'thesis_studio_kind.dart';
 import 'thesis_studio_latex_export.dart';
 import 'thesis_studio_length.dart';
+import 'thesis_studio_literature_map.dart';
 import 'thesis_studio_models.dart';
 import 'thesis_studio_pdf_service.dart';
 import 'thesis_studio_storage.dart';
@@ -74,6 +77,9 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
   AcademicProfile? _profile;
   String? _busyKey;
   bool _restoredDraft = false;
+  final _thesisLibraryQuery = TextEditingController();
+  bool _thesisLibraryLoading = false;
+  List<ThesisLibraryHit> _thesisLibraryHits = const [];
 
   @override
   void initState() {
@@ -241,6 +247,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
     _goalController.dispose();
     _abstractCmd.dispose();
     _priorStudiesPaste.dispose();
+    _thesisLibraryQuery.dispose();
     for (final controller in _paraCmds.values) {
       controller.dispose();
     }
@@ -418,7 +425,10 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
 
     setState(() {
       _loading = true;
-      _progress = context.t('جارٍ بناء الهيكل الفارغ...', 'Building the empty outline...');
+      _progress = context.t(
+        'جارٍ بناء الهيكل: عناوين وملخص ومراجع...',
+        'Building outline: titles, abstract, and sources...',
+      );
       _draft = null;
       _abstractCmd.clear();
       for (final controller in _paraCmds.values) {
@@ -981,7 +991,8 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return AcadeGateSelectable(
+      child: Scaffold(
       appBar: AcadeGateAppBar(
         title: Text(ThesisStudioBranding.title),
         backgroundColor: _brand,
@@ -1183,8 +1194,8 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
           if (!GeminiAdvisorClient.isAvailable)
             _banner(
               context.t(
-                'سجّل الدخول لربط استوديو الرسالة بـ Gemini 2.5 Pro: يقرأ هدفك كاملاً، يضع العنوان بلغة المسودة، ويصفّي المقالات والرسائل الجامعية من الفهارس العالمية حسب أمر كل فقرة.',
-                'Sign in to connect Thesis Studio to Gemini 2.5 Pro: it reads your full goal, writes the title in the draft language, and filters papers and dissertations from global indexes for each paragraph command.',
+                'سجّل الدخول لربط استوديو الرسالة بـ AcadeGate: يقرأ هدفك كاملاً، يضع العنوان بلغة المسودة، ويصفّي المقالات والرسائل الجامعية من الفهارس حسب أمر كل فقرة.',
+                'Sign in to connect Thesis Studio to AcadeGate: it reads your full goal, writes the title in the draft language, and filters papers and dissertations from indexes for each paragraph command.',
               ),
               color: Colors.orange.shade50,
             ),
@@ -1281,8 +1292,8 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
             const SizedBox(height: 4),
             Text(
               context.t(
-                'كل فقرة فارغة حتى تكتب أمرها بالأسفل. اجلب المراجع الخاصة بذلك الأمر ثم ولّد الفقرة وحدها.',
-                'Each paragraph stays empty until you type a command beneath it. Fetch sources for that command, then generate only that paragraph.',
+                'عند بناء الهيكل يُقترح عدة عناوين وملخص وتُجلب مراجع كثيرة. كل فقرة تبقى فارغة حتى تكتب أمرها ثم تجلب مراجعها وتولّدها.',
+                'Building the outline proposes several titles, an abstract, and many sources. Each paragraph stays empty until you command it, fetch its sources, and generate it.',
               ),
               style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6), height: 1.4),
             ),
@@ -1295,6 +1306,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
           ],
         ],
       ),
+    ),
     );
   }
 
@@ -1597,23 +1609,85 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              context.t('العنوان المقترح', 'Proposed title'),
+              draft.titleOptions.length > 1
+                  ? context.t('عناوين مقترحة — اختر واحداً', 'Proposed titles — pick one')
+                  : context.t('العنوان المقترح', 'Proposed title'),
               style: const TextStyle(
-                color: const Color(0xFFFDE68A),
+                color: Color(0xFFFDE68A),
                 fontWeight: FontWeight.w800,
               ),
             ),
             const SizedBox(height: 6),
-            Text(
-              draft.proposedTitle,
-              textDirection:
-                  draft.arabic ? TextDirection.rtl : TextDirection.ltr,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                height: 1.35,
+            if (draft.titleOptions.length > 1)
+              ...[
+                for (var i = 0; i < draft.titleOptions.length; i++)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Material(
+                      color: draft.proposedTitle == draft.titleOptions[i]
+                          ? const Color(0xFF1E3A5F)
+                          : const Color(0xFF0B1F4D),
+                      borderRadius: BorderRadius.circular(10),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: () async {
+                          setState(() {
+                            _draft = draft.copyWith(
+                              proposedTitle: draft.titleOptions[i],
+                            );
+                          });
+                          await _persistDraft();
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                draft.proposedTitle == draft.titleOptions[i]
+                                    ? Icons.radio_button_checked
+                                    : Icons.radio_button_off,
+                                size: 18,
+                                color: const Color(0xFFFDE68A),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  draft.titleOptions[i],
+                                  textDirection: draft.arabic
+                                      ? TextDirection.rtl
+                                      : TextDirection.ltr,
+                                  style: TextStyle(
+                                    fontSize: 14.5,
+                                    fontWeight:
+                                        draft.proposedTitle == draft.titleOptions[i]
+                                            ? FontWeight.w800
+                                            : FontWeight.w600,
+                                    height: 1.35,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ]
+            else
+              Text(
+                draft.proposedTitle,
+                textDirection:
+                    draft.arabic ? TextDirection.rtl : TextDirection.ltr,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  height: 1.35,
+                ),
               ),
-            ),
             const SizedBox(height: 10),
             Text(
               [
@@ -1628,13 +1702,12 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
                           '${draft.plan.discipline.labelEn.isNotEmpty ? ' / ${draft.plan.discipline.labelEn}' : ''}',
                 '${draft.literature.works.length} '
                     '${context.t('دراسة/رسالة DOI مؤكدة', 'DOI-confirmed papers/theses')}',
-                if (draft.modelUsed != null &&
-                    draft.modelUsed!.trim().isNotEmpty)
-                  draft.modelUsed!
-                else if (draft.fromGemini)
-                  'AI',
+                if (draft.fromGemini ||
+                    (draft.modelUsed != null &&
+                        draft.modelUsed!.trim().isNotEmpty))
+                  'AcadeGate',
               ].join(' · '),
-              style: TextStyle(color: const Color(0xFFB7C3D6), fontSize: 12),
+              style: const TextStyle(color: Color(0xFFB7C3D6), fontSize: 12),
             ),
             const SizedBox(height: 12),
             Text(
@@ -1762,8 +1835,8 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
             const SizedBox(height: 4),
             Text(
               context.t(
-                'جلب تلقائي من OpenAlex وSemantic Scholar وCrossref (مع فلتر Arabic في OpenAlex للمسودات العربية). مواقع مثل مبتعث مفيدة للتصفح اليدوي ثم لصق DOI إن وُجد — لا نملك واجهة برمجية لسحب PDF منها.',
-                'Auto-fetch from OpenAlex, Semantic Scholar, and Crossref (plus OpenAlex Arabic language filter for Arabic drafts). Sites like Mobt3ath help manual browsing, then paste a DOI if available — we have no API to pull their PDFs.',
+                'جلب تلقائي عبر AcadeGate من الفهارس الأكاديمية. مكتبة الرسائل العلمية بالأسفل ترشّح أطروحات من OpenAlex وتفتح OATD وCORE ومبتعث ودار المنظومة.',
+                'Auto-fetch via AcadeGate from academic indexes. The theses library below recommends dissertations from OpenAlex and opens OATD, CORE, Mobt3ath, and Mandumah.',
               ),
               style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
             ),
@@ -2178,42 +2251,319 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
     );
   }
 
-  Widget _arabicCatalogLinks() {
+  String get _thesisLibraryTopic {
+    final typed = _thesisLibraryQuery.text.trim();
+    if (typed.length >= 4) return typed;
+    final draft = _draft;
+    if (draft != null) {
+      final fromGoal = [
+        draft.goal.fieldEn,
+        draft.goal.field,
+        draft.proposedTitle,
+        draft.goal.raw,
+      ].map((s) => s.trim()).where((s) => s.length >= 4);
+      if (fromGoal.isNotEmpty) return fromGoal.first;
+    }
+    final goal = _goalController.text.trim();
+    if (goal.length >= 4) return goal;
+    return (_profile?.researchInterest ?? '').trim();
+  }
+
+  Future<void> _searchThesisLibrary({bool fromGoal = false}) async {
+    final topic = fromGoal
+        ? (_draft != null
+            ? [
+                _draft!.goal.fieldEn,
+                _draft!.goal.field,
+                _draft!.proposedTitle,
+                _draft!.goal.raw,
+              ].map((s) => s.trim()).firstWhere(
+                    (s) => s.length >= 4,
+                    orElse: () => _goalController.text.trim(),
+                  )
+            : _goalController.text.trim())
+        : _thesisLibraryTopic;
+    if (topic.length < 4) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            context.t(
+              'اكتب نقطة بحثية أو ابنِ الهيكل أولاً لترشيح الرسائل.',
+              'Type a research topic or build the outline first to recommend theses.',
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+    if (_thesisLibraryQuery.text.trim().isEmpty) {
+      _thesisLibraryQuery.text = topic;
+    }
+    setState(() => _thesisLibraryLoading = true);
+    try {
+      final hits = await ThesisLibraryService.instance.recommendForTopic(
+        topic,
+        limit: 24,
+      );
+      if (!mounted) return;
+      setState(() => _thesisLibraryHits = hits);
+      if (hits.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              context.t(
+                'لم تُعثر على رسائل مطابقة في OpenAlex — جرّب OATD أو CORE من الأزرار.',
+                'No matching theses in OpenAlex — try OATD or CORE from the buttons.',
+              ),
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _thesisLibraryLoading = false);
+    }
+  }
+
+  Future<void> _addThesisHitToDraft(ThesisLibraryHit hit) async {
+    final draft = _draft;
+    if (draft == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            context.t(
+              'ابنِ هيكل المسودة أولاً ثم أضف الرسالة إلى خريطة الأدبيات.',
+              'Build the draft outline first, then add the thesis to the literature map.',
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+    final merged = ThesisStudioEngine.appendWorks(
+      draft.literature,
+      [hit.work],
+      topic: draft.literature.topic,
+    );
+    setState(() {
+      _draft = draft.copyWith(
+        literature: merged,
+        literatureMap: ThesisLiteratureMapper.fromBundle(merged),
+      );
+    });
+    await _persistDraft();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          context.t(
+            'أُضيفت الرسالة إلى خريطة الأدبيات.',
+            'Thesis added to the literature map.',
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _arabicCatalogLinks() => _thesisLibrarySection();
+
+  Widget _thesisLibrarySection() {
+    final topic = _thesisLibraryTopic;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
           context.t(
-            'مصادر عربية للتصفح (ليست API)',
-            'Arabic browse sources (not APIs)',
+            'مكتبة الرسائل العلمية',
+            'Scientific theses library',
           ),
           style: const TextStyle(
-            fontWeight: FontWeight.w700,
-            fontSize: 12,
-            color: const Color(0xFFFDE68A),
+            fontWeight: FontWeight.w800,
+            fontSize: 13,
+            color: Color(0xFFFDE68A),
           ),
         ),
         const SizedBox(height: 4),
         Text(
           context.t(
-            'مبتعث ودار المنظومة وغيرها للتصفح اليدوي. لا يمكن جلب Abstract/نص كامل آلياً منها (اشتراك/حقوق نشر)؛ افتح الموقع، ثم الصق DOI هنا إن توفر.',
-            'Mobt3ath, Mandumah, and similar sites are for manual browsing. We cannot auto-fetch abstracts/full text (subscription/copyright); open the site, then paste a DOI here if available.',
+            'بوابات عالمية وعربية للرسائل. OpenAlex يرشّح داخل AcadeGate؛ OATD وCORE ومبتعث ودار المنظومة للتصفح/البحث في المتصفح.',
+            'Global and Arabic thesis portals. OpenAlex recommends inside AcadeGate; OATD, CORE, Mobt3ath, and Mandumah open in the browser.',
           ),
-          style: TextStyle(fontSize: 11, height: 1.4, color: const Color(0xFFB7C3D6)),
+          style: const TextStyle(
+            fontSize: 11,
+            height: 1.4,
+            color: Color(0xFFB7C3D6),
+          ),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _thesisLibraryQuery,
+          style: const TextStyle(color: Color(0xFFF4F7FB)),
+          decoration: InputDecoration(
+            hintText: context.t(
+              'ابحث عن رسائل حول نقطتك البحثية...',
+              'Search theses for your research topic...',
+            ),
+            hintStyle: const TextStyle(color: Color(0xFF78716C)),
+            isDense: true,
+            prefixIcon: const Icon(Icons.school_outlined, color: Color(0xFF93C5FD)),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+          onSubmitted: (_) => _searchThesisLibrary(),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            FilledButton.tonalIcon(
+              onPressed: _thesisLibraryLoading ? null : () => _searchThesisLibrary(),
+              icon: _thesisLibraryLoading
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.auto_awesome, size: 18),
+              label: Text(
+                context.t('ترشيح رسائل للنقطة', 'Recommend theses for topic'),
+              ),
+            ),
+            OutlinedButton.icon(
+              onPressed: _thesisLibraryLoading
+                  ? null
+                  : () => _searchThesisLibrary(fromGoal: true),
+              icon: const Icon(Icons.flag_outlined, size: 18),
+              label: Text(
+                context.t('من هدف المسودة', 'From draft goal'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
         for (final catalog in ArabicThesisCatalogs.all)
           Padding(
             padding: const EdgeInsets.only(bottom: 6),
             child: OutlinedButton.icon(
-              onPressed: () => _openExternalUri(catalog.uri),
-              icon: const Icon(Icons.menu_book_outlined, size: 18),
-              label: Text(
-                context.t(catalog.titleAr, catalog.titleEn),
-                textAlign: TextAlign.start,
+              onPressed: () => _openExternalUri(
+                catalog.uriForQuery(topic),
+              ),
+              icon: Icon(
+                catalog.supportsLiveSearch
+                    ? Icons.travel_explore
+                    : Icons.menu_book_outlined,
+                size: 18,
+              ),
+              label: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: Text(
+                  context.t(catalog.titleAr, catalog.titleEn),
+                  textAlign: TextAlign.start,
+                ),
               ),
             ),
           ),
+        if (_thesisLibraryHits.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(
+            context.t(
+              'رسائل مرشّحة (${_thesisLibraryHits.length}) — OpenAlex',
+              'Recommended theses (${_thesisLibraryHits.length}) — OpenAlex',
+            ),
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+              color: Color(0xFFFDE68A),
+            ),
+          ),
+          const SizedBox(height: 6),
+          for (final hit in _thesisLibraryHits)
+            Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              color: const Color(0xFF0B1F4D),
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      hit.work.title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                        height: 1.35,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      [
+                        if (hit.work.year != null) '${hit.work.year}',
+                        if (hit.work.authors.isNotEmpty) hit.work.authors,
+                        hit.portalLabelAr,
+                      ].join(' · '),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFFB7C3D6),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        if (hit.work.abstractText.trim().length >= 40)
+                          TextButton(
+                            onPressed: () {
+                              showDialog<void>(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  title: Text(
+                                    ctx.t('الملخص', 'Abstract'),
+                                  ),
+                                  content: SingleChildScrollView(
+                                    child: SelectableText(
+                                      hit.work.abstractText,
+                                      style: const TextStyle(height: 1.4),
+                                    ),
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(ctx),
+                                      child: Text(ctx.t('إغلاق', 'Close')),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                            child: Text(context.t('قراءة الملخص', 'Read abstract')),
+                          ),
+                        TextButton(
+                          onPressed: () {
+                            final url = hit.work.primaryUrl.isNotEmpty
+                                ? hit.work.primaryUrl
+                                : hit.work.externalUrl;
+                            if (url.isNotEmpty) {
+                              _openExternalUri(Uri.parse(url));
+                            } else if (hit.work.hasDoi) {
+                              _openDoi(hit.work.doi);
+                            }
+                          },
+                          child: Text(
+                            context.t('رابط النص / DOI', 'Full text / DOI'),
+                          ),
+                        ),
+                        FilledButton.tonal(
+                          onPressed: () => _addThesisHitToDraft(hit),
+                          child: Text(
+                            context.t('حفظ في الأدبيات', 'Save to literature'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
       ],
     );
   }

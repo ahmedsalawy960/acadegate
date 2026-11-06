@@ -50,8 +50,8 @@ class UsageQuotaBanner extends StatelessWidget {
             if (showScholar) {
               parts.add(
                 context.t(
-                  'Scholar ${usage.scholarRemaining}/${usage.scholarLimit}',
-                  'Scholar ${usage.scholarRemaining}/${usage.scholarLimit}',
+                  'المراجع ${usage.scholarRemaining}/${usage.scholarLimit}',
+                  'References ${usage.scholarRemaining}/${usage.scholarLimit}',
                 ),
               );
             }

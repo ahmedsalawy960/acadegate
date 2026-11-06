@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
+import 'package:acadegate/core/widgets/acadegate_logo.dart';
 
 import '../../core/locale/locale_extensions.dart';
 import '../../core/theme/acadegate_theme.dart';
@@ -168,7 +169,7 @@ class _ResearchJourneyOnboardingScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AcadeGateAppBar(
-        title: Text(context.t('AcadeGate', 'AcadeGate')),
+        title: const AcadeGateWordmark(fontSize: 20, fontWeight: FontWeight.w800),
         backgroundColor: _brand,
         foregroundColor: Colors.white,
         showBackButton: false,

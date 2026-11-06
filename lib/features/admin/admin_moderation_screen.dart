@@ -1412,6 +1412,9 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
     final scholarCtrl = TextEditingController(
       text: user.quotaScholarDaily?.toString() ?? '',
     );
+    final copyleaksCtrl = TextEditingController(
+      text: user.quotaCopyleaksDaily?.toString() ?? '',
+    );
     var clearOverrides = false;
 
     final saved = await showDialog<bool>(
@@ -1520,6 +1523,18 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
                           hintText: tier == SubscriptionTier.pro ? '30' : '6',
                         ),
                       ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: copyleaksCtrl,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: context.t(
+                            'حد Copyleaks اليومي (عدد الفحوصات)',
+                            'Daily Copyleaks scans',
+                          ),
+                          hintText: tier == SubscriptionTier.pro ? '5' : '1',
+                        ),
+                      ),
                       CheckboxListTile(
                         contentPadding: EdgeInsets.zero,
                         value: clearOverrides,
@@ -1555,14 +1570,17 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
 
     final geminiText = geminiCtrl.text.trim();
     final scholarText = scholarCtrl.text.trim();
+    final copyleaksText = copyleaksCtrl.text.trim();
     geminiCtrl.dispose();
     scholarCtrl.dispose();
+    copyleaksCtrl.dispose();
 
     if (saved != true || !context.mounted) return;
 
     try {
       final gemini = int.tryParse(geminiText);
       final scholar = int.tryParse(scholarText);
+      final copyleaks = int.tryParse(copyleaksText);
       await UserAccountService.instance.updateUserSubscription(
         uid: user.uid,
         subscription: tier,
@@ -1573,6 +1591,7 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
         clearQuotaOverrides: clearOverrides,
         quotaGeminiDaily: clearOverrides ? null : gemini,
         quotaScholarDaily: clearOverrides ? null : scholar,
+        quotaCopyleaksDaily: clearOverrides ? null : copyleaks,
       );
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

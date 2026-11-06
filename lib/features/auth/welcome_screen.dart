@@ -279,16 +279,39 @@ class _WelcomeAuthPanel extends StatelessWidget {
               ),
             ],
           ),
-          if (!googleAvailable) ...[
+          if (!googleAvailable || !facebookAvailable || !appleAvailable) ...[
             const SizedBox(height: 12),
-            Text(
-              context.t(
-                'Google على سطح المكتب يحتاج GOOGLE_WEB_CLIENT_ID',
-                'Google on desktop needs GOOGLE_WEB_CLIENT_ID',
+            if (!googleAvailable)
+              Text(
+                context.t(
+                  'Google غير مضبوط على هذا الجهاز',
+                  'Google is not configured on this device',
+                ),
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 11, color: Colors.red.shade700),
               ),
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 11, color: Colors.red.shade700),
-            ),
+            if (!facebookAvailable) ...[
+              const SizedBox(height: 4),
+              Text(
+                context.t(
+                  'Facebook يحتاج رقم التطبيق (FACEBOOK_APP_ID) ثم إعادة بناء نسخة المتجر',
+                  'Facebook needs FACEBOOK_APP_ID, then a new store build',
+                ),
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 11, color: Colors.orange.shade800),
+              ),
+            ],
+            if (!appleAvailable) ...[
+              const SizedBox(height: 4),
+              Text(
+                context.t(
+                  'Apple متاح على iPhone/iPad فقط، وليس على أندرويد أو ويندوز',
+                  'Apple is available on iPhone/iPad only, not Android or Windows',
+                ),
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 11, color: Colors.orange.shade800),
+              ),
+            ],
           ],
           const SizedBox(height: 16),
           Text(

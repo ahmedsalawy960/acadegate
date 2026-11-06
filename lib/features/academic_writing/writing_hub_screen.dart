@@ -110,6 +110,7 @@ class _WritingHubScreenState extends State<WritingHubScreen> {
         ],
       ),
       body: CustomScrollView(
+        key: const PageStorageKey<String>('writing_hub'),
         slivers: [
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),

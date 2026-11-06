@@ -7,6 +7,7 @@ import '../../core/theme/acadegate_theme.dart';
 import '../academic_integrity/bibliography_harvest.dart';
 import '../academic_integrity/citation_check_screen.dart';
 import 'citation_formatter.dart';
+import 'citation_reading_advisor.dart';
 import 'citation_style_picker.dart';
 import 'manuscript_body_editor.dart';
 import 'manuscript_citation_helper.dart';
@@ -261,19 +262,11 @@ class _ManuscriptEditorScreenState extends State<ManuscriptEditorScreen>
         replaceReferences: true,
         replaceBody: true,
       );
-      await ManuscriptService.instance.save(extracted);
+      final reviewed = await CitationReadingAdvisor.insertMarkers(extracted);
+      await ManuscriptService.instance.save(reviewed);
       if (mounted) {
-        setState(() => _manuscript = extracted);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.t(
-              'قُرئ «${result.name}» من الجهاز: ${extracted.references.length} مرجعاً في آخر الملف',
-              'Read "${result.name}" on this device: ${extracted.references.length} references from the file end',
-            )),
-            duration: const Duration(seconds: 8),
-            action: _askDraftSnackAction(),
-          ),
-        );
+        setState(() => _manuscript = reviewed);
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
       }
     } catch (e) {
       if (mounted) {
@@ -683,9 +676,18 @@ class _ManuscriptEditorScreenState extends State<ManuscriptEditorScreen>
           Card(
             color: Colors.green.shade50,
             child: ListTile(
-              leading: const Icon(Icons.check_circle, color: Colors.green),
-              title: Text(context.t('تم التقديم', 'Submitted')),
-              subtitle: Text(m.journalName ?? ''),
+              leading: const Icon(Icons.check_circle, color: Color(0xFF1B5E20)),
+              title: Text(
+                context.t('تم التقديم', 'Submitted'),
+                style: const TextStyle(
+                  color: Color(0xFF1B5E20),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              subtitle: Text(
+                m.journalName ?? '',
+                style: const TextStyle(color: Color(0xFF2E7D32)),
+              ),
             ),
           ),
         TextField(

@@ -170,21 +170,44 @@ class ResearchPathPdfService {
             }
           }
 
-          heading(appTr('مختبرات', 'Labs'));
-          if (city.isNotEmpty && localLabs.isNotEmpty) {
-            line(appTr('في مدينتك ($city)', 'In your city ($city)'));
-            for (final m in localLabs) {
-              line(_labLine(m));
+          if (bundle.prefersLibraries) {
+            heading(appTr('مكتبات وكتب', 'Libraries & books'));
+            line(
+              appTr(
+                'مسار إنساني/تربوي: مكتبات وكتب بدل المختبرات العلمية',
+                'Humanities/education path: libraries and books instead of science labs',
+              ),
+            );
+            if (bundle.literature.isNotEmpty) {
+              line(
+                appTr(
+                  '${bundle.literature.length} دراسة مؤكدة مرتبطة بالنقطة',
+                  '${bundle.literature.length} confirmed studies linked to the topic',
+                ),
+              );
             }
-          }
-          if (otherLabs.isNotEmpty) {
-            line(appTr('مدن أخرى', 'Other cities'));
-            for (final m in otherLabs) {
-              line(_labLine(m));
+          } else {
+            heading(appTr('مختبرات', 'Labs'));
+            if (city.isNotEmpty && localLabs.isNotEmpty) {
+              line(appTr('في مدينتك ($city)', 'In your city ($city)'));
+              for (final m in localLabs) {
+                line(_labLine(m));
+              }
             }
-          }
-          if (bundle.labs.isEmpty) {
-            line(appTr('لا مختبر مطابق لنقطة البحث', 'No lab matches the research point'));
+            if (otherLabs.isNotEmpty) {
+              line(appTr('مدن أخرى', 'Other cities'));
+              for (final m in otherLabs) {
+                line(_labLine(m));
+              }
+            }
+            if (bundle.labs.isEmpty) {
+              line(
+                appTr(
+                  'لا مختبر مطابق لنقطة البحث',
+                  'No lab matches the research point',
+                ),
+              );
+            }
           }
 
           heading(appTr('متجر — مواد وأدوات', 'Store — supplies'));

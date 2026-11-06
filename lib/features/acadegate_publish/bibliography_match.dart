@@ -59,7 +59,7 @@ class BibliographyMatch {
         .where((n) => n != last)
         .toList();
     final wanted = {last, ...extras};
-    return _bestYearHit(y, wanted);
+    return _bestYearHit(y, wanted, suffix: _yearSuffix(year));
   }
 
   PublishReference? byLastNames(List<String> names, {String? year}) {
@@ -67,22 +67,33 @@ class BibliographyMatch {
     final wanted = names.map(_normName).where((n) => n.length >= 2).toSet();
     if (wanted.isEmpty) return null;
     final y = year == null || year.isEmpty ? '' : _digitsYear(year);
-    return _bestYearHit(y, wanted, yearRequired: y.length == 4);
+    return _bestYearHit(
+      y,
+      wanted,
+      yearRequired: y.length == 4,
+      suffix: year == null ? '' : _yearSuffix(year),
+    );
   }
 
   PublishReference? _bestYearHit(
     String year,
     Set<String> wanted, {
     bool yearRequired = true,
+    String suffix = '',
   }) {
     final hits = <({PublishReference ref, int score})>[];
     for (final row in _rows) {
       if (yearRequired && row.year != year) continue;
       if (!yearRequired && year.length == 4 && row.year != year) continue;
+      final rowSuffix = _yearSuffix('${row.ref.year} ${row.ref.rawText}');
+      if (suffix.isNotEmpty && rowSuffix.isNotEmpty && rowSuffix != suffix) {
+        continue;
+      }
       var score = 0;
       for (final name in wanted) {
         if (row.names.contains(name)) score += 3;
       }
+      if (suffix.isNotEmpty && rowSuffix == suffix) score += 4;
       if (score == 0) continue;
       hits.add((ref: row.ref, score: score));
     }
@@ -234,6 +245,15 @@ class BibliographyMatch {
 
   static String _digitsYear(String year) =>
       AcademicText.westernDigits(year).replaceAll(RegExp(r'[a-z]$'), '');
+
+  /// `2018a` and `(2018)b` are different works that share a calendar year.
+  static String _yearSuffix(String year) {
+    final m = RegExp(
+      r'(?:19|20)\d{2}\)?([a-z])\b',
+      caseSensitive: false,
+    ).firstMatch(AcademicText.westernDigits(year));
+    return m?.group(1)?.toLowerCase() ?? '';
+  }
 }
 
 class _Row {

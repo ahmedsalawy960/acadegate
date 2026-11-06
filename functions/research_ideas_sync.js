@@ -15,7 +15,7 @@ const MAX_RSS = 12;
 const MAX_OPENALEX_HUMANITIES = 28;
 const MAX_RSS_HUMANITIES = 8;
 const MAX_GEMINI_BATCH = 4;
-const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"];
+const GEMINI_MODELS = ["gemini-3.6-flash", "gemini-3-flash-preview", "gemini-3.1-flash-lite"];
 
 const FACULTY_QUERIES = [
   { category: "Engineering", query: "smart grid renewable energy materials engineering" },

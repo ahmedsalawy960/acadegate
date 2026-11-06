@@ -161,10 +161,10 @@ class _AcademicIntegrityHubScreenState extends State<AcademicIntegrityHubScreen>
                     const SizedBox(height: 8),
                     Text(
                       context.t(
-                        'مجاناً: Crossref · OpenAlex · Semantic Scholar · كاشف المنهجية\n'
+                        'مجاناً: فهارس AcadeGate · كاشف المنهجية\n'
                         'مدفوع (رصيد): Copyleaks · PlagiarismCheck — ليس Turnitin رسمياً',
-                        'Free: Crossref · OpenAlex · Semantic Scholar · methodology checker\n'
-                        'Paid (credits): Copyleaks · PlagiarismCheck — not official Turnitin',
+                        'Free: AcadeGate indexes · methodology checker\n'
+                        'Paid (credits): originality checks — not official Turnitin',
                       ),
                       style: const TextStyle(height: 1.5),
                     ),

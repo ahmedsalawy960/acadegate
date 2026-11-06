@@ -72,6 +72,8 @@ class ResearchSupplyBundle {
   final List<GroundedWork> literature;
   final List<String> institutionalNotes;
   final List<FundingFit> fundingFits;
+  /// كليات تربية/آداب/حقوق وغيرها: مكتبات وكتب بدل المختبرات.
+  final bool prefersLibraries;
 
   const ResearchSupplyBundle({
     required this.topic,
@@ -90,6 +92,7 @@ class ResearchSupplyBundle {
     this.literature = const [],
     this.institutionalNotes = const [],
     this.fundingFits = const [],
+    this.prefersLibraries = false,
   });
 
   MatchResult<AcademicResearchIdea>? get idea =>
@@ -120,6 +123,7 @@ class ResearchSupplyBundle {
     List<GroundedWork>? literature,
     List<String>? institutionalNotes,
     List<FundingFit>? fundingFits,
+    bool? prefersLibraries,
   }) {
     return ResearchSupplyBundle(
       topic: topic ?? this.topic,
@@ -138,6 +142,7 @@ class ResearchSupplyBundle {
       literature: literature ?? this.literature,
       institutionalNotes: institutionalNotes ?? this.institutionalNotes,
       fundingFits: fundingFits ?? this.fundingFits,
+      prefersLibraries: prefersLibraries ?? this.prefersLibraries,
     );
   }
 
@@ -153,7 +158,7 @@ class ResearchSupplyBundle {
     var n = 0;
     if (ideas.isNotEmpty) n++;
     if (supervisors.isNotEmpty) n++;
-    if (labs.isNotEmpty) n++;
+    if (labs.isNotEmpty || (prefersLibraries && literature.isNotEmpty)) n++;
     if (products.isNotEmpty) n++;
     if (writingExperts.isNotEmpty) n++;
     return n;

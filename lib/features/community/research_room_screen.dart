@@ -325,21 +325,31 @@ class _ResearchRoomScreenState extends State<ResearchRoomScreen> {
                         'منشئ الغرفة: ${widget.room.creatorName}',
                         'Room creator: ${widget.room.creatorName}',
                       ),
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFFB7C3D6),
+                ),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: _searchController,
+                style: const TextStyle(color: Color(0xFF1C1917)),
+                cursorColor: const Color(0xFF00695C),
                 decoration: InputDecoration(
                   hintText: context.t(
                     'ابحث في المناقشات... (عنوان، محتوى، كلمات)',
                     'Search discussions... (title, content, keywords)',
                   ),
-                  prefixIcon: const Icon(Icons.search),
+                  hintStyle: const TextStyle(color: Color(0xFF78716C)),
+                  prefixIcon:
+                      const Icon(Icons.search, color: Color(0xFF78716C)),
                   suffixIcon: _searchQuery.isEmpty
                       ? null
                       : IconButton(
-                          icon: const Icon(Icons.clear),
+                          icon: const Icon(
+                            Icons.clear,
+                            color: Color(0xFF78716C),
+                          ),
                           onPressed: () {
                             _searchController.clear();
                             setState(() => _searchQuery = '');

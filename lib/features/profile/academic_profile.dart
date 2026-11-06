@@ -6,6 +6,8 @@ class AcademicProfile {
   final String degree;
   /// معرّف الكلية الموحّد (Science, Medicine, …) — يُستخدم في المطابقة الذكية.
   final String facultyCategory;
+  /// معرّف القسم داخل الكلية (من FacultyDepartments).
+  final String departmentId;
   final String specialization;
   final String researchInterest;
   final String methodology;
@@ -19,6 +21,7 @@ class AcademicProfile {
     required this.university,
     required this.degree,
     this.facultyCategory = '',
+    this.departmentId = '',
     required this.specialization,
     required this.researchInterest,
     required this.methodology,
@@ -83,6 +86,7 @@ class AcademicProfile {
       'university': university,
       'degree': degree,
       'facultyCategory': facultyCategory,
+      'departmentId': departmentId,
       'specialization': specialization,
       'researchInterest': researchInterest,
       'methodology': methodology,
@@ -101,6 +105,7 @@ class AcademicProfile {
       university: map['university']?.toString() ?? '',
       degree: map['degree']?.toString() ?? 'ماجستير',
       facultyCategory: map['facultyCategory']?.toString() ?? '',
+      departmentId: map['departmentId']?.toString() ?? '',
       specialization: map['specialization']?.toString() ?? '',
       researchInterest: map['researchInterest']?.toString() ?? '',
       methodology: map['methodology']?.toString() ?? 'كمي',
@@ -119,6 +124,7 @@ class AcademicProfile {
     String? university,
     String? degree,
     String? facultyCategory,
+    String? departmentId,
     String? specialization,
     String? researchInterest,
     String? methodology,
@@ -132,6 +138,7 @@ class AcademicProfile {
       university: university ?? this.university,
       degree: degree ?? this.degree,
       facultyCategory: facultyCategory ?? this.facultyCategory,
+      departmentId: departmentId ?? this.departmentId,
       specialization: specialization ?? this.specialization,
       researchInterest: researchInterest ?? this.researchInterest,
       methodology: methodology ?? this.methodology,

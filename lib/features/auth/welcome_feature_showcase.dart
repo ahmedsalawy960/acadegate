@@ -176,9 +176,9 @@ List<WelcomeFeatureSlide> welcomeFeatureSlides() => [
         titleAr: 'سلامة أكاديمية واستشهاد',
         titleEn: 'Academic integrity & citations',
         subtitleAr:
-            'فحص الاستشهاد عبر Crossref، فحص الأصالة، وإرشاد منهجي — لرسالة أكثر موثوقية.',
+            'فحص الاستشهاد والأصالة وإرشاد منهجي عبر AcadeGate — لرسالة أكثر موثوقية.',
         subtitleEn:
-            'Crossref citation checks, originality screening, and methodology guidance — for a more credible thesis.',
+            'Citation checks, originality screening, and methodology guidance via AcadeGate — for a more credible thesis.',
         highlightsAr: [
           'التحقق من DOI والمراجع',
           'فحص تشابه ونصائح سلامة أكاديمية',
@@ -352,15 +352,11 @@ class _WelcomeFeatureCarouselState extends State<WelcomeFeatureCarousel>
                         variant: AcadeGateLogoVariant.compact,
                       ),
                       const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          'AcadeGate',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.95),
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                            letterSpacing: 1.1,
-                          ),
+                      const Expanded(
+                        child: AcadeGateWordmark(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.1,
                         ),
                       ),
                     ],

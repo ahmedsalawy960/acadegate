@@ -260,7 +260,9 @@ class HomeFeedView extends StatelessWidget {
     }
 
     return ArrowOverlayScroller(
+      storageId: 'home_feed',
       builder: (context, controller) => CustomScrollView(
+        key: const PageStorageKey<String>('home_feed'),
         controller: controller,
         slivers: slivers,
       ),

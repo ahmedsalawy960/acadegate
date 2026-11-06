@@ -138,6 +138,8 @@ class ThesisDraft {
   final GroundedReferenceBundle literature;
   final List<LiteratureMapRow> literatureMap;
   final String proposedTitle;
+  /// عناوين بديلة ليختار الباحث منها (العنوان المعتمد في [proposedTitle]).
+  final List<String> titleOptions;
   final String abstractText;
   final List<String> researchQuestions;
   final List<ThesisChapter> chapters;
@@ -152,6 +154,7 @@ class ThesisDraft {
     required this.literature,
     this.literatureMap = const [],
     this.proposedTitle = '',
+    this.titleOptions = const [],
     this.abstractText = '',
     this.researchQuestions = const [],
     this.chapters = const [],
@@ -188,6 +191,7 @@ class ThesisDraft {
     ResearchGoal? goal,
     ThesisPlan? plan,
     String? proposedTitle,
+    List<String>? titleOptions,
     String? abstractText,
     List<String>? researchQuestions,
     List<ThesisChapter>? chapters,
@@ -204,6 +208,7 @@ class ThesisDraft {
       literature: literature ?? this.literature,
       literatureMap: literatureMap ?? this.literatureMap,
       proposedTitle: proposedTitle ?? this.proposedTitle,
+      titleOptions: titleOptions ?? this.titleOptions,
       abstractText: abstractText ?? this.abstractText,
       researchQuestions: researchQuestions ?? this.researchQuestions,
       chapters: chapters ?? this.chapters,

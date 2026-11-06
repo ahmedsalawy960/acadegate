@@ -158,6 +158,7 @@ service cloud.firestore {
                     && request.resource.data.get('subscription', 'free') == 'free'
                     && !('quotaGeminiDaily' in request.resource.data)
                     && !('quotaScholarDaily' in request.resource.data)
+                    && !('quotaCopyleaksDaily' in request.resource.data)
                     && (!('providerApprovalStatus' in request.resource.data)
                         || request.resource.data.providerApprovalStatus == 'pending');
       allow update: if isAdmin()
@@ -171,6 +172,8 @@ service cloud.firestore {
                             == resource.data.get('quotaGeminiDaily', null)
                         && request.resource.data.get('quotaScholarDaily', null)
                             == resource.data.get('quotaScholarDaily', null)
+                        && request.resource.data.get('quotaCopyleaksDaily', null)
+                            == resource.data.get('quotaCopyleaksDaily', null)
                         && (
                           // Cannot self-approve; may re-apply to pending after reject.
                           !('providerApprovalStatus' in request.resource.data
@@ -194,6 +197,8 @@ service cloud.firestore {
                             == resource.data.get('quotaGeminiDaily', null)
                         && request.resource.data.get('quotaScholarDaily', null)
                             == resource.data.get('quotaScholarDaily', null)
+                        && request.resource.data.get('quotaCopyleaksDaily', null)
+                            == resource.data.get('quotaCopyleaksDaily', null)
                         && request.resource.data.diff(resource.data)
                             .affectedKeys().hasOnly(['role', 'activePortal']))
                     // تطوير فقط: ترقية ذاتية عند allowBootstrap.
@@ -209,6 +214,8 @@ service cloud.firestore {
                             == resource.data.get('quotaGeminiDaily', null)
                         && request.resource.data.get('quotaScholarDaily', null)
                             == resource.data.get('quotaScholarDaily', null)
+                        && request.resource.data.get('quotaCopyleaksDaily', null)
+                            == resource.data.get('quotaCopyleaksDaily', null)
                         && exists(/databases/$(database)/documents/config/app)
                         && get(/databases/$(database)/documents/config/app).data.allowBootstrap == true);
       allow delete: if isAdmin();

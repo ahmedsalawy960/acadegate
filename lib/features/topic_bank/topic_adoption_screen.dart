@@ -372,10 +372,8 @@ class _TopicAdoptionScreenState extends State<TopicAdoptionScreen> {
         const SizedBox(height: 4),
         Text(
           context.t(
-            'نفس أسلوب استوديو الرسالة: OpenAlex · Crossref · Semantic Scholar · '
-            'Europe PMC · Google Scholar (عند التفعيل). DOI اختياري — يُقبل الرابط أو العنوان.',
-            'Same as Thesis Studio: OpenAlex · Crossref · Semantic Scholar · '
-            'Europe PMC · Google Scholar (when enabled). DOI optional — link or title is enough.',
+            'نفس أسلوب استوديو الرسالة عبر فهارس AcadeGate. DOI اختياري — يُقبل الرابط أو العنوان.',
+            'Same as Thesis Studio via AcadeGate indexes. DOI optional — link or title is enough.',
           ),
           style: TextStyle(color: const Color(0xFFB7C3D6), height: 1.35, fontSize: 12.5),
         ),
@@ -383,8 +381,8 @@ class _TopicAdoptionScreenState extends State<TopicAdoptionScreen> {
         if (pack.starterReferences.isEmpty)
           Text(
             context.t(
-              'لم تُجلب مراجع الآن — أعد المحاولة أو افتح Google Scholar من الروابط.',
-              'No references fetched now — retry or open Google Scholar from the links.',
+              'لم تُجلب مراجع الآن — أعد المحاولة أو افتح روابط المراجع المتاحة.',
+              'No references fetched now — retry or open the available reference links.',
             ),
           )
         else

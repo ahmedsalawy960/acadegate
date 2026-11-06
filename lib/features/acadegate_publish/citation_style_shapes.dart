@@ -134,11 +134,42 @@ class CitationStyleShapes {
     'المراجع',
   };
 
+  /// `W2 = final weight…`, a temperature program, or a row of readings.
+  /// A paper section does not assign a measured value.
+  static bool isSymbolDefinition(String raw) {
+    final t = raw.trim();
+    if (!t.contains('=')) return false;
+    return !RegExp(r'\.\s').hasMatch(t);
+  }
+
+  static bool isNumericDataLine(String raw) {
+    var t = raw.trim().replaceFirst(RegExp(r'^[-–—•*]+\s*'), '');
+    if (t.isEmpty || !RegExp(r'\d').hasMatch(t)) return false;
+    return !RegExp(r'[A-Za-z\u0600-\u06FF\u00C0-\u024F]').hasMatch(t);
+  }
+
+  static bool isParameterLine(String raw) {
+    final t = raw.trim();
+    if (t.isEmpty) return false;
+    final bare = t.replaceFirst(RegExp(r':+\s*$'), '').trim().toLowerCase();
+    if (headingNames.contains(bare)) return false;
+    if (RegExp(r'^\d+(?:\.\d+)*\.?\s+\S').hasMatch(t)) return false;
+    if (RegExp(r':\s*\d').hasMatch(t)) return true;
+    return t.endsWith(':') &&
+        !RegExp(r'\.\s').hasMatch(t) &&
+        t.split(RegExp(r'\s+')).length <= 8;
+  }
+
   static bool looksLikeSectionHeading(String raw) {
     var t = raw.trim();
     if (t.isEmpty) return false;
+    if (isSymbolDefinition(t) || isNumericDataLine(t) || isParameterLine(t)) {
+      return false;
+    }
     t = t.replaceAll(RegExp(r'\s+'), ' ');
     t = t.replaceFirst(RegExp(r'^\d+(?:\.\d+)*[.)]\s+'), '');
+    // "1.1 Sensor interface" has no extra dot after the outline number.
+    t = t.replaceFirst(RegExp(r'^\d+(?:\.\d+)+\s+'), '');
     t = t.replaceFirst(RegExp(r':+$'), '').trim();
     if (t.isEmpty || t.length > 80) return false;
     final lower = t.toLowerCase();
@@ -285,12 +316,21 @@ class CitationStyleShapes {
       if (RegExp(r'^(?:[A-Z]\.)+$').hasMatch(part)) continue;
       if (RegExp(r'^[A-Z]{1,3}$').hasMatch(part.trim())) continue;
       if (RegExp(r'^[A-Z][a-z]+\s+[A-Z]{1,3}$').hasMatch(part)) continue;
-      final token = part.contains(',')
-          ? part.split(',').first.trim()
-          : part.split(RegExp(r'\s+')).last.trim();
-      if (RegExp(r'^[A-Z]{1,3}$').hasMatch(token)) continue;
-      final last = AcademicText.nameKey(token);
-      if (last.length >= 2 && !headingNames.contains(last)) names.add(last);
+      final words = part.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+      final picked = <String>[
+        if (part.contains(',')) part.split(',').first.trim(),
+        if (words.isNotEmpty) words.last,
+        if (words.length >= 2) words.first,
+      ];
+      for (final token in picked) {
+        if (RegExp(r'^[A-Z]{1,3}$').hasMatch(token)) continue;
+        final last = AcademicText.nameKey(token);
+        if (last.length >= 2 &&
+            !headingNames.contains(last) &&
+            !names.contains(last)) {
+          names.add(last);
+        }
+      }
     }
     return names.take(4).toList();
   }

@@ -323,14 +323,23 @@ class _PendingJournalsPanel extends StatelessWidget {
                 children: [
                   Text(
                     context.t('مجلات بانتظار الموافقة', 'Journals pending approval'),
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF4E342E),
+                    ),
                   ),
                   ...pending.map((j) {
                     return ListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: Text(j.name),
+                      title: Text(
+                        j.name,
+                        style: const TextStyle(color: Color(0xFF4E342E)),
+                      ),
                       subtitle: j.partnerUniversity.isNotEmpty
-                          ? Text(j.partnerUniversity)
+                          ? Text(
+                              j.partnerUniversity,
+                              style: const TextStyle(color: Color(0xFF5D4037)),
+                            )
                           : null,
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,

@@ -217,6 +217,7 @@ class _SampleAnalysisMarketplaceTabState
                       ),
                     )
                   : ArrowListView(
+                      storageId: 'sample_analysis_listings',
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                       itemCount: filtered.length,
                       separatorBuilder: (_, _) => const SizedBox(height: 10),
@@ -336,6 +337,7 @@ class _SampleAnalysisMarketplaceTabState
                     builder: (ctx) => SizedBox(
                       height: MediaQuery.of(ctx).size.height * 0.7,
                       child: ArrowListView(
+                        storageId: 'sample_analysis_universities',
                         itemCount: _universityOptions.length + 1,
                         itemBuilder: (ctx, index) {
                           if (index == 0) {
@@ -372,6 +374,7 @@ class _SampleAnalysisMarketplaceTabState
                   final picked = await showModalBottomSheet<String>(
                     context: context,
                     builder: (ctx) => ArrowListView(
+                      storageId: 'sample_analysis_faculties',
                       itemCount: ids.length + 1,
                       itemBuilder: (ctx, index) {
                         if (index == 0) {

@@ -1,7 +1,5 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
-import '../../moderation/approval_status.dart';
 import '../store_catalog_service.dart';
 import 'egypt_store_suppliers_catalog.dart';
 import 'woocommerce_store_api_client.dart';
@@ -64,8 +62,6 @@ class StoreProductSearchService {
 
   static final StoreProductSearchService instance =
       StoreProductSearchService._();
-
-  final _db = FirebaseFirestore.instance;
 
   Future<StoreProductSearchResult> search(
     String rawQuery, {
@@ -148,26 +144,23 @@ class StoreProductSearchService {
   }) async {
     final needle = query.toLowerCase();
     try {
-      final snap = await _db.collection('product').limit(500).get();
+      // استخدم كتالوج الواجهة المخزّن بدل جلب 500 مستند في كل بحث.
+      final bundle = await StoreCatalogService.instance.loadPublicCatalog();
       final hits = <StoreSearchHit>[];
-      for (final doc in snap.docs) {
-        final data = doc.data();
-        final status = data['approvalStatus']?.toString();
-        if (!ApprovalStatus.isPublic(status)) continue;
-        final name = data['name']?.toString() ?? '';
-        final store = data['storeName']?.toString() ?? '';
-        final category = data['category']?.toString() ?? '';
-        final brand = data['brand']?.toString() ?? '';
-        final description = data['description']?.toString() ?? '';
-        final grade = data['grade']?.toString() ?? '';
-        final sku = data['sku']?.toString() ?? '';
-        final tags = (data['tags'] is List)
-            ? (data['tags'] as List).map((e) => e.toString()).join(' ')
-            : '';
+      for (final product in bundle.products) {
+        final name = product.name;
+        final store = product.storeName;
+        final category = product.categoryCanonical.isNotEmpty
+            ? product.categoryCanonical
+            : product.categoryRaw;
+        final brand = product.brand;
+        final description = product.description;
+        final grade = product.grade;
+        final sku = product.sku;
+        final tags = product.badges.join(' ');
         final hay =
             '$name $store $category $brand $description $grade $sku $tags'
                 .toLowerCase();
-        // دعم وصف طويل: تطابق كامل العبارة أو أي كلمة ≥ 3 أحرف
         final tokens = needle
             .split(RegExp(r'\s+'))
             .where((t) => t.length >= 3)
@@ -179,22 +172,21 @@ class StoreProductSearchService {
           StoreSearchHit(
             name: name,
             storeName: store,
-            contact: data['contact']?.toString() ?? '',
-            email: data['email']?.toString() ?? '',
-            phone: data['phone']?.toString() ?? '',
-            whatsapp: data['whatsapp']?.toString() ?? '',
-            website: data['website']?.toString() ?? '',
-            productId: doc.id,
-            createdBy: data['createdBy']?.toString(),
-            price: (data['price'] as num?) ?? 0,
-            imageUrl: data['imageUrl']?.toString(),
-            sourceUrl: data['sourceUrl']?.toString(),
-            description: data['description']?.toString() ?? '',
+            contact: product.contact,
+            email: product.email,
+            phone: product.phone,
+            whatsapp: product.whatsapp,
+            website: product.website,
+            productId: product.id,
+            createdBy: product.createdBy,
+            price: product.price,
+            imageUrl: product.imageUrl,
+            sourceUrl: product.sourceUrl,
+            description: description,
             category: category,
             fromRemoteSite: false,
-            supplierId: data['supplierId']?.toString() ?? '',
-            isDirectoryListing: data['isDirectoryListing'] == true ||
-                (data['importSource']?.toString() ?? '').startsWith('wc_'),
+            supplierId: product.supplierId ?? '',
+            isDirectoryListing: product.isDirectoryListing,
           ),
         );
         if (hits.length >= limit) break;

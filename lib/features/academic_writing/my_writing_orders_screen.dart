@@ -86,6 +86,7 @@ class MyWritingOrdersScreen extends StatelessWidget {
                 }
 
                 return ListView.builder(
+                  key: const PageStorageKey<String>('my_writing_orders'),
                   padding: const EdgeInsets.all(16),
                   itemCount: orders.length,
                   itemBuilder: (context, index) {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:acadegate/core/widgets/acadegate_selectable.dart';
 import 'portal_selection_screen.dart';
 import 'portal_service.dart';
 import 'portal_type.dart';
@@ -92,32 +93,27 @@ class _PortalGatewayState extends State<PortalGateway> {
 
   @override
   Widget build(BuildContext context) {
+    final Widget page;
     if (_loading) {
-      return const Scaffold(
+      page = const Scaffold(
         body: Center(
           child: CircularProgressIndicator(color: Color(0xFFF4F7FB)),
         ),
       );
+    } else if (_needsRoleSetup) {
+      page = RoleSetupScreen(onCompleted: _loadPortal);
+    } else if (_portal == null) {
+      page = PortalSelectionScreen(onSelect: _onPortalSelected);
+    } else {
+      final onSwitch =
+          PortalType.canUseProviderPortal(_role) ? _openPortalSelection : null;
+      page = PortalType.isProvider(_portal)
+          ? ProviderHomeScreen(onSwitchPortal: onSwitch)
+          : UserPortalShell(
+              onSwitchPortal: onSwitch,
+              onBecameProvider: _enterProviderPortal,
+            );
     }
-
-    if (_needsRoleSetup) {
-      return RoleSetupScreen(onCompleted: _loadPortal);
-    }
-
-    if (_portal == null) {
-      return PortalSelectionScreen(onSelect: _onPortalSelected);
-    }
-
-    final onSwitch =
-        PortalType.canUseProviderPortal(_role) ? _openPortalSelection : null;
-
-    if (PortalType.isProvider(_portal)) {
-      return ProviderHomeScreen(onSwitchPortal: onSwitch);
-    }
-
-    return UserPortalShell(
-      onSwitchPortal: onSwitch,
-      onBecameProvider: _enterProviderPortal,
-    );
+    return AcadeGateSelectable(child: page);
   }
 }

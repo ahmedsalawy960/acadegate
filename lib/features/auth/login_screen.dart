@@ -467,8 +467,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 if (!googleAvailable) ...[
                   Text(
                     context.t(
-                      'تسجيل Google على الويب/سطح المكتب يحتاج إعداد GOOGLE_WEB_CLIENT_ID',
-                      'Google sign-in on web/desktop requires GOOGLE_WEB_CLIENT_ID setup',
+                      'Google غير مضبوط على هذا الجهاز',
+                      'Google is not configured on this device',
                     ),
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 12, color: Colors.red.shade700),

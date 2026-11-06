@@ -1,3 +1,5 @@
+import 'advisor_branding.dart';
+
 class GroundedWork {
   final String title;
   final String doi;
@@ -6,8 +8,11 @@ class GroundedWork {
   final String source;
   final String? journal;
   final String abstractText;
-  /// Landing page when DOI is missing (Semantic Scholar / Europe PMC / OpenAlex).
+  /// Landing page when DOI is missing (external academic indexes).
   final String externalUrl;
+
+  /// اسم المصدر كما يظهر للمستخدم (AcadeGate وليس اسم الفهرس الخارجي).
+  String get publicSource => AdvisorBranding.indexLabel;
 
   const GroundedWork({
     required this.title,

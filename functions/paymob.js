@@ -9,6 +9,7 @@ const paymobHmacSecret = defineSecret("PAYMOB_HMAC_SECRET");
 const paymobIntegrationId = defineSecret("PAYMOB_INTEGRATION_ID");
 
 const PAYMOB_BASE = "https://accept.paymob.com";
+const FUNCTIONS_SERVICE_ACCOUNT = "acadegate-new@appspot.gserviceaccount.com";
 const PROJECT_ID = process.env.GCLOUD_PROJECT || "acadegate-new";
 const REGION = process.env.FUNCTION_REGION || "us-central1";
 
@@ -55,22 +56,42 @@ function verifyTransactionHmac(obj, receivedHmac, hmacSecret) {
 
 function parseSpecialReference(ref) {
   const raw = String(ref || "").trim();
-  // store:{orderId}
-  // writing:{serviceId}:{orderId}
+  // store:{orderId} or store:{orderId}:{attempt}
+  // writing:{serviceId}:{orderId} or writing:{serviceId}:{orderId}:{attempt}
   if (raw.startsWith("store:")) {
-    return { kind: "store", orderId: raw.slice("store:".length) };
+    const orderId = raw.slice("store:".length).split(":")[0];
+    if (!orderId) return null;
+    return { kind: "store", orderId };
   }
   if (raw.startsWith("writing:")) {
-    const rest = raw.slice("writing:".length);
-    const idx = rest.indexOf(":");
-    if (idx <= 0) return null;
+    const parts = raw.slice("writing:".length).split(":");
+    if (!parts[0] || !parts[1]) return null;
     return {
       kind: "writing",
-      serviceId: rest.slice(0, idx),
-      orderId: rest.slice(idx + 1),
+      serviceId: parts[0],
+      orderId: parts[1],
     };
   }
   return null;
+}
+
+function checkoutReference(base) {
+  return `${base}:${Date.now().toString(36)}`;
+}
+
+function paymobErrorText(data, text, status) {
+  const raw = data?.detail ?? data?.message ?? data?.error ?? "";
+  if (raw && typeof raw === "object") {
+    const bits = Object.values(raw).map((value) => {
+      if (Array.isArray(value)) return value.join(" ");
+      if (value && typeof value === "object") return JSON.stringify(value);
+      return String(value ?? "");
+    });
+    const joined = bits.filter(Boolean).join(" ");
+    if (joined) return joined;
+  }
+  const plain = String(raw || text || "").trim();
+  return plain.slice(0, 240) || `HTTP ${status}`;
 }
 
 async function createIntention({
@@ -126,13 +147,10 @@ async function createIntention({
   }
 
   if (!res.ok) {
-    const msg =
-      data?.detail ||
-      data?.message ||
-      data?.error ||
-      text.slice(0, 200) ||
-      `HTTP ${res.status}`;
-    throw new HttpsError("failed-precondition", `Paymob: ${msg}`);
+    throw new HttpsError(
+      "failed-precondition",
+      `Paymob: ${paymobErrorText(data, text, res.status)}`,
+    );
   }
 
   const clientSecret = data.client_secret;
@@ -228,6 +246,7 @@ function createPaymobHandlers() {
       secrets,
       cors: true,
       timeoutSeconds: 60,
+      serviceAccount: FUNCTIONS_SERVICE_ACCOUNT,
     },
     async (request) => {
       if (!request.auth?.uid) {
@@ -274,7 +293,7 @@ function createPaymobHandlers() {
         }
         amount = Number(order.amount ?? order.price ?? 0);
         title = String(order.productName || "Store order");
-        specialReference = `store:${orderId}`;
+        specialReference = checkoutReference(`store:${orderId}`);
       } else if (kind === "writing") {
         if (!serviceId) {
           throw new HttpsError("invalid-argument", "serviceId مطلوب");
@@ -300,7 +319,7 @@ function createPaymobHandlers() {
         }
         amount = Number(order.amount ?? 0);
         title = String(order.topic || "Writing order");
-        specialReference = `writing:${serviceId}:${orderId}`;
+        specialReference = checkoutReference(`writing:${serviceId}:${orderId}`);
       } else {
         throw new HttpsError("invalid-argument", "kind غير مدعوم");
       }
@@ -382,6 +401,7 @@ function createPaymobHandlers() {
       invoker: "public",
       secrets: [paymobHmacSecret],
       timeoutSeconds: 60,
+      serviceAccount: FUNCTIONS_SERVICE_ACCOUNT,
     },
     async (req, res) => {
       if (req.method !== "POST") {
@@ -454,7 +474,11 @@ function createPaymobHandlers() {
   );
 
   const confirmEscrowRelease = onCall(
-    { cors: true, timeoutSeconds: 30 },
+    {
+      cors: true,
+      timeoutSeconds: 30,
+      serviceAccount: FUNCTIONS_SERVICE_ACCOUNT,
+    },
     async (request) => {
       if (!request.auth?.uid) {
         throw new HttpsError("unauthenticated", "يجب تسجيل الدخول");

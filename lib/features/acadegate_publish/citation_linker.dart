@@ -3,6 +3,7 @@ import 'bibliography_match.dart';
 import 'citation_cues.dart';
 import 'citation_style_shapes.dart';
 import 'docx_scientific_extractor.dart';
+import 'manuscript_structure_advisor.dart';
 import 'publish_models.dart';
 
 /// Links in-text citations to bibliography entries.
@@ -30,6 +31,8 @@ class CitationLinker {
         RegExp(r'^\d{1,3}(?:\s*[,;–-]\s*\d{1,3}){0,8}$').hasMatch(t)) {
       if (looksLikeMathExponent(t, before)) return false;
       if (CitationLinker.isEquationNumberContext(before)) return false;
+      if (CitationLinker.isFloatNumberContext(before)) return false;
+      if (CitationLinker.isEquationLeader(before)) return false;
       return true;
     }
     return false;
@@ -61,7 +64,9 @@ class CitationLinker {
     if (looksLikeMathExponent(raw, before)) {
       return toSuperscriptDigits(asciiDigits(raw));
     }
-    if (CitationLinker.isEquationNumberContext(before)) {
+    if (CitationLinker.isEquationNumberContext(before) ||
+        CitationLinker.isFloatNumberContext(before) ||
+        CitationLinker.isEquationLeader(before)) {
       return raw;
     }
     if (!inBody) {
@@ -98,11 +103,46 @@ class CitationLinker {
     return false;
   }
 
+  /// A line of leaders then one number: `..........(12)` beside a displayed equation.
+  static bool isEquationLeader(String before) {
+    final tail = before.replaceAll(RegExp(r'\s+'), '');
+    if (tail.length < 4) return false;
+    return RegExp(r'^[.\u00B7…_·]{4,}$').hasMatch(tail);
+  }
+
+  static bool isEquationNumberLine(String text) {
+    final t = text.trim();
+    if (t.isEmpty) return false;
+    if (RegExp(r'^[\(\[]?\d{1,3}[\)\]]?\.?$').hasMatch(t)) return true;
+    return RegExp(
+      r'^[.\u00B7…_\s]{4,}[\(\[]?\d{1,3}[\)\]]?\.?$',
+    ).hasMatch(t);
+  }
+
   static bool isEquationNumberContext(String before) {
     final tail = before.trimRight();
     if (tail.isEmpty) return false;
     return RegExp(
-      r'(?:equations?|eq(?:ns?|uations?)?\.?|formulae?|models?)\s*$',
+      r'(?:equations?|eq(?:ns?|uations?)?\.?|formulae?)\s*$',
+      caseSensitive: false,
+    ).hasMatch(tail);
+  }
+
+  /// `Fig. 1`, `Figures 1 and 2`, `Table 3`, `Scheme 1`, `شكل 1` — the digit
+  /// is the float's own number, not bibliography item n.
+  static bool isFloatNumberContext(String before) {
+    final tail = before.replaceAll(RegExp(r'\s+'), ' ').trimRight();
+    if (tail.isEmpty) return false;
+    return RegExp(
+      r'(?:'
+      r'(?:fig(?:ure)?s?|schemes?|charts?|plates?|tables?|'
+      r'شكل|أشكال|جدول|جداول|مخطط|مخططات)'
+      r'\.?'
+      r'(?:'
+      r'\s+\d{1,3}[A-Za-z]?'
+      r'(?:\s*[,–\-]\s*|\s+and\s+|\s+to\s+|\s+و\s+)'
+      r')*'
+      r')\s*$',
       caseSensitive: false,
     ).hasMatch(tail);
   }
@@ -161,7 +201,13 @@ class CitationLinker {
   static String normalizeNumberedCiteDigits(String text) {
     var t = text.replaceAllMapped(
       RegExp(r'\[([^\[\]]{1,24})\]'),
-      (m) => '[${asciiDigits(m.group(1)!).replaceAll(RegExp(r'\s+'), '')}]',
+      (m) {
+        final inner = m.group(1)!;
+        if (RegExp(r'[A-Za-z\u0600-\u06FF]').hasMatch(inner)) {
+          return m.group(0)!;
+        }
+        return '[${asciiDigits(inner).replaceAll(RegExp(r'\s+'), '')}]';
+      },
     );
     t = t.replaceAllMapped(
       RegExp('$hintOpen([^$hintClose]{1,24})$hintClose'),
@@ -336,6 +382,13 @@ class CitationLinker {
       if (_isBareEquationNumber(block.text) &&
           (prev?.type == ManuscriptBlockType.equation ||
               CitationLinker.isEquationNumberContext(prev?.text ?? ''))) {
+        out.add(block.copyWith(text: stripHints(block.text)));
+        prev = out.last;
+        continue;
+      }
+      if (CitationLinker.isEquationNumberLine(block.text) ||
+          ManuscriptStructureAdvisor.numberRoleFor(block.text) ==
+              'equation_number') {
         out.add(block.copyWith(text: stripHints(block.text)));
         prev = out.last;
         continue;
@@ -602,7 +655,11 @@ class CitationLinker {
         looksLikeMathExponent(t, before)) {
       return toSuperscriptDigits(asciiDigits(source));
     }
-    if (CitationLinker.isEquationNumberContext(before)) return inner;
+    if (CitationLinker.isEquationNumberContext(before) ||
+        CitationLinker.isFloatNumberContext(before) ||
+        CitationLinker.isEquationLeader(before)) {
+      return inner;
+    }
     final bracket = _matchBracketCite(
       source.startsWith('[') ? source : '[$source]',
       0,
@@ -631,7 +688,11 @@ class CitationLinker {
         looksLikeMathExponent(t, before)) {
       return toSuperscriptDigits(asciiDigits(source));
     }
-    if (CitationLinker.isEquationNumberContext(before)) return inner;
+    if (CitationLinker.isEquationNumberContext(before) ||
+        CitationLinker.isFloatNumberContext(before) ||
+        CitationLinker.isEquationLeader(before)) {
+      return inner;
+    }
 
     final bracket = _matchBracketCite(
       source.startsWith('[') ? source : '[$source]',
@@ -700,7 +761,9 @@ class CitationLinker {
     if (DocxScientificExtractor.looksLikeAffiliationBracket(text, i)) {
       return null;
     }
-    if (CitationLinker.isEquationNumberContext(text.substring(0, i))) {
+    if (CitationLinker.isEquationNumberContext(text.substring(0, i)) ||
+        CitationLinker.isFloatNumberContext(text.substring(0, i)) ||
+        CitationLinker.isEquationLeader(text.substring(0, i))) {
       return null;
     }
     final close = text.indexOf(']', i + 1);

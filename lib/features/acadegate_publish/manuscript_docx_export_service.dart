@@ -65,7 +65,7 @@ class ManuscriptDocxExportService {
     final embeddedImages = <_DocxEmbeddedImage>[];
     final bodyXml = StringBuffer();
     final style = rules.citationStyle;
-    manuscript = CitationStyleConverter.apply(
+    manuscript = await CitationStyleConverter.applyWithCitationReading(
       manuscript: manuscript,
       style: style,
     );
@@ -150,7 +150,14 @@ class ManuscriptDocxExportService {
       }
     }
 
-    if (rules.columnCount > 1) {
+    // sectPr describes the section that ENDS at the break, not the one after it.
+    // Title and abstract stay one column. Body text that follows is two columns
+    // when the journal asks for that. A later break closes that text section.
+    final wroteFrontMatter = cleanTitle.isNotEmpty ||
+        (manuscript.abstractText.trim().isNotEmpty &&
+            !bodyHasEnglishAbstract &&
+            !bodyHasArabicAbstract);
+    if (rules.columnCount > 1 && wroteFrontMatter) {
       bodyXml.write(_continuousSectionBreak(rules, columns: 1));
     }
 
@@ -161,7 +168,17 @@ class ManuscriptDocxExportService {
     );
 
     var headingNumber = 0;
-    var wideSection = false;
+    var openColumns = 1;
+    var sectionHasContent = false;
+    void closeAndSwitch(int desired) {
+      if (desired == openColumns) return;
+      if (sectionHasContent) {
+        bodyXml.write(_continuousSectionBreak(rules, columns: openColumns));
+      }
+      openColumns = desired;
+      sectionHasContent = false;
+    }
+
     for (final block in blocks) {
       final blockText = AcademicText.sanitize(block.text.trim());
       if (block.type == ManuscriptBlockType.heading &&
@@ -175,15 +192,10 @@ class ManuscriptDocxExportService {
         continue;
       }
 
-      final needsWide = block.type == ManuscriptBlockType.table ||
+      final wide = block.type == ManuscriptBlockType.table ||
           block.type == ManuscriptBlockType.image;
-      if (rules.columnCount > 1 && needsWide && !wideSection) {
-        bodyXml.write(_continuousSectionBreak(rules, columns: 1));
-        wideSection = true;
-      } else if (rules.columnCount > 1 && !needsWide && wideSection) {
-        bodyXml.write(_continuousSectionBreak(rules, columns: 2));
-        wideSection = false;
-      }
+      final desired = rules.columnCount > 1 && !wide ? 2 : 1;
+      closeAndSwitch(desired);
 
       final exportBlock = block.type == ManuscriptBlockType.heading
           ? block.copyWith(
@@ -200,17 +212,15 @@ class ManuscriptDocxExportService {
               JournalSectionLayout.isHeading(block.text, const ['Keywords']))) {
         headingNumber--;
       }
-      bodyXml.write(await _blockXml(
+      final blockXml = await _blockXml(
         exportBlock,
         manuscript,
         rules,
         style,
         embeddedImages,
-      ));
-    }
-
-    if (rules.columnCount > 1 && wideSection) {
-      bodyXml.write(_continuousSectionBreak(rules, columns: 2));
+      );
+      bodyXml.write(blockXml);
+      if (blockXml.isNotEmpty) sectionHasContent = true;
     }
 
     if (sourceDocxBytes != null && sourceDocxBytes.isNotEmpty) {
@@ -219,6 +229,10 @@ class ManuscriptDocxExportService {
         embeddedImages: embeddedImages,
         bodyXml: bodyXml,
         rules: rules,
+        beforeEachImage: () {
+          if (rules.columnCount > 1) closeAndSwitch(1);
+          sectionHasContent = true;
+        },
       );
     }
 
@@ -226,6 +240,7 @@ class ManuscriptDocxExportService {
       manuscript,
     );
     if (bibRefs.isNotEmpty) {
+      if (rules.columnCount > 1) closeAndSwitch(2);
       bodyXml.write(_paragraph(
         rules.referenceSectionTitle,
         rules: rules,
@@ -257,7 +272,7 @@ class ManuscriptDocxExportService {
       }
     }
 
-    bodyXml.write(_sectionProperties(rules, columns: rules.columnCount));
+    bodyXml.write(_sectionProperties(rules, columns: openColumns));
 
     final documentXml = _documentXml(bodyXml.toString());
     final stylesXml = _stylesXml(rules);
@@ -324,20 +339,38 @@ class ManuscriptDocxExportService {
         ),
       ManuscriptBlockType.paragraph => () {
           final front = DocxScientificExtractor.isFrontMatterAuthorText(block.text);
-          return _paragraph(
-            front
-                ? AcademicText.sanitize(CitationLinker.stripHints(block.text))
-                : _resolveBodyText(
-                    text: block.text,
-                    manuscript: manuscript,
-                    style: style,
-                    rules: rules,
-                  ),
-            rules: rules,
-            align: front ? 'center' : '',
-            spacingAfter: 80,
-            firstLineIndent: !front,
-          );
+          final raw = front
+              ? AcademicText.sanitize(CitationLinker.stripHints(block.text))
+              : _resolveBodyText(
+                  text: block.text,
+                  manuscript: manuscript,
+                  style: style,
+                  rules: rules,
+                );
+          final parts = raw
+              .split(RegExp(r'\n+'))
+              .map((line) => line.trim())
+              .where((line) => line.isNotEmpty)
+              .toList();
+          if (parts.length <= 1) {
+            return _paragraph(
+              raw.trim(),
+              rules: rules,
+              align: front ? 'center' : '',
+              spacingAfter: 80,
+              firstLineIndent: !front,
+            );
+          }
+          return [
+            for (var i = 0; i < parts.length; i++)
+              _paragraph(
+                parts[i],
+                rules: rules,
+                align: front ? 'center' : '',
+                spacingAfter: 60,
+                firstLineIndent: !front && i == 0,
+              ),
+          ].join();
         }(),
       ManuscriptBlockType.equation => await _equationXml(
           block,
@@ -493,6 +526,7 @@ class ManuscriptDocxExportService {
     required List<_DocxEmbeddedImage> embeddedImages,
     required StringBuffer bodyXml,
     required JournalFormatRules rules,
+    void Function()? beforeEachImage,
   }) async {
     Archive archive;
     try {
@@ -541,6 +575,7 @@ class ManuscriptDocxExportService {
         contentType: _mimeForExt(ext),
       ));
       final size = _fitImageEmu(bytes, maxWidthEmu: 5486400);
+      beforeEachImage?.call();
       bodyXml.write(_inlineImageParagraph(
         relId: relId,
         rules: rules,
@@ -670,11 +705,24 @@ class ManuscriptDocxExportService {
     final colWidths = block.columnWidthsPct.length == rows.first.length
         ? block.columnWidthsPct
         : _tableColumnWidthsPct(rows, cellImages);
+    final contentTwips = _contentWidthTwips(rules);
+    final columnCount = rows.first.length;
+    final tableHalfPoints = columnCount >= 8
+        ? (rules.bodyFontHalfPoints - 6).clamp(16, rules.bodyFontHalfPoints)
+        : columnCount >= 6
+            ? (rules.bodyFontHalfPoints - 4).clamp(18, rules.bodyFontHalfPoints)
+            : rules.bodyFontHalfPoints;
+    final grid = _tableGridTwips(
+      pct: colWidths,
+      rows: rows,
+      contentTwips: contentTwips,
+      fontHalfPoints: tableHalfPoints,
+    );
     final buffer = StringBuffer();
     buffer.write('<w:tbl>');
     buffer.write('''
 <w:tblPr>
-  <w:tblW w:w="5000" w:type="pct"/>
+  <w:tblW w:w="$contentTwips" w:type="dxa"/>
   <w:tblLayout w:type="fixed"/>
   <w:tblBorders>
     <w:top w:val="single" w:sz="4" w:space="0" w:color="000000"/>
@@ -684,15 +732,20 @@ class ManuscriptDocxExportService {
     <w:insideH w:val="single" w:sz="4" w:space="0" w:color="000000"/>
     <w:insideV w:val="single" w:sz="4" w:space="0" w:color="000000"/>
   </w:tblBorders>
+  <w:tblCellMar>
+    <w:top w:w="40" w:type="dxa"/>
+    <w:left w:w="40" w:type="dxa"/>
+    <w:bottom w:w="40" w:type="dxa"/>
+    <w:right w:w="40" w:type="dxa"/>
+  </w:tblCellMar>
 </w:tblPr>''');
     buffer.write('<w:tblGrid>');
-    for (final w in colWidths) {
-      final twips = (w * 9360 / 5000).round().clamp(200, 9000);
+    for (final twips in grid) {
       buffer.write('<w:gridCol w:w="$twips"/>');
     }
     buffer.write('</w:tblGrid>');
     for (var r = 0; r < rows.length; r++) {
-      buffer.write('<w:tr>');
+      buffer.write('<w:tr><w:trPr><w:cantSplit/></w:trPr>');
       for (var c = 0; c < rows[r].length; c++) {
         final colSpan = r < colSpans.length && c < colSpans[r].length
             ? colSpans[r][c]
@@ -702,13 +755,13 @@ class ManuscriptDocxExportService {
         final rowSpan = r < rowSpans.length && c < rowSpans[r].length
             ? rowSpans[r][c]
             : 1;
-        var colW = c < colWidths.length ? colWidths[c] : 500;
+        var colTwips = c < grid.length ? grid[c] : 400;
         if (colSpan > 1) {
           var spanW = 0;
-          for (var i = 0; i < colSpan && c + i < colWidths.length; i++) {
-            spanW += colWidths[c + i];
+          for (var i = 0; i < colSpan && c + i < grid.length; i++) {
+            spanW += grid[c + i];
           }
-          if (spanW > 0) colW = spanW;
+          if (spanW > 0) colTwips = spanW;
         }
 
         final mergeXml = rowSpan == 0
@@ -716,13 +769,16 @@ class ManuscriptDocxExportService {
             : (rowSpan > 1 ? '<w:vMerge w:val="restart"/>' : '');
         final spanXml =
             colSpan > 1 ? '<w:gridSpan w:val="$colSpan"/>' : '';
+        final cellText = AcademicText.sanitize(rows[r][c].trim());
+        final oneLine = _cellKeepsOneLine(cellText);
 
         buffer.write('''
 <w:tc>
   <w:tcPr>
-    <w:tcW w:w="$colW" w:type="pct"/>
+    <w:tcW w:w="$colTwips" w:type="dxa"/>
     $spanXml
     $mergeXml
+    ${oneLine ? '<w:noWrap/>' : ''}
     <w:vAlign w:val="center"/>
   </w:tcPr>''');
         final imgUrl = r < cellImages.length && c < cellImages[r].length
@@ -742,7 +798,7 @@ class ManuscriptDocxExportService {
             ));
             final size = _fitImageEmu(
               payload.bytes,
-              maxWidthEmu: (5486400 * colW / 5000).round().clamp(800000, 4800000),
+              maxWidthEmu: (colTwips * 635).clamp(400000, 5486400),
               maxHeightEmu: 3200000,
             );
             buffer.write(_inlineImageParagraph(
@@ -754,7 +810,6 @@ class ManuscriptDocxExportService {
             wroteParagraph = true;
           }
         }
-        final cellText = AcademicText.sanitize(rows[r][c].trim());
         final formula = RegExp(r'[A-Z][a-z]?\d').hasMatch(cellText)
             ? DocxScientificExtractor.formatChemicalFormula(cellText)
             : cellText;
@@ -763,6 +818,7 @@ class ManuscriptDocxExportService {
             formula,
             rules: rules,
             bold: r == 0,
+            fontHalfPoints: tableHalfPoints,
             spacingAfter: 0,
             inTable: true,
           ));
@@ -1230,6 +1286,63 @@ class ManuscriptDocxExportService {
     }
     final total = weights.fold<int>(0, (a, b) => a + b);
     return weights.map((w) => (w * 5000 / total).round()).toList();
+  }
+
+  int _contentWidthTwips(JournalFormatRules rules) {
+    final page = rules.paperSize == 'letter' ? 12240 : 11906;
+    return (page - rules.marginTwips * 2).clamp(4000, 14000).toInt();
+  }
+
+  /// A cell that is one token (a number, ion label, or symbol) must not break
+  /// mid-character the way a squeezed column breaks 11.57 into 11.5 and 7.
+  bool _cellKeepsOneLine(String text) {
+    final value = text.trim();
+    if (value.isEmpty || value.length > 40) return false;
+    return !RegExp(r'\s').hasMatch(value);
+  }
+
+  List<int> _tableGridTwips({
+    required List<int> pct,
+    required List<List<String>> rows,
+    required int contentTwips,
+    required int fontHalfPoints,
+  }) {
+    final cols = pct.length;
+    if (cols == 0) return [contentTwips];
+    final widths = List<int>.filled(cols, 0);
+    for (var c = 0; c < cols; c++) {
+      final share = pct[c] <= 0 ? 0 : (pct[c] * contentTwips / 5000).round();
+      var longest = 1;
+      for (final row in rows) {
+        if (c >= row.length) continue;
+        for (final part in row[c].trim().split(RegExp(r'\s+'))) {
+          if (part.length > longest) longest = part.length;
+        }
+      }
+      final floor =
+          (longest * fontHalfPoints * 5 + 80).clamp(360, contentTwips).toInt();
+      widths[c] = share > floor ? share : floor;
+    }
+    final sum = widths.fold<int>(0, (a, b) => a + b);
+    if (sum <= 0) {
+      final each = (contentTwips / cols).round();
+      return List<int>.filled(cols, each);
+    }
+    final scaled = <int>[];
+    var used = 0;
+    for (var c = 0; c < cols; c++) {
+      final w = c == cols - 1
+          ? contentTwips - used
+          : (widths[c] * contentTwips / sum).round();
+      final clamped = w.clamp(200, contentTwips).toInt();
+      scaled.add(clamped);
+      used += clamped;
+    }
+    if (scaled.isNotEmpty && used != contentTwips) {
+      scaled[scaled.length - 1] =
+          (scaled.last + contentTwips - used).clamp(200, contentTwips).toInt();
+    }
+    return scaled;
   }
 
   (int, int) _fitEmuSize(

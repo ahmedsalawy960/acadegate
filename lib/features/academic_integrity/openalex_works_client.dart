@@ -98,6 +98,38 @@ class OpenAlexWorksClient {
         .toList();
   }
 
+  /// رسائل جامعية فقط (dissertation) — لمكتبة الرسائل داخل استوديو الرسالة.
+  Future<List<OpenAlexWork>> searchDissertations(
+    String query, {
+    int perPage = 20,
+  }) async {
+    if (query.trim().length < 3) return const [];
+
+    final uri = Uri.parse(_base).replace(
+      queryParameters: {
+        'search': query.trim(),
+        'per-page': '${perPage.clamp(1, 50)}',
+        'sort': 'relevance_score:desc',
+        'filter': 'type:dissertation,is_retracted:false',
+      },
+    );
+
+    final response = await CitationHttp.get(uri, headers: _headers).timeout(
+          const Duration(seconds: 25),
+        );
+
+    if (response.statusCode != 200) return const [];
+
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final results = data['results'] as List<dynamic>? ?? [];
+
+    return results
+        .whereType<Map<String, dynamic>>()
+        .map(_fromMap)
+        .where((w) => w.title.isNotEmpty)
+        .toList();
+  }
+
   OpenAlexWork _fromMap(Map<String, dynamic> data) {
     final rawDoi = data['doi']?.toString();
     final doi = rawDoi?.replaceFirst('https://doi.org/', '');

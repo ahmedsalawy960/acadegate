@@ -796,8 +796,8 @@ Stay strictly inside the thesis goal; the abstract command is only a lens on tha
     if (!GeminiAdvisorClient.isAvailable) {
       return draft.copyWith(
         note: appTr(
-          'سجّل الدخول حتى يقرأ Gemini 2.5 Pro هدفك كاملاً ويضع العنوان بلغة المسودة. بدون تسجيل يبقى العنوان قالباً محلياً.',
-          'Sign in so Gemini 2.5 Pro can read your full goal and write the title in the draft language. Without sign-in the title stays a local template.',
+          'سجّل الدخول حتى يقرأ AcadeGate هدفك كاملاً ويضع عدة عناوين وملخصاً بلغة المسودة. بدون تسجيل يبقى العنوان قالباً محلياً.',
+          'Sign in so AcadeGate can read your full goal and write several titles and an abstract in the draft language. Without sign-in the title stays a local template.',
         ),
       );
     }
@@ -808,14 +808,14 @@ Stay strictly inside the thesis goal; the abstract command is only a lens on tha
           ? '''
 أنت مستشار رسائل في AcadeGate. اقرأ هدف الباحث كاملاً (كل الجمل).
 أعد JSON فقط:
-{"title":"عنوان رسالة بالعربية يطابق التخصص والمشكلة والمنهج إن ذُكرا","questions":["سؤال1","سؤال2","سؤال3"],"field_ar":"موضوع قصير","field_en":"English topic 4-16 words"}
-قواعد: العنوان بالعربية فقط. لا تختلق نتائج أو DOI. لا تترجم إلى الإنجليزية.
+{"titles":["عنوان1","عنوان2","عنوان3","عنوان4","عنوان5"],"title":"أفضل عنوان","abstract":"ملخص مسودة 180-280 كلمة","questions":["سؤال1","سؤال2","سؤال3","سؤال4"],"field_ar":"موضوع قصير","field_en":"English topic 4-16 words"}
+قواعد: العناوين والملخص والأسئلة بالعربية فقط. قدّم 4–5 عناوين مختلفة الزاوية (منهج، تطبيق، مقارنة…) دون تكرار حرفي. الملخص مسودة عمل لا تزعم إنجاز النتائج ولا تختلق DOI. لا تترجم إلى الإنجليزية.
 '''
           : '''
 You are an AcadeGate thesis advisor. Read the student's FULL goal (every sentence).
 Return JSON only:
-{"title":"precise English thesis title naming field, problem, and method if given","questions":["q1","q2","q3"],"field_en":"4-16 word English topic","field_ar":"short Arabic topic"}
-Rules: the title and questions MUST be in English only. Never answer in Arabic. Do not invent results or DOIs. Do not ignore later sentences.
+{"titles":["title1","title2","title3","title4","title5"],"title":"best title","abstract":"180-280 word working abstract","questions":["q1","q2","q3","q4"],"field_en":"4-16 word English topic","field_ar":"short Arabic topic"}
+Rules: titles, abstract, and questions MUST be in English only. Provide 4–5 distinct title angles (method, application, comparison…) without near-duplicates. The abstract is a working draft — do not claim finished results or invent DOIs. Never answer in Arabic. Do not ignore later sentences.
 ''',
       userMessage: '''
 Draft language (mandatory): $lang
@@ -827,13 +827,32 @@ ${draft.plan.discipline.promptBlock(arabic)}
 User goal:
 ${ResearchGoalParser.contextForAi(draft.goal.raw)}
 ''',
-      maxOutputTokens: 2000,
+      maxOutputTokens: 4096,
       preferPro: true,
     );
     if (!result.isSuccess || result.text == null) return draft;
     final map = _parseJsonMap(result.text!);
     if (map == null) return draft;
-    final title = map['title']?.toString().trim() ?? '';
+
+    final titles = <String>[];
+    final rawTitles = map['titles'];
+    if (rawTitles is List) {
+      for (final item in rawTitles) {
+        final t = item.toString().trim();
+        if (t.length >= 8 &&
+            _titleMatchesDraftLanguage(t, arabic) &&
+            !titles.any((e) => e.toLowerCase() == t.toLowerCase())) {
+          titles.add(t);
+        }
+      }
+    }
+    final primary = map['title']?.toString().trim() ?? '';
+    if (primary.length >= 8 &&
+        _titleMatchesDraftLanguage(primary, arabic) &&
+        !titles.any((e) => e.toLowerCase() == primary.toLowerCase())) {
+      titles.insert(0, primary);
+    }
+    final abstractText = map['abstract']?.toString().trim() ?? '';
     final questions = <String>[];
     final rawQ = map['questions'];
     if (rawQ is List) {
@@ -851,17 +870,24 @@ ${ResearchGoalParser.contextForAi(draft.goal.raw)}
         fieldEn: fieldEn.length >= 4 ? fieldEn : goal.fieldEn,
       );
     }
-    final useAiTitle = title.length >= 8 && _titleMatchesDraftLanguage(title, arabic);
+    final chosen = titles.isNotEmpty
+        ? titles.first
+        : (primary.length >= 8 && _titleMatchesDraftLanguage(primary, arabic)
+            ? primary
+            : draft.proposedTitle);
     return draft.copyWith(
       goal: goal,
       plan: draft.plan.copyWith(goal: goal),
-      proposedTitle: useAiTitle ? title : draft.proposedTitle,
-      researchQuestions: questions.isNotEmpty ? questions.take(5).toList() : draft.researchQuestions,
+      proposedTitle: chosen,
+      titleOptions: titles.take(6).toList(),
+      abstractText: abstractText.length >= 80 ? abstractText : draft.abstractText,
+      researchQuestions:
+          questions.isNotEmpty ? questions.take(6).toList() : draft.researchQuestions,
       fromGemini: true,
       modelUsed: result.modelUsed,
       note: appTr(
-        'العنوان والأسئلة من ${result.modelUsed ?? 'Gemini'} بلغة المسودة ($lang). الفقرات ما زالت فارغة حتى تكتب أمر كل فقرة.',
-        'Title and questions are from ${result.modelUsed ?? 'Gemini'} in the draft language ($lang). Paragraphs stay empty until you command each one.',
+        'عدة عناوين وملخص وأسئلة من AcadeGate بلغة المسودة ($lang). اختر عنواناً، ثم اكتب أمر كل فقرة فارغة مع مراجعها.',
+        'Several titles, an abstract, and questions from AcadeGate in the draft language ($lang). Pick a title, then command each empty paragraph with its sources.',
       ),
     );
   }
@@ -1971,8 +1997,8 @@ Next steps: lock the questions, read the full texts, then ${plan.kind == ThesisK
     final field = _fieldLabel(goal);
     if (literature.works.isEmpty) {
       return plan.arabic
-          ? 'فصل مراجعة الأدبيات في $field. لم يُعثر على أعمال بـ DOI مؤكد في OpenAlex أو Crossref أو Semantic Scholar. لم تُختلق أي دراسة. هذا الفصل ليس مقدمة ولا بروتوكول تجربة.'
-          : 'Literature-review chapter on $field. No DOI-confirmed works were found in OpenAlex, Crossref, or Semantic Scholar. No study was invented. This chapter is neither the introduction nor an experimental protocol.';
+          ? 'فصل مراجعة الأدبيات في $field. لم يُعثر على أعمال بـ DOI مؤكد عبر فهارس AcadeGate. لم تُختلق أي دراسة. هذا الفصل ليس مقدمة ولا بروتوكول تجربة.'
+          : 'Literature-review chapter on $field. No DOI-confirmed works were found via AcadeGate indexes. No study was invented. This chapter is neither the introduction nor an experimental protocol.';
     }
     final table = ThesisLiteratureMapper.comparisonTable(
       ThesisLiteratureMapper.fromBundle(literature),

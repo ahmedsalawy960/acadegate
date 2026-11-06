@@ -1,12 +1,14 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
-import '../../core/locale/l10n_lookup.dart';
 import '../../core/locale/locale_extensions.dart';
 import '../research_journey/thesis_progress.dart';
 import '../research_journey/thesis_progress_activity.dart';
-import '../academic/faculty_categories.dart';
+import '../academic/academic_affiliation_fields.dart';
 import '../academic/academic_degrees.dart';
+import '../academic/egypt_universities.dart';
+import '../academic/faculty_categories.dart';
+import '../academic/faculty_departments.dart';
 import 'account_profile_screen.dart';
 import 'academic_profile.dart';
 import 'academic_profile_service.dart';
@@ -21,14 +23,16 @@ class AcademicProfileScreen extends StatefulWidget {
 class _AcademicProfileScreenState extends State<AcademicProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   final _fullNameController = TextEditingController();
-  final _universityController = TextEditingController();
+  final _universityOtherController = TextEditingController();
   final _specializationController = TextEditingController();
   final _researchInterestController = TextEditingController();
   final _cityController = TextEditingController();
   final _skillsController = TextEditingController();
 
   String _degree = 'ماجستير';
+  String? _university;
   String? _facultyCategory;
+  String? _departmentId;
   String _methodology = 'كمي';
   String _preferredLanguage = 'العربية';
   bool _isLoading = true;
@@ -48,7 +52,12 @@ class _AcademicProfileScreenState extends State<AcademicProfileScreen> {
 
     if (profile != null) {
       _fullNameController.text = profile.fullName;
-      _universityController.text = profile.university;
+      _university = EgyptUniversities.dropdownValueFor(profile.university);
+      if (_university == EgyptUniversities.otherValue) {
+        _universityOtherController.text = profile.university;
+      } else {
+        _universityOtherController.clear();
+      }
       _specializationController.text = profile.specialization;
       _researchInterestController.text = profile.researchInterest;
       _cityController.text = profile.city;
@@ -57,6 +66,14 @@ class _AcademicProfileScreenState extends State<AcademicProfileScreen> {
       _facultyCategory = profile.facultyCategory.isEmpty
           ? profile.resolvedFacultyCategory
           : profile.facultyCategory;
+      _departmentId = profile.departmentId.trim().isNotEmpty
+          ? profile.departmentId.trim()
+          : (_facultyCategory == null
+              ? null
+              : FacultyDepartments.match(
+                  _facultyCategory!,
+                  profile.specialization,
+                )?.id);
       _methodology = profile.methodology;
       _preferredLanguage = profile.preferredLanguage;
     }
@@ -69,15 +86,36 @@ class _AcademicProfileScreenState extends State<AcademicProfileScreen> {
 
   void _resetForm() {
     _fullNameController.clear();
-    _universityController.clear();
+    _universityOtherController.clear();
     _specializationController.clear();
     _researchInterestController.clear();
     _cityController.clear();
     _skillsController.clear();
     _degree = 'ماجستير';
+    _university = null;
     _facultyCategory = null;
+    _departmentId = null;
     _methodology = 'كمي';
     _preferredLanguage = 'العربية';
+  }
+
+  void _onFacultyChanged(String? value) {
+    setState(() {
+      _facultyCategory = value;
+      _departmentId = null;
+      _specializationController.clear();
+    });
+  }
+
+  void _onDepartmentChanged(String? value) {
+    setState(() {
+      _departmentId = value;
+      if (value == null || _facultyCategory == null) return;
+      final dept = FacultyDepartments.byId(_facultyCategory!, value);
+      if (dept != null) {
+        _specializationController.text = dept.titleAr;
+      }
+    });
   }
 
   Future<void> _deleteProfile() async {
@@ -163,12 +201,17 @@ class _AcademicProfileScreenState extends State<AcademicProfileScreen> {
     final facultyCategory = _facultyCategory?.trim() ??
         inferFacultyCategoryFromText('$specialization $researchInterest') ??
         '';
+    final university = AcademicAffiliationFields.resolveUniversity(
+      university: _university,
+      otherController: _universityOtherController,
+    );
 
     final profile = AcademicProfile(
       fullName: _fullNameController.text.trim(),
-      university: _universityController.text.trim(),
+      university: university,
       degree: _degree,
       facultyCategory: facultyCategory,
+      departmentId: _departmentId?.trim() ?? '',
       specialization: specialization,
       researchInterest: researchInterest,
       methodology: _methodology,
@@ -203,7 +246,7 @@ class _AcademicProfileScreenState extends State<AcademicProfileScreen> {
   @override
   void dispose() {
     _fullNameController.dispose();
-    _universityController.dispose();
+    _universityOtherController.dispose();
     _specializationController.dispose();
     _researchInterestController.dispose();
     _cityController.dispose();
@@ -273,17 +316,6 @@ class _AcademicProfileScreenState extends State<AcademicProfileScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _universityController,
-                      validator: (v) => (v == null || v.trim().isEmpty)
-                          ? context.t('مطلوب', 'Required')
-                          : null,
-                      decoration: InputDecoration(
-                        labelText: context.t('الجامعة', 'University'),
-                        border: const OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
                       initialValue: academicDegreeOptions
                               .any((d) => d.value == _degree)
@@ -307,36 +339,24 @@ class _AcademicProfileScreenState extends State<AcademicProfileScreen> {
                       },
                     ),
                     const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      initialValue: _facultyCategory,
-                      decoration: InputDecoration(
-                        labelText: context.t('الكلية', 'Faculty / college'),
-                        border: const OutlineInputBorder(),
-                      ),
-                      validator: (value) {
-                        if (value != null && value.isNotEmpty) return null;
-                        final inferred = inferFacultyCategoryFromText(
-                          '${_specializationController.text} ${_researchInterestController.text}',
-                        );
-                        return inferred == null
-                            ? context.t(
-                                'اختر كليتك لتحسين المطابقة',
-                                'Select your faculty for better matching',
-                              )
-                            : null;
+                    AcademicAffiliationFields(
+                      university: _university,
+                      universityOtherController: _universityOtherController,
+                      facultyCategory: _facultyCategory,
+                      departmentId: _departmentId,
+                      requireUniversity: true,
+                      requireFaculty: true,
+                      requireDepartment: true,
+                      onUniversityChanged: (value) {
+                        setState(() {
+                          _university = value;
+                          if (value != EgyptUniversities.otherValue) {
+                            _universityOtherController.clear();
+                          }
+                        });
                       },
-                      items: [
-                        for (final faculty in facultyCategories)
-                          DropdownMenuItem(
-                            value: faculty.id,
-                            child: Text(
-                              L10nLookup.facultyTitleStatic(faculty.id),
-                            ),
-                          ),
-                      ],
-                      onChanged: (value) {
-                        setState(() => _facultyCategory = value);
-                      },
+                      onFacultyChanged: _onFacultyChanged,
+                      onDepartmentChanged: _onDepartmentChanged,
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
@@ -345,7 +365,10 @@ class _AcademicProfileScreenState extends State<AcademicProfileScreen> {
                           ? context.t('مطلوب', 'Required')
                           : null,
                       decoration: InputDecoration(
-                        labelText: context.t('التخصص', 'Specialization'),
+                        labelText: context.t(
+                          'التخصص (يُملأ من القسم ويمكن تعديله)',
+                          'Specialization (filled from department, editable)',
+                        ),
                         hintText: context.t(
                           'مثال: كيمياء عضوية، هندسة مدنية',
                           'e.g. Organic chemistry, civil engineering',

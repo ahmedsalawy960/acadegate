@@ -3,6 +3,7 @@ import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
 import '../../core/locale/l10n_lookup.dart';
 import '../../core/locale/locale_extensions.dart';
+import '../../core/theme/acadegate_theme.dart';
 import '../matchmaking/matchmaking_screen.dart';
 import '../moderation/approval_status.dart';
 import '../profile/academic_profile.dart';
@@ -12,6 +13,10 @@ import 'community_models.dart';
 import 'community_post_detail_screen.dart';
 import 'community_service.dart';
 import 'create_community_post_screen.dart';
+
+/// حقل بحث بخلفية بيضاء: لون الكتابة يجب أن يكون داكناً وإلا يختفي على الثيم الليلي.
+const _lightFieldInk = Color(0xFF1C1917);
+const _lightFieldHint = Color(0xFF78716C);
 
 class CommunityRoomScreen extends StatefulWidget {
   final CommunityRoom room;
@@ -131,16 +136,19 @@ class _CommunityRoomScreenState extends State<CommunityRoomScreen>
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
             child: TextField(
               controller: _searchController,
+              style: const TextStyle(color: _lightFieldInk),
+              cursorColor: widget.room.color,
               decoration: InputDecoration(
                 hintText: context.t(
                   'ابحث في مناقشات الغرفة...',
                   'Search room discussions...',
                 ),
-                prefixIcon: const Icon(Icons.search),
+                hintStyle: const TextStyle(color: _lightFieldHint),
+                prefixIcon: const Icon(Icons.search, color: _lightFieldHint),
                 suffixIcon: _searchQuery.isEmpty
                     ? null
                     : IconButton(
-                        icon: const Icon(Icons.clear),
+                        icon: const Icon(Icons.clear, color: _lightFieldHint),
                         onPressed: () {
                           _searchController.clear();
                           setState(() => _searchQuery = '');
@@ -161,16 +169,21 @@ class _CommunityRoomScreenState extends State<CommunityRoomScreen>
               child: OutlinedButton.icon(
                 onPressed: _openSupervisors,
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: widget.room.color,
-                  side: BorderSide(color: widget.room.color),
+                  foregroundColor: acadegateInk(widget.room.color),
+                  side: BorderSide(color: acadegateInk(widget.room.color)),
                   minimumSize: const Size.fromHeight(42),
                 ),
-                icon: const Icon(Icons.school_outlined, size: 20),
+                icon: Icon(
+                  Icons.school_outlined,
+                  size: 20,
+                  color: acadegateInk(widget.room.color),
+                ),
                 label: Text(
                   context.t(
                     'ابحث عن مشرفين في هذا التخصص',
                     'Find supervisors in this faculty',
                   ),
+                  style: TextStyle(color: acadegateInk(widget.room.color)),
                 ),
               ),
             ),
@@ -288,13 +301,13 @@ class _PostCard extends StatelessWidget {
                   Icon(
                     CommunityPostType.icon(post.type),
                     size: 18,
-                    color: roomColor,
+                    color: acadegateInk(roomColor),
                   ),
                   const SizedBox(width: 6),
                   Text(
                     typeLabel,
                     style: TextStyle(
-                      color: roomColor,
+                      color: acadegateInk(roomColor),
                       fontWeight: FontWeight.w600,
                       fontSize: 12,
                     ),
@@ -330,9 +343,9 @@ class _PostCard extends StatelessWidget {
                       ),
                       child: Text(
                         context.t('بانتظار المراجعة', 'Pending review'),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
-                          color: Colors.orange,
+                          color: acadegateInk(Colors.orange),
                         ),
                       ),
                     ),

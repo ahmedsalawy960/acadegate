@@ -105,9 +105,8 @@ exports.adminComputeWeeklyKpis = adminComputeWeeklyKpis;
 exports.adminSetWeeklyAdSpend = adminSetWeeklyAdSpend;
 exports.kpiWeeklyScheduled = kpiWeeklyScheduled;
 
-// Paymob loads defineSecret() — if secrets are unset, ANY functions deploy fails.
-// Keep false until: firebase functions:secrets:set PAYMOB_* then set true and redeploy.
-const ENABLE_PAYMOB = process.env.ENABLE_PAYMOB === "true";
+// Secrets PAYMOB_* are set in Firebase. defineSecret runs only while this is true.
+const ENABLE_PAYMOB = true;
 if (ENABLE_PAYMOB) {
   const { createPaymobHandlers } = require("./paymob");
   const {
@@ -762,14 +761,26 @@ exports.adminCleanupOrphanUsers = onCall(
   },
 );
 
-/** نماذج حالية — 1.5 و 2.0 أُوقفت من Google */
+/**
+ * Google stopped gemini-2.5-pro for new users and named gemini-3.1-pro-preview.
+ * gemini-3.6-flash is the current fast text model. 2.5 stays last for older keys.
+ */
+const PRO_MODEL = "gemini-3.1-pro-preview";
 const MODELS_VISION = [
+  "gemini-3.6-flash",
+  PRO_MODEL,
+  "gemini-3-flash-preview",
+  "gemini-3.1-flash-lite",
   "gemini-2.5-flash",
   "gemini-2.5-pro",
   "gemini-2.5-flash-lite",
   "gemini-flash-latest",
 ];
 const MODELS_TEXT = [
+  "gemini-3.6-flash",
+  PRO_MODEL,
+  "gemini-3-flash-preview",
+  "gemini-3.1-flash-lite",
   "gemini-2.5-flash",
   "gemini-2.5-pro",
   "gemini-2.5-flash-lite",
@@ -835,15 +846,27 @@ function hashPassword(password) {
   return crypto.createHash("sha256").update(String(password).trim()).digest("hex");
 }
 
-function formatGeminiApiError(status, errBody) {
-  const body = String(errBody || "");
-  const lower = body.toLowerCase();
-  if (
+function quotaExhausted(status, errBody) {
+  const lower = String(errBody || "").toLowerCase();
+  return (
     status === 429 ||
     lower.includes("resource_exhausted") ||
     lower.includes("prepayment credits") ||
     lower.includes("quota")
-  ) {
+  );
+}
+
+/** Pro often has no free quota while Flash still answers. Stop after a second quota failure. */
+function stopAfterRepeatedQuota(errors, status) {
+  if (status !== 429) return false;
+  const quotaFails = errors.filter((e) => String(e).includes("انتهى رصيد")).length;
+  return quotaFails >= 2;
+}
+
+function formatGeminiApiError(status, errBody) {
+  const body = String(errBody || "");
+  const lower = body.toLowerCase();
+  if (quotaExhausted(status, body)) {
     return (
       "انتهى رصيد Gemini API المرتبط بالمفتاح السحابي. " +
       "أضف رصيداً من Google AI Studio ثم أعد المحاولة: https://aistudio.google.com/apikey"
@@ -1050,8 +1073,8 @@ exports.geminiAdvisor = onCall(
     let modelsToTry = hasInlineImage ? MODELS_VISION : MODELS_TEXT;
     if (preferPro === true) {
       modelsToTry = [
-        "gemini-2.5-pro",
-        ...modelsToTry.filter((m) => m !== "gemini-2.5-pro"),
+        PRO_MODEL,
+        ...modelsToTry.filter((m) => m !== PRO_MODEL),
       ];
     }
     const errors = [];
@@ -1065,28 +1088,50 @@ exports.geminiAdvisor = onCall(
           temperature: hasInlineImage ? 0.4 : 0.85,
           maxOutputTokens: cappedTokens,
         };
-        // لا ترسل thinkingConfig مع الصور — يسبب INVALID_ARGUMENT على أغلب النماذج
+        // لا ترسل thinkingConfig مع الصور — يسبب INVALID_ARGUMENT على أغلب النماذج.
+        // 2.5 يفهم thinkingBudget. Gemini 3 يفهم thinkingLevel فقط.
         if (!hasInlineImage && THINKING_MODELS.has(model)) {
           generationConfig.thinkingConfig = { thinkingBudget: 0 };
+        } else if (!hasInlineImage && String(model).startsWith("gemini-3")) {
+          generationConfig.thinkingConfig = { thinkingLevel: "LOW" };
         }
 
-        const response = await fetch(url, {
+        const requestBody = {
+          systemInstruction: {
+            parts: [{ text: systemPrompt || "أنت مساعد أكاديمي." }],
+          },
+          contents,
+          generationConfig,
+        };
+
+        let response = await fetch(url, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            systemInstruction: {
-              parts: [{ text: systemPrompt || "أنت مساعد أكاديمي." }],
-            },
-            contents,
-            generationConfig,
-          }),
+          body: JSON.stringify(requestBody),
         });
+
+        if (!response.ok && generationConfig.thinkingConfig) {
+          const errBody = await response.text();
+          if (/thinking/i.test(errBody)) {
+            delete generationConfig.thinkingConfig;
+            response = await fetch(url, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(requestBody),
+            });
+          } else {
+            const msg = `${model}: ${formatGeminiApiError(response.status, errBody)}`;
+            errors.push(msg);
+            if (stopAfterRepeatedQuota(errors, response.status)) break;
+            continue;
+          }
+        }
 
         if (!response.ok) {
           const errBody = await response.text();
           const msg = `${model}: ${formatGeminiApiError(response.status, errBody)}`;
           errors.push(msg);
-          if (response.status === 429) break;
+          if (stopAfterRepeatedQuota(errors, response.status)) break;
           continue;
         }
 
@@ -1106,6 +1151,7 @@ exports.geminiAdvisor = onCall(
       errors.find((e) => !/is not found|not supported for generateContent/i.test(e)) ||
       errors[errors.length - 1] ||
       "unknown";
+    console.error("geminiAdvisor models failed", errors);
     return { error: useful };
   },
 );

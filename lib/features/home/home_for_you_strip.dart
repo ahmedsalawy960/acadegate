@@ -351,10 +351,12 @@ class _HomeForYouStripState extends State<HomeForYouStrip> {
         ),
         const SizedBox(height: 8),
         ArrowOverlayScroller(
+          storageId: 'home_for_you',
           axis: Axis.horizontal,
           height: 140,
           scrollStep: 200,
           builder: (context, controller) => ListView.separated(
+            key: const PageStorageKey<String>('home_for_you'),
             controller: controller,
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 36),

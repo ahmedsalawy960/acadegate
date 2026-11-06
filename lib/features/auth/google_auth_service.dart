@@ -10,11 +10,21 @@ class GoogleAuthService {
   static final GoogleAuthService instance = GoogleAuthService._();
 
   // Needed only for desktop (Windows/macOS/Linux).
-  // Must look like: 1234567890-xxxx.apps.googleusercontent.com
-  static const _desktopClientId = String.fromEnvironment(
+  // Prefer --dart-define; fall back to the Firebase Web OAuth client already
+  // present in android/app/google-services.json (public client id).
+  static const _desktopClientIdDefine = String.fromEnvironment(
     'GOOGLE_WEB_CLIENT_ID',
     defaultValue: '',
   );
+
+  static const _firebaseWebClientId =
+      '741208597895-q6u2927ta7cpc4jhmtn64qvrqh3f1mm0.apps.googleusercontent.com';
+
+  static String get _desktopClientId {
+    final fromDefine = _desktopClientIdDefine.trim();
+    if (fromDefine.isNotEmpty) return fromDefine;
+    return _firebaseWebClientId;
+  }
 
   static bool _initialized = false;
 
@@ -28,7 +38,7 @@ class GoogleAuthService {
       !needsDesktopClientId || _desktopClientId.isNotEmpty;
 
   static String get configurationHint =>
-      '--dart-define=GOOGLE_WEB_CLIENT_ID=1234567890-xxxx.apps.googleusercontent.com';
+      '--dart-define=GOOGLE_WEB_CLIENT_ID=$_firebaseWebClientId';
 
   Future<void> _ensureInitialized() async {
     if (_initialized) return;
@@ -47,7 +57,10 @@ class GoogleAuthService {
     }
 
     await GoogleSignIn.instance.initialize(
-      clientId: _desktopClientId.isEmpty ? null : _desktopClientId,
+      // Android/iOS read the client from google-services / GoogleService-Info.
+      // Desktop needs the Web OAuth client id explicitly.
+      clientId: needsDesktopClientId ? _desktopClientId : null,
+      serverClientId: needsDesktopClientId ? null : _firebaseWebClientId,
     );
     _initialized = true;
   }

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 
 import '../../core/firebase/callable_http_client.dart';
 import '../../core/locale/app_translate.dart';
@@ -123,6 +124,21 @@ Rules: found=false if no formatting instructions. Extract EVERY layout rule stat
       );
     }
 
+    if (url.isNotEmpty) {
+      final fromLink = await readGuideUrl(
+        journalName: journalName,
+        publisher: publisher,
+        guidelinesUrl: url,
+        fallback: fallback,
+      );
+      if (fromLink.success) return fromLink;
+      if (fromLink.reason == 'paste_unparsed' ||
+          fromLink.reason == 'empty_page' ||
+          fromLink.reason == 'invalid_url') {
+        return fromLink;
+      }
+    }
+
     final payload = {
       'journalName': journalName,
       'publisher': publisher,
@@ -164,6 +180,124 @@ Rules: found=false if no formatting instructions. Extract EVERY layout rule stat
     );
   }
 
+  /// Opens one author-guide URL on this device and asks the model to read it.
+  Future<JournalGuidelinesExtractionResult> readGuideUrl({
+    required String journalName,
+    required String publisher,
+    required String guidelinesUrl,
+    JournalFormatRules? fallback,
+  }) async {
+    final raw = guidelinesUrl.trim();
+    final uri = Uri.tryParse(raw);
+    if (uri == null ||
+        !uri.hasScheme ||
+        (uri.scheme != 'http' && uri.scheme != 'https') ||
+        uri.host.isEmpty) {
+      return JournalGuidelinesExtractionResult(
+        success: false,
+        reason: 'invalid_url',
+        message: appTr(
+          'ضع رابطاً يبدأ بـ https:// لصفحة دليل المؤلفين.',
+          'Enter an https:// link to the author-guide page.',
+        ),
+      );
+    }
+
+    String page;
+    try {
+      page = await _fetchGuidePage(uri);
+    } catch (e) {
+      return JournalGuidelinesExtractionResult(
+        success: false,
+        reason: 'fetch_failed',
+        message: appTr(
+          'تعذر فتح الرابط من هذا الجهاز. انسخ نص الدليل والصقه، أو جرّب رابط الصفحة نفسه وليس ملف PDF. ($e)',
+          'Could not open that link from this device. Paste the guide text, or use the HTML page rather than a PDF. ($e)',
+        ),
+        attemptedUrls: [raw],
+      );
+    }
+
+    if (page.trim().length < 80) {
+      return JournalGuidelinesExtractionResult(
+        success: false,
+        reason: 'empty_page',
+        message: appTr(
+          'فُتح الرابط لكن الصفحة لم تُرجع نص الدليل. الصق النص، أو استخدم رابط الصفحة الظاهرة وليس ملفاً محمياً.',
+          'The link opened, but the page did not return the guide text. Paste the text, or use the visible page URL rather than a blocked file.',
+        ),
+        attemptedUrls: [raw],
+      );
+    }
+
+    final read = await _extractFromProvidedText(
+      journalName: journalName,
+      publisher: publisher,
+      text: page,
+      sourceUrl: raw,
+      fallback: fallback,
+    );
+    if (!read.success) return read;
+    return JournalGuidelinesExtractionResult(
+      success: true,
+      message: read.message ??
+          _readerMessage(read.sourceType, sourceUrl: read.sourceUrl),
+      sourceUrl: read.sourceUrl,
+      sourceType: read.sourceType,
+      rules: read.rules,
+      attemptedUrls: [raw],
+      keyRequirements: read.keyRequirements,
+      fetchLog: ['$raw → OK (${page.length} chars)'],
+      excerpt: read.excerpt,
+      notes: read.notes,
+    );
+  }
+
+  Future<String> _fetchGuidePage(Uri uri) async {
+    final response = await http.get(
+      uri,
+      headers: const {
+        'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,text/plain;q=0.9',
+      },
+    ).timeout(const Duration(seconds: 45));
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('HTTP ${response.statusCode}');
+    }
+    final contentType = response.headers['content-type'] ?? '';
+    final body = response.body;
+    if (contentType.contains('pdf') || body.startsWith('%PDF')) {
+      throw Exception('pdf');
+    }
+    return _htmlToText(body);
+  }
+
+  static String _htmlToText(String html) {
+    var text = html
+        .replaceAll(
+          RegExp(r'<script[\s\S]*?</script>', caseSensitive: false),
+          ' ',
+        )
+        .replaceAll(
+          RegExp(r'<style[\s\S]*?</style>', caseSensitive: false),
+          ' ',
+        )
+        .replaceAll(RegExp(r'<[^>]+>'), ' ');
+    const entities = {
+      '&nbsp;': ' ',
+      '&amp;': '&',
+      '&lt;': '<',
+      '&gt;': '>',
+      '&quot;': '"',
+      '&#39;': "'",
+    };
+    entities.forEach((entity, value) {
+      text = text.replaceAll(entity, value);
+    });
+    return text.replaceAll(RegExp(r'\s+'), ' ').trim();
+  }
+
   Future<JournalGuidelinesExtractionResult> _extractFromProvidedText({
     required String journalName,
     required String publisher,
@@ -177,6 +311,15 @@ Rules: found=false if no formatting instructions. Extract EVERY layout rule stat
     );
 
     if (heuristic != null) {
+      final model = await _extractWithGeminiClient(
+        journalName: journalName,
+        publisher: publisher,
+        sourceUrl: sourceUrl,
+        pageText: text,
+        fallback: fallback,
+        heuristic: heuristic,
+      );
+      if (model != null) return model;
       return _resultFromExtracted(
         extracted: heuristic,
         journalName: journalName,
@@ -185,6 +328,17 @@ Rules: found=false if no formatting instructions. Extract EVERY layout rule stat
         sourceType: 'pasted_text_heuristic',
         fallback: fallback,
       );
+    }
+
+    if (text.length >= 80) {
+      final modelOnly = await _extractWithGeminiClient(
+        journalName: journalName,
+        publisher: publisher,
+        sourceUrl: sourceUrl,
+        pageText: text,
+        fallback: fallback,
+      );
+      if (modelOnly != null) return modelOnly;
     }
 
     return JournalGuidelinesExtractionResult(
@@ -260,6 +414,33 @@ Rules: found=false if no formatting instructions. Extract EVERY layout rule stat
     );
   }
 
+  String _readerMessage(String? sourceType, {String? sourceUrl}) {
+    final openedLink = (sourceUrl ?? '').startsWith('http');
+    return switch (sourceType) {
+      'gemini_client' => openedLink
+          ? appTr(
+              'فتح AcadeGate الرابط وقرأ قواعد التنسيق، وطُبّقت القواعد التي وجدها في الصفحة.',
+              'AcadeGate opened the link, read the formatting rules, and applied the rules it found on that page.',
+            )
+          : appTr(
+              'قرأ AcadeGate نص الدليل، وطُبّقت القواعد التي استخرجها.',
+              'AcadeGate read the guide text and applied the rules it extracted.',
+            ),
+      'pasted_text_heuristic' => appTr(
+          'لم يُرجع AcadeGate قراءة للدليل. طُبّقت فقط القواعد التي التقطها القارئ المحلي، وقد لا يشمل ذلك كل الدليل.',
+          'AcadeGate did not return a reading of the guide. Only the rules caught by the local reader were applied, so part of the guide may be missing.',
+        ),
+      'cloud' => appTr(
+          'قرأت خدمة السحابة الدليل، وطُبّقت القواعد التي أعادتها.',
+          'The cloud service read the guide and applied the rules it returned.',
+        ),
+      _ => appTr(
+          'طُبّقت قواعد مستخرجة من الدليل.',
+          'Rules extracted from the guide were applied.',
+        ),
+    };
+  }
+
   JournalGuidelinesExtractionResult _resultFromExtracted({
     required Map<String, dynamic> extracted,
     required String journalName,
@@ -279,6 +460,7 @@ Rules: found=false if no formatting instructions. Extract EVERY layout rule stat
     );
     return JournalGuidelinesExtractionResult(
       success: true,
+      message: _readerMessage(sourceType, sourceUrl: sourceUrl),
       sourceUrl: sourceUrl,
       sourceType: sourceType,
       rules: rules,
@@ -298,33 +480,37 @@ Rules: found=false if no formatting instructions. Extract EVERY layout rule stat
     JournalFormatRules? fallback,
     Map<String, dynamic>? heuristic,
   }) async {
-    if (!GeminiAdvisorClient.isAvailable) return null;
+    try {
+      if (!GeminiAdvisorClient.isAvailable) return null;
 
-    final clipped = pageText.length > 60000
-        ? pageText.substring(0, 60000)
-        : pageText;
+      final clipped = pageText.length > 60000
+          ? pageText.substring(0, 60000)
+          : pageText;
 
-    final result = await GeminiAdvisorClient.instance.generateResult(
-      systemPrompt: _extractSystemPrompt,
-      userMessage:
-          'Journal: $journalName\nPublisher: $publisher\nSource: $sourceUrl\n\nTEXT:\n$clipped',
-      maxOutputTokens: 4096,
-    );
-
-    if (!result.isSuccess || result.text == null) return null;
-
-    final parsed = _parseJsonFromModel(result.text!);
-    final extracted = JournalGuidelinesHeuristic.merge(heuristic, parsed);
-    if (extracted['found'] != true) return null;
-
-    return _resultFromExtracted(
-      extracted: extracted,
-      journalName: journalName,
-      publisher: publisher,
-      sourceUrl: sourceUrl,
-      sourceType: 'gemini_client',
-      fallback: fallback,
-    );
+      final result = await GeminiAdvisorClient.instance.generateResult(
+        preferPro: true,
+        systemPrompt: _extractSystemPrompt,
+        userMessage:
+            'Journal: $journalName\nPublisher: $publisher\nSource: $sourceUrl\n\nTEXT:\n$clipped',
+        maxOutputTokens: 8192,
+      );
+      if (!result.isSuccess || result.text == null) return null;
+      final parsed = _parseJsonFromModel(result.text!);
+      if (parsed == null) return null;
+      final extracted = JournalGuidelinesHeuristic.merge(heuristic, parsed);
+      if (extracted['found'] != true) return null;
+      return _resultFromExtracted(
+        extracted: extracted,
+        journalName: journalName,
+        publisher: publisher,
+        sourceUrl: sourceUrl,
+        sourceType: 'gemini_client',
+        fallback: fallback,
+      );
+    } catch (e) {
+      debugPrint('guide model: $e');
+      return null;
+    }
   }
 
   static Map<String, dynamic>? _parseJsonFromModel(String raw) {
@@ -348,7 +534,66 @@ Rules: found=false if no formatting instructions. Extract EVERY layout rule stat
         }
       } catch (_) {}
     }
-    return null;
+    return salvageGuideJson(candidate);
+  }
+
+  /// Keeps rules that were written before a reply was cut off, then the
+  /// export code applies those fields.
+  static Map<String, dynamic>? salvageGuideJson(String raw) {
+    const stringKeys = {
+      'confidence',
+      'citationStyle',
+      'fontFamily',
+      'lineSpacingLabel',
+      'paperSize',
+      'titleAlign',
+      'referencesHeading',
+      'referenceExample',
+      'inTextExample',
+      'excerpt',
+    };
+    const numberKeys = {
+      'titleFontSizePt',
+      'headingFontSizePt',
+      'bodyFontSizePt',
+      'lineSpacing',
+      'marginCm',
+      'columns',
+      'firstLineIndentCm',
+      'abstractMaxWords',
+    };
+    const boolKeys = {
+      'found',
+      'justifyText',
+      'headingNumbered',
+      'headingUppercase',
+      'pageNumbers',
+      'runningHeader',
+      'referenceListPlainNumber',
+    };
+    final out = <String, dynamic>{};
+    for (final key in stringKeys) {
+      final match = RegExp(
+        '"$key"\\s*:\\s*"([^"\\n]*)"',
+      ).firstMatch(raw);
+      final value = match?.group(1)?.trim();
+      if (value != null && value.isNotEmpty) out[key] = value;
+    }
+    for (final key in numberKeys) {
+      final match = RegExp(
+        '"$key"\\s*:\\s*(-?\\d+(?:\\.\\d+)?)',
+      ).firstMatch(raw);
+      final value = match == null ? null : num.tryParse(match.group(1)!);
+      if (value != null) out[key] = value;
+    }
+    for (final key in boolKeys) {
+      final match = RegExp('"$key"\\s*:\\s*(true|false)').firstMatch(raw);
+      if (match != null) out[key] = match.group(1) == 'true';
+    }
+    final hasRule = out.keys.any((key) => key != 'found' && key != 'confidence');
+    if (!hasRule) return null;
+    out['found'] = out['found'] == true || hasRule;
+    return out;
   }
 
   static List<String> _requirementsFromExtracted(Map<String, dynamic> extracted) {

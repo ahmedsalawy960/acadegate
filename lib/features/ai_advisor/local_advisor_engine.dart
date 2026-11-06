@@ -269,7 +269,7 @@ class LocalAdvisorEngine {
           '3. **نقد منهجي:** حجم العينة، أدوات القياس، قابلية التعميم.\n'
           '4. **الفجوة البحثية:** ما الذي لم يُغطَّ بعد في السياق المحلي؟\n'
           '5. **إطار نظري مقترح:** ربط المتغيرات المستقلة والتابعة.\n\n'
-          'المراجع من OpenAlex/Crossref فقط — لا تُدرج DOI غير مؤكد.',
+          'المراجع من فهارس AcadeGate فقط — لا تُدرج DOI غير مؤكد.',
       '**Initial literature analysis for: $topic**\n\n'
           '1. **Theoretical axis:** Define core concepts and their evolution.\n'
           '2. **Previous studies:** Cite only the verified works below.\n'

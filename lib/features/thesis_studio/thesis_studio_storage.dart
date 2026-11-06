@@ -279,6 +279,7 @@ class ThesisStudioSnapshot {
           for (final row in draft.literatureMap) _encodeMapRow(row),
         ],
         'proposedTitle': draft.proposedTitle,
+        'titleOptions': draft.titleOptions,
         'abstractText': draft.abstractText,
         'researchQuestions': draft.researchQuestions,
         'chapters': [for (final c in draft.chapters) _encodeChapter(c)],
@@ -312,6 +313,10 @@ class ThesisStudioSnapshot {
           if (row is Map) _decodeMapRow(_asStringKeyedMap(row)),
       ],
       proposedTitle: map['proposedTitle']?.toString() ?? '',
+      titleOptions: [
+        for (final t in (map['titleOptions'] as List<dynamic>? ?? const []))
+          if (t.toString().trim().isNotEmpty) t.toString().trim(),
+      ],
       abstractText: map['abstractText']?.toString() ?? '',
       researchQuestions: [
         for (final q in (map['researchQuestions'] as List<dynamic>? ?? const []))

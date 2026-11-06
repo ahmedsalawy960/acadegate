@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
 import '../../core/locale/locale_extensions.dart';
+import '../../core/theme/acadegate_theme.dart';
 import '../profile/academic_profile.dart';
 import '../profile/academic_profile_service.dart';
 import 'community_data.dart';
@@ -128,18 +129,22 @@ class _CreateCommunityPostScreenState extends State<CreateCommunityPostScreen> {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: selected ? widget.room.color : Colors.grey.shade300,
+            color: selected
+                ? acadegateInk(widget.room.color)
+                : AcadeGateColors.line,
             width: selected ? 2 : 1,
           ),
           color: selected
-              ? widget.room.color.withValues(alpha: 0.08)
+              ? widget.room.color.withValues(alpha: 0.18)
               : Colors.transparent,
         ),
         child: Row(
           children: [
             Icon(
               PostAudienceScope.icon(value),
-              color: selected ? widget.room.color : const Color(0xFFB7C3D6),
+              color: selected
+                  ? acadegateInk(widget.room.color)
+                  : const Color(0xFFB7C3D6),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -150,20 +155,27 @@ class _CreateCommunityPostScreenState extends State<CreateCommunityPostScreen> {
                     title,
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
-                      color: selected ? widget.room.color : null,
+                      color: selected
+                          ? acadegateInk(widget.room.color)
+                          : AcadeGateColors.text,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     subtitle,
-                    style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFFB7C3D6),
+                    ),
                   ),
                 ],
               ),
             ),
             Icon(
               selected ? Icons.check_circle : Icons.circle_outlined,
-              color: selected ? widget.room.color : Colors.grey[500],
+              color: selected
+                  ? acadegateInk(widget.room.color)
+                  : AcadeGateColors.muted,
             ),
           ],
         ),

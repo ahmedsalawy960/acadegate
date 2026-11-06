@@ -37,6 +37,8 @@ class UserAccount {
   /// Optional per-user daily caps (null = use tier defaults).
   final int? quotaGeminiDaily;
   final int? quotaScholarDaily;
+  /// Optional daily Copyleaks scans (null = plan default: free 1, pro 5).
+  final int? quotaCopyleaksDaily;
   /// Merchant/supplier business entity (does not grant Verified by itself).
   final MerchantBusinessProfile businessProfile;
   /// Lab / supervisor / writer / publisher org credentials.
@@ -59,6 +61,7 @@ class UserAccount {
     this.subscriptionExpiresAt,
     this.quotaGeminiDaily,
     this.quotaScholarDaily,
+    this.quotaCopyleaksDaily,
     this.businessProfile = const MerchantBusinessProfile(),
     this.providerProfile = const ProviderOrgProfile(),
     this.needsRoleSetup = false,
@@ -130,6 +133,7 @@ class UserAccount {
       subscriptionExpiresAt: subExp,
       quotaGeminiDaily: _optionalInt(map['quotaGeminiDaily']),
       quotaScholarDaily: _optionalInt(map['quotaScholarDaily']),
+      quotaCopyleaksDaily: _optionalInt(map['quotaCopyleaksDaily']),
       businessProfile: MerchantBusinessProfile.fromMap(
         (map['businessProfile'] as Map?)?.cast<String, dynamic>(),
       ),

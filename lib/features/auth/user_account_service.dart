@@ -347,6 +347,7 @@ class UserAccountService {
     bool clearExpiry = false,
     int? quotaGeminiDaily,
     int? quotaScholarDaily,
+    int? quotaCopyleaksDaily,
     bool clearQuotaOverrides = false,
   }) async {
     final account = await loadCurrentAccount();
@@ -366,12 +367,16 @@ class UserAccountService {
     if (clearQuotaOverrides) {
       data['quotaGeminiDaily'] = FieldValue.delete();
       data['quotaScholarDaily'] = FieldValue.delete();
+      data['quotaCopyleaksDaily'] = FieldValue.delete();
     } else {
       if (quotaGeminiDaily != null) {
         data['quotaGeminiDaily'] = quotaGeminiDaily.clamp(0, 1000000);
       }
       if (quotaScholarDaily != null) {
         data['quotaScholarDaily'] = quotaScholarDaily.clamp(0, 1000000);
+      }
+      if (quotaCopyleaksDaily != null) {
+        data['quotaCopyleaksDaily'] = quotaCopyleaksDaily.clamp(0, 1000000);
       }
     }
     await _doc(uid).set(data, SetOptions(merge: true));

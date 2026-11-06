@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import '../../core/firebase/callable_http_client.dart';
 import '../../core/locale/app_translate.dart';
 import 'advisor_attachment.dart';
+import 'advisor_branding.dart';
 
 class GeminiGenerateResult {
   final String? text;
@@ -40,6 +41,16 @@ class GeminiAdvisorClient {
 
   static final GeminiAdvisorClient instance = GeminiAdvisorClient._();
 
+  /// One manuscript review used to open many calls at once and they failed
+  /// together. Later reviews wait until the current call finishes.
+  Future<void> _lane = Future<void>.value();
+
+  Future<T> _oneAtATime<T>(Future<T> Function() job) {
+    final run = _lane.catchError((_) {}).then((_) => job());
+    _lane = run.then((_) {}, onError: (_) {});
+    return run;
+  }
+
   /// Local keys are debug-only. Release/web builds must not pass
   /// `--dart-define-from-file=dart_defines.json` (keys would embed in the binary).
   static const _apiKey = String.fromEnvironment('GEMINI_API_KEY');
@@ -48,8 +59,14 @@ class GeminiAdvisorClient {
     defaultValue: '',
   );
 
-  /// نماذج حالية — 1.5/2.0 أُوقفت؛ 2.5 Flash قوي وسريع للصور والنص
+  /// Google أوقفت gemini-2.5-pro للحسابات الجديدة وسمّت gemini-3.1-pro-preview.
+  /// gemini-3.6-flash هو النموذج السريع الحالي. 2.5 يبقى احتياطاً أخيراً.
+  static const _proModel = 'gemini-3.1-pro-preview';
   static const _modelFallbacks = [
+    'gemini-3.6-flash',
+    'gemini-3.1-pro-preview',
+    'gemini-3-flash-preview',
+    'gemini-3.1-flash-lite',
     'gemini-2.5-flash',
     'gemini-2.5-pro',
     'gemini-2.5-flash-lite',
@@ -110,12 +127,58 @@ class GeminiAdvisorClient {
     final base = _modelsToTry;
     if (!preferPro) return base;
     return [
-      'gemini-2.5-pro',
-      ...base.where((m) => m != 'gemini-2.5-pro'),
+      _proModel,
+      ...base.where((m) => m != _proModel),
     ];
   }
 
   Future<GeminiGenerateResult> generateResult({
+    required String systemPrompt,
+    required String userMessage,
+    List<Map<String, String>> history = const [],
+    List<GeminiInlinePart> attachments = const [],
+    int maxOutputTokens = 8192,
+    bool preferPro = false,
+  }) {
+    return _oneAtATime(() async {
+      final result = await _generateResultNow(
+        systemPrompt: systemPrompt,
+        userMessage: userMessage,
+        history: history,
+        attachments: attachments,
+        maxOutputTokens: maxOutputTokens,
+        preferPro: preferPro,
+      );
+      return _publicGenerateResult(result);
+    });
+  }
+
+  GeminiGenerateResult _publicGenerateResult(GeminiGenerateResult result) {
+    return GeminiGenerateResult(
+      text: result.text,
+      error: result.error == null
+          ? null
+          : AdvisorBranding.publicize(result.error),
+      modelUsed: result.modelUsed == null || result.modelUsed!.trim().isEmpty
+          ? null
+          : AdvisorBranding.engineLabel,
+    );
+  }
+
+  GeminiImageResult _publicImageResult(GeminiImageResult result) {
+    return GeminiImageResult(
+      bytes: result.bytes,
+      mimeType: result.mimeType,
+      error: result.error == null
+          ? null
+          : AdvisorBranding.publicize(result.error),
+      modelUsed: result.modelUsed == null || result.modelUsed!.trim().isEmpty
+          ? null
+          : AdvisorBranding.engineLabel,
+    );
+  }
+
+  Future<GeminiGenerateResult> _generateResultNow({
     required String systemPrompt,
     required String userMessage,
     List<Map<String, String>> history = const [],
@@ -127,7 +190,7 @@ class GeminiAdvisorClient {
         attachments.any((a) => a.hasStoragePath) && canUseCloudBackend;
 
     if (canUseCloudBackend) {
-      final viaFunction = await _generateViaCloudFunction(
+      var viaFunction = await _generateViaCloudFunction(
         systemPrompt: systemPrompt,
         userMessage: userMessage,
         history: history,
@@ -135,6 +198,23 @@ class GeminiAdvisorClient {
         maxOutputTokens: maxOutputTokens,
         preferPro: preferPro,
       );
+      final cloudError = viaFunction.error ?? '';
+      final retryWouldRepeat =
+          cloudError.contains('انتهى رصيد') ||
+          cloudError.contains('no longer available');
+      if (!viaFunction.isSuccess && !retryWouldRepeat) {
+        debugPrint('geminiAdvisor retry: ${viaFunction.error}');
+        await Future<void>.delayed(const Duration(seconds: 2));
+        final again = await _generateViaCloudFunction(
+          systemPrompt: systemPrompt,
+          userMessage: userMessage,
+          history: history,
+          attachments: attachments,
+          maxOutputTokens: maxOutputTokens,
+          preferPro: preferPro,
+        );
+        if (again.isSuccess) viaFunction = again;
+      }
       if (viaFunction.isSuccess) return viaFunction;
       if (!hasLocalKey || needsStorageBackend) return viaFunction;
       // Signed-in users stay on cloud quotas (no local API-key bypass).
@@ -486,9 +566,11 @@ class GeminiAdvisorClient {
       'temperature': hasAttachments ? 0.4 : 0.85,
       'maxOutputTokens': maxOutputTokens,
     };
-    // thinkingConfig يكسر طلبات الصور وكثيراً من النماذج غير 2.5
+    // thinkingBudget خاص بـ 2.5. Gemini 3 يفهم thinkingLevel، والصور بلا thinking.
     if (!hasAttachments && _thinkingModels.contains(model)) {
       config['thinkingConfig'] = {'thinkingBudget': 0};
+    } else if (!hasAttachments && model.startsWith('gemini-3')) {
+      config['thinkingConfig'] = {'thinkingLevel': 'LOW'};
     }
     return config;
   }
@@ -597,6 +679,18 @@ class GeminiAdvisorClient {
     required String prompt,
     List<GeminiInlinePart> referenceImages = const [],
   }) async {
+    return _publicImageResult(
+      await _generateImageNow(
+        prompt: prompt,
+        referenceImages: referenceImages,
+      ),
+    );
+  }
+
+  Future<GeminiImageResult> _generateImageNow({
+    required String prompt,
+    List<GeminiInlinePart> referenceImages = const [],
+  }) async {
     if (canUseCloudBackend) {
       final viaFunction = await _generateImageViaCloud(prompt, referenceImages);
       if (viaFunction.isSuccess) return viaFunction;
@@ -606,8 +700,8 @@ class GeminiAdvisorClient {
     if (!hasLocalKey) {
       return GeminiImageResult(
         error: appTr(
-          'سجّل الدخول لتوليد فيديو الأنيميشن، أو أضف مفتاح Gemini.',
-          'Sign in to generate the animation video, or add a Gemini key.',
+          'سجّل الدخول لتوليد فيديو الأنيميشن عبر AcadeGate.',
+          'Sign in to generate the animation video with AcadeGate.',
         ),
       );
     }

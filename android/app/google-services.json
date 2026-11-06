@@ -7,12 +7,25 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:741208597895:android:db992ab4724c046ff6df22",
+        "mobilesdk_app_id": "1:741208597895:android:48f524ccb84365e9f6df22",
         "android_client_info": {
-          "package_name": "com.example.acadegate"
+          "package_name": "com.acadegate.app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "741208597895-5706ku6vpb2k13fmm6ct2p30jat9fdej.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.acadegate.app",
+            "certificate_hash": "8a5cdad304eb512fb8136b9aae96257e65bc33ae"
+          }
+        },
+        {
+          "client_id": "741208597895-q6u2927ta7cpc4jhmtn64qvrqh3f1mm0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDwRewTZfgKsQD0o9Ujba2kn9sV0bNXRpw"
@@ -20,7 +33,55 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "741208597895-q6u2927ta7cpc4jhmtn64qvrqh3f1mm0.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "741208597895-lk7isatseh25k8b8619fjgea16sujrp0.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.acadegate"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:741208597895:android:db992ab4724c046ff6df22",
+        "android_client_info": {
+          "package_name": "com.example.acadegate"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "741208597895-q6u2927ta7cpc4jhmtn64qvrqh3f1mm0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDwRewTZfgKsQD0o9Ujba2kn9sV0bNXRpw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "741208597895-q6u2927ta7cpc4jhmtn64qvrqh3f1mm0.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "741208597895-lk7isatseh25k8b8619fjgea16sujrp0.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.acadegate"
+              }
+            }
+          ]
         }
       }
     }

@@ -44,31 +44,10 @@ class AppSiteFooter extends StatelessWidget {
             variant: AcadeGateLogoVariant.compact,
           ),
           const SizedBox(height: 12),
-          Text.rich(
-            TextSpan(
-              children: [
-                TextSpan(
-                  text: 'Acade',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.white,
-                    letterSpacing: 0.4,
-                  ),
-                ),
-                TextSpan(
-                  text: 'Gate',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                    color: accentColor.computeLuminance() > 0.45
-                        ? accentColor
-                        : AcadeGateColors.gold,
-                    letterSpacing: 0.4,
-                  ),
-                ),
-              ],
-            ),
+          AcadeGateWordmark(
+            gateColor: accentColor.computeLuminance() > 0.45
+                ? accentColor
+                : AcadeGateColors.gold,
           ),
           const SizedBox(height: 6),
           Text(

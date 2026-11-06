@@ -199,6 +199,7 @@ class _ScienceNewsScreenState extends State<ScienceNewsScreen> {
             child: _banner(context),
           ),
           ArrowScrollView(
+            storageId: 'science_news_categories',
             height: 48,
             padding: const EdgeInsets.symmetric(horizontal: 4),
             child: Row(

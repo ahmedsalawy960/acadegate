@@ -9,6 +9,7 @@ import '../../core/locale/locale_extensions.dart';
 import '../../core/theme/acadegate_theme.dart';
 import 'journal_format_rules.dart';
 import 'citation_formatter.dart';
+import 'citation_reading_advisor.dart';
 import 'citation_style_picker.dart';
 import 'journal_guidelines_extract_service.dart';
 import 'journal_guidelines_service.dart';
@@ -44,6 +45,7 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
   bool _extractionAttempted = false;
   bool _extractionSuccess = false;
   String? _extractionMessage;
+  String? _extractionSourceType;
   List<String> _keyRequirements = const [];
   String? _extractedExcerpt;
   String? _extractedSourceUrl;
@@ -65,6 +67,11 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
     final manual = _manualGuideUrlCtrl.text.trim();
     final merged = <String>[if (manual.isNotEmpty) manual, ..._seedUrls];
     return merged.toSet().toList();
+  }
+
+  bool get _guideReadByModel {
+    final type = _extractionSourceType;
+    return type == 'gemini_client' || type == 'cloud';
   }
 
   @override
@@ -210,6 +217,7 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
         _extractionAttempted = true;
         _extractionSuccess = result.success;
         _extractionMessage = result.message;
+        _extractionSourceType = result.sourceType;
         _keyRequirements = result.keyRequirements;
         _extractedExcerpt = result.excerpt;
         _extractedSourceUrl = result.sourceUrl;
@@ -225,6 +233,49 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
           }
         } else if (!_rules.extractedFromGuide) {
           _rules = _fallbackRules;
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _extractionAttempted = true;
+        _extractionSuccess = false;
+        _extractionMessage = '$e';
+      });
+    } finally {
+      if (mounted) setState(() => _extractingGuidelines = false);
+    }
+  }
+
+  Future<void> _readGuideLink() async {
+    final url = _manualGuideUrlCtrl.text.trim();
+    setState(() {
+      _extractingGuidelines = true;
+      _extractionMessage = null;
+    });
+    try {
+      final result = await JournalGuidelinesExtractService.instance.readGuideUrl(
+        journalName: widget.journal.name,
+        publisher: widget.journal.publisher,
+        guidelinesUrl: url,
+        fallback: _fallbackRules,
+      );
+      if (!mounted) return;
+      setState(() {
+        _extractionAttempted = true;
+        _extractionSuccess = result.success;
+        _extractionMessage = result.message;
+        _extractionSourceType = result.sourceType;
+        _keyRequirements = result.keyRequirements;
+        _extractedExcerpt = result.excerpt;
+        _extractedSourceUrl = result.sourceUrl;
+        _fetchLogLines = result.fetchLog;
+        if (result.success && result.rules != null) {
+          _rules = result.rules!;
+          _userChangedStyleAfterExtract = false;
+          _manuscript = _manuscript?.copyWith(
+            citationStyle: result.rules!.citationStyle,
+          );
         }
       });
     } catch (e) {
@@ -269,6 +320,7 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
         _extractionAttempted = true;
         _extractionSuccess = result.success;
         _extractionMessage = result.message;
+        _extractionSourceType = result.sourceType;
         _keyRequirements = result.keyRequirements;
         _extractedExcerpt = result.excerpt;
         _extractedSourceUrl = result.sourceUrl;
@@ -286,16 +338,11 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            result.success
-                ? context.t(
-                    'طُبّق النص الملصوق: ${result.keyRequirements.isEmpty ? (result.excerpt ?? 'قواعد من الدليل') : result.keyRequirements.take(3).join(' · ')}',
-                    'Pasted guide applied: ${result.keyRequirements.isEmpty ? (result.excerpt ?? 'rules from the guide') : result.keyRequirements.take(3).join(' · ')}',
-                  )
-                : (result.message ??
-                    context.t(
-                      'لم تُستخرج قواعد من النص الملصوق.',
-                      'No rules could be read from the pasted text.',
-                    )),
+            result.message ??
+                context.t(
+                  'لم تُستخرج قواعد من النص الملصوق.',
+                  'No rules could be read from the pasted text.',
+                ),
           ),
           duration: const Duration(seconds: 6),
         ),
@@ -450,6 +497,7 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
       _extractionAttempted = true;
       _extractionSuccess = result.success;
       _extractionMessage = result.message;
+      _extractionSourceType = result.sourceType;
       _keyRequirements = result.keyRequirements;
       _extractedExcerpt = result.excerpt;
       _extractedSourceUrl = result.sourceUrl;
@@ -562,6 +610,13 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
 
       if (!mounted) return;
       final imageCount = export.imageCount;
+      final marked = CitationReadingAdvisor.lastMarkedCount;
+      final readingNote = marked > 0
+          ? context.t(
+              ' — ميّز AcadeGate $marked استشهاداً قبل الترقيم',
+              ' — AcadeGate marked $marked citations before numbering',
+            )
+          : '';
       final imageNote = imageCount > 0
           ? context.t(
               ' — $imageCount صورة مضمّنة من الملف الأصلي',
@@ -575,11 +630,11 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
         SnackBar(
           content: Text(context.t(
             exportRules.extractedFromGuide
-                ? 'تم التصدير بقواعد «${widget.journal.name}» من الدليل — تباعد ${exportRules.lineSpacing}، مراجع: ${CitationFormatter.detectedStyleLabel(exportRules.citationStyle, plainNumberList: exportRules.referenceListPlainNumber)}$imageNote'
-                : 'تم التصدير بقالب احتياطي (ليس من دليل المجلة) — تباعد ${exportRules.lineSpacing}$imageNote',
+                ? 'تم التصدير بقواعد «${widget.journal.name}» من الدليل — تباعد ${exportRules.lineSpacing}، مراجع: ${CitationFormatter.detectedStyleLabel(exportRules.citationStyle, plainNumberList: exportRules.referenceListPlainNumber)}$readingNote$imageNote'
+                : 'تم التصدير بقالب احتياطي (ليس من دليل المجلة) — تباعد ${exportRules.lineSpacing}$readingNote$imageNote',
             exportRules.extractedFromGuide
-                ? 'Exported with «${widget.journal.name}» guide rules — spacing ${exportRules.lineSpacing}, refs: ${CitationFormatter.detectedStyleLabel(exportRules.citationStyle, plainNumberList: exportRules.referenceListPlainNumber)}$imageNote'
-                : 'Exported with fallback template (not from journal guide) — spacing ${exportRules.lineSpacing}$imageNote',
+                ? 'Exported with «${widget.journal.name}» guide rules — spacing ${exportRules.lineSpacing}, refs: ${CitationFormatter.detectedStyleLabel(exportRules.citationStyle, plainNumberList: exportRules.referenceListPlainNumber)}$readingNote$imageNote'
+                : 'Exported with fallback template (not from journal guide) — spacing ${exportRules.lineSpacing}$readingNote$imageNote',
           )),
           duration: const Duration(seconds: 8),
         ),
@@ -822,6 +877,92 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
                           children: [
                             Text(
                               context.t(
+                                'رابط دليل المجلة',
+                                'Journal guide link',
+                              ),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                                color: AcadeGateColors.text,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              context.t(
+                                'ألصق رابط صفحة تعليمات المؤلفين. يفتح النموذج هذه الصفحة ويقرأ قواعد التنسيق منها، بدل نسخ جزء من الدليل فقط.',
+                                'Paste the author-instructions page link. The model opens that page and reads the formatting rules, instead of relying on a partial copy.',
+                              ),
+                              style: const TextStyle(
+                                fontSize: 13,
+                                height: 1.4,
+                                color: Color(0xFFB7C3D6),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            TextField(
+                              controller: _manualGuideUrlCtrl,
+                              keyboardType: TextInputType.url,
+                              style: const TextStyle(color: AcadeGateColors.text),
+                              cursorColor: AcadeGateColors.gold,
+                              decoration: InputDecoration(
+                                labelText: context.t(
+                                  'رابط دليل المؤلفين',
+                                  'Author guide URL',
+                                ),
+                                labelStyle: const TextStyle(
+                                  color: AcadeGateColors.muted,
+                                ),
+                                hintText: 'https://...',
+                                border: const OutlineInputBorder(),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            FilledButton.icon(
+                              onPressed: _extractingGuidelines
+                                  ? null
+                                  : _readGuideLink,
+                              icon: _extractingGuidelines
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : const Icon(Icons.link),
+                              label: Text(
+                                context.t(
+                                  'افتح الرابط واقرأ القواعد',
+                                  'Open the link and read the rules',
+                                ),
+                              ),
+                            ),
+                            if (_extractionAttempted &&
+                                _extractionMessage != null &&
+                                (_extractedSourceUrl ?? '').startsWith('http'))
+                              Padding(
+                                padding: const EdgeInsets.only(top: 10),
+                                child: Text(
+                                  _extractionMessage!,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(14),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              context.t(
                                 'الصق دليل المؤلفين (لأي مجلة)',
                                 'Paste the author guide (any journal)',
                               ),
@@ -899,26 +1040,23 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
                               Row(
                                 children: [
                                   Icon(
-                                    _extractionSuccess
+                                    _extractionSuccess &&
+                                            _guideReadByModel
                                         ? Icons.check_circle
                                         : Icons.warning_amber,
-                                    color: _extractionSuccess
+                                    color: _extractionSuccess &&
+                                            _guideReadByModel
                                         ? Colors.green
                                         : Colors.orange,
                                   ),
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      _extractionSuccess
-                                          ? context.t(
-                                              'طُبّقت قواعد النص الملصوق',
-                                              'Pasted-guide rules applied',
-                                            )
-                                          : (_extractionMessage ??
-                                              context.t(
-                                                'تعذر قراءة النص الملصوق',
-                                                'Could not read the pasted text',
-                                              )),
+                                      _extractionMessage ??
+                                          context.t(
+                                            'تعذر قراءة النص الملصوق',
+                                            'Could not read the pasted text',
+                                          ),
                                       style: const TextStyle(
                                         fontWeight: FontWeight.w600,
                                       ),
@@ -977,25 +1115,31 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
                                   Row(
                                     children: [
                                       Icon(
-                                        _extractionSuccess
+                                        _extractionSuccess && _guideReadByModel
                                             ? Icons.check_circle
                                             : Icons.warning_amber,
-                                        color: _extractionSuccess
+                                        color: _extractionSuccess &&
+                                                _guideReadByModel
                                             ? Colors.green
                                             : Colors.orange,
                                       ),
                                       const SizedBox(width: 8),
                                       Expanded(
                                         child: Text(
-                                          _extractionSuccess
+                                          _extractionSuccess && _guideReadByModel
                                               ? context.t(
-                                                  'تم استخراج قواعد من دليل المؤلفين',
-                                                  'Rules extracted from author guide',
+                                                  'قرأ AcadeGate قواعد دليل المؤلفين',
+                                                  'AcadeGate read the author-guide rules',
                                                 )
-                                              : context.t(
-                                                  'تعذّر القراءة التلقائية — قالب احتياطي',
-                                                  'Auto-read failed — using fallback',
-                                                ),
+                                              : _extractionSuccess
+                                                  ? context.t(
+                                                      'طُبّق قارئ محلي — راجع الرسالة أدناه',
+                                                      'A local reader was applied — see the note below',
+                                                    )
+                                                  : context.t(
+                                                      'تعذّر القراءة — راجع الرسالة أدناه',
+                                                      'Reading failed — see the note below',
+                                                    ),
                                           style: const TextStyle(
                                             fontWeight: FontWeight.w600,
                                           ),
@@ -1133,15 +1277,14 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
                                 ),
                               ),
                               children: [
-                                TextField(
-                                  controller: _manualGuideUrlCtrl,
-                                  decoration: InputDecoration(
-                                    labelText: context.t(
-                                      'رابط دليل المؤلفين',
-                                      'Author guide URL',
-                                    ),
-                                    hintText: 'https://...',
-                                    border: const OutlineInputBorder(),
+                                Text(
+                                  context.t(
+                                    'يستخدم الرابط المكتوب في البطاقة أعلاه. إن كان فارغاً يبحث في موقع المجلة.',
+                                    'Uses the link in the card above. If it is empty, the journal site is searched.',
+                                  ),
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: Color(0xFFB7C3D6),
                                   ),
                                 ),
                                 const SizedBox(height: 10),

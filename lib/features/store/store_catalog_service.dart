@@ -277,28 +277,53 @@ class StoreCatalogService {
   StoreCatalogBundle? _cache;
   DateTime? _cachedAt;
 
-  Future<StoreCatalogBundle> loadPublicCatalog() async {
+  static const _hubPerTitleLimit = 50;
+  static const _listPerTitleLimit = 180;
+  static const _cacheTtl = Duration(minutes: 12);
+
+  void invalidateCache() {
+    _cache = null;
+    _cachedAt = null;
+  }
+
+  /// كتالوج الواجهة: استعلامات محدودة لكل قسم بدل تحميل المجموعة كاملة.
+  Future<StoreCatalogBundle> loadPublicCatalog({bool forceRefresh = false}) async {
     final cached = _cache;
     final at = _cachedAt;
-    if (cached != null &&
+    if (!forceRefresh &&
+        cached != null &&
         cached.error == null &&
         at != null &&
-        DateTime.now().difference(at) < const Duration(minutes: 4)) {
+        DateTime.now().difference(at) < _cacheTtl) {
       return cached;
     }
     try {
-      final snap = await _db.collection('product').get();
-      final products = <StoreCatalogProduct>[];
+      final titles = <String>{};
+      for (final category in storeCategories) {
+        titles.addAll(storeCategoryQueryTitles(category));
+      }
+
+      final byId = await _fetchByCategoryTitles(
+        titles.toList(),
+        perTitleLimit: _hubPerTitleLimit,
+      );
+
+      // Rails: الأكثر طلباً / الأحدث — إن وُجدت فهارس؛ وإلا نتجاهل بهدوء.
+      await _tryIngestOrdered(
+        byId,
+        orderBy: 'orderCount',
+        limit: 40,
+      );
+      await _tryIngestOrdered(
+        byId,
+        orderBy: 'createdAt',
+        limit: 40,
+      );
+
+      final products = byId.values.toList();
       final counts = <String, int>{};
       final orderCounts = <String, int>{};
-
-      for (final doc in snap.docs) {
-        final data = doc.data();
-        final status = data['approvalStatus']?.toString();
-        if (!ApprovalStatus.isPublic(status)) continue;
-
-        final product = StoreCatalogProduct.fromDoc(doc);
-        products.add(product);
+      for (final product in products) {
         if (product.categoryCanonical.isEmpty) continue;
         counts[product.categoryCanonical] =
             (counts[product.categoryCanonical] ?? 0) + 1;
@@ -318,7 +343,136 @@ class StoreCatalogService {
       _cachedAt = DateTime.now();
       return bundle;
     } catch (e) {
+      if (cached != null && cached.error == null) return cached;
       return StoreCatalogBundle(error: e);
+    }
+  }
+
+  /// منتجات قسم واحد (أو ألقابه القديمة) — لقائمة القسم.
+  Future<List<StoreCatalogProduct>> loadByCategoryTitles(
+    List<String> titles, {
+    int? perTitleLimit,
+  }) async {
+    final cleaned = titles
+        .map((t) => t.trim())
+        .where((t) => t.isNotEmpty)
+        .toSet()
+        .toList();
+    if (cleaned.isEmpty) return const [];
+
+    // أعد استخدام الكاش إن غطّى القسم بالفعل.
+    final cached = _cache;
+    if (cached != null &&
+        cached.error == null &&
+        _cachedAt != null &&
+        DateTime.now().difference(_cachedAt!) < _cacheTtl) {
+      final titleSet = cleaned.toSet();
+      final fromCache = cached.products.where((p) {
+        return titleSet.contains(p.categoryRaw) ||
+            titleSet.contains(p.categoryCanonical);
+      }).toList();
+      // إن وُجدت منتجات كافية من الكاش نعرضها فوراً؛ وإلا نجلب من الشبكة.
+      if (fromCache.isNotEmpty) {
+        // Refresh in background without blocking first paint when cache is warm.
+        // ignore: unawaited_futures
+        _refreshCategoryIntoCache(cleaned, perTitleLimit ?? _listPerTitleLimit);
+        return fromCache;
+      }
+    }
+
+    final byId = await _fetchByCategoryTitles(
+      cleaned,
+      perTitleLimit: perTitleLimit ?? _listPerTitleLimit,
+    );
+    return byId.values.toList();
+  }
+
+  Future<void> _refreshCategoryIntoCache(
+    List<String> titles,
+    int perTitleLimit,
+  ) async {
+    try {
+      final fresh = await _fetchByCategoryTitles(
+        titles,
+        perTitleLimit: perTitleLimit,
+      );
+      final cached = _cache;
+      if (cached == null || cached.error != null) return;
+      final merged = <String, StoreCatalogProduct>{
+        for (final p in cached.products) p.id: p,
+        ...fresh,
+      };
+      final products = merged.values.toList();
+      final counts = <String, int>{};
+      final orderCounts = <String, int>{};
+      for (final product in products) {
+        if (product.categoryCanonical.isEmpty) continue;
+        counts[product.categoryCanonical] =
+            (counts[product.categoryCanonical] ?? 0) + 1;
+        if (product.orderCount > 0) {
+          orderCounts[product.categoryCanonical] =
+              (orderCounts[product.categoryCanonical] ?? 0) +
+                  product.orderCount;
+        }
+      }
+      _cache = StoreCatalogBundle(
+        products: products,
+        countsByCanonicalTitle: counts,
+        orderCountsByCanonicalTitle: orderCounts,
+      );
+      _cachedAt = DateTime.now();
+    } catch (_) {}
+  }
+
+  Future<Map<String, StoreCatalogProduct>> _fetchByCategoryTitles(
+    List<String> titles, {
+    required int perTitleLimit,
+  }) async {
+    final byId = <String, StoreCatalogProduct>{};
+    if (titles.isEmpty) return byId;
+
+    // دفعات صغيرة حتى لا نفتح عشرات الاستعلامات دفعة واحدة على الشبكة الضعيفة.
+    const chunkSize = 8;
+    for (var i = 0; i < titles.length; i += chunkSize) {
+      final chunk = titles.skip(i).take(chunkSize).toList();
+      final snaps = await Future.wait(
+        chunk.map(
+          (title) => _db
+              .collection('product')
+              .where('category', isEqualTo: title)
+              .limit(perTitleLimit)
+              .get(),
+        ),
+      );
+      for (final snap in snaps) {
+        for (final doc in snap.docs) {
+          final status = doc.data()['approvalStatus']?.toString();
+          if (!ApprovalStatus.isPublic(status)) continue;
+          byId.putIfAbsent(doc.id, () => StoreCatalogProduct.fromDoc(doc));
+        }
+      }
+    }
+    return byId;
+  }
+
+  Future<void> _tryIngestOrdered(
+    Map<String, StoreCatalogProduct> byId, {
+    required String orderBy,
+    required int limit,
+  }) async {
+    try {
+      final snap = await _db
+          .collection('product')
+          .orderBy(orderBy, descending: true)
+          .limit(limit)
+          .get();
+      for (final doc in snap.docs) {
+        final status = doc.data()['approvalStatus']?.toString();
+        if (!ApprovalStatus.isPublic(status)) continue;
+        byId.putIfAbsent(doc.id, () => StoreCatalogProduct.fromDoc(doc));
+      }
+    } catch (_) {
+      // فهرس ناقص أو حقل غير مفهرس — نكتفي باستعلامات الأقسام.
     }
   }
 }

@@ -38,6 +38,7 @@ Strict rules:
 - Do not invent names or institutions not present in the supplied data.
 - The bundle may include MULTIPLE options per section (ideas, supervisors, labs, products, writers). Compare them briefly and help the researcher choose.
 - If a bundle item is missing, suggest a practical alternative within the platform (browse, register, request).
+- If the bundle marks a humanities/education path (prefers libraries; labs empty by design): do NOT suggest science labs (physiology, microbiology, etc.). Recommend books, faculty libraries, confirmed DOI studies, and textual/archival methods instead.
 - Use these exact headings in your reply:
 
 ${headers.analysis}
@@ -60,6 +61,7 @@ ${headers.next}
 - لا تخترع أسماء أو جهات غير موجودة في البيانات المرسلة.
 - قد تحتوي الحزمة على عدة خيارات في كل قسم (أفكار، مشرفون، مختبرات، منتجات، كتّاب). قارنها باختصار وساعد الباحث على الاختيار.
 - إن كان عنصراً ناقصاً في الحزمة، اقترح بديلاً عملياً من داخل المنصة (تصفح، تسجيل، طلب).
+- إن كانت الحزمة لمسار إنساني/تربوي (مكتبات بدل المختبرات؛ قائمة المختبرات فارغة قصداً): لا تقترح مختبرات علمية (فسيولوجي، ميكروبيولوجي، إلخ). اقترح كتباً ومكتبات الكلية والدراسات ذات DOI والمناهج النصية/الأرشيفية.
 - استخدم العناوين التالية بالضبط في ردك:
 
 ${headers.analysis}
@@ -237,7 +239,16 @@ Rules: do not invent a paper, DOI, supervisor, lab, or company. field_en must be
       buffer.writeln(appTr('مشرف: غير متوفر', 'Supervisor: not available'));
     }
 
-    if (bundle.labs.isNotEmpty) {
+    if (bundle.prefersLibraries) {
+      buffer.writeln(
+        appTr(
+          'مسار إنساني/تربوي: مكتبات وكتب (بدون مختبرات علمية). '
+          'دراسات مؤكدة: ${bundle.literature.length}. افتح مكتبة كتب الكلية من المنصة.',
+          'Humanities/education path: libraries and books (no science labs). '
+          'Confirmed studies: ${bundle.literature.length}. Open the faculty books library in the app.',
+        ),
+      );
+    } else if (bundle.labs.isNotEmpty) {
       buffer.writeln(appTr('مختبرات مقترحة:', 'Suggested labs:'));
       for (final lab in bundle.labs) {
         buffer.writeln(
@@ -461,7 +472,14 @@ Rules: do not invent a paper, DOI, supervisor, lab, or company. field_en must be
         ),
       );
     }
-    if (bundle.labs.isNotEmpty) {
+    if (bundle.prefersLibraries) {
+      analysis.writeln(
+        appTr(
+          '• مسار إنساني/تربوي: مكتبات وكتب ودراسات مؤكدة (${bundle.literature.length}) بدل المختبرات العلمية.',
+          '• Humanities/education path: libraries, books, and confirmed studies (${bundle.literature.length}) instead of science labs.',
+        ),
+      );
+    } else if (bundle.labs.isNotEmpty) {
       analysis.writeln(
         appTr(
           '• ${bundle.labs.length} مختبرات — منها ${bundle.labs.first.item.name} لاحتياجاتك التجريبية.',
@@ -501,19 +519,32 @@ Rules: do not invent a paper, DOI, supervisor, lab, or company. field_en must be
       ..writeln(appTr(
         '3. تواصل مع المشرف المقترح لاعتماد المنهجية.',
         '3. Contact the suggested supervisor to approve methodology.',
-      ))
-      ..writeln(appTr(
-        '4. احجز المختبر واطلب المواد من المتجر إن لزم.',
-        '4. Book the lab and order store supplies if needed.',
-      ))
-      ..writeln(appTr(
-        '5. اطلب دعم الكتابة/الإحصاء حسب مرحلة رسالتك.',
-        '5. Request writing/statistics support for your thesis stage.',
-      ))
-      ..writeln(appTr(
-        '6. راجع المسودات قبل التسليم النهائي.',
-        '6. Review drafts before final submission.',
       ));
+    if (bundle.prefersLibraries) {
+      plan
+        ..writeln(appTr(
+          '4. افتح مكتبة كتب الكلية وادرس المراجع والدراسات ذات DOI المرتبطة بنقطتك.',
+          '4. Open the faculty books library and study DOI-confirmed references for your topic.',
+        ))
+        ..writeln(appTr(
+          '5. اطلب دعم الكتابة/التدقيق حسب مرحلة رسالتك.',
+          '5. Request writing/editing support for your thesis stage.',
+        ));
+    } else {
+      plan
+        ..writeln(appTr(
+          '4. احجز المختبر واطلب المواد من المتجر إن لزم.',
+          '4. Book the lab and order store supplies if needed.',
+        ))
+        ..writeln(appTr(
+          '5. اطلب دعم الكتابة/الإحصاء حسب مرحلة رسالتك.',
+          '5. Request writing/statistics support for your thesis stage.',
+        ));
+    }
+    plan.writeln(appTr(
+      '6. راجع المسودات قبل التسليم النهائي.',
+      '6. Review drafts before final submission.',
+    ));
 
     return ResearchPathAiInsight(
       analysis: analysis.toString().trim(),

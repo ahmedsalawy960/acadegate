@@ -1,26 +1,25 @@
 import 'package:flutter/material.dart';
 
-/// Native logo raster width (do not upscale beyond this for sharpness).
-const _logoNativeWidth = 512.0;
+import '../theme/acadegate_theme.dart';
 
-/// AcadeGate brand mark — circular badge (icon + wordmark).
+/// AcadeGate brand mark — graduation cap only, without the disc or wordmark.
 class AcadeGateLogo extends StatelessWidget {
   const AcadeGateLogo({
     super.key,
     this.size = 120,
-    this.showShadow = true,
+    this.showShadow = false,
     this.variant = AcadeGateLogoVariant.full,
   });
 
   final double size;
+
+  /// Kept so older call sites still compile. The disc shadow is not drawn.
   final bool showShadow;
 
-  /// Kept for existing call sites. Full and compact both show the complete badge.
+  /// Kept for existing call sites. Full and compact both show the cap.
   final AcadeGateLogoVariant variant;
 
-  static const assetPath = 'assets/images/acadegate_logo_2x.png';
-
-  static const _navy = Color(0xFF1A237E);
+  static const assetPath = 'assets/images/acadegate_logo_mark.png';
 
   @override
   Widget build(BuildContext context) {
@@ -28,13 +27,13 @@ class AcadeGateLogo extends StatelessWidget {
       variant == AcadeGateLogoVariant.full ||
           variant == AcadeGateLogoVariant.compact,
     );
-    final mark = Image.asset(
+    assert(showShadow || !showShadow);
+    return Image.asset(
       assetPath,
       width: size,
-      height: size,
+      height: size * 0.8,
       fit: BoxFit.contain,
       filterQuality: FilterQuality.high,
-      cacheWidth: size >= _logoNativeWidth ? null : _logoNativeWidth.toInt(),
       gaplessPlayback: true,
       errorBuilder: (context, error, stackTrace) {
         debugPrint('AcadeGate logo asset error: $error');
@@ -45,26 +44,51 @@ class AcadeGateLogo extends StatelessWidget {
         );
       },
     );
-
-    if (!showShadow) return mark;
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: _navy.withValues(alpha: 0.22),
-            blurRadius: size * 0.08,
-            offset: Offset(0, size * 0.03),
-          ),
-        ],
-      ),
-      child: mark,
-    );
   }
 }
 
 enum AcadeGateLogoVariant { full, compact }
+
+/// اسم العلامة: Acade بالأبيض و Gate بالأصفر، كما في تذييل الصفحة.
+class AcadeGateWordmark extends StatelessWidget {
+  const AcadeGateWordmark({
+    super.key,
+    this.fontSize = 22,
+    this.letterSpacing = 0.4,
+    this.fontWeight = FontWeight.w900,
+    this.gateColor = AcadeGateColors.gold,
+  });
+
+  final double fontSize;
+  final double letterSpacing;
+  final FontWeight fontWeight;
+  final Color gateColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = TextStyle(
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      letterSpacing: letterSpacing,
+      height: 1,
+    );
+    return Text.rich(
+      TextSpan(
+        children: [
+          TextSpan(
+            text: 'Acade',
+            style: style.copyWith(color: Colors.white),
+          ),
+          TextSpan(
+            text: 'Gate',
+            style: style.copyWith(color: gateColor),
+          ),
+        ],
+      ),
+      textAlign: TextAlign.center,
+    );
+  }
+}
 
 /// Logo + tagline for auth screens. The badge already includes the wordmark.
 class AcadeGateLogoHeader extends StatelessWidget {
@@ -92,6 +116,8 @@ class AcadeGateLogoHeader extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         AcadeGateLogo(size: logoSize),
+        SizedBox(height: logoSize * 0.08),
+        AcadeGateWordmark(fontSize: logoSize * 0.2),
         if (showTagline) ...[
           SizedBox(height: logoSize * 0.12),
           Text(

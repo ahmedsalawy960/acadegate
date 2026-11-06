@@ -145,8 +145,8 @@ class _CitationCheckScreenState extends State<CitationCheckScreen> {
           const SizedBox(height: 12),
           Text(
             context.t(
-              'السجل: Crossref updates + OpenAlex is_retracted — حتى ${CitationCheckService.maxReferences} مرجعاً. ليس تقرير Turnitin.',
-              'Registry: Crossref updates + OpenAlex is_retracted — up to ${CitationCheckService.maxReferences} references. Not a Turnitin report.',
+              'سجل AcadeGate للتحقق من السحب/التصحيح — حتى ${CitationCheckService.maxReferences} مرجعاً. ليس تقرير Turnitin.',
+              'AcadeGate registry for retraction/correction checks — up to ${CitationCheckService.maxReferences} references. Not a Turnitin report.',
             ),
             style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
           ),
@@ -218,9 +218,9 @@ class _CitationCheckScreenState extends State<CitationCheckScreen> {
             const SizedBox(height: 8),
             Text(
               context.t(
-                'يؤكد المرجع عبر Crossref وOpenAlex ثم يبحث عن سحب أو تصحيح أو تعبير قلق في السجل — '
+                'يؤكد المرجع عبر فهارس AcadeGate ثم يبحث عن سحب أو تصحيح أو تعبير قلق في السجل — '
                 'لا يُختلق DOI. المراجع بلا DOI أو العربية قد تحتاج بحثاً يدوياً.',
-                'Confirms the work via Crossref and OpenAlex, then looks up retraction, correction, or concern in the registry — '
+                'Confirms the work via AcadeGate indexes, then looks up retraction, correction, or concern in the registry — '
                 'no invented DOI. References without a DOI or in Arabic may need a manual search.',
               ),
               style: const TextStyle(height: 1.5),
@@ -337,9 +337,10 @@ class _CitationCheckScreenState extends State<CitationCheckScreen> {
     };
 
     final sourceLabel = switch (match?.source) {
-      CitationDataSource.crossref => 'Crossref',
-      CitationDataSource.openAlex => 'OpenAlex',
-      CitationDataSource.semanticScholar => 'Semantic Scholar',
+      CitationDataSource.crossref ||
+      CitationDataSource.openAlex ||
+      CitationDataSource.semanticScholar =>
+        'AcadeGate',
       null => '',
     };
 
@@ -453,8 +454,8 @@ class _CitationCheckScreenState extends State<CitationCheckScreen> {
                 ),
                 child: Text(
                   context.t(
-                    'بحث على Google Scholar',
-                    'Search on Google Scholar',
+                    'بحث في المراجع',
+                    'Search references',
                   ),
                   style: TextStyle(
                     color: const Color(0xFFB7C3D6),

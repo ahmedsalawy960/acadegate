@@ -196,10 +196,10 @@ class _ManuscriptFormatScreenState extends State<ManuscriptFormatScreen> {
           SnackBar(
             content: Text(context.t(
               result.fromFile
-                  ? 'قُرئ الملف الأصلي «$source»: ${result.referenceCount} مرجعاً. [n] في النص = نفس المرجع n في القائمة.'
+                  ? 'قُرئ الملف الأصلي «$source»: ${result.referenceCount} مرجعاً.'
                   : 'لم يُقرأ ملف Word الأصلي — أوقف التطبيق وارفع الملف من جهازك ثم أعد التنسيق.',
               result.fromFile
-                  ? 'Read the original file "$source": ${result.referenceCount} references. In-text [n] is bibliography item n.'
+                  ? 'Read the original file "$source": ${result.referenceCount} references.'
                   : 'The original Word file was not read — quit the app, upload the original file, then format again.',
             )),
             duration: const Duration(seconds: 6),
@@ -400,13 +400,20 @@ class _ManuscriptFormatScreenState extends State<ManuscriptFormatScreen> {
             Card(
               color: Colors.green.shade50,
               child: ListTile(
-                leading: const Icon(Icons.check_circle, color: Colors.green),
-                title: Text(context.t(
-                  'تم تنسيق $_lastRefCount مرجعاً و$_lastCiteCount اقتباساً بنمط ${CitationFormatter.styleLabel(_style)}'
-                  '${_maxImportedNumber > 0 ? ' — أرقام القائمة 1–$_maxImportedNumber' : ''}',
-                  'Formatted $_lastRefCount references and $_lastCiteCount in-text citations as ${CitationFormatter.styleLabel(_style)}'
-                  '${_maxImportedNumber > 0 ? ' — list numbers 1–$_maxImportedNumber' : ''}',
-                )),
+                leading: const Icon(Icons.check_circle, color: Color(0xFF1B5E20)),
+                title: Text(
+                  context.t(
+                    'تم تنسيق $_lastRefCount مرجعاً و$_lastCiteCount اقتباساً بنمط ${CitationFormatter.styleLabel(_style)}'
+                    '${_maxImportedNumber > 0 ? ' — أرقام القائمة 1–$_maxImportedNumber' : ''}',
+                    'Formatted $_lastRefCount references and $_lastCiteCount in-text citations as ${CitationFormatter.styleLabel(_style)}'
+                    '${_maxImportedNumber > 0 ? ' — list numbers 1–$_maxImportedNumber' : ''}',
+                  ),
+                  style: const TextStyle(
+                    color: Color(0xFF1B5E20),
+                    fontWeight: FontWeight.w600,
+                    height: 1.4,
+                  ),
+                ),
               ),
             ),
           ],

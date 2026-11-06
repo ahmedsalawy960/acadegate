@@ -61,7 +61,150 @@ class ThesisStudioEngine {
       draft: draft,
       profile: profile,
     );
-    return draft;
+    onProgress?.call(_progressLiterature);
+    final literature = await _harvestLiteratureForPlan(
+      plan: draft.plan,
+      onProgress: onProgress,
+      preferBreadth: true,
+    );
+    final abstractRefs = literature.works.take(24).toList();
+    return draft.copyWith(
+      literature: literature,
+      literatureMap: ThesisLiteratureMapper.fromBundle(literature),
+      abstractReferences: draft.abstractReferences.isNotEmpty
+          ? draft.abstractReferences
+          : abstractRefs,
+      note: appTr(
+        '${draft.note ?? ''}\n'
+                'جُلب ${literature.works.length} مرجعاً مؤكداً عند بناء الهيكل. '
+                '${draft.titleOptions.length > 1 ? 'اختر من ${draft.titleOptions.length} عناوين مقترحة.' : ''} '
+                '${draft.abstractText.trim().isNotEmpty ? 'الملخص جاهز للمراجعة.' : ''}'
+            .trim(),
+        '${draft.note ?? ''}\n'
+                'Fetched ${literature.works.length} confirmed sources while building the outline. '
+                '${draft.titleOptions.length > 1 ? 'Pick from ${draft.titleOptions.length} proposed titles.' : ''} '
+                '${draft.abstractText.trim().isNotEmpty ? 'Abstract is ready to review.' : ''}'
+            .trim(),
+      ),
+    );
+  }
+
+  /// جلب واسع للمراجع عند بناء الهيكل أو المسودة الكاملة.
+  /// [preferBreadth]: عند بناء الهيكل نفضّل قائمة غنية (عشرات الدراسات) لا تصفية صارمة تُبقي دراستين.
+  Future<GroundedReferenceBundle> _harvestLiteratureForPlan({
+    required ThesisPlan plan,
+    ThesisProgress? onProgress,
+    bool preferBreadth = false,
+  }) async {
+    final goal = plan.goal;
+    final keepLimit = preferBreadth
+        ? ThesisLengthBudget.sourceLimit(plan.targetPages).clamp(40, 100)
+        : ThesisLengthBudget.sourceLimit(plan.targetPages);
+    final pool = preferBreadth
+        ? ThesisLengthBudget.harvestPool(plan.targetPages).clamp(80, 180)
+        : ThesisLengthBudget.harvestPool(plan.targetPages);
+    final preferEnglish = !plan.arabic;
+    final searchPlan = await ThesisLiteratureAi.instance.planSearch(
+      rawGoal: goal.raw,
+      goal: goal,
+      arabicDraft: plan.arabic,
+      discipline: plan.discipline,
+    );
+    final queries = [
+      ...searchPlan.queries,
+      ...ResearchGoalParser.scientificSearchQueries(
+        goal,
+        includeNativeField: plan.arabic,
+      ),
+    ];
+    final uniqueQueries = <String>{};
+    final queryList = [
+      for (final q in queries)
+        if (uniqueQueries.add(q.toLowerCase().trim()) && q.trim().length >= 4)
+          q.trim(),
+    ].take(preferBreadth ? 10 : 6).toList();
+
+    var literature = await GroundedReferenceService.instance.searchScientific(
+      queries: queryList.isNotEmpty
+          ? queryList
+          : ResearchGoalParser.scientificSearchQueries(
+              goal,
+              includeNativeField: plan.arabic,
+            ),
+      limit: pool,
+      preferEnglish: preferEnglish,
+      minYear: 0,
+      includeTheses: true,
+      corePhrases: [
+        ...ResearchGoalParser.corePhrases(goal),
+        ...searchPlan.includeTerms,
+      ]
+          .where(
+            (t) =>
+                !preferEnglish || !RegExp(r'[\u0600-\u06FF]').hasMatch(t),
+          )
+          .toList(),
+      strongTokens: [
+        ...ResearchGoalParser.strongMatchTokens(goal),
+        ...searchPlan.includeTerms,
+      ],
+      disciplineTokens: plan.discipline.searchTerms,
+      alienTokens: plan.discipline.alienHints,
+      requireCoreHit: false,
+      requireTitleCoreHit: false,
+      commandText: goal.raw,
+      minScore: preferBreadth ? 1 : (preferEnglish ? 3 : 2),
+    );
+    onProgress?.call(_progressGate);
+
+    final ranked = LiteratureRelevance.rank(
+      works: literature.works,
+      corePhrases: searchPlan.includeTerms.isNotEmpty
+          ? searchPlan.includeTerms
+          : ResearchGoalParser.corePhrases(goal),
+      strongTokens: ResearchGoalParser.strongMatchTokens(goal),
+      preferEnglish: preferEnglish,
+      minYear: 0,
+      limit: keepLimit,
+      minScore: preferBreadth ? 1 : 2,
+      requireCoreHit: false,
+      requireTitleCoreHit: false,
+      commandText: goal.raw,
+      disciplineTokens: plan.discipline.searchTerms,
+      alienTokens: plan.discipline.alienHints,
+    );
+    final poolForGate = ranked.isNotEmpty
+        ? ranked
+        : literature.works.take(keepLimit).toList();
+
+    List<GroundedWork> kept;
+    if (preferBreadth) {
+      // بناء الهيكل: لا نُفرّغ القائمة ببوابة صارمة — نرتّب ونُبقي الكثير.
+      kept = poolForGate.take(keepLimit).toList();
+      if (kept.length < 12 && literature.works.length > kept.length) {
+        kept = _mergeWorks(kept, literature.works, keepLimit);
+      }
+    } else {
+      final mapPreLimit = (keepLimit * 2).clamp(24, 64);
+      final mapGatePool = poolForGate.take(mapPreLimit).toList();
+      kept = await ThesisLiteratureAi.instance.gate(
+        plan: searchPlan,
+        works: mapGatePool,
+        maxKeep: keepLimit.clamp(20, 80),
+      );
+      final minKeep = (keepLimit * 0.45).round().clamp(12, 40);
+      if (kept.length < minKeep) {
+        kept = _mergeWorks(kept, poolForGate, keepLimit);
+      }
+      if (kept.isEmpty && literature.works.isNotEmpty) {
+        kept = literature.works.take(keepLimit).toList();
+      }
+    }
+
+    return GroundedReferenceBundle(
+      topic: searchPlan.topic.isNotEmpty ? searchPlan.topic : literature.topic,
+      works: kept,
+    );
   }
 
   Future<ThesisDraft> buildDraft({
@@ -90,93 +233,11 @@ class ThesisStudioEngine {
       facultyId: facultyId,
       departmentId: departmentId,
     );
-    final goal = plan.goal;
-
     onProgress?.call(_progressLiterature);
-    final keepLimit = ThesisLengthBudget.sourceLimit(plan.targetPages);
-    final pool = ThesisLengthBudget.harvestPool(plan.targetPages);
-    final preferEnglish = !plan.arabic;
-    final searchPlan = await ThesisLiteratureAi.instance.planSearch(
-      rawGoal: goal.raw,
-      goal: goal,
-      arabicDraft: plan.arabic,
-      discipline: plan.discipline,
-    );
-    var literature = await GroundedReferenceService.instance.searchScientific(
-      queries: searchPlan.queries.isNotEmpty
-          ? searchPlan.queries
-          : ResearchGoalParser.scientificSearchQueries(
-              goal,
-              includeNativeField: plan.arabic,
-            ),
-      limit: pool,
-      preferEnglish: preferEnglish,
-      minYear: 0,
-      includeTheses: true,
-      corePhrases: [
-        ...ResearchGoalParser.corePhrases(goal),
-        ...searchPlan.includeTerms,
-      ].where((t) => !preferEnglish || !RegExp(r'[\u0600-\u06FF]').hasMatch(t)).toList(),
-      strongTokens: [
-        ...ResearchGoalParser.strongMatchTokens(goal),
-        ...searchPlan.includeTerms,
-      ],
-      disciplineTokens: plan.discipline.searchTerms,
-      alienTokens: plan.discipline.alienHints,
-      requireCoreHit: false,
-      requireTitleCoreHit: false,
-      commandText: goal.raw,
-      minScore: preferEnglish ? 3 : 2,
-    );
-    onProgress?.call(_progressGate);
-    final mapPreLimit = (keepLimit * 2).clamp(24, 48);
-    final mapPre = LiteratureRelevance.rank(
-      works: literature.works,
-      corePhrases: searchPlan.includeTerms.isNotEmpty
-          ? searchPlan.includeTerms
-          : ResearchGoalParser.corePhrases(goal),
-      strongTokens: ResearchGoalParser.strongMatchTokens(goal),
-      preferEnglish: preferEnglish,
-      minYear: 0,
-      limit: mapPreLimit,
-      minScore: 2,
-      requireCoreHit: false,
-      requireTitleCoreHit: false,
-      commandText: goal.raw,
-      disciplineTokens: plan.discipline.searchTerms,
-      alienTokens: plan.discipline.alienHints,
-    );
-    final mapGatePool =
-        mapPre.isNotEmpty ? mapPre : literature.works.take(mapPreLimit).toList();
-    var gated = await ThesisLiteratureAi.instance.gate(
-      plan: searchPlan,
-      works: mapGatePool,
-      maxKeep: keepLimit.clamp(12, 40),
-    );
-    if (gated.isEmpty) {
-      gated = LiteratureRelevance.rank(
-        works: literature.works,
-        corePhrases: searchPlan.includeTerms.isNotEmpty
-            ? searchPlan.includeTerms
-            : ResearchGoalParser.corePhrases(goal),
-        strongTokens: ResearchGoalParser.strongMatchTokens(goal),
-        preferEnglish: preferEnglish,
-        minYear: 0,
-        limit: keepLimit,
-        minScore: 2,
-        requireCoreHit: false,
-        requireTitleCoreHit: false,
-        commandText: goal.raw,
-        disciplineTokens: plan.discipline.searchTerms,
-        alienTokens: plan.discipline.alienHints,
-      );
-      if (gated.isEmpty && literature.works.isNotEmpty) {
-        gated = literature.works.take(keepLimit).toList();
-      }
-    }
-    literature = GroundedReferenceBundle(
-      topic: searchPlan.topic.isNotEmpty ? searchPlan.topic : literature.topic,
-      works: gated,
+    final literature = await _harvestLiteratureForPlan(
+      plan: plan,
+      onProgress: onProgress,
+      preferBreadth: true,
     );
 
     onProgress?.call(_progressOutline);
@@ -782,11 +843,11 @@ class ThesisStudioEngine {
       requireCoreHit: false,
       requireTitleCoreHit: false,
       commandText: scopeText,
-      minScore: preferEnglish ? 3 : 2,
+      minScore: preferEnglish ? 2 : 1,
     );
     onProgress?.call(_progressGate);
     // Cap AI gate batches so long paragraph harvests leave quota for write/grow.
-    final preRankLimit = (keepLimit * 2).clamp(24, 48);
+    final preRankLimit = (keepLimit * 2).clamp(32, 80);
     final preRanked = LiteratureRelevance.rank(
       works: literature.works,
       corePhrases: searchCores.isNotEmpty ? searchCores : goalPhrases,
@@ -794,7 +855,7 @@ class ThesisStudioEngine {
       preferEnglish: preferEnglish,
       minYear: 0,
       limit: preRankLimit,
-      minScore: 2,
+      minScore: 1,
       requireCoreHit: false,
       requireTitleCoreHit: false,
       commandText: scopeText,
@@ -804,27 +865,35 @@ class ThesisStudioEngine {
     final gatePool = preRanked.isNotEmpty
         ? preRanked
         : literature.works.take(preRankLimit).toList();
-    final gateKeep = keepLimit.clamp(12, 40);
+    final gateKeep = keepLimit.clamp(20, 60);
     var gated = await ThesisLiteratureAi.instance.gate(
       plan: searchPlan,
       works: gatePool,
       maxKeep: gateKeep,
     );
-    if (gated.isEmpty) {
-      gated = LiteratureRelevance.rank(
-        works: literature.works,
-        corePhrases: searchCores.isNotEmpty ? searchCores : goalPhrases,
-        strongTokens: strongTokens,
-        preferEnglish: preferEnglish,
-        minYear: 0,
-        limit: keepLimit,
-        minScore: 2,
-        requireCoreHit: false,
-        requireTitleCoreHit: false,
-        commandText: scopeText,
-        disciplineTokens: draft.plan.discipline.searchTerms,
-        alienTokens: aliens,
+    final minParagraphKeep = (keepLimit * 0.5).round().clamp(15, 40);
+    if (gated.isEmpty || gated.length < minParagraphKeep) {
+      gated = _mergeWorks(
+        gated,
+        LiteratureRelevance.rank(
+          works: literature.works,
+          corePhrases: searchCores.isNotEmpty ? searchCores : goalPhrases,
+          strongTokens: strongTokens,
+          preferEnglish: preferEnglish,
+          minYear: 0,
+          limit: keepLimit,
+          minScore: 1,
+          requireCoreHit: false,
+          requireTitleCoreHit: false,
+          commandText: scopeText,
+          disciplineTokens: draft.plan.discipline.searchTerms,
+          alienTokens: aliens,
+        ),
+        keepLimit,
       );
+      if (gated.isEmpty && literature.works.isNotEmpty) {
+        gated = literature.works.take(keepLimit).toList();
+      }
     } else if (gated.length < keepLimit) {
       final have = {for (final w in gated) w.mergeKey};
       final filler = LiteratureRelevance.rank(
@@ -1126,8 +1195,8 @@ class ThesisStudioEngine {
       appTr('جارٍ فهم هدف الرسالة ونوعها...', 'Understanding the thesis goal and type...');
   static String get _progressLiterature =>
       appTr(
-        'جارٍ البحث في الفهارس الحرة (+ Google Scholar إن فُعّل SerpAPI)...',
-        'Searching free indexes (+ Google Scholar when SerpAPI is enabled)...',
+        'جارٍ البحث في فهارس AcadeGate...',
+        'Searching AcadeGate indexes...',
       );
   static String get _progressGate =>
       appTr(
@@ -1138,7 +1207,7 @@ class ThesisStudioEngine {
       appTr('جارٍ بناء هيكل الفصول حسب التخصص...', 'Building the disciplinary outline...');
   static String get _progressUnderstand =>
       appTr(
-        'Gemini 2.5 Pro يقرأ هدفك كاملاً ويضع العنوان بلغة المسودة...',
-        'Gemini 2.5 Pro is reading your full goal and writing the title in the draft language...',
+        'AcadeGate يقرأ هدفك كاملاً ويضع العنوان بلغة المسودة...',
+        'AcadeGate is reading your full goal and writing the title in the draft language...',
       );
 }

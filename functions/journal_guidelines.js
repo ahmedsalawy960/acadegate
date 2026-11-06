@@ -982,7 +982,7 @@ Rules:
 TEXT:
 ${pageText.slice(0, MAX_TEXT_FOR_AI)}`;
 
-  const models = ["gemini-2.5-flash-lite", "gemini-2.5-flash"];
+  const models = ["gemini-3.6-flash", "gemini-3-flash-preview", "gemini-3.1-flash-lite"];
   let lastError = "gemini_failed";
   let quotaHit = false;
 
@@ -1088,7 +1088,7 @@ Rules:
 - excerpt must quote the source (max 350 chars).
 - Do not invent rules not present in the guidelines.`;
 
-  const models = ["gemini-2.5-flash"];
+  const models = ["gemini-3.6-flash", "gemini-3-flash-preview"];
   let lastError = "google_search_grounding_failed";
 
   for (const model of models) {

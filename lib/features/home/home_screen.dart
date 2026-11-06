@@ -742,7 +742,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             }
 
                             return ArrowOverlayScroller(
+                              storageId: 'home_search_results',
                               builder: (context, controller) => ListView(
+                              key: const PageStorageKey<String>('home_search_results'),
                               controller: controller,
                               children: [
                                 if (filteredServices.isNotEmpty) ...[

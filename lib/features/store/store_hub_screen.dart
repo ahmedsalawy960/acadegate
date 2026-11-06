@@ -54,7 +54,6 @@ class _StoreHubScreenState extends State<StoreHubScreen> {
   bool _loadingCatalog = true;
   StoreCatalogBundle _catalog = const StoreCatalogBundle();
   StoreProductSearchResult _productHits = const StoreProductSearchResult();
-  AcademicProfile? _profile;
   List<StoreCatalogProduct> _recommended = const [];
 
   @override
@@ -91,7 +90,6 @@ class _StoreHubScreenState extends State<StoreHubScreen> {
     );
     setState(() {
       _catalog = bundle;
-      _profile = profile;
       _recommended = recommended;
       _loadingCatalog = false;
     });
@@ -538,21 +536,27 @@ class _StoreHubScreenState extends State<StoreHubScreen> {
                     onOpenHit: _openSearchHit,
                     query: _searchQuery,
                   )
-                : _loadingCatalog
-                    ? const Center(child: CircularProgressIndicator())
-                    : _catalog.hasError
-                        ? _CatalogError(
-                            onRetry: _loadCatalog,
-                            detail: '${_catalog.error}',
-                          )
-                        : _BrowseBody(
-                            catalog: _catalog,
-                            categories: categories,
-                            isAr: isAr,
-                            recommended: _recommended,
-                            onOpenCategory: _openCategory,
-                            onOpenProduct: _openCatalogProduct,
+                : _catalog.hasError && _catalog.products.isEmpty
+                    ? _CatalogError(
+                        onRetry: _loadCatalog,
+                        detail: '${_catalog.error}',
+                      )
+                    : Column(
+                        children: [
+                          if (_loadingCatalog)
+                            const LinearProgressIndicator(minHeight: 2),
+                          Expanded(
+                            child: _BrowseBody(
+                              catalog: _catalog,
+                              categories: categories,
+                              isAr: isAr,
+                              recommended: _recommended,
+                              onOpenCategory: _openCategory,
+                              onOpenProduct: _openCatalogProduct,
+                            ),
                           ),
+                        ],
+                      ),
           ),
         ],
       ),
@@ -693,6 +697,7 @@ class _BrowseBody extends StatelessWidget {
     final egyptSuppliers = egyptStoreSuppliersCatalog.take(8).toList();
 
     return CustomScrollView(
+      key: const PageStorageKey<String>('store_hub'),
       slivers: [
         if (recommended.isNotEmpty) ...[
           SliverToBoxAdapter(

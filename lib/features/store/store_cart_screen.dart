@@ -350,8 +350,8 @@ class _StoreCartScreenState extends State<StoreCartScreen> {
                           const SizedBox(height: 4),
                           Text(
                             context.t(
-                              'بدون تسجيل دخول: فحص السلامة محلي بالكلمات. محاكاة البروتوكول تحتاج تسجيل الدخول أو مفتاح Gemini.',
-                              'Without sign-in: local keyword safety scan. Protocol simulation needs sign-in or a Gemini key.',
+                              'بدون تسجيل دخول: فحص السلامة محلي بالكلمات. محاكاة البروتوكول تحتاج تسجيل الدخول إلى AcadeGate.',
+                              'Without sign-in: local keyword safety scan. Protocol simulation needs AcadeGate sign-in.',
                             ),
                             style: const TextStyle(
                               fontSize: 11,

@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:acadegate/features/acadegate_publish/bibliography_match.dart';
 import 'package:acadegate/features/acadegate_publish/citation_formatter.dart';
+import 'package:acadegate/features/acadegate_publish/in_text_citation_converter.dart';
 import 'package:acadegate/features/acadegate_publish/citation_linker.dart';
 import 'package:acadegate/features/acadegate_publish/docx_scientific_extractor.dart';
 import 'package:acadegate/features/acadegate_publish/citation_style_converter.dart';
@@ -31,6 +32,102 @@ void main() {
       CitationLinker.applyHintWrap('1', inBody: true),
       contains(CitationLinker.hintOpen),
     );
+  });
+
+  test('figure and table numbers stay numbers when the journal uses author names', () {
+    expect(
+      CitationLinker.looksLikeCitationHint('1', inBody: true, before: 'Fig. '),
+      isFalse,
+    );
+    expect(
+      CitationLinker.looksLikeCitationHint('2', inBody: true, before: 'Figures 1 and '),
+      isFalse,
+    );
+    expect(
+      CitationLinker.looksLikeCitationHint('3', inBody: true, before: 'Table '),
+      isFalse,
+    );
+    expect(
+      CitationLinker.looksLikeCitationHint('1', inBody: true, before: 'Scheme '),
+      isFalse,
+    );
+    expect(
+      CitationLinker.looksLikeCitationHint('1', inBody: true, before: 'شكل '),
+      isFalse,
+    );
+    expect(
+      CitationLinker.applyHintWrap('1', inBody: true, before: 'Fig. '),
+      '1',
+    );
+    expect(
+      CitationLinker.looksLikeCitationHint('4', inBody: true, before: 'as reported '),
+      isTrue,
+    );
+
+    const refs = [
+      PublishReference(
+        id: 'langmuir',
+        type: ReferenceType.journal,
+        authors: ['Langmuir, I.'],
+        title: 'Adsorption',
+        year: '1918',
+        rawText: 'Langmuir, I. (1918). Adsorption.',
+      ),
+      PublishReference(
+        id: 'freundlich',
+        type: ReferenceType.journal,
+        authors: ['Freundlich, H.'],
+        title: 'Capillary',
+        year: '1906',
+        rawText: 'Freundlich, H. (1906). Capillary chemistry.',
+      ),
+    ];
+    final converted = InTextCitationConverter.applyAuthorDateCitations(
+      text: 'shown in Fig. [1] and cited later [2].',
+      references: refs,
+      targetStyle: PublishCitationStyle.apa,
+    );
+    expect(converted, contains('Fig. [1]'));
+    expect(converted, isNot(contains('Langmuir')));
+    expect(converted, contains('Freundlich'));
+  });
+
+  test('an equation number on a dotted line is not turned into an author', () {
+    expect(CitationLinker.isEquationNumberLine('..........(34)'), isTrue);
+    expect(CitationLinker.isEquationLeader('..........'), isTrue);
+    expect(
+      CitationLinker.looksLikeCitationHint(
+        '34',
+        inBody: true,
+        before: '..........',
+      ),
+      isFalse,
+    );
+    const refs = [
+      PublishReference(
+        id: 'jia',
+        type: ReferenceType.journal,
+        authors: ['Jia, Q.'],
+        title: 'Isotherm',
+        year: '2011',
+        rawText: 'Jia, Q. (2011). Isotherm.',
+      ),
+    ];
+    final kept = InTextCitationConverter.applyAuthorDateCitations(
+      text: '..........[1]',
+      references: refs,
+      targetStyle: PublishCitationStyle.apa,
+    );
+    expect(kept, '..........[1]');
+    expect(kept, isNot(contains('Jia')));
+
+    final cited = InTextCitationConverter.applyAuthorDateCitations(
+      text: 'The reported values agree [1].',
+      references: refs,
+      targetStyle: PublishCitationStyle.apa,
+    );
+    expect(cited, contains('Jia'));
+    expect(cited, isNot(contains('[1]')));
   });
 
   test('title-page authors and affiliation [1] are not citations', () {
@@ -548,7 +645,7 @@ Wanasundara, Janitha P.D., McIntosh, T., and Perera, S. (2016). Canola/rapeseed 
     expect(linked, isNot(contains('Aider and Kelebek')));
   });
 
-  test('IEEE numbers follow imported bibliography order, not first appearance', () {
+  test('IEEE numbers follow first appearance, not the old list or A-Z', () {
     const aider = PublishReference(
       id: 'ref_aider',
       type: ReferenceType.journal,
@@ -586,8 +683,8 @@ Wanasundara, Janitha P.D., McIntosh, T., and Perera, S. (2016). Canola/rapeseed 
       manuscript: manuscript,
       style: PublishCitationStyle.ieee,
     );
-    expect(ieee.references.first.id, 'ref_kelebek');
-    expect(ieee.references[1].id, 'ref_aider');
+    expect(ieee.references.first.id, 'ref_aider');
+    expect(ieee.references[1].id, 'ref_kelebek');
 
     final body = ManuscriptCitationHelper.resolvePlainText(
       text: ieee.bodyBlocks.first.text,
@@ -599,15 +696,92 @@ Wanasundara, Janitha P.D., McIntosh, T., and Perera, S. (2016). Canola/rapeseed 
     expect(body, contains('[2]'));
     expect(body, isNot(contains('Aider, 2012')));
     expect(body, isNot(contains('Kelebek, 2014')));
-    // Imported list: Kelebek=[1], Aider=[2]. Text cites Aider first.
-    expect(body, contains('Oils [2] then later [1]'));
+    // Aider is cited first, so Aider becomes [1] even though the file listed Kelebek first.
+    expect(body, contains('Oils [1] then later [2]'));
 
     final bib = CitationFormatter.formatBibliography(
       references: ieee.references,
       style: PublishCitationStyle.ieee,
     );
     expect(bib, startsWith('[1]'));
-    expect(bib.indexOf('Kelebek'), lessThan(bib.indexOf('Aider')));
+    expect(bib.indexOf('Aider'), lessThan(bib.indexOf('Kelebek')));
+  });
+
+  test('numbered style puts the first paragraph cite at reference 1', () {
+    const zebra = PublishReference(
+      id: 'zebra',
+      type: ReferenceType.journal,
+      authors: ['Zebra, A.'],
+      title: 'Alphabetical first, never cited',
+      year: '1999',
+      rawText: 'Zebra, A. (1999). Alphabetical first, never cited.',
+    );
+    const khan = PublishReference(
+      id: 'khan',
+      type: ReferenceType.journal,
+      authors: ['Khan, M.'],
+      title: 'Sorption of heavy metals',
+      year: '2018',
+      rawText: 'Khan, M. (2018). Sorption of heavy metals.',
+    );
+    const wartelle = PublishReference(
+      id: 'wartelle',
+      type: ReferenceType.journal,
+      authors: ['Wartelle, L.', 'Marshall, W.'],
+      title: 'Citric acid modified biosorbents',
+      year: '2000',
+      rawText: 'Wartelle, L., & Marshall, W. (2000). Citric acid modified biosorbents.',
+    );
+    final ieee = CitationStyleConverter.apply(
+      manuscript: const PublishManuscript(
+        userId: 'u',
+        title: 'Adsorption',
+        bodyBlocks: [
+          ManuscriptBlock(
+            id: 'p1',
+            type: ManuscriptBlockType.paragraph,
+            text: 'The quantity sorbed follows (Wartelle and Marshall, 2000).',
+          ),
+          ManuscriptBlock(
+            id: 'eq',
+            type: ManuscriptBlockType.paragraph,
+            text: '..........(34)',
+          ),
+          ManuscriptBlock(
+            id: 'fig',
+            type: ManuscriptBlockType.paragraph,
+            text: 'Fig. [1] shows the fit reported by Khan et al. (2018).',
+          ),
+        ],
+        // Alphabetical file order. Wartelle is last and is cited first.
+        references: [khan, wartelle, zebra],
+        citationStyle: PublishCitationStyle.apa,
+      ),
+      style: PublishCitationStyle.ieee,
+    );
+
+    expect(ieee.references.map((r) => r.id).toList(), [
+      'wartelle',
+      'khan',
+      'zebra',
+    ]);
+    expect(ieee.references[0].importedNumber, 1);
+    expect(ieee.references[1].importedNumber, 2);
+    expect(ieee.references[2].importedNumber, 3);
+    final body = ieee.bodyBlocks.map((b) => b.text).join('\n');
+    expect(body, isNot(contains('(Wartelle and Marshall, 2000)')));
+    expect(body, contains('follows [1]'));
+    expect(body, contains('..........(34)'));
+    expect(body, contains('Fig. [1]'));
+    expect(body, contains('reported by [2]'));
+    expect(body, isNot(contains('Khan et al. (2018)')));
+    final bib = CitationFormatter.formatBibliography(
+      references: ieee.references,
+      style: PublishCitationStyle.ieee,
+    );
+    expect(bib.indexOf('Wartelle'), lessThan(bib.indexOf('Khan')));
+    expect(bib.indexOf('Khan'), lessThan(bib.indexOf('Zebra')));
+    expect(bib, startsWith('[1]'));
   });
 
   test('IEEE numbers become APA author-year and A-Z bibliography', () {
@@ -696,7 +870,7 @@ References
       manuscript: ieee,
       style: PublishCitationStyle.ieee,
     );
-    expect(ieeeBody, contains('Oils [3] and earlier work [1] then Daun [2]'));
+    expect(ieeeBody, contains('Oils [1] and earlier work [2] then Daun [3]'));
     final ieeeBib = CitationFormatter.formatBibliography(
       references: ieee.references,
       style: PublishCitationStyle.ieee,
@@ -704,14 +878,14 @@ References
     expect(ieeeBib, contains('[1]'));
     expect(ieeeBib, contains('[2]'));
     expect(ieeeBib, contains('[3]'));
+    expect(ieeeBib.indexOf('Aider'), lessThan(ieeeBib.indexOf('Shahidi')));
     expect(ieeeBib.indexOf('Shahidi'), lessThan(ieeeBib.indexOf('Daun')));
-    expect(ieeeBib.indexOf('Daun'), lessThan(ieeeBib.indexOf('Aider')));
     expect(
-      RegExp(r'\[1\].*Shahidi', dotAll: true).hasMatch(ieeeBib),
+      RegExp(r'\[1\].*Aider', dotAll: true).hasMatch(ieeeBib),
       isTrue,
     );
     expect(
-      RegExp(r'\[3\].*Aider', dotAll: true).hasMatch(ieeeBib),
+      RegExp(r'\[3\].*Daun', dotAll: true).hasMatch(ieeeBib),
       isTrue,
     );
 
@@ -774,13 +948,13 @@ References
       manuscript: ieee,
       style: PublishCitationStyle.ieee,
     );
-    expect(body, contains('See [3]'));
-    expect(body, isNot(contains('See [1]')));
+    expect(body, contains('See [1]'));
+    expect(body, isNot(contains('See [3]')));
     final bib = CitationFormatter.formatBibliography(
       references: ieee.references,
       style: PublishCitationStyle.ieee,
     );
-    expect(bib, startsWith('[3]'));
+    expect(bib, startsWith('[1]'));
 
     final apa = CitationStyleConverter.apply(
       manuscript: manuscript,
@@ -795,7 +969,7 @@ References
     expect(apaBody, isNot(contains('[3]')));
   });
 
-  test('Lawson et al. (2010) [14] stays bibliography 14, never becomes [1]', () {
+  test('Lawson et al. (2010) [14] becomes [1] when it is the first citation', () {
     const smith = PublishReference(
       id: 'ref_1',
       type: ReferenceType.journal,
@@ -844,12 +1018,13 @@ References
       manuscript: ieee,
       style: PublishCitationStyle.ieee,
     );
-    expect(ieeeBody, contains('[14]'));
-    expect(ieeeBody, contains('3.5 hours [14]'));
+    expect(ieeeBody, contains('technique [1]'));
+    expect(ieeeBody, contains('3.5 hours [1]'));
+    expect(ieeeBody, isNot(contains('[14]')));
     expect(ieeeBody, isNot(contains('Lawson et al. (2010)')));
-    expect(ieeeBody, isNot(contains('technique [1]')));
-    expect(ieeeBody, isNot(contains('hours [1]')));
     expect(ieeeBody, isNot(contains('Smith')));
+    expect(ieee.references.first.id, 'ref_14');
+    expect(ieee.references[1].id, 'ref_1');
 
     final apa = CitationStyleConverter.apply(
       manuscript: manuscript,
@@ -2116,13 +2291,13 @@ Boncan, D.A.T., Tsang, S.S., Li, C., Lee, I.H., Lam, H.M., Chan, T.F., & Hui, J.
       style: PublishCitationStyle.ieee,
     );
     expect(preview, contains('[1]'));
-    expect(preview, contains('[4]'));
+    expect(preview, contains('[2]'));
     expect(preview, isNot(contains('Falk Filipsson et al')));
     expect(
       preview,
       contains('Limonene occurs in plants [1]'),
     );
-    expect(preview, contains('Protein and oil are related [4]'));
+    expect(preview, contains('Protein and oil are related [2]'));
   });
 
   test('REFERENCES heading and AOAC/AOCS manuals stay in the bibliography', () {
@@ -2984,15 +3159,17 @@ produced water.
       manuscript: ieee,
       style: PublishCitationStyle.ieee,
     );
-    expect(body, contains('[1]'));
+    expect(body, contains('According to [1], adsorption occurs.'));
+    expect(body, contains('According to [2], bamboo carbon works.'));
+    expect(body, contains('[3] removed iron.'));
+    expect(body, contains('[4] described Langmuir kinetics.'));
+    expect(body, contains('[5] compared agricultural wastes.'));
+    expect(body, contains('[6] reviewed produced water.'));
+    expect(body, contains('[7] fitted isotherms.'));
     expect(body, isNot(contains('Ademiluyi and Nze (2016)')));
-    expect(body, contains('[2]'));
     expect(body, isNot(contains('Ayash, Elnasr and Soliman (2019)')));
-    expect(body, contains('[4]'));
     expect(body, isNot(contains('Islam et al. (2021)')));
-    expect(body, contains('[7]'));
     expect(body, isNot(contains('Prasat et al. (2014)')));
-    expect(body, contains('[8]'));
     expect(body, isNot(contains('Da ̨browsk [2]')), reason: body);
     expect(body, isNot(contains('[1] Removing')), reason: body);
   });

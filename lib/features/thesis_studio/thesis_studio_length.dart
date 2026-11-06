@@ -14,12 +14,12 @@ class ThesisLengthBudget {
 
   /// How many DOI works to keep in the draft (scales with length).
   static int sourceLimit(int pages) {
-    return (clampPages(pages) * 1.1).round().clamp(28, 80);
+    return (clampPages(pages) * 1.35).round().clamp(36, 100);
   }
 
   /// Candidates fetched before the AI relevance gate.
   static int harvestPool(int pages) {
-    return (sourceLimit(pages) * 2.2).round().clamp(48, 120);
+    return (sourceLimit(pages) * 2.4).round().clamp(64, 160);
   }
 
   /// DOI works kept for one paragraph command (not the whole thesis).

@@ -71,7 +71,10 @@ class ManuscriptReferenceStyler {
       ));
     }
 
-    next = CitationStyleConverter.apply(manuscript: next, style: style);
+    next = await CitationStyleConverter.applyWithCitationReading(
+      manuscript: next,
+      style: style,
+    );
 
     return ManuscriptStyleResult(
       manuscript: next,

@@ -158,6 +158,13 @@ class OriginalityCheckService {
           'Sign in to use the similarity checker',
         ));
       }
+      if (e.code == 'resource-exhausted') {
+        throw Exception(e.message ??
+            appTr(
+              'وصلت للحد اليومي لفحص Copyleaks. يمكن رفع الحد من لوحة الإدارة.',
+              'Daily Copyleaks scan limit reached. An admin can raise it.',
+            ));
+      }
       if (e.code == 'failed-precondition') {
         throw Exception(e.message ??
             appTr(
@@ -208,6 +215,13 @@ class OriginalityCheckService {
           'Cloud Function غير منشورة — انشر originalityCheck في Firebase',
           'Cloud Function not deployed — deploy originalityCheck to Firebase',
         );
+      case 'resource-exhausted':
+        return message.isNotEmpty
+            ? message
+            : appTr(
+                'وصلت للحد اليومي لفحص Copyleaks. يمكن رفع الحد من لوحة الإدارة.',
+                'Daily Copyleaks scan limit reached. An admin can raise it.',
+              );
       case 'failed-precondition':
         return _mapProviderError(
           message.isNotEmpty

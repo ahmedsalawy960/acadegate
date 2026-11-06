@@ -12,6 +12,8 @@ class ArrowScrollView extends StatefulWidget {
   final double scrollStep;
   final Color? arrowColor;
   final double? height;
+  /// Stable id so scroll offset is restored after leaving and returning.
+  final String? storageId;
 
   const ArrowScrollView({
     super.key,
@@ -21,6 +23,7 @@ class ArrowScrollView extends StatefulWidget {
     this.scrollStep = 180,
     this.arrowColor,
     this.height,
+    this.storageId,
   });
 
   @override
@@ -28,27 +31,53 @@ class ArrowScrollView extends StatefulWidget {
 }
 
 class _ArrowScrollViewState extends State<ArrowScrollView> {
-  final _controller = ScrollController();
+  ScrollController? _controller;
   bool _canStart = false;
   bool _canEnd = false;
 
+  String _storageKey(BuildContext context) {
+    final route = ModalRoute.of(context);
+    final routeId = route?.settings.name ?? 'r${route?.hashCode ?? 0}';
+    return 'ArrowScrollView:${widget.storageId ?? widget.axis.name}:$routeId';
+  }
+
   @override
-  void initState() {
-    super.initState();
-    _controller.addListener(_updateArrows);
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_controller != null) return;
+    final saved = PageStorage.maybeOf(context)
+        ?.readState(context, identifier: _storageKey(context));
+    final offset = saved is num ? saved.toDouble() : 0.0;
+    _controller = ScrollController(
+      initialScrollOffset: offset.isFinite && offset > 0 ? offset : 0.0,
+    );
+    _controller!.addListener(_updateArrows);
+    _controller!.addListener(_persistOffset);
     WidgetsBinding.instance.addPostFrameCallback((_) => _updateArrows());
+  }
+
+  void _persistOffset() {
+    final c = _controller;
+    if (c == null || !c.hasClients) return;
+    PageStorage.maybeOf(context)?.writeState(
+      context,
+      c.offset,
+      identifier: _storageKey(context),
+    );
   }
 
   @override
   void dispose() {
-    _controller.removeListener(_updateArrows);
-    _controller.dispose();
+    _controller?.removeListener(_updateArrows);
+    _controller?.removeListener(_persistOffset);
+    _controller?.dispose();
     super.dispose();
   }
 
   void _updateArrows() {
-    if (!_controller.hasClients) return;
-    final pos = _controller.position;
+    final c = _controller;
+    if (c == null || !c.hasClients) return;
+    final pos = c.position;
     final canStart = pos.pixels > 2;
     final canEnd = pos.pixels < pos.maxScrollExtent - 2;
     if (canStart != _canStart || canEnd != _canEnd) {
@@ -60,12 +89,13 @@ class _ArrowScrollViewState extends State<ArrowScrollView> {
   }
 
   Future<void> _scrollBy(double delta) async {
-    if (!_controller.hasClients) return;
-    final target = (_controller.offset + delta).clamp(
+    final c = _controller;
+    if (c == null || !c.hasClients) return;
+    final target = (c.offset + delta).clamp(
       0.0,
-      _controller.position.maxScrollExtent,
+      c.position.maxScrollExtent,
     );
-    await _controller.animateTo(
+    await c.animateTo(
       target,
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeOut,
@@ -96,13 +126,16 @@ class _ArrowScrollViewState extends State<ArrowScrollView> {
 
   @override
   Widget build(BuildContext context) {
+    final controller = _controller;
+    if (controller == null) return const SizedBox.shrink();
     final isRtl = Directionality.of(context) == TextDirection.rtl;
     final scroll = Scrollbar(
-      controller: _controller,
+      controller: controller,
       thumbVisibility: true,
       trackVisibility: widget.axis == Axis.horizontal,
       child: SingleChildScrollView(
-        controller: _controller,
+        key: PageStorageKey<String>(_storageKey(context)),
+        controller: controller,
         scrollDirection: widget.axis,
         padding: widget.padding,
         child: widget.child,
@@ -174,6 +207,7 @@ class ArrowListView extends StatefulWidget {
   final IndexedWidgetBuilder? separatorBuilder;
   final EdgeInsetsGeometry? padding;
   final double scrollStep;
+  final String? storageId;
 
   const ArrowListView({
     super.key,
@@ -182,6 +216,7 @@ class ArrowListView extends StatefulWidget {
     this.separatorBuilder,
     this.padding,
     this.scrollStep = 240,
+    this.storageId,
   });
 
   @override
@@ -189,27 +224,53 @@ class ArrowListView extends StatefulWidget {
 }
 
 class _ArrowListViewState extends State<ArrowListView> {
-  final _controller = ScrollController();
+  ScrollController? _controller;
   bool _canUp = false;
   bool _canDown = false;
 
+  String _storageKey(BuildContext context) {
+    final route = ModalRoute.of(context);
+    final routeId = route?.settings.name ?? 'r${route?.hashCode ?? 0}';
+    return 'ArrowListView:${widget.storageId ?? 'list'}:$routeId';
+  }
+
   @override
-  void initState() {
-    super.initState();
-    _controller.addListener(_update);
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_controller != null) return;
+    final saved = PageStorage.maybeOf(context)
+        ?.readState(context, identifier: _storageKey(context));
+    final offset = saved is num ? saved.toDouble() : 0.0;
+    _controller = ScrollController(
+      initialScrollOffset: offset.isFinite && offset > 0 ? offset : 0.0,
+    );
+    _controller!.addListener(_update);
+    _controller!.addListener(_persistOffset);
     WidgetsBinding.instance.addPostFrameCallback((_) => _update());
+  }
+
+  void _persistOffset() {
+    final c = _controller;
+    if (c == null || !c.hasClients) return;
+    PageStorage.maybeOf(context)?.writeState(
+      context,
+      c.offset,
+      identifier: _storageKey(context),
+    );
   }
 
   @override
   void dispose() {
-    _controller.removeListener(_update);
-    _controller.dispose();
+    _controller?.removeListener(_update);
+    _controller?.removeListener(_persistOffset);
+    _controller?.dispose();
     super.dispose();
   }
 
   void _update() {
-    if (!_controller.hasClients) return;
-    final pos = _controller.position;
+    final c = _controller;
+    if (c == null || !c.hasClients) return;
+    final pos = c.position;
     final canUp = pos.pixels > 2;
     final canDown = pos.pixels < pos.maxScrollExtent - 2;
     if (canUp != _canUp || canDown != _canDown) {
@@ -221,12 +282,13 @@ class _ArrowListViewState extends State<ArrowListView> {
   }
 
   Future<void> _scrollBy(double delta) async {
-    if (!_controller.hasClients) return;
-    final target = (_controller.offset + delta).clamp(
+    final c = _controller;
+    if (c == null || !c.hasClients) return;
+    final target = (c.offset + delta).clamp(
       0.0,
-      _controller.position.maxScrollExtent,
+      c.position.maxScrollExtent,
     );
-    await _controller.animateTo(
+    await c.animateTo(
       target,
       duration: const Duration(milliseconds: 280),
       curve: Curves.easeOut,
@@ -235,15 +297,20 @@ class _ArrowListViewState extends State<ArrowListView> {
 
   @override
   Widget build(BuildContext context) {
+    final controller = _controller;
+    if (controller == null) return const SizedBox.shrink();
+    final pageKey = PageStorageKey<String>(_storageKey(context));
     final list = widget.separatorBuilder == null
         ? ListView.builder(
-            controller: _controller,
+            key: pageKey,
+            controller: controller,
             padding: widget.padding,
             itemCount: widget.itemCount,
             itemBuilder: widget.itemBuilder,
           )
         : ListView.separated(
-            controller: _controller,
+            key: pageKey,
+            controller: controller,
             padding: widget.padding,
             itemCount: widget.itemCount,
             itemBuilder: widget.itemBuilder,
@@ -258,7 +325,7 @@ class _ArrowListViewState extends State<ArrowListView> {
             return false;
           },
           child: Scrollbar(
-            controller: _controller,
+            controller: controller,
             thumbVisibility: true,
             child: list,
           ),
@@ -311,6 +378,7 @@ class ArrowOverlayScroller extends StatefulWidget {
   final double scrollStep;
   final double? height;
   final Color? arrowColor;
+  final String? storageId;
   final Widget Function(BuildContext context, ScrollController controller)
       builder;
 
@@ -321,6 +389,7 @@ class ArrowOverlayScroller extends StatefulWidget {
     this.scrollStep = 280,
     this.height,
     this.arrowColor,
+    this.storageId,
   });
 
   @override
@@ -328,27 +397,53 @@ class ArrowOverlayScroller extends StatefulWidget {
 }
 
 class _ArrowOverlayScrollerState extends State<ArrowOverlayScroller> {
-  final _controller = ScrollController();
+  ScrollController? _controller;
   bool _canStart = false;
   bool _canEnd = false;
 
+  String _storageKey(BuildContext context) {
+    final route = ModalRoute.of(context);
+    final routeId = route?.settings.name ?? 'r${route?.hashCode ?? 0}';
+    return 'ArrowOverlayScroller:${widget.storageId ?? widget.axis.name}:$routeId';
+  }
+
   @override
-  void initState() {
-    super.initState();
-    _controller.addListener(_update);
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_controller != null) return;
+    final saved = PageStorage.maybeOf(context)
+        ?.readState(context, identifier: _storageKey(context));
+    final offset = saved is num ? saved.toDouble() : 0.0;
+    _controller = ScrollController(
+      initialScrollOffset: offset.isFinite && offset > 0 ? offset : 0.0,
+    );
+    _controller!.addListener(_update);
+    _controller!.addListener(_persistOffset);
     WidgetsBinding.instance.addPostFrameCallback((_) => _update());
+  }
+
+  void _persistOffset() {
+    final c = _controller;
+    if (c == null || !c.hasClients) return;
+    PageStorage.maybeOf(context)?.writeState(
+      context,
+      c.offset,
+      identifier: _storageKey(context),
+    );
   }
 
   @override
   void dispose() {
-    _controller.removeListener(_update);
-    _controller.dispose();
+    _controller?.removeListener(_update);
+    _controller?.removeListener(_persistOffset);
+    _controller?.dispose();
     super.dispose();
   }
 
   void _update() {
-    if (!_controller.hasClients) return;
-    final pos = _controller.position;
+    final c = _controller;
+    if (c == null || !c.hasClients) return;
+    final pos = c.position;
     final canStart = pos.pixels > 2;
     final canEnd = pos.maxScrollExtent > 2 &&
         pos.pixels < pos.maxScrollExtent - 2;
@@ -361,12 +456,13 @@ class _ArrowOverlayScrollerState extends State<ArrowOverlayScroller> {
   }
 
   Future<void> _scrollBy(double delta) async {
-    if (!_controller.hasClients) return;
-    final target = (_controller.offset + delta).clamp(
+    final c = _controller;
+    if (c == null || !c.hasClients) return;
+    final target = (c.offset + delta).clamp(
       0.0,
-      _controller.position.maxScrollExtent,
+      c.position.maxScrollExtent,
     );
-    await _controller.animateTo(
+    await c.animateTo(
       target,
       duration: const Duration(milliseconds: 280),
       curve: Curves.easeOutCubic,
@@ -375,6 +471,8 @@ class _ArrowOverlayScrollerState extends State<ArrowOverlayScroller> {
 
   @override
   Widget build(BuildContext context) {
+    final controller = _controller;
+    if (controller == null) return const SizedBox.shrink();
     final color = widget.arrowColor ?? const Color(0xFF1A237E);
     final isRtl = Directionality.of(context) == TextDirection.rtl;
     final overflow = _canStart || _canEnd;
@@ -383,7 +481,7 @@ class _ArrowOverlayScrollerState extends State<ArrowOverlayScroller> {
         if (n.metrics.axis == widget.axis) _update();
         return false;
       },
-      child: widget.builder(context, _controller),
+      child: widget.builder(context, controller),
     );
 
     final body = widget.height == null

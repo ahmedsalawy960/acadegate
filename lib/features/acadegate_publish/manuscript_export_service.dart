@@ -38,7 +38,7 @@ class ManuscriptExportService {
   }
 
   Future<Uint8List> buildPdfBytes(PublishManuscript manuscript) async {
-    manuscript = CitationStyleConverter.apply(
+    manuscript = await CitationStyleConverter.applyWithCitationReading(
       manuscript: manuscript,
       style: manuscript.effectiveStyle,
     );

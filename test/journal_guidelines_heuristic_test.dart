@@ -85,4 +85,18 @@ Legends should be typed below the Figures.
     expect(extracted['citationStyle'], 'ieee');
     expect(extracted['referenceListPlainNumber'], isTrue);
   });
+
+  test('a cut-off guide reply still applies the rules that were written', () {
+    const raw = '''
+{"found":true,"citationStyle":"acs","columns":2,"bodyFontSizePt":10,"lineSpacing":1,"headingNumbered":false
+''';
+    final salvaged = JournalGuidelinesExtractService.salvageGuideJson(raw);
+    expect(salvaged, isNotNull);
+    expect(salvaged!['citationStyle'], 'acs');
+    expect(salvaged['columns'], 2);
+    expect(salvaged['bodyFontSizePt'], 10);
+    expect(salvaged['lineSpacing'], 1);
+    expect(salvaged['headingNumbered'], isFalse);
+    expect(salvaged['found'], isTrue);
+  });
 }

@@ -722,6 +722,12 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
                       child: TextField(
                         controller: _inputController,
                         enabled: !_stt.isTranscribing,
+                        style: const TextStyle(
+                          color: Color(0xFF1A2744),
+                          fontSize: 16,
+                          height: 1.35,
+                        ),
+                        cursorColor: _accent,
                         decoration: InputDecoration(
                           hintText: _stt.isTranscribing
                               ? context.t(
@@ -734,11 +740,23 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
                                       'اكتب أو تحدّث…',
                                       'Type or speak…',
                                     ),
+                          hintStyle: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontSize: 15,
+                          ),
                           filled: true,
                           fillColor: Colors.white,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(24),
                             borderSide: BorderSide(color: Colors.grey.shade300),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(24),
+                            borderSide: BorderSide(color: Colors.grey.shade300),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(24),
+                            borderSide: BorderSide(color: _accent, width: 1.4),
                           ),
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 16,

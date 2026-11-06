@@ -49,6 +49,9 @@ app.*.map.json
 .env.*
 *.secrets
 dart_defines.json
+android/key.properties
+**/*.jks
+**/*.keystore
 
 # Firebase local cache / hosting deploy state
 .firebase/

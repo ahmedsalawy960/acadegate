@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -9,7 +8,6 @@ import '../../core/locale/locale_extensions.dart';
 import '../../core/widgets/section_cover_image.dart';
 import '../auth/user_account_service.dart';
 import '../auth/user_role.dart';
-import '../moderation/approval_status.dart';
 import 'add_product_screen.dart';
 import 'catalog_disclaimer.dart';
 import '../academic/faculty_categories.dart';
@@ -44,8 +42,44 @@ class _ProductListScreenState extends State<ProductListScreen> {
   String? _city;
   String? _storeName;
   _ProductSort _sort = _ProductSort.newest;
+  bool _loading = true;
+  Object? _loadError;
+  List<StoreCatalogProduct> _categoryDocs = const [];
 
   String get categoryTitle => widget.categoryTitle;
+
+  @override
+  void initState() {
+    super.initState();
+    _reloadProducts();
+  }
+
+  Future<void> _reloadProducts({bool silent = false}) async {
+    if (!silent && mounted) {
+      setState(() {
+        _loading = true;
+        _loadError = null;
+      });
+    }
+    try {
+      final category = storeCategoryByTitle(categoryTitle);
+      final titles = _queryTitles(category, categoryTitle);
+      final products =
+          await StoreCatalogService.instance.loadByCategoryTitles(titles);
+      if (!mounted) return;
+      setState(() {
+        _categoryDocs = products;
+        _loading = false;
+        _loadError = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadError = e;
+        _loading = false;
+      });
+    }
+  }
 
   String _formatPrice(num price) => '$price ${appTr('ج.م', 'EGP')}';
 
@@ -58,20 +92,6 @@ class _ProductListScreenState extends State<ProductListScreen> {
     final uri = Uri.tryParse(supplier.website);
     if (uri == null) return;
     await launchUrl(uri, mode: LaunchMode.externalApplication);
-  }
-
-  List<StoreCatalogProduct> _categoryProducts(
-    QuerySnapshot<Map<String, dynamic>> snapshot,
-    Set<String> titleSet,
-  ) {
-    return snapshot.docs.where((doc) {
-      final data = doc.data();
-      final status = data['approvalStatus']?.toString();
-      if (!ApprovalStatus.isPublic(status)) return false;
-      final cat = data['category']?.toString() ?? '';
-      final canonical = storeCategoryLegacyAliases[cat] ?? cat;
-      return titleSet.contains(cat) || titleSet.contains(canonical);
-    }).map(StoreCatalogProduct.fromDoc).toList();
   }
 
   List<StoreCatalogProduct> _applyFilters(
@@ -454,6 +474,9 @@ class _ProductListScreenState extends State<ProductListScreen> {
 
     if (!context.mounted) return;
     if (created == true) {
+      StoreCatalogService.instance.invalidateCache();
+      await _reloadProducts();
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -475,7 +498,6 @@ class _ProductListScreenState extends State<ProductListScreen> {
     final displayTitle = category != null
         ? L10nLookup.storeCategoryTitle(category.id)
         : categoryTitle;
-    final queryTitles = _queryTitles(category, categoryTitle);
     final suppliers = egyptStoreSuppliersForCategory(
       categoryId: category?.id,
       categoryTitle: categoryTitle,
@@ -505,23 +527,31 @@ class _ProductListScreenState extends State<ProductListScreen> {
           ),
         ],
       ),
-      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: FirebaseFirestore.instance.collection('product').snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(
-              child: Text(
-                '${context.t('حدث خطأ: ', 'Error: ')}${snapshot.error}',
-              ),
-            );
-          }
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          final titleSet = queryTitles.toSet();
-          final categoryDocs =
-              _categoryProducts(snapshot.data!, titleSet);
+      body: _loading && _categoryDocs.isEmpty
+          ? const Center(child: CircularProgressIndicator())
+          : _loadError != null && _categoryDocs.isEmpty
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '${context.t('حدث خطأ: ', 'Error: ')}$_loadError',
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 12),
+                        FilledButton(
+                          onPressed: _reloadProducts,
+                          child: Text(context.t('إعادة المحاولة', 'Retry')),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : Builder(
+                  builder: (context) {
+          final categoryDocs = _categoryDocs;
           final cities = _uniqueSorted(categoryDocs.map((p) => p.city));
           final stores = _uniqueSorted(categoryDocs.map((p) => p.storeName));
           // Ignore stale dropdown selections that no longer exist in this category.
@@ -536,7 +566,12 @@ class _ProductListScreenState extends State<ProductListScreen> {
             storeOverride: effectiveStore,
           );
 
-          return ListView(
+          return RefreshIndicator(
+            onRefresh: () async {
+              StoreCatalogService.instance.invalidateCache();
+              await _reloadProducts(silent: true);
+            },
+            child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
               if (category != null) ...[
@@ -949,10 +984,11 @@ class _ProductListScreenState extends State<ProductListScreen> {
                   );
                 }),
             ],
-          );
-        },
+          ),
+            );
+                  },
+                ),
       ),
-    ),
     );
   }
 }

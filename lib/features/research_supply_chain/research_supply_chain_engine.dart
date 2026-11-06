@@ -11,6 +11,7 @@ import '../matchmaking/smart_matchmaking_engine.dart';
 import '../supervisor_import/multi_source_supervisor_service.dart';
 import '../profile/academic_profile.dart';
 import '../research_fund/industry_challenge_models.dart';
+import '../humanities/humanities_faculties.dart';
 import '../lab_import/nbsle_university_cities.dart';
 import '../store/store_categories.dart';
 import 'research_goal.dart';
@@ -56,43 +57,53 @@ class ResearchSupplyChainEngine {
       ].join(' '),
     );
 
+    final facultyId = effectiveProfile.resolvedFacultyCategory;
+    final prefersLibraries = _prefersLibrariesOverLabs(effectiveProfile, goal);
+
     final content = await AcademicContentService.instance.fetchAll(
-      includeLabs: true,
+      includeLabs: !prefersLibraries,
     );
 
-    // Prefer faculty-scoped labs (larger pool) then merge with cached browse.
-    final facultyId = effectiveProfile.resolvedFacultyCategory;
     final researcherCity = effectiveProfile.city.trim();
     final topicQuery = goal.fieldEn.isNotEmpty
         ? goal.fieldEn
         : (goal.field.length >= 3 ? goal.field : trimmed);
 
-    final cityLabsFuture = researcherCity.isEmpty
-        ? Future.value(const <AcademicLab>[])
-        : AcademicContentService.instance.searchLabs(
-            city: researcherCity,
-            facultyId: facultyId,
-            query: topicQuery,
-            limit: 250,
-          );
-    final nationLabsFuture = AcademicContentService.instance.searchLabs(
-      facultyId: facultyId,
-      query: topicQuery,
-      limit: 250,
-    );
+    final List<AcademicLab> labsPool;
+    if (prefersLibraries) {
+      // تربية/آداب/حقوق: لا نبحث عن مختبرات علمية لا صلة لها بالنقطة.
+      labsPool = const [];
+    } else {
+      // Prefer faculty-scoped labs (larger pool) then merge with cached browse.
+      final cityLabsFuture = researcherCity.isEmpty
+          ? Future.value(const <AcademicLab>[])
+          : AcademicContentService.instance.searchLabs(
+              city: researcherCity,
+              facultyId: facultyId,
+              query: topicQuery,
+              limit: 250,
+            );
+      final nationLabsFuture = AcademicContentService.instance.searchLabs(
+        facultyId: facultyId,
+        query: topicQuery,
+        limit: 250,
+      );
 
-    final cityLabs = await cityLabsFuture;
-    final nationLabs = await nationLabsFuture;
+      final cityLabs = await cityLabsFuture;
+      final nationLabs = await nationLabsFuture;
 
-    final labsById = <String, AcademicLab>{};
-    for (final lab in [...cityLabs, ...nationLabs, ...content.labs]) {
-      final key = lab.id ?? '${lab.name}|${lab.university}|${lab.city}';
-      labsById.putIfAbsent(key, () => lab);
+      final labsById = <String, AcademicLab>{};
+      for (final lab in [...cityLabs, ...nationLabs, ...content.labs]) {
+        final key = lab.id ?? '${lab.name}|${lab.university}|${lab.city}';
+        labsById.putIfAbsent(key, () => lab);
+      }
+      labsPool = labsById.values.toList();
     }
-    final labsPool = labsById.values.toList();
 
     final topicTokens = ResearchGoalParser.relevanceTokens(goal);
-    final preferredCategories = _inferStoreCategories(topicTokens);
+    final preferredCategories = prefersLibraries
+        ? _humanitiesStoreCategories(topicTokens)
+        : _inferStoreCategories(topicTokens);
     final productsFuture = _fetchProducts(
       preferredCategories,
       researcherCity: researcherCity,
@@ -144,17 +155,19 @@ class ResearchSupplyChainEngine {
       requireTokens: topicTokens,
       restrictFaculty: false,
     );
-    final labMatches = SmartMatchmakingEngine.matchLabs(
-      effectiveProfile,
-      labsPool,
-      limit: _labLocalLimit + _labOtherLimit,
-      softFallback: false,
-      requireTokens: topicTokens,
-      restrictFaculty: false,
-      cityFirst: true,
-      localLimit: _labLocalLimit,
-      otherLimit: _labOtherLimit,
-    );
+    final labMatches = prefersLibraries
+        ? const <MatchResult<AcademicLab>>[]
+        : SmartMatchmakingEngine.matchLabs(
+            effectiveProfile,
+            labsPool,
+            limit: _labLocalLimit + _labOtherLimit,
+            softFallback: false,
+            requireTokens: topicTokens,
+            restrictFaculty: true,
+            cityFirst: true,
+            localLimit: _labLocalLimit,
+            otherLimit: _labOtherLimit,
+          );
 
     final productMatches = _matchProducts(
       topicTokens,
@@ -195,6 +208,7 @@ class ResearchSupplyChainEngine {
       experts: writingMatches,
       storeCategories: preferredCategories,
       literatureCount: literature.length,
+      prefersLibraries: prefersLibraries,
     );
     final fundingFits = _matchFunding(goal, keywords, challenges);
 
@@ -214,7 +228,51 @@ class ResearchSupplyChainEngine {
       literature: literature,
       institutionalNotes: DegreePlanEngine.institutionalNotes(goal),
       fundingFits: fundingFits,
+      prefersLibraries: prefersLibraries,
     );
+  }
+
+  /// كليات إنسانية/تربوية أو موضوع أدبي/تربوي: مكتبات وكتب لا مختبرات.
+  bool _prefersLibrariesOverLabs(AcademicProfile profile, ResearchGoal goal) {
+    if (HumanitiesFaculties.isHumanities(profile.resolvedFacultyCategory)) {
+      return true;
+    }
+    final hay =
+        '${profile.specialization} ${profile.researchInterest} ${goal.field} '
+        '${goal.fieldEn} ${goal.matchKeywords.join(' ')}'
+            .toLowerCase();
+    const markers = [
+      'آداب',
+      'أدب',
+      'تربية',
+      'حقوق',
+      'قانون',
+      'literature',
+      'linguistics',
+      'comparative',
+      'pedagog',
+      'humanities',
+      'لغة إنج',
+      'english language',
+      'english literature',
+      'إعلام',
+      'فنون جميلة',
+      'تعليم',
+      'curriculum',
+    ];
+    return markers.any(hay.contains);
+  }
+
+  List<StoreCategory> _humanitiesStoreCategories(List<String> keywords) {
+    final ids = <String>{'books', 'humanities', 'office'};
+    ids.addAll(inferStoreCategoryIds(keywords).where((id) =>
+        id == 'books' || id == 'humanities' || id == 'office' || id == 'field'));
+    final categories = <StoreCategory>[];
+    for (final id in ids) {
+      final cat = storeCategoryById(id);
+      if (cat != null) categories.add(cat);
+    }
+    return categories;
   }
 
   Future<List<GroundedWork>> _loadLiterature(ResearchGoal goal) async {
@@ -751,6 +809,7 @@ class ResearchSupplyChainEngine {
     List<MatchResult<WritingExpert>> experts = const [],
     List<StoreCategory> storeCategories = const [],
     int literatureCount = 0,
+    bool prefersLibraries = false,
   }) {
     final lines = <String>[];
     if (ideas.isNotEmpty) {
@@ -770,7 +829,16 @@ class ResearchSupplyChainEngine {
         '👤 ${supervisors.length} supervisors (top: ${supervisors.first.item.name})',
       ));
     }
-    if (labs.isNotEmpty) {
+    if (prefersLibraries) {
+      lines.add(appTr(
+        literatureCount > 0
+            ? '📚 تخصص إنساني/تربوي — $literatureCount دراسة مؤكدة + مكتبات وكتب بدل المختبرات'
+            : '📚 تخصص إنساني/تربوي — مكتبات وكتب للنقطة البحثية بدل المختبرات العلمية',
+        literatureCount > 0
+            ? '📚 Humanities/education path — $literatureCount confirmed studies + libraries/books instead of labs'
+            : '📚 Humanities/education path — libraries and books for the topic instead of science labs',
+      ));
+    } else if (labs.isNotEmpty) {
       lines.add(appTr(
         '🔬 ${labs.length} مختبرات (أفضلها: ${labs.first.item.name})',
         '🔬 ${labs.length} labs (top: ${labs.first.item.name})',
@@ -806,8 +874,8 @@ class ResearchSupplyChainEngine {
     }
     if (literatureCount > 0) {
       lines.add(appTr(
-        '📚 $literatureCount دراسة مؤكدة DOI من OpenAlex/Crossref/Semantic Scholar',
-        '📚 $literatureCount DOI-confirmed studies from OpenAlex/Crossref/Semantic Scholar',
+        '📚 $literatureCount دراسة مؤكدة DOI عبر فهارس AcadeGate',
+        '📚 $literatureCount DOI-confirmed studies via AcadeGate indexes',
       ));
     }
     return lines;

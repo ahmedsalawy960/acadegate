@@ -559,7 +559,7 @@ class L10nLookup {
   static String jointWorksCount(int n) =>
       appTr('$n أعمال مشتركة', '$n joint works');
   static String get viewOnGoogleScholar =>
-      appTr('عرض على Google Scholar', 'View on Google Scholar');
+      appTr('عرض المراجع', 'View references');
   static String get noSupervisorPublicationData => appTr(
         'لا تتوفر بيانات نشر لهذا المشرف.',
         'No publication data for this supervisor.',
@@ -745,10 +745,10 @@ class L10nLookup {
     return appTr(
       'باحث في $place. التخصص الرئيسي: $speciality. '
       '$works منشور، $citations استشهاد، h-index: $hIndex. '
-      'البيانات من OpenAlex وتحتاج مراجعة إدارية قبل النشر.',
+      'البيانات من شبكة AcadeGate وتحتاج مراجعة إدارية قبل النشر.',
       'Researcher at $place. Main field: $speciality. '
       '$works publications, $citations citations, h-index: $hIndex. '
-      'Data from OpenAlex and requires admin review before publishing.',
+      'Data from the AcadeGate network and requires admin review before publishing.',
     );
   }
 
@@ -810,18 +810,18 @@ class L10nLookup {
       );
 
   static String orcidMissingNote() => appTr(
-        'لا يوجد ORCID أو معرّف OpenAlex — أضفهما عند تسجيل المشرف لعرض الإنتاج العلمي.',
-        'No ORCID or OpenAlex ID — add them when registering the supervisor to show publications.',
+        'لا يوجد ORCID أو معرّف أكاديمي — أضفهما عند تسجيل المشرف لعرض الإنتاج العلمي.',
+        'No ORCID or academic ID — add them when registering the supervisor to show publications.',
       );
 
   static String openAlexScimagoNote(int matches) => appTr(
-        'البيانات من OpenAlex مع تصنيف Scimago الرسمي (Q1–Q4) لـ $matches مجلة مطابقة.',
-        'Data from OpenAlex with official Scimago quartiles (Q1–Q4) for $matches matched journals.',
+        'البيانات عبر AcadeGate مع تصنيف رسمي (Q1–Q4) لـ $matches مجلة مطابقة.',
+        'Data via AcadeGate with official quartiles (Q1–Q4) for $matches matched journals.',
       );
 
   static String openAlexEstimateNote() => appTr(
-        'البيانات من OpenAlex — لم تُطابق المجلات قاعدة Scimago؛ يُعرض تقدير التأثير فقط.',
-        'Data from OpenAlex — journals did not match Scimago; showing impact estimate only.',
+        'البيانات عبر AcadeGate — تقدير التأثير فقط لبعض المجلات.',
+        'Data via AcadeGate — impact estimate only for some journals.',
       );
 
   static String publicationLoadFailed() => appTr(
@@ -835,8 +835,8 @@ class L10nLookup {
       );
 
   static String scholarLinkFailed() => appTr(
-        'تعذر فتح رابط Google Scholar',
-        'Could not open Google Scholar link',
+        'تعذر فتح رابط المراجع',
+        'Could not open the references link',
       );
 
   static String newMessageTitle() => appTr('رسالة جديدة', 'New message');

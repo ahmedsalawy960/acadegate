@@ -20,6 +20,7 @@ import '../research_marketplace/research_idea_marketplace_detail_screen.dart';
 import '../smart_labs/smart_lab_detail_screen.dart';
 import '../store/product_detail_screen.dart';
 import '../store/product_list_screen.dart';
+import '../store/seed/faculty_books_library_screen.dart';
 import '../research_fund/industry_challenge_detail_screen.dart';
 import '../research_fund/research_fund_screen.dart';
 import '../research_marketplace/research_topic_claim_service.dart';
@@ -755,7 +756,7 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
                   if (bundle.goal?.searchQueries.isNotEmpty == true)
                     bundle.goal!.searchQueries.take(3).join(' · '),
                   bundle.literature.length >= 15
-                      ? 'OpenAlex + Crossref + Semantic Scholar، مع استبعاد العناوين البعيدة عن النقطة.'
+                      ? 'فهارس AcadeGate، مع استبعاد العناوين البعيدة عن النقطة.'
                       : 'ظهر ${bundle.literature.length} عملاً على النقطة بـ DOI مؤكد. لم نختلق البقية.',
                 ].join(' '),
                 [
@@ -764,7 +765,7 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
                   if (bundle.goal?.searchQueries.isNotEmpty == true)
                     bundle.goal!.searchQueries.take(3).join(' · '),
                   bundle.literature.length >= 15
-                      ? 'OpenAlex + Crossref + Semantic Scholar; off-topic titles were dropped.'
+                      ? 'AcadeGate indexes; off-topic titles were dropped.'
                       : '${bundle.literature.length} on-topic works with a confirmed DOI. The rest were not invented.',
                 ].join(' '),
               ),
@@ -788,7 +789,7 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
                     [
                       if (work.year != null) '${work.year}',
                       if (work.authors.isNotEmpty) work.authors,
-                      work.source,
+                      work.publicSource,
                     ].join(' • '),
                     maxLines: 2,
                   ),
@@ -925,8 +926,8 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
             const SizedBox(height: 8),
             LinearProgressIndicator(
               value: bundle.overallScore / 100,
-              backgroundColor: Colors.grey[200],
-              color: _brand,
+              backgroundColor: AcadeGateColors.line,
+              color: acadegateInk(_brand),
               minHeight: 8,
               borderRadius: BorderRadius.circular(4),
             ),
@@ -974,7 +975,7 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
                     ResearchPathBranding.aiSectionTitle,
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      color: Colors.purple[800],
+                      color: acadegateInk(Colors.purple),
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -983,7 +984,10 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
                       'يجري ربط عناصر الحزمة بخطتك البحثية...',
                       'Linking the bundle items to your research plan...',
                     ),
-                    style: TextStyle(fontSize: 13, color: const Color(0xFFB7C3D6)),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AcadeGateColors.muted,
+                    ),
                   ),
                 ],
               ),
@@ -1007,7 +1011,7 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
               children: [
                 Icon(
                   Icons.psychology_alt_outlined,
-                  color: Colors.purple[700],
+                  color: acadegateInk(Colors.purple),
                   size: 26,
                 ),
                 const SizedBox(width: 10),
@@ -1017,7 +1021,7 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
-                      color: Colors.purple[900],
+                      color: acadegateInk(Colors.purple),
                     ),
                   ),
                 ),
@@ -1026,21 +1030,27 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
                     insight.fromGemini
                         ? AdvisorBranding.cloudBadge
                         : context.t('تحليل أساسي', 'Basic analysis'),
-                    style: const TextStyle(fontSize: 11),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: AcadeGateColors.text,
+                    ),
                   ),
                   padding: EdgeInsets.zero,
                   visualDensity: VisualDensity.compact,
                   backgroundColor: insight.fromGemini
-                      ? Colors.purple.withValues(alpha: 0.12)
-                      : Colors.grey.withValues(alpha: 0.12),
+                      ? Colors.purple.withValues(alpha: 0.22)
+                      : AcadeGateColors.line.withValues(alpha: 0.55),
                 ),
               ],
             ),
-            if (insight.fromGemini && insight.modelUsed != null) ...[
+            if (insight.fromGemini) ...[
               const SizedBox(height: 4),
               Text(
-                context.t('النموذج: ${insight.modelUsed}', 'Model: ${insight.modelUsed}'),
-                style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                context.t('عبر AcadeGate', 'via AcadeGate'),
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: AcadeGateColors.muted,
+                ),
               ),
             ],
             const SizedBox(height: 14),
@@ -1055,7 +1065,11 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
             const SizedBox(height: 6),
             SelectableText(
               insight.analysis,
-              style: const TextStyle(height: 1.55, fontSize: 14),
+              style: const TextStyle(
+                height: 1.55,
+                fontSize: 14,
+                color: AcadeGateColors.text,
+              ),
             ),
             const SizedBox(height: 14),
             Text(
@@ -1069,7 +1083,11 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
             const SizedBox(height: 6),
             SelectableText(
               insight.researchPlan,
-              style: const TextStyle(height: 1.55, fontSize: 14),
+              style: const TextStyle(
+                height: 1.55,
+                fontSize: 14,
+                color: AcadeGateColors.text,
+              ),
             ),
             if (insight.nextStep != null && insight.nextStep!.isNotEmpty) ...[
               const SizedBox(height: 14),
@@ -1077,7 +1095,7 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: _brand.withValues(alpha: 0.08),
+                  color: _brand.withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
@@ -1099,7 +1117,11 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
                           const SizedBox(height: 4),
                           SelectableText(
                             insight.nextStep!,
-                            style: const TextStyle(height: 1.4, fontSize: 13),
+                            style: const TextStyle(
+                              height: 1.4,
+                              fontSize: 13,
+                              color: AcadeGateColors.text,
+                            ),
                           ),
                         ],
                       ),
@@ -1114,7 +1136,10 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
               const SizedBox(height: 10),
               Text(
                 insight.error!,
-                style: TextStyle(fontSize: 12, color: Colors.orange[800]),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: acadegateInk(Colors.orange),
+                ),
               ),
             ],
           ],
@@ -1259,7 +1284,111 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
                 ),
             ],
           ),
-        if (bundle.labs.isEmpty)
+        if (bundle.prefersLibraries)
+          _chainStep(
+            icon: Icons.menu_book,
+            color: const Color(0xFF8D6E63),
+            title: context.t(
+              '3. مكتبات وكتب للنقطة البحثية',
+              '3. Libraries & books for your topic',
+            ),
+            subtitle: context.t(
+              bundle.literature.isNotEmpty
+                  ? '${bundle.literature.length} دراسة مؤكدة + مكتبة كتب الكلية'
+                  : 'مكتبة كتب الكلية ومراجع النقطة البحثية',
+              bundle.literature.isNotEmpty
+                  ? '${bundle.literature.length} confirmed studies + faculty books library'
+                  : 'Faculty books library and topic references',
+            ),
+            score: bundle.literature.isNotEmpty
+                ? (bundle.literature.length * 6).clamp(24, 90)
+                : 40,
+            reasons: [
+              context.t(
+                'التخصصات التربوية والإنسانية لا تحتاج مختبرات علمية — نعتمد المكتبات والكتب والدراسات',
+                'Education and humanities do not need science labs — we use libraries, books, and studies',
+              ),
+            ],
+            onTap: () {
+              final facultyId =
+                  _profile?.resolvedFacultyCategory?.trim().isNotEmpty == true
+                      ? _profile!.resolvedFacultyCategory!
+                      : 'Arts';
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) =>
+                      FacultyBooksLibraryScreen(facultyId: facultyId),
+                ),
+              );
+            },
+            children: [
+              if (bundle.literature.isNotEmpty)
+                ...bundle.literature.take(4).map(
+                      (work) => ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.article_outlined, size: 20),
+                        title: Text(
+                          work.title,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: AcadeGateColors.text,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: Text(
+                          [
+                            if (work.year != null) '${work.year}',
+                            work.publicSource,
+                          ].join(' • '),
+                          style: const TextStyle(
+                            color: AcadeGateColors.muted,
+                            fontSize: 12,
+                          ),
+                        ),
+                        trailing: const Icon(Icons.open_in_new, size: 16),
+                        onTap: () => _openDoi(work.doiUrl),
+                      ),
+                    ),
+              ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(
+                  Icons.local_library_outlined,
+                  size: 20,
+                  color: acadegateInk(const Color(0xFF8D6E63)),
+                ),
+                title: Text(
+                  context.t(
+                    'فتح مكتبة كتب الكلية',
+                    'Open faculty books library',
+                  ),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: AcadeGateColors.text,
+                  ),
+                ),
+                trailing: const Icon(Icons.chevron_left),
+                onTap: () {
+                  final facultyId =
+                      _profile?.resolvedFacultyCategory?.trim().isNotEmpty ==
+                              true
+                          ? _profile!.resolvedFacultyCategory!
+                          : 'Arts';
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          FacultyBooksLibraryScreen(facultyId: facultyId),
+                    ),
+                  );
+                },
+              ),
+            ],
+          )
+        else if (bundle.labs.isEmpty)
           _chainStep(
             icon: Icons.science,
             color: Colors.purple,
@@ -1462,15 +1591,18 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
                       const SizedBox(height: 4),
                       Text(
                         subtitle,
-                        style: const TextStyle(fontWeight: FontWeight.w600),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: AcadeGateColors.text,
+                        ),
                       ),
                       if (reasons.isNotEmpty) ...[
                         const SizedBox(height: 6),
                         Text(
                           reasons.join(' • '),
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 12,
-                            color: const Color(0xFFB7C3D6),
+                            color: AcadeGateColors.muted,
                           ),
                         ),
                       ],
@@ -1480,7 +1612,10 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
                           alignment: Alignment.centerLeft,
                           child: Text(
                             context.t('اضغط للتفاصيل ←', 'Tap for details ←'),
-                            style: TextStyle(fontSize: 12, color: acadegateInk(color)),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: acadegateInk(color),
+                            ),
                           ),
                         ),
                       ],

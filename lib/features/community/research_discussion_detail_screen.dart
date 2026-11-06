@@ -255,9 +255,12 @@ class _ResearchDiscussionDetailScreenState
                       Expanded(
                         child: TextField(
                           controller: _replyController,
+                          style: const TextStyle(color: Color(0xFF1C1917)),
+                          cursorColor: const Color(0xFF00695C),
                           decoration: InputDecoration(
                             hintText:
                                 context.t('اكتب ردك...', 'Write your reply...'),
+                            hintStyle: const TextStyle(color: Color(0xFF78716C)),
                             filled: true,
                             fillColor: Colors.white,
                             border: OutlineInputBorder(

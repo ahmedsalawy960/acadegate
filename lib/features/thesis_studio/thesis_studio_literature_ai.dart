@@ -316,8 +316,8 @@ Reject immediately:
 - Papers from another faculty even if the broad topic overlaps
 Return JSON only: {"keep":[1,3,5]}
 If none qualify, {"keep":[]}
-Do not invent DOIs or titles. Prefer keeping fewer papers over noisy ones.
-Prefer keeping at least 3–6 papers when several candidates clearly match the goal.
+Do not invent DOIs or titles. Prefer a rich but on-topic set: when many candidates clearly match the goal, keep 10–20 (or all strong matches in this batch).
+Only return {"keep":[]} when almost none are about the thesis topic.
 ''',
       userMessage: '''
 Thesis goal (parent frame):
@@ -352,7 +352,7 @@ $list
     final topic = map['topic']?.toString().trim() ?? '';
     return LiteratureSearchPlan(
       topic: topic.length >= 4 ? topic : fallback.topic,
-      queries: queries.isNotEmpty ? queries.take(5).toList() : fallback.queries,
+      queries: queries.isNotEmpty ? queries.take(8).toList() : fallback.queries,
       includeTerms: include.isNotEmpty ? include : fallback.includeTerms,
       excludeHints: exclude.isNotEmpty ? exclude : fallback.excludeHints,
       homeDiscipline: fallback.homeDiscipline,
@@ -424,7 +424,7 @@ $list
         }
         return goal.field;
       }(),
-      queries: scoped.isNotEmpty ? scoped.take(5).toList() : fallback,
+      queries: scoped.isNotEmpty ? scoped.take(8).toList() : fallback,
       includeTerms: include.isNotEmpty
           ? include.take(12).toList()
           : ResearchGoalParser.corePhrases(goal)

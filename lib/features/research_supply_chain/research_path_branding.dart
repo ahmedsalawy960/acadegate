@@ -11,8 +11,8 @@ class ResearchPathBranding {
         'Write your goal: a master’s or PhD in a specific field',
       );
   static String get description => appTr(
-        'مشرفون من OpenAlex + ORCID + مواقع الجامعات + Semantic Scholar، مع خطة ودراسات DOI مؤكدة.',
-        'Supervisors from OpenAlex + ORCID + university sites + Semantic Scholar, plus a plan and DOI-confirmed studies.',
+        'مشرفون من شبكة AcadeGate الأكاديمية ومواقع الجامعات، مع خطة ودراسات DOI مؤكدة.',
+        'Supervisors from the AcadeGate academic network and university sites, plus a plan and DOI-confirmed studies.',
       );
   static String get buildButton => appTr(
         'ابنِ خطة الماجستير/الدكتوراه',

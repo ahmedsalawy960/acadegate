@@ -7,7 +7,8 @@ import 'publish_models.dart';
 
 /// Two conversions, nothing else:
 ///
-/// * Numbered: remove the author–year and put `[n]` of that same bibliography row.
+/// * Numbered: remove the author–year and put `[n]`. For a numbered journal,
+///   `n` is the order of first appearance in the paper, not the old list.
 /// * Author–year: remove `[n]` and put `(Author, Year)` of bibliography item n.
 class InTextCitationConverter {
   InTextCitationConverter._();
@@ -18,8 +19,9 @@ class InTextCitationConverter {
   static const _initials = r'(?:[\p{Lu}]\.\s*){1,4}';
   static const _year = r'(?:19|20)\d{2}[a-z]?';
 
-  /// One author, with optional initials.
-  static const _person = '$_surname(?:\\s*,\\s*$_initials)?';
+  /// One author, with a compound surname (`Raghuram Ulu`) and optional initials.
+  static const _person =
+      '$_surname(?:\\s+$_surname){0,2}(?:\\s*,\\s*$_initials)?';
 
   /// Full in-text author list: `Author and Author`, `Author, Author, and Author`,
   /// `Author et al.`, `Author, A. A., and Author, B.`
@@ -49,6 +51,184 @@ class InTextCitationConverter {
     '\\b($_authors)\\s+($_year)\\b',
     unicode: true,
   );
+
+  /// Walk one piece of text left to right. The first new work claims the next
+  /// number in [order]; a later mention of the same work keeps that number.
+  static String rewriteNumberedByAppearance({
+    required String text,
+    required BibliographyMatch match,
+    required NumberedCitationOrder order,
+  }) {
+    if (text.trim().isEmpty) return text;
+    final source = AcademicText.westernDigits(text);
+    if (CitationLinker.isEquationNumberLine(source)) return source;
+    final spans = _appearanceSpans(source, match);
+    if (spans.isEmpty) return _compactAdjacentNumbers(source);
+    spans.sort((a, b) {
+      final byStart = a.start.compareTo(b.start);
+      if (byStart != 0) return byStart;
+      return b.end.compareTo(a.end);
+    });
+    final buffer = StringBuffer();
+    var cursor = 0;
+    for (final span in spans) {
+      if (span.start < cursor) continue;
+      buffer.write(source.substring(cursor, span.start));
+      buffer.write(span.render(order));
+      cursor = span.end;
+    }
+    buffer.write(source.substring(cursor));
+    return _compactAdjacentNumbers(buffer.toString());
+  }
+
+  static List<_AppearanceSpan> _appearanceSpans(
+    String source,
+    BibliographyMatch match,
+  ) {
+    final spans = <_AppearanceSpan>[];
+
+    for (final m in RegExp(citeMarkerPattern).allMatches(source)) {
+      final ref = match.byId(m.group(1) ?? '');
+      if (ref == null) continue;
+      spans.add(_AppearanceSpan(m.start, m.end, (order) => '[${order.claim(ref)}]'));
+    }
+
+    for (final m in RegExp(r'\[(\d{1,3}(?:\s*[,;]\s*\d{1,3})*)\]').allMatches(source)) {
+      if (_keepBracketAsWritten(source, m.start, m.end)) continue;
+      final before = source.substring(0, m.start);
+      if (CitationLinker.isEquationNumberContext(before) ||
+          CitationLinker.isFloatNumberContext(before) ||
+          CitationLinker.isEquationLeader(before)) {
+        continue;
+      }
+      final nums = [
+        for (final p in m.group(1)!.split(RegExp(r'\s*[,;]\s*')))
+          int.tryParse(p.trim()),
+      ].whereType<int>().where((n) => n > 0).toList();
+      if (nums.isEmpty) continue;
+      if (nums.every((n) => match.byNumber(n) == null)) continue;
+      spans.add(_AppearanceSpan(m.start, m.end, (order) {
+        final printed = <String>[];
+        for (final n in nums) {
+          final ref = match.byNumber(n);
+          printed.add(ref == null ? '$n' : '${order.claim(ref)}');
+        }
+        return '[${printed.join(',')}]';
+      }));
+    }
+
+    for (final m in RegExp(r'\(([^()]{8,400})\)').allMatches(source)) {
+      final inner = m.group(1)!;
+      if (!inner.contains(';')) continue;
+      if (!RegExp(r'\b(?:19|20)\d{2}\b').hasMatch(inner)) continue;
+      if (CitationLinker.isEquationLeader(source.substring(0, m.start))) continue;
+      final refs = <PublishReference>[];
+      var ok = true;
+      for (final chunk in inner.split(';')) {
+        final ref = _referenceForAuthorYearChunk(chunk.trim(), match);
+        if (ref == null) {
+          ok = false;
+          break;
+        }
+        refs.add(ref);
+      }
+      if (!ok || refs.isEmpty) continue;
+      spans.add(_AppearanceSpan(m.start, m.end, (order) {
+        return '[${refs.map((ref) => order.claim(ref)).join(',')}]';
+      }));
+    }
+
+    for (final m in _parentheticalCite.allMatches(source)) {
+      if (CitationLinker.isEquationLeader(source.substring(0, m.start))) continue;
+      final ref = _referenceForAuthorYear(m.group(1)!, m.group(2)!, match);
+      if (ref == null) continue;
+      spans.add(_AppearanceSpan(m.start, m.end, (order) => '[${order.claim(ref)}]'));
+    }
+    for (final m in _narrativeCite.allMatches(source)) {
+      if (CitationLinker.isEquationLeader(source.substring(0, m.start))) continue;
+      final ref = _referenceForAuthorYear(m.group(1)!, m.group(2)!, match);
+      if (ref == null) continue;
+      spans.add(_AppearanceSpan(m.start, m.end, (order) => '[${order.claim(ref)}]'));
+    }
+    for (final m in _bareCite.allMatches(source)) {
+      final authors = m.group(1)!;
+      if (!RegExp(r'\bet\s+al\.?|\s+(?:&|and)\s+|,', caseSensitive: false)
+          .hasMatch(authors)) {
+        continue;
+      }
+      if (CitationLinker.isEquationLeader(source.substring(0, m.start))) continue;
+      final ref = _referenceForAuthorYear(authors, m.group(2)!, match);
+      if (ref == null) continue;
+      spans.add(_AppearanceSpan(m.start, m.end, (order) => '[${order.claim(ref)}]'));
+    }
+
+    for (final m in RegExp(r'\(([^()]{6,220})\)').allMatches(source)) {
+      final inner = m.group(1)!;
+      if (inner.contains(';')) continue;
+      if (!RegExp(r'\b(?:19|20)\d{2}[a-z]?\b').hasMatch(inner)) continue;
+      if (inner.split(RegExp(r'\s+')).length > 14) continue;
+      if (CitationLinker.isEquationLeader(source.substring(0, m.start))) continue;
+      final ref = _referenceForAuthorYearChunk(inner, match);
+      if (ref == null) continue;
+      spans.add(_AppearanceSpan(m.start, m.end, (order) => '[${order.claim(ref)}]'));
+    }
+    for (final m in RegExp(
+      r'\b([A-Z][\p{L}\-]{2,}(?:\s+[A-Z][\p{L}\-]{2,}){0,3}(?:\s+et\s+al\.?)?)\s*\(((?:19|20)\d{2}[a-z]?)\)',
+      unicode: true,
+    ).allMatches(source)) {
+      if (CitationLinker.isEquationLeader(source.substring(0, m.start))) continue;
+      final ref = _referenceForAuthorYear(m.group(1)!, m.group(2)!, match);
+      if (ref == null) continue;
+      spans.add(_AppearanceSpan(m.start, m.end, (order) => '[${order.claim(ref)}]'));
+    }
+    return spans;
+  }
+
+  static String _compactAdjacentNumbers(String result) {
+    result = result.replaceAllMapped(
+      RegExp(r'\[(\d{1,3})\]\s*\[\1\]'),
+      (m) => '[${m.group(1)}]',
+    );
+    var compact = result;
+    final adjacent = RegExp(
+      r'\[(\d{1,3}(?:,\d{1,3})*)\],\s*\[(\d{1,3}(?:,\d{1,3})*)\]',
+    );
+    while (true) {
+      final next = compact.replaceAllMapped(
+        adjacent,
+        (m) => '[${m.group(1)},${m.group(2)}]',
+      );
+      if (next == compact) break;
+      compact = next;
+    }
+    return compact;
+  }
+
+  static PublishReference? _referenceForAuthorYearChunk(
+    String chunk,
+    BibliographyMatch match,
+  ) {
+    final year = RegExp(
+          r'\b((?:19|20)\d{2}[a-z])\b',
+          caseSensitive: false,
+        ).firstMatch(chunk)?.group(1) ??
+        CitationStyleShapes.yearFromCitation(chunk) ??
+        RegExp(r'\b((?:19|20)\d{2})\b').firstMatch(chunk)?.group(1);
+    if (year == null) return null;
+    final names = CitationStyleShapes.lastNamesFromCitation(chunk);
+    if (names.isEmpty) return null;
+    return match.byLastNames(names, year: year) ??
+        match.byAuthorYear(names.first, year);
+  }
+
+  static PublishReference? _referenceForAuthorYear(
+    String authorPart,
+    String year,
+    BibliographyMatch match,
+  ) {
+    return _referenceForAuthorYearChunk('$authorPart $year', match) ??
+        match.byAuthorYear(authorPart, year);
+  }
 
   /// Replace (Author, Year) / Author (Year) with [n] of that same row.
   static String applyNumberedCitations({
@@ -174,7 +354,10 @@ class InTextCitationConverter {
           return m.group(0)!;
         }
         final before = source.substring(0, m.start);
-        if (CitationLinker.isEquationNumberContext(before)) {
+        if (CitationLinker.isEquationNumberContext(before) ||
+            CitationLinker.isFloatNumberContext(before) ||
+            CitationLinker.isEquationLeader(before) ||
+            CitationLinker.isEquationNumberLine(source)) {
           return m.group(0)!;
         }
         final nums = [
@@ -265,4 +448,29 @@ class InTextCitationConverter {
       return '[$n]';
     });
   }
+}
+
+/// First-citation numbers for one numbered-style export.
+class NumberedCitationOrder {
+  final Map<String, int> _numbers = {};
+  final List<String> ids = [];
+
+  int? numberOf(String id) => _numbers[id];
+
+  int claim(PublishReference ref) {
+    final existing = _numbers[ref.id];
+    if (existing != null) return existing;
+    final n = _numbers.length + 1;
+    _numbers[ref.id] = n;
+    ids.add(ref.id);
+    return n;
+  }
+}
+
+class _AppearanceSpan {
+  final int start;
+  final int end;
+  final String Function(NumberedCitationOrder order) render;
+
+  _AppearanceSpan(this.start, this.end, this.render);
 }

@@ -1,3 +1,5 @@
+const { consumeQuota, quotaExceededHttpsError } = require("./usage_quota");
+
 function createOriginalityHandlers(deps) {
   const {
     onCall,
@@ -115,6 +117,11 @@ function createOriginalityHandlers(deps) {
           "File exceeds 24 MB upload limit",
         );
       }
+    }
+
+    const quota = await consumeQuota({ uid, kind: "copyleaks" });
+    if (!quota.ok) {
+      throw quotaExceededHttpsError(quota, "copyleaks");
     }
 
     const db = getFirestore();

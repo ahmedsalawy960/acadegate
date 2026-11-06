@@ -233,9 +233,12 @@ class WritingExpertDetailScreen extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: const Color(0xFFB7C3D6)),
+          Icon(icon, size: 14, color: const Color(0xFF1A2744)),
           const SizedBox(width: 4),
-          Text(label, style: const TextStyle(fontSize: 12)),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 12, color: Color(0xFF1A2744)),
+          ),
         ],
       ),
     );

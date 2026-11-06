@@ -42,7 +42,7 @@ class ManuscriptDocumentParser {
   static const maxImportedBlocks = 500;
   static const maxImportedReferences = 200;
   static const maxBlockTextLength = 120000;
-  static const maxRawTextLength = 800;
+  static const maxRawTextLength = 20000;
 
   /// Keep imported pictures as data URIs for the same-session Word export.
   /// Firestore cannot store them — [stripDataUrisForPersistence] runs on save.
@@ -260,7 +260,8 @@ class ManuscriptDocumentParser {
       final raw = AcademicText.sanitize(ref.rawText);
       final clipped = raw.length <= maxRawTextLength
           ? raw
-          : raw.substring(0, maxRawTextLength);
+          : '${raw.substring(0, maxRawTextLength)} '
+              '… [shortened — open the original file for the full reference]';
       return ref.copyWith(
         rawText: clipped,
         year: AcademicText.westernDigits(ref.year),
@@ -720,11 +721,15 @@ class ManuscriptDocumentParser {
     }
 
     void closeBracketCite() {
-      final inner = CitationLinker.asciiDigits(bracketInner.toString())
-          .replaceAll(RegExp(r'[^0-9,;–\-]+'), '');
+      final original = bracketInner.toString();
       bracketInner.clear();
       collectingBracket = false;
-      textBuffer.write('[$inner]');
+      final digitsOnly = CitationLinker.asciiDigits(original)
+          .replaceAll(RegExp(r'[^0-9,;–\-]+'), '')
+          .trim();
+      final isNumericCite = !RegExp(r'[A-Za-z\u0600-\u06FF]').hasMatch(original) &&
+          RegExp(r'^\d{1,3}(?:\s*[,;–\-]\s*\d{1,3})*$').hasMatch(digitsOnly);
+      textBuffer.write(isNumericCite ? '[$digitsOnly]' : '[$original]');
     }
 
     void flushText() {
@@ -3350,6 +3355,11 @@ class ManuscriptDocumentParser {
     if (text.isEmpty) return false;
     if (_isTableCaption(text) || _isFigureCaption(text)) return false;
     if (ManuscriptStructureAdvisor.isCatalogLine(text)) return false;
+    if (CitationStyleShapes.isSymbolDefinition(text) ||
+        CitationStyleShapes.isNumericDataLine(text) ||
+        CitationStyleShapes.isParameterLine(text)) {
+      return false;
+    }
     if (_isMajorSectionHeading(text)) return true;
     if (CitationStyleShapes.looksLikeSectionHeading(text) &&
         !text.contains('(') &&
@@ -3357,8 +3367,14 @@ class ManuscriptDocumentParser {
       return true;
     }
     var styled = false;
-    for (final style in paragraph.findAllElements('pStyle')) {
-      final val = style.getAttribute('val') ?? style.getAttribute('w:val') ?? '';
+    for (final style in _descendantsNamed(paragraph, 'pStyle')) {
+      String val = '';
+      for (final attr in style.attributes) {
+        if (attr.name.local.toLowerCase() == 'val') {
+          val = attr.value;
+          break;
+        }
+      }
       if (val.toLowerCase().contains('heading')) styled = true;
     }
     if (!styled) {
