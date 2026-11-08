@@ -685,6 +685,19 @@ class _BrowseBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    // هاتف: بلاطات كبيرة مقروءة · ويب عريض: شبكة كثيفة
+    final categoryColumns = width < 480
+        ? 3
+        : width < 700
+            ? 4
+            : width < 1000
+                ? 6
+                : 8;
+    final categorySpacing = width < 480 ? 10.0 : 6.0;
+    final categoryAspect = width < 480 ? 1.05 : 1.35;
+    final categoryCompact = categoryColumns >= 6;
+
     final mostRequested = catalog.mostRequested(limit: 12);
     final newThisWeek = catalog.newThisWeek(limit: 12);
     final active = catalog.activeCategories(limit: 6);
@@ -914,11 +927,11 @@ class _BrowseBody extends StatelessWidget {
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             sliver: SliverGrid(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 8,
-                crossAxisSpacing: 6,
-                mainAxisSpacing: 6,
-                childAspectRatio: 1.35,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: categoryColumns,
+                crossAxisSpacing: categorySpacing,
+                mainAxisSpacing: categorySpacing,
+                childAspectRatio: categoryAspect,
               ),
               delegate: SliverChildBuilderDelegate(
                 (context, index) {
@@ -927,6 +940,7 @@ class _BrowseBody extends StatelessWidget {
                     category: category,
                     productCount: catalog.countFor(category),
                     onTap: () => onOpenCategory(category),
+                    compact: categoryCompact,
                   );
                 },
                 childCount: categories.length,
@@ -1320,20 +1334,29 @@ class _CategoryCoverTile extends StatelessWidget {
   final StoreCategory category;
   final int productCount;
   final VoidCallback onTap;
+  /// شبكة ويب كثيفة (6–8 أعمدة) مقابل بلاطات أوضح على الهاتف.
+  final bool compact;
 
   const _CategoryCoverTile({
     required this.category,
     required this.productCount,
     required this.onTap,
+    this.compact = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final iconSize = compact ? 10.0 : 18.0;
+    final titleSize = compact ? 9.5 : 12.5;
+    final metaSize = compact ? 8.5 : 11.0;
+    final pad = compact ? 5.0 : 8.0;
+    final radius = compact ? 10.0 : 12.0;
+
     return Material(
       color: Colors.transparent,
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(radius),
         side: const BorderSide(color: StoreTheme.border),
       ),
       clipBehavior: Clip.antiAlias,
@@ -1359,28 +1382,32 @@ class _CategoryCoverTile extends StatelessWidget {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(5),
+              padding: EdgeInsets.all(pad),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(2),
+                    padding: EdgeInsets.all(compact ? 2 : 5),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.94),
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: BorderRadius.circular(compact ? 4 : 8),
                     ),
-                    child: Icon(category.icon, color: const Color(0xFF18181B), size: 8),
+                    child: Icon(
+                      category.icon,
+                      color: const Color(0xFF18181B),
+                      size: iconSize,
+                    ),
                   ),
                   const Spacer(),
                   Text(
                     L10nLookup.storeCategoryTitle(category.id),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.w800,
                       color: Colors.white,
-                      fontSize: 9.5,
-                      height: 1.1,
+                      fontSize: titleSize,
+                      height: 1.15,
                     ),
                   ),
                   Text(
@@ -1391,7 +1418,7 @@ class _CategoryCoverTile extends StatelessWidget {
                           )
                         : context.t('تصفح', 'Browse'),
                     style: TextStyle(
-                      fontSize: 8.5,
+                      fontSize: metaSize,
                       color: Colors.white.withValues(alpha: 0.9),
                       fontWeight: FontWeight.w500,
                     ),
