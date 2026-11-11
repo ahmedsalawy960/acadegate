@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
 import '../../core/locale/locale_extensions.dart';
+import 'chat_media.dart';
+import 'chat_widgets.dart';
 import 'messaging_models.dart';
 import 'messaging_service.dart';
 
@@ -17,23 +19,38 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final _controller = TextEditingController();
+  final _scrollController = ScrollController();
   bool _sending = false;
 
   @override
   void dispose() {
     _controller.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
-  Future<void> _send() async {
+  void _jumpToEnd() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      );
+    });
+  }
+
+  Future<void> _send({ChatAttachment attachment = const ChatAttachment()}) async {
     if (_sending) return;
     setState(() => _sending = true);
     try {
       await MessagingService.instance.sendMessage(
         conversationId: widget.conversation.id,
         text: _controller.text,
+        attachment: attachment,
       );
       _controller.clear();
+      _jumpToEnd();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -76,76 +93,40 @@ class _ChatScreenState extends State<ChatScreen> {
                 }
 
                 return ListView.builder(
+                  controller: _scrollController,
                   padding: const EdgeInsets.all(12),
                   itemCount: messages.length,
                   itemBuilder: (context, index) {
                     final msg = messages[index];
                     final mine = msg.senderId == myUid;
-                    return Align(
-                      alignment:
-                          mine ? Alignment.centerLeft : Alignment.centerRight,
-                      child: Container(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
+                    final prev = index > 0 ? messages[index - 1] : null;
+                    final showDay = msg.createdAt != null &&
+                        (prev == null ||
+                            !isSameChatDay(prev.createdAt, msg.createdAt));
+
+                    return Column(
+                      children: [
+                        if (showDay)
+                          ChatDaySeparator(day: msg.createdAt!),
+                        ChatMessageBubble(
+                          text: msg.text,
+                          mine: mine,
+                          createdAt: msg.createdAt,
+                          attachment: msg.attachment,
                         ),
-                        constraints: BoxConstraints(
-                          maxWidth: MediaQuery.sizeOf(context).width * 0.75,
-                        ),
-                        decoration: BoxDecoration(
-                          color: mine
-                              ? const Color(0xFF1A237E)
-                              : Colors.grey[200],
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          msg.text,
-                          style: TextStyle(
-                            color: mine ? Colors.white : Colors.black87,
-                          ),
-                        ),
-                      ),
+                      ],
                     );
                   },
                 );
               },
             ),
           ),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _controller,
-                      decoration: InputDecoration(
-                        hintText: context.t('اكتب رسالة...', 'Type a message...'),
-                        border: const OutlineInputBorder(),
-                        isDense: true,
-                      ),
-                      minLines: 1,
-                      maxLines: 4,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton.filled(
-                    onPressed: _sending ? null : _send,
-                    icon: _sending
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Icon(Icons.send),
-                  ),
-                ],
-              ),
-            ),
+          ChatComposerBar(
+            controller: _controller,
+            sending: _sending,
+            accentColor: const Color(0xFF1A237E),
+            onSend: () => _send(),
+            onSendAttachment: (attachment) => _send(attachment: attachment),
           ),
         ],
       ),

@@ -49,6 +49,34 @@ class StorageService {
     return ref.getDownloadURL();
   }
 
+  /// مرفقات الشات: صور / فيديو / ملفات تحت `uploads/{uid}/chat/`.
+  Future<String> uploadChatBytes({
+    required List<int> bytes,
+    required String fileName,
+    required String contentType,
+  }) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('يجب تسجيل الدخول لرفع مرفق');
+    const maxBytes = 40 * 1024 * 1024;
+    if (bytes.length > maxBytes) {
+      throw Exception('حجم المرفق يجب ألا يتجاوز 40 ميجابايت');
+    }
+    final rawExt = fileName.split('.').last.toLowerCase();
+    final safeExt = rawExt.replaceAll(RegExp(r'[^a-z0-9]'), '');
+    final ext = safeExt.isEmpty ? 'bin' : safeExt;
+    final path =
+        'uploads/${user.uid}/chat/${DateTime.now().millisecondsSinceEpoch}.$ext';
+    final ref = _storage.ref().child(path);
+    final mime = contentType.contains('/')
+        ? contentType
+        : 'application/octet-stream';
+    await ref.putData(
+      Uint8List.fromList(bytes),
+      SettableMetadata(contentType: mime),
+    );
+    return ref.getDownloadURL();
+  }
+
   Future<String> uploadBytes({
     required List<int> bytes,
     required String folder,

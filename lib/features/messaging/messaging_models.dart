@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../core/locale/l10n_lookup.dart';
+import 'chat_media.dart';
 
 class ChatMessage {
   final String? id;
@@ -8,6 +9,7 @@ class ChatMessage {
   final String senderName;
   final String text;
   final DateTime? createdAt;
+  final ChatAttachment attachment;
 
   const ChatMessage({
     this.id,
@@ -15,6 +17,7 @@ class ChatMessage {
     required this.senderName,
     required this.text,
     this.createdAt,
+    this.attachment = const ChatAttachment(),
   });
 
   factory ChatMessage.fromMap(Map<String, dynamic> map, {String? id}) {
@@ -28,6 +31,7 @@ class ChatMessage {
       senderName: map['senderName']?.toString() ?? '',
       text: map['text']?.toString() ?? '',
       createdAt: created,
+      attachment: ChatAttachment.fromMap(map),
     );
   }
 }

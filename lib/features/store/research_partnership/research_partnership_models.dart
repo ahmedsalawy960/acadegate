@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../messaging/chat_media.dart';
 import '../store_cart_service.dart';
 
 /// عنصر محفوظ داخل فرصة الشراكة البحثية.
@@ -112,6 +113,7 @@ class ResearchPartnershipMessage {
   final String senderName;
   final String text;
   final DateTime? createdAt;
+  final ChatAttachment attachment;
 
   const ResearchPartnershipMessage({
     required this.id,
@@ -119,6 +121,7 @@ class ResearchPartnershipMessage {
     required this.senderName,
     required this.text,
     this.createdAt,
+    this.attachment = const ChatAttachment(),
   });
 
   factory ResearchPartnershipMessage.fromDoc(
@@ -131,6 +134,7 @@ class ResearchPartnershipMessage {
       senderName: d['senderName']?.toString() ?? '',
       text: d['text']?.toString() ?? '',
       createdAt: (d['createdAt'] as Timestamp?)?.toDate(),
+      attachment: ChatAttachment.fromMap(d),
     );
   }
 }

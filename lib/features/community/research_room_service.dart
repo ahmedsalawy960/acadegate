@@ -6,6 +6,7 @@ import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../core/locale/app_translate.dart';
+import '../messaging/chat_media.dart';
 import '../notifications/notification_service.dart';
 import 'community_service.dart';
 import 'research_room_models.dart';
@@ -428,6 +429,7 @@ class ResearchRoomService {
     required String text,
     String? academicLink,
     String? academicTitle,
+    ChatAttachment attachment = const ChatAttachment(),
   }) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
@@ -444,7 +446,7 @@ class ResearchRoomService {
 
     final trimmed = text.trim();
     final link = academicLink?.trim() ?? '';
-    if (trimmed.isEmpty && link.isEmpty) {
+    if (trimmed.isEmpty && link.isEmpty && !attachment.hasMedia) {
       return appTr('اكتب رسالة أولاً', 'Write a message first');
     }
 
@@ -467,15 +469,21 @@ class ResearchRoomService {
       if (link.isNotEmpty) 'academicLink': link,
       if ((academicTitle ?? '').trim().isNotEmpty)
         'academicTitle': academicTitle!.trim(),
+      ...attachment.toFirestoreFields(),
       'createdAt': FieldValue.serverTimestamp(),
     });
 
-    await _rooms.doc(roomId).set({
-      'lastChannelActivity': trimmed.isNotEmpty
+    final preview = chatLastMessagePreview(
+      text: trimmed.isNotEmpty
           ? trimmed
           : (academicTitle?.trim().isNotEmpty == true
               ? academicTitle!.trim()
               : link),
+      kind: attachment.kind,
+    );
+
+    await _rooms.doc(roomId).set({
+      'lastChannelActivity': preview,
       'lastActivityAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
@@ -487,8 +495,8 @@ class ResearchRoomService {
         userId: room.creatorId,
         title: appTr('رسالة جديدة في غرفتك', 'New message in your room'),
         body: appTr(
-          '$authorName في #$channelLabel: ${trimmed.isEmpty ? link : trimmed}',
-          '$authorName in #$channelLabel: ${trimmed.isEmpty ? link : trimmed}',
+          '$authorName في #$channelLabel: $preview',
+          '$authorName in #$channelLabel: $preview',
         ),
         type: 'research_room_chat',
         contextId: roomId,

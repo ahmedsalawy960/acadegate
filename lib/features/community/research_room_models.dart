@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../core/locale/app_translate.dart';
+import '../messaging/chat_media.dart';
 
 class ResearchRoom {
   final String id;
@@ -153,6 +154,7 @@ class ResearchChannelMessage {
   final String? academicLink;
   final String? academicTitle;
   final DateTime? createdAt;
+  final ChatAttachment attachment;
 
   const ResearchChannelMessage({
     required this.id,
@@ -163,6 +165,7 @@ class ResearchChannelMessage {
     this.academicLink,
     this.academicTitle,
     this.createdAt,
+    this.attachment = const ChatAttachment(),
   });
 
   factory ResearchChannelMessage.fromMap(
@@ -184,6 +187,7 @@ class ResearchChannelMessage {
       academicLink: map['academicLink']?.toString(),
       academicTitle: map['academicTitle']?.toString(),
       createdAt: created,
+      attachment: ChatAttachment.fromMap(map),
     );
   }
 }

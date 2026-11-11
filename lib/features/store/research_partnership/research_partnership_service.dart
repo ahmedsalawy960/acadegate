@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/escrow/payment_status.dart';
 import '../../../core/locale/app_translate.dart';
 import '../../../core/payments/payment_method.dart';
+import '../../messaging/chat_media.dart';
 import '../../notifications/notification_service.dart';
 import '../store_cart_service.dart';
 import '../store_order_service.dart';
@@ -227,13 +228,14 @@ class ResearchPartnershipService {
   Future<void> sendMessage({
     required String partnershipId,
     required String text,
+    ChatAttachment attachment = const ChatAttachment(),
   }) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       throw Exception(appTr('يجب تسجيل الدخول', 'You must sign in'));
     }
     final body = text.trim();
-    if (body.isEmpty) return;
+    if (body.isEmpty && !attachment.hasMedia) return;
     if (body.length > 2000) {
       throw Exception(appTr('الرسالة طويلة جداً', 'Message is too long'));
     }
@@ -253,6 +255,7 @@ class ResearchPartnershipService {
       'senderId': user.uid,
       'senderName': _displayName(user),
       'text': body,
+      ...attachment.toFirestoreFields(),
       'createdAt': FieldValue.serverTimestamp(),
     });
   }

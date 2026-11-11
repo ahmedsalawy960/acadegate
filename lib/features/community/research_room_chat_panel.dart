@@ -4,6 +4,8 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/locale/locale_extensions.dart';
 import '../../core/locale/locale_service.dart';
+import '../messaging/chat_media.dart';
+import '../messaging/chat_widgets.dart';
 import 'research_room_models.dart';
 import 'research_room_service.dart';
 
@@ -58,7 +60,19 @@ class _ResearchRoomChatPanelState extends State<ResearchRoomChatPanel> {
     super.dispose();
   }
 
-  Future<void> _send() async {
+  void _jumpToEnd() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  Future<void> _send({ChatAttachment attachment = const ChatAttachment()}) async {
     if (_sending) return;
     setState(() => _sending = true);
     final error = await ResearchRoomService.instance.sendChannelMessage(
@@ -67,6 +81,7 @@ class _ResearchRoomChatPanelState extends State<ResearchRoomChatPanel> {
       text: _textController.text,
       academicLink: _showLinkFields ? _linkController.text : null,
       academicTitle: _showLinkFields ? _linkTitleController.text : null,
+      attachment: attachment,
     );
     if (!mounted) return;
     setState(() => _sending = false);
@@ -80,15 +95,7 @@ class _ResearchRoomChatPanelState extends State<ResearchRoomChatPanel> {
     _linkController.clear();
     _linkTitleController.clear();
     setState(() => _showLinkFields = false);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeOut,
-        );
-      }
-    });
+    _jumpToEnd();
   }
 
   Future<void> _openLink(String url) async {
@@ -150,7 +157,7 @@ class _ResearchRoomChatPanelState extends State<ResearchRoomChatPanel> {
                       'ابدأ النقاش الحي في هذه القناة',
                       'Start the live discussion in this channel',
                     ),
-                    style: TextStyle(color: const Color(0xFFB7C3D6)),
+                    style: TextStyle(color: Colors.grey.shade600),
                   ),
                 );
               }
@@ -161,67 +168,56 @@ class _ResearchRoomChatPanelState extends State<ResearchRoomChatPanel> {
                 itemBuilder: (context, index) {
                   final msg = messages[index];
                   final mine = msg.authorId == myUid;
-                  return Align(
-                    alignment:
-                        mine ? Alignment.centerLeft : Alignment.centerRight,
-                    child: Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      constraints: BoxConstraints(
-                        maxWidth: MediaQuery.sizeOf(context).width * 0.78,
-                      ),
-                      decoration: BoxDecoration(
-                        color: mine
-                            ? const Color(0xFF00695C).withValues(alpha: 0.12)
-                            : Colors.grey.shade200,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                  final prev = index > 0 ? messages[index - 1] : null;
+                  final showDay = msg.createdAt != null &&
+                      (prev == null ||
+                          !isSameChatDay(prev.createdAt, msg.createdAt));
+
+                  Widget? academicFooter;
+                  if ((msg.academicLink ?? '').isNotEmpty) {
+                    academicFooter = InkWell(
+                      onTap: () => _openLink(msg.academicLink!),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(
-                            msg.authorName,
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: const Color(0xFFB7C3D6),
-                            ),
-                          ),
-                          if (msg.text.isNotEmpty) ...[
-                            const SizedBox(height: 4),
-                            Text(msg.text, style: const TextStyle(height: 1.35)),
-                          ],
-                          if ((msg.academicLink ?? '').isNotEmpty) ...[
-                            const SizedBox(height: 6),
-                            InkWell(
-                              onTap: () => _openLink(msg.academicLink!),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(Icons.link, size: 16),
-                                  const SizedBox(width: 4),
-                                  Flexible(
-                                    child: Text(
-                                      (msg.academicTitle?.isNotEmpty == true)
-                                          ? msg.academicTitle!
-                                          : msg.academicLink!,
-                                      style: const TextStyle(
-                                        color: const Color(0xFF5EEAD4),
-                                        decoration: TextDecoration.underline,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                          const Icon(Icons.link, size: 16),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              (msg.academicTitle?.isNotEmpty == true)
+                                  ? msg.academicTitle!
+                                  : msg.academicLink!,
+                              style: const TextStyle(
+                                color: Color(0xFF00695C),
+                                decoration: TextDecoration.underline,
+                                fontSize: 13,
                               ),
                             ),
-                          ],
+                          ),
                         ],
                       ),
-                    ),
+                    );
+                  }
+
+                  return Column(
+                    children: [
+                      if (showDay) ChatDaySeparator(day: msg.createdAt!),
+                      ChatMessageBubble(
+                        text: msg.text,
+                        mine: mine,
+                        createdAt: msg.createdAt,
+                        attachment: msg.attachment,
+                        senderName: msg.authorName,
+                        mineColor:
+                            const Color(0xFF00695C).withValues(alpha: 0.12),
+                        theirsColor: Colors.grey.shade200,
+                        mineTextColor: Colors.black87,
+                        theirsTextColor: Colors.black87,
+                        timeColorMine: Colors.black54,
+                        timeColorTheirs: Colors.black45,
+                        footerExtra: academicFooter,
+                      ),
+                    ],
                   );
                 },
               );
@@ -259,62 +255,26 @@ class _ResearchRoomChatPanelState extends State<ResearchRoomChatPanel> {
               ],
             ),
           ),
-        SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-            child: Row(
-              children: [
-                IconButton(
-                  tooltip: context.t('مرجع أكاديمي', 'Academic reference'),
-                  onPressed: () =>
-                      setState(() => _showLinkFields = !_showLinkFields),
-                  icon: Icon(
-                    Icons.menu_book_outlined,
-                    color: _showLinkFields
-                        ? const Color(0xFF00695C)
-                        : const Color(0xFFB7C3D6),
-                  ),
-                ),
-                Expanded(
-                  child: TextField(
-                    controller: _textController,
-                    minLines: 1,
-                    maxLines: 4,
-                    decoration: InputDecoration(
-                      hintText: context.t('اكتب رسالة...', 'Write a message...'),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 10,
-                      ),
-                    ),
-                    onSubmitted: (_) => _send(),
-                  ),
-                ),
-                const SizedBox(width: 4),
-                IconButton(
-                  onPressed: _sending ? null : _send,
-                  style: IconButton.styleFrom(
-                    backgroundColor: const Color(0xFF00695C),
-                    foregroundColor: Colors.white,
-                  ),
-                  icon: _sending
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Icon(Icons.send),
-                ),
-              ],
+        ChatComposerBar(
+          controller: _textController,
+          sending: _sending,
+          accentColor: const Color(0xFF00695C),
+          hintText: context.t('اكتب رسالة...', 'Write a message...'),
+          onSend: () => _send(),
+          onSendAttachment: (attachment) => _send(attachment: attachment),
+          leadingActions: [
+            IconButton(
+              tooltip: context.t('مرجع أكاديمي', 'Academic reference'),
+              onPressed: () =>
+                  setState(() => _showLinkFields = !_showLinkFields),
+              icon: Icon(
+                Icons.menu_book_outlined,
+                color: _showLinkFields
+                    ? const Color(0xFF00695C)
+                    : Colors.grey.shade600,
+              ),
             ),
-          ),
+          ],
         ),
       ],
     );

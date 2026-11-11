@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/locale/app_translate.dart';
 import '../../core/locale/l10n_lookup.dart';
 import '../notifications/notification_service.dart';
+import 'chat_media.dart';
 import 'messaging_models.dart';
 
 class MessagingService {
@@ -155,12 +156,16 @@ class MessagingService {
   Future<void> sendMessage({
     required String conversationId,
     required String text,
+    ChatAttachment attachment = const ChatAttachment(),
   }) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) throw Exception(L10nLookup.loginRequiredMessage);
 
     final trimmed = text.trim();
-    if (trimmed.isEmpty) return;
+    if (trimmed.isEmpty && !attachment.hasMedia) return;
+    if (trimmed.length > 4000) {
+      throw Exception(appTr('الرسالة طويلة جداً', 'Message is too long'));
+    }
 
     final convRef = _conversations.doc(conversationId);
     final conv = await convRef.get();
@@ -178,15 +183,21 @@ class MessagingService {
     final senderName =
         user.displayName ?? user.email?.split('@').first ?? L10nLookup.user;
 
+    final preview = chatLastMessagePreview(
+      text: trimmed,
+      kind: attachment.kind,
+    );
+
     await convRef.collection('messages').add({
       'senderId': user.uid,
       'senderName': senderName,
       'text': trimmed,
+      ...attachment.toFirestoreFields(),
       'createdAt': FieldValue.serverTimestamp(),
     });
 
     await convRef.update({
-      'lastMessage': trimmed,
+      'lastMessage': preview,
       'updatedAt': FieldValue.serverTimestamp(),
       // أعد إظهار المحادثة للطرفين عند رسالة جديدة.
       'hiddenFor': FieldValue.arrayRemove(participants),
@@ -197,7 +208,7 @@ class MessagingService {
       await NotificationService.instance.send(
         userId: participantId,
         title: L10nLookup.newMessageTitle(),
-        body: '$senderName: $trimmed',
+        body: '$senderName: $preview',
         type: 'message',
         contextId: conversationId,
         contextType: 'conversation',
