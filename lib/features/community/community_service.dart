@@ -289,16 +289,31 @@ class CommunityService {
 
     var upvoted = false;
     await _db.runTransaction((transaction) async {
+      final postSnap = await transaction.get(postRef);
+      if (!postSnap.exists) {
+        upvoted = false;
+        return;
+      }
       final voteSnap = await transaction.get(voteRef);
+      final raw = postSnap.data()?['upvotesCount'];
+      final current = raw is num
+          ? raw.toInt()
+          : int.tryParse(raw?.toString() ?? '') ?? 0;
+
       if (voteSnap.exists) {
         transaction.delete(voteRef);
-        transaction.update(postRef, {'upvotesCount': FieldValue.increment(-1)});
+        transaction.update(postRef, {
+          'upvotesCount': current > 0 ? current - 1 : 0,
+        });
         upvoted = false;
       } else {
         transaction.set(voteRef, {
           'createdAt': FieldValue.serverTimestamp(),
+          'uid': user.uid,
         });
-        transaction.update(postRef, {'upvotesCount': FieldValue.increment(1)});
+        transaction.update(postRef, {
+          'upvotesCount': current + 1,
+        });
         upvoted = true;
       }
     });

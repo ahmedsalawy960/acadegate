@@ -44,18 +44,31 @@ class _ResearchIdeaMarketplaceDetailScreenState
   bool _isVoting = false;
   bool _isPublisher = false;
   bool _claimLoading = false;
+  bool _hasVoted = false;
 
   @override
   void initState() {
     super.initState();
-    _checkPublisher();
+    _bootstrap();
   }
 
-  Future<void> _checkPublisher() async {
+  Future<void> _bootstrap() async {
     if (!widget.idea.isFromFirebase) return;
-    final isPub = await ResearchMarketplaceService.instance
-        .isIdeaPublisher(widget.idea.id!);
-    if (mounted) setState(() => _isPublisher = isPub);
+    final ideaId = (widget.idea.id ?? '').trim();
+    if (ideaId.isEmpty) return;
+    try {
+      final results = await Future.wait([
+        ResearchMarketplaceService.instance.isIdeaPublisher(ideaId),
+        ResearchMarketplaceService.instance.hasUserVoted(ideaId).first,
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _isPublisher = results[0];
+        _hasVoted = results[1];
+      });
+    } catch (_) {
+      // Ignore bootstrap failures — vote/claim still usable.
+    }
   }
 
   Future<void> _openSource(String url) async {
@@ -65,14 +78,30 @@ class _ResearchIdeaMarketplaceDetailScreenState
   }
 
   Future<void> _toggleVote() async {
+    if (_isVoting) return;
+    if (!widget.idea.isFromFirebase || (widget.idea.id ?? '').isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.t(
+            'التصويت غير متاح لهذه الفكرة',
+            'Voting is not available for this idea',
+          )),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
     setState(() => _isVoting = true);
     try {
       await ResearchMarketplaceService.instance.toggleVote(widget.idea);
+      if (!mounted) return;
+      setState(() => _hasVoted = !_hasVoted);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('$e'),
+          content: Text('$e'.replaceFirst('Exception: ', '')),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
         ),
@@ -242,12 +271,18 @@ class _ResearchIdeaMarketplaceDetailScreenState
           .doc(widget.idea.id)
           .snapshots(),
       builder: (context, snapshot) {
-        final idea = snapshot.hasData && snapshot.data!.exists
-            ? AcademicResearchIdea.fromMap(
-                snapshot.data!.data()!,
-                id: snapshot.data!.id,
-              )
-            : widget.idea;
+        AcademicResearchIdea idea = widget.idea;
+        try {
+          final doc = snapshot.data;
+          if (doc != null && doc.exists) {
+            final data = doc.data();
+            if (data != null) {
+              idea = AcademicResearchIdea.fromMap(data, id: doc.id);
+            }
+          }
+        } catch (_) {
+          idea = widget.idea;
+        }
         return _buildScaffold(context, idea);
       },
     );
@@ -582,43 +617,44 @@ class _ResearchIdeaMarketplaceDetailScreenState
                                   idea.isClaimed
                               ? null
                               : _toggleVote,
-                      icon: _isVoting
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.thumb_up_alt_outlined),
-                      label: canInteract
-                          ? StreamBuilder<bool>(
-                              stream: ResearchMarketplaceService.instance
-                                  .hasUserVoted(idea.id!),
-                              builder: (context, snapshot) {
-                                final voted = snapshot.data ?? false;
-                                return Text(voted
-                                    ? context.t('إلغاء التصويت', 'Remove vote')
-                                    : context.t('صوّت', 'Vote'));
-                              },
-                            )
-                          : Text(context.t('صوّت', 'Vote')),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    flex: 2,
-                    child: ElevatedButton.icon(
-                      onPressed: idea.isOpen && !idea.isClaimed
-                          ? _openProposalForm
-                          : null,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.orange[800],
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
+                          icon: _isVoting
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : Icon(
+                                  _hasVoted
+                                      ? Icons.thumb_up_alt
+                                      : Icons.thumb_up_alt_outlined,
+                                ),
+                          label: Text(
+                            _hasVoted
+                                ? context.t('إلغاء التصويت', 'Remove vote')
+                                : context.t('صوّت', 'Vote'),
+                          ),
+                        ),
                       ),
-                      icon: const Icon(Icons.send),
-                      label: Text(context.t('قدّم مقترحك', 'Submit your proposal')),
-                    ),
-                  ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 2,
+                        child: ElevatedButton.icon(
+                          onPressed: idea.isOpen && !idea.isClaimed
+                              ? _openProposalForm
+                              : null,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.orange[800],
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          icon: const Icon(Icons.send),
+                          label: Text(
+                            context.t('قدّم مقترحك', 'Submit your proposal'),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ],

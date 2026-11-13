@@ -35,9 +35,19 @@ service cloud.firestore {
       return request.resource.data.approvalStatus == resource.data.approvalStatus;
     }
 
+    // عدّاد التصويت/التفاعل: الحقل قد يكون غائباً أو غير رقمي (=0)، ويُسمح بـ ±1 دون السالب.
+    function counterOf(data, field) {
+      return (field in data && data[field] is number) ? data[field] : 0;
+    }
+
     function isCounterBump(field) {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly([field])
-          && request.resource.data[field] == resource.data[field] + 1;
+          && request.resource.data[field] is number
+          && request.resource.data[field] >= 0
+          && (
+            request.resource.data[field] == counterOf(resource.data, field) + 1
+            || request.resource.data[field] == counterOf(resource.data, field) - 1
+          );
     }
 
     function isCounterBumpOnly() {

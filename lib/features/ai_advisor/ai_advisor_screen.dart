@@ -12,6 +12,7 @@ import '../auth/usage_quota_banner.dart';
 import '../guides/section_guide_catalog.dart';
 import '../guides/section_guide_screen.dart';
 import '../viva_simulator/viva_screen.dart';
+import 'advisor_agent.dart';
 import 'advisor_attachment.dart';
 import 'advisor_attachment_service.dart';
 import 'advisor_branding.dart';
@@ -47,7 +48,9 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
   String? _activeConversationId;
   bool _isDraftConversation = true;
   bool _isThinking = false;
-  bool _showAgents = true;
+  /// مخفي افتراضياً على الهاتف حتى لا يغطي حقل الكتابة.
+  bool _showAgents = false;
+  final _inputFocus = FocusNode();
   bool _isLoadingHistory = true;
   int _sidebarRevision = 0;
   bool _initialMessageQueued = false;
@@ -135,7 +138,7 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
       _messages
         ..clear()
         ..add(_service.welcomeMessage());
-      _showAgents = true;
+      _showAgents = false;
       _sidebarRevision++;
     });
   }
@@ -157,7 +160,7 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
         ..addAll(
           stored.isEmpty ? [_service.welcomeMessage()] : stored,
         );
-      _showAgents = stored.isEmpty;
+      _showAgents = false;
       _isLoadingHistory = false;
     });
 
@@ -361,6 +364,7 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
     _tts.onStateChanged = null;
     _stt.cancel();
     _tts.stop();
+    _inputFocus.dispose();
     _inputController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -533,34 +537,45 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
       return const Center(child: CircularProgressIndicator());
     }
 
+    final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
+    final showChrome = !keyboardOpen;
+
     return Column(
       children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(12, 8, 12, 0),
-          child: SectionGuideBanner(
-            guideId: SectionGuideCatalog.ai,
-            accent: _accent,
-          ),
-        ),
-        const UsageQuotaBanner(
-          showGemini: true,
-          showScholar: false,
-        ),
-        if (_showAgents) ...[
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-            child: _VivaPromoCard(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const VivaSimulatorScreen(),
-                  ),
-                );
-              },
+        if (showChrome) ...[
+          const Padding(
+            padding: EdgeInsets.fromLTRB(12, 8, 12, 0),
+            child: SectionGuideBanner(
+              guideId: SectionGuideCatalog.ai,
+              accent: _accent,
             ),
           ),
-          const _AgentsPanel(),
+          const UsageQuotaBanner(
+            showGemini: true,
+            showScholar: false,
+          ),
+          if (_showAgents) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              child: _VivaPromoCard(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const VivaSimulatorScreen(),
+                    ),
+                  );
+                },
+              ),
+            ),
+            _AgentsPanel(
+              enabled: !_isThinking,
+              onAgentSelected: (agent) {
+                setState(() => _showAgents = false);
+                _sendMessage(agent.samplePrompt);
+              },
+            ),
+          ],
         ],
         Expanded(
           child: ListView.builder(
@@ -580,7 +595,8 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
             },
           ),
         ),
-        if (_messages.length <= 2)
+        // شريط اقتراحات واحد فقط — يعمل بالضغط، ويُخفى مع الكيبورد/لوحة الوكلاء.
+        if (showChrome && !_showAgents && _messages.length <= 2)
           SizedBox(
             height: 40,
             child: ListView.separated(
@@ -599,6 +615,9 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
             ),
           ),
         SafeArea(
+          top: false,
+          // عند فتح الكيبورد viewInsets يتولى الرفع — لا نضاعف padding السفلي.
+          bottom: !keyboardOpen,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
             child: Column(
@@ -640,87 +659,94 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
                       ),
                     ),
                   ),
-                Wrap(
-                  spacing: 6,
-                  children: [
-                    _SttLangChip(
-                      label: context.t('تلقائي', 'Auto'),
-                      selected: _stt.language == VoiceSttLanguage.auto,
-                      onSelected: _stt.isListening || _stt.isTranscribing
-                          ? null
-                          : () => setState(
-                                () => _stt.language = VoiceSttLanguage.auto,
-                              ),
-                    ),
-                    _SttLangChip(
-                      label: context.t('عربي', 'Arabic'),
-                      selected: _stt.language == VoiceSttLanguage.arabic,
-                      onSelected: _stt.isListening || _stt.isTranscribing
-                          ? null
-                          : () => setState(
-                                () => _stt.language = VoiceSttLanguage.arabic,
-                              ),
-                    ),
-                    _SttLangChip(
-                      label: context.t('English', 'English'),
-                      selected: _stt.language == VoiceSttLanguage.english,
-                      onSelected: _stt.isListening || _stt.isTranscribing
-                          ? null
-                          : () => setState(
-                                () => _stt.language = VoiceSttLanguage.english,
-                              ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
+                if (showChrome) ...[
+                  Wrap(
+                    spacing: 6,
+                    children: [
+                      _SttLangChip(
+                        label: context.t('تلقائي', 'Auto'),
+                        selected: _stt.language == VoiceSttLanguage.auto,
+                        onSelected: _stt.isListening || _stt.isTranscribing
+                            ? null
+                            : () => setState(
+                                  () => _stt.language = VoiceSttLanguage.auto,
+                                ),
+                      ),
+                      _SttLangChip(
+                        label: context.t('عربي', 'Arabic'),
+                        selected: _stt.language == VoiceSttLanguage.arabic,
+                        onSelected: _stt.isListening || _stt.isTranscribing
+                            ? null
+                            : () => setState(
+                                  () =>
+                                      _stt.language = VoiceSttLanguage.arabic,
+                                ),
+                      ),
+                      _SttLangChip(
+                        label: context.t('English', 'English'),
+                        selected: _stt.language == VoiceSttLanguage.english,
+                        onSelected: _stt.isListening || _stt.isTranscribing
+                            ? null
+                            : () => setState(
+                                  () =>
+                                      _stt.language = VoiceSttLanguage.english,
+                                ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                ],
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Material(
-                      color: Colors.white,
-                      shape: const CircleBorder(),
-                      elevation: 1,
-                      child: IconButton(
-                        tooltip: context.t(
-                          'إرفاق صورة أو ملف',
-                          'Attach image or file',
-                        ),
-                        onPressed: _isThinking ? null : _showAttachOptions,
-                        icon: const Icon(Icons.attach_file),
-                        color: _accent,
-                        iconSize: 26,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Material(
-                      color: _stt.isListening ? Colors.red : Colors.white,
-                      shape: const CircleBorder(),
-                      elevation: 1,
-                      child: IconButton(
-                        tooltip: _stt.isListening
-                            ? context.t('إيقاف التسجيل', 'Stop recording')
-                            : (_sttAvailable
-                                ? context.t(
-                                    'تحدث إلى المستشار',
-                                    'Speak to the advisor',
-                                  )
-                                : context.t(
-                                    'تفعيل الميكروفون',
-                                    'Enable the microphone',
-                                  )),
-                        onPressed: _isThinking || _stt.isTranscribing
-                            ? null
-                            : _toggleMic,
-                        icon: Icon(
-                          _stt.isListening ? Icons.mic : Icons.mic_none,
-                          color: _stt.isListening ? Colors.white : _accent,
+                    if (showChrome) ...[
+                      Material(
+                        color: Colors.white,
+                        shape: const CircleBorder(),
+                        elevation: 1,
+                        child: IconButton(
+                          tooltip: context.t(
+                            'إرفاق صورة أو ملف',
+                            'Attach image or file',
+                          ),
+                          onPressed: _isThinking ? null : _showAttachOptions,
+                          icon: const Icon(Icons.attach_file),
+                          color: _accent,
+                          iconSize: 26,
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
+                      const SizedBox(width: 4),
+                      Material(
+                        color: _stt.isListening ? Colors.red : Colors.white,
+                        shape: const CircleBorder(),
+                        elevation: 1,
+                        child: IconButton(
+                          tooltip: _stt.isListening
+                              ? context.t('إيقاف التسجيل', 'Stop recording')
+                              : (_sttAvailable
+                                  ? context.t(
+                                      'تحدث إلى المستشار',
+                                      'Speak to the advisor',
+                                    )
+                                  : context.t(
+                                      'تفعيل الميكروفون',
+                                      'Enable the microphone',
+                                    )),
+                          onPressed: _isThinking || _stt.isTranscribing
+                              ? null
+                              : _toggleMic,
+                          icon: Icon(
+                            _stt.isListening ? Icons.mic : Icons.mic_none,
+                            color: _stt.isListening ? Colors.white : _accent,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
                     Expanded(
                       child: TextField(
                         controller: _inputController,
+                        focusNode: _inputFocus,
                         enabled: !_stt.isTranscribing,
                         style: const TextStyle(
                           color: Color(0xFF1A2744),
@@ -756,7 +782,8 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(24),
-                            borderSide: BorderSide(color: _accent, width: 1.4),
+                            borderSide:
+                                BorderSide(color: _accent, width: 1.4),
                           ),
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 16,
@@ -764,9 +791,10 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
                           ),
                         ),
                         minLines: 1,
-                        maxLines: 4,
+                        maxLines: keyboardOpen ? 3 : 4,
                         textInputAction: TextInputAction.send,
-                        onSubmitted: _isThinking ? null : (_) => _sendMessage(),
+                        onSubmitted:
+                            _isThinking ? null : (_) => _sendMessage(),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -795,21 +823,14 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
 
     return Scaffold(
       key: _scaffoldKey,
+      resizeToAvoidBottomInset: true,
       appBar: AcadeGateAppBar(
         title: Text(AdvisorBranding.assistantTitle),
         backgroundColor: _accent,
         foregroundColor: Colors.white,
         iconTheme: const IconThemeData(color: Colors.white),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          tooltip: context.t('رجوع إلى البوابة', 'Back to portal'),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
+        // لا تمرّر leading مخصصاً — AcadeGateAppBar يضع زر رجوع واحد فقط.
         actions: [
-          const SectionGuideAppBarButton(
-            guideId: SectionGuideCatalog.ai,
-            accent: _accent,
-          ),
           IconButton(
             tooltip: _voiceEnabled
                 ? context.t('إيقاف قراءة الردود', 'Stop reading replies')
@@ -817,7 +838,9 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
             icon: Icon(
               _tts.isSpeaking
                   ? Icons.volume_up
-                  : (_voiceEnabled ? Icons.volume_up_outlined : Icons.volume_off),
+                  : (_voiceEnabled
+                      ? Icons.volume_up_outlined
+                      : Icons.volume_off),
             ),
             onPressed: () async {
               if (_tts.isSpeaking) {
@@ -828,76 +851,72 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
               if (!_voiceEnabled) await _tts.stop();
             },
           ),
-          IconButton(
-            tooltip: context.t(
-              'محاكي لجنة المناقشة',
-              'Viva committee simulator',
-            ),
-            icon: const Icon(Icons.gavel_outlined),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const VivaSimulatorScreen(),
-                ),
-              );
-            },
-          ),
-          IconButton(
-            tooltip: context.t('إرفاق ملف', 'Attach file'),
-            icon: const Icon(Icons.attach_file),
-            onPressed: _isThinking ? null : _showAttachOptions,
-          ),
-          IconButton(
-            tooltip: context.t('محادثة جديدة', 'New conversation'),
-            icon: const Icon(Icons.add_comment_outlined),
-            onPressed: _isThinking ? null : _newConversation,
-          ),
           if (!wide)
             IconButton(
               tooltip: context.t('المحادثات السابقة', 'Previous conversations'),
               icon: const Icon(Icons.menu),
               onPressed: () => _scaffoldKey.currentState?.openDrawer(),
             ),
-          IconButton(
-            tooltip: context.t('الوكلاء المتخصصون', 'Specialist agents'),
-            icon: Icon(_showAgents ? Icons.expand_less : Icons.smart_toy_outlined),
-            onPressed: () => setState(() => _showAgents = !_showAgents),
-          ),
-          Padding(
-            padding: const EdgeInsetsDirectional.only(end: 12),
-            child: Center(
-              child: Tooltip(
-                message: _service.isCloudAiEnabled
-                    ? context.t(
-                        'المساعد الأكاديمي مفعّل',
-                        'Academic Assistant is on',
-                      )
-                    : context.t(
-                        'الوضع الأساسي — سجّل الدخول لتفعيل المساعد الأكاديمي',
-                        'Basic mode — sign in to turn on the Academic Assistant',
+          PopupMenuButton<String>(
+            tooltip: context.t('المزيد', 'More'),
+            icon: const Icon(Icons.more_vert),
+            onSelected: (value) async {
+              switch (value) {
+                case 'guide':
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const SectionGuideScreen(
+                        guideId: SectionGuideCatalog.ai,
+                        accent: _accent,
                       ),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.22),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.white70),
-                  ),
-                  child: Text(
-                    _service.isCloudAiEnabled
-                        ? AdvisorBranding.cloudBadge
-                        : AdvisorBranding.localBadge,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
                     ),
-                  ),
+                  );
+                case 'agents':
+                  setState(() => _showAgents = !_showAgents);
+                case 'attach':
+                  if (!_isThinking) await _showAttachOptions();
+                case 'new':
+                  if (!_isThinking) _newConversation();
+                case 'viva':
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const VivaSimulatorScreen(),
+                    ),
+                  );
+              }
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'guide',
+                child: Text(context.t('دليل القسم', 'Section guide')),
+              ),
+              PopupMenuItem(
+                value: 'agents',
+                child: Text(
+                  _showAgents
+                      ? context.t('إخفاء الوكلاء', 'Hide agents')
+                      : context.t('الوكلاء المتخصصون', 'Specialist agents'),
                 ),
               ),
-            ),
+              PopupMenuItem(
+                value: 'attach',
+                enabled: !_isThinking,
+                child: Text(context.t('إرفاق ملف', 'Attach file')),
+              ),
+              PopupMenuItem(
+                value: 'new',
+                enabled: !_isThinking,
+                child: Text(context.t('محادثة جديدة', 'New conversation')),
+              ),
+              PopupMenuItem(
+                value: 'viva',
+                child: Text(
+                  context.t('محاكي لجنة المناقشة', 'Viva committee simulator'),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -1187,7 +1206,13 @@ class _VivaPromoCard extends StatelessWidget {
 }
 
 class _AgentsPanel extends StatelessWidget {
-  const _AgentsPanel();
+  final bool enabled;
+  final ValueChanged<AdvisorAgent> onAgentSelected;
+
+  const _AgentsPanel({
+    required this.onAgentSelected,
+    this.enabled = true,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1211,8 +1236,8 @@ class _AgentsPanel extends StatelessWidget {
         children: [
           Text(
             context.t(
-              'محرك واحد — وكلاء متخصصون',
-              'One engine — specialist agents',
+              'اضغط وكيلاً لبدء طلب جاهز',
+              'Tap an agent to start a ready prompt',
             ),
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
           ),
@@ -1224,7 +1249,7 @@ class _AgentsPanel extends StatelessWidget {
                 .map(
                   (agent) => Tooltip(
                     message: agent.displayDescription,
-                    child: Chip(
+                    child: ActionChip(
                       avatar: Icon(agent.icon, size: 16, color: agent.color),
                       label: Text(
                         agent.displayShortLabel,
@@ -1232,6 +1257,8 @@ class _AgentsPanel extends StatelessWidget {
                       ),
                       visualDensity: VisualDensity.compact,
                       backgroundColor: agent.color.withValues(alpha: 0.08),
+                      onPressed:
+                          enabled ? () => onAgentSelected(agent) : null,
                     ),
                   ),
                 )

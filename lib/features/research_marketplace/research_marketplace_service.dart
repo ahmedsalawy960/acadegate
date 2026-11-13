@@ -100,32 +100,57 @@ class ResearchMarketplaceService {
     if (user == null) {
       throw Exception(appTr('يجب تسجيل الدخول للتصويت', 'Sign in to vote'));
     }
-    if (!idea.isFromFirebase) {
+    final ideaId = (idea.id ?? '').trim();
+    if (ideaId.isEmpty || !idea.isFromFirebase) {
       throw Exception(appTr(
         'التصويت متاح للأفكار المسجلة في Firebase فقط',
         'Voting is only available for ideas stored in Firebase',
       ));
     }
 
-    final ideaRef = _ideas.doc(idea.id);
+    final ideaRef = _ideas.doc(ideaId);
     final voteRef = ideaRef.collection('votes').doc(user.uid);
 
-    await _db.runTransaction((transaction) async {
-      final voteSnap = await transaction.get(voteRef);
-      if (voteSnap.exists) {
-        transaction.delete(voteRef);
-        transaction.update(ideaRef, {
-          'votesCount': FieldValue.increment(-1),
-        });
-      } else {
-        transaction.set(voteRef, {
-          'votedAt': FieldValue.serverTimestamp(),
-        });
-        transaction.update(ideaRef, {
-          'votesCount': FieldValue.increment(1),
-        });
+    try {
+      await _db.runTransaction((transaction) async {
+        final ideaSnap = await transaction.get(ideaRef);
+        if (!ideaSnap.exists) {
+          throw Exception(
+            appTr('الفكرة غير موجودة', 'Idea not found'),
+          );
+        }
+        final voteSnap = await transaction.get(voteRef);
+        final raw = ideaSnap.data()?['votesCount'];
+        final current = raw is num
+            ? raw.toInt()
+            : int.tryParse(raw?.toString() ?? '') ?? 0;
+
+        if (voteSnap.exists) {
+          transaction.delete(voteRef);
+          transaction.update(ideaRef, {
+            'votesCount': current > 0 ? current - 1 : 0,
+          });
+        } else {
+          transaction.set(voteRef, {
+            'votedAt': FieldValue.serverTimestamp(),
+            'uid': user.uid,
+          });
+          transaction.update(ideaRef, {
+            'votesCount': current + 1,
+          });
+        }
+      });
+    } on FirebaseException catch (e) {
+      if (e.code == 'permission-denied') {
+        throw Exception(appTr(
+          'تعذر التصويت حالياً (صلاحيات). أعد المحاولة أو سجّل الدخول من جديد.',
+          'Could not vote (permissions). Try again or sign in again.',
+        ));
       }
-    });
+      throw Exception(
+        '${appTr('تعذر إتمام التصويت', 'Could not complete the vote')}: ${e.message ?? e.code}',
+      );
+    }
   }
 
   Future<void> submitProposal({
