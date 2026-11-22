@@ -91,8 +91,11 @@ service firebase.storage {
                    && request.resource.size < 10 * 1024 * 1024
                    && (request.resource.contentType.matches('image/.*')
                        || request.resource.contentType.matches('application/pdf')
-                       || request.resource.contentType.matches('text/.*'))
-                   && request.resource.name.matches('.*\\.(png|jpe?g|webp|pdf|txt|md)$');
+                       || request.resource.contentType.matches('text/.*')
+                       || request.resource.contentType == 'text/csv'
+                       || request.resource.contentType == 'application/msword'
+                       || request.resource.contentType == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+                   && request.resource.name.matches('.*\\.(png|jpe?g|webp|pdf|txt|md|csv|doc|docx)$');
     }
 
     match /uploads/{userId}/viva/{allPaths=**} {
