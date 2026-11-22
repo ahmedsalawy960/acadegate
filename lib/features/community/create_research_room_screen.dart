@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
 import '../../core/locale/l10n_lookup.dart';
+import '../../core/widgets/password_create_fields.dart';
 import '../../core/locale/locale_extensions.dart';
 import 'community_data.dart';
 import 'research_room_service.dart';
@@ -22,7 +23,6 @@ class _CreateResearchRoomScreenState extends State<CreateResearchRoomScreen> {
 
   String? _categoryId;
   bool _usePassword = false;
-  bool _obscurePassword = true;
   bool _isSaving = false;
 
   @override
@@ -147,37 +147,7 @@ class _CreateResearchRoomScreenState extends State<CreateResearchRoomScreen> {
               ),
               if (_usePassword) ...[
                 const SizedBox(height: 8),
-                TextFormField(
-                  controller: _passwordController,
-                  obscureText: _obscurePassword,
-                  decoration: InputDecoration(
-                    labelText: context.t('كلمة المرور *', 'Password *'),
-                    border: const OutlineInputBorder(),
-                    suffixIcon: IconButton(
-                      tooltip: _obscurePassword
-                          ? context.t('إظهار كلمة المرور', 'Show password')
-                          : context.t('إخفاء كلمة المرور', 'Hide password'),
-                      icon: Icon(
-                        _obscurePassword
-                            ? Icons.visibility_outlined
-                            : Icons.visibility_off_outlined,
-                      ),
-                      onPressed: () => setState(
-                        () => _obscurePassword = !_obscurePassword,
-                      ),
-                    ),
-                  ),
-                  validator: (v) {
-                    if (!_usePassword) return null;
-                    if (v == null || v.trim().length < 4) {
-                      return context.t(
-                        '4 أحرف على الأقل',
-                        'At least 4 characters',
-                      );
-                    }
-                    return null;
-                  },
-                ),
+                PasswordCreateFields(controller: _passwordController),
               ],
               const SizedBox(height: 24),
               FilledButton(

@@ -5,6 +5,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../../core/auth/password_strength.dart';
 import '../../core/locale/app_translate.dart';
 import '../messaging/chat_media.dart';
 import '../notifications/notification_service.dart';
@@ -171,13 +172,10 @@ class ResearchRoomService {
     }
 
     if (isPasswordProtected) {
-      final pass = password?.trim() ?? '';
-      if (pass.length < 4) {
+      final pass = password ?? '';
+      if (pass.length < 4 || PasswordStrength(pass).isWeak) {
         return (
-          error: appTr(
-            'كلمة المرور يجب أن تكون 4 أحرف على الأقل',
-            'Password must be at least 4 characters',
-          ),
+          error: appTr('كلمة المرور ضعيفة', 'Password is weak'),
           roomId: null,
         );
       }

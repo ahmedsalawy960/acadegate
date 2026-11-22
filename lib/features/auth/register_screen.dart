@@ -12,6 +12,7 @@ import '../profile/academic_profile.dart';
 import '../profile/academic_profile_service.dart';
 import '../research_journey/thesis_progress.dart';
 import '../research_journey/thesis_progress_activity.dart';
+import '../../core/widgets/password_create_fields.dart';
 import 'email_auth_gate.dart';
 import 'personal_info.dart';
 import 'personal_info_fields.dart';
@@ -49,7 +50,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String? _facultyCategory;
   String? _departmentId;
   bool _isLoading = false;
-  bool _obscurePassword = true;
   bool _acceptedLegal = false;
 
   bool get _needsAcademicProfile =>
@@ -311,32 +311,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     (value ?? '').trim().isEmpty ? l10n.emailRequiredShort : null,
               ),
               const SizedBox(height: 16),
-              TextFormField(
-                controller: _passwordController,
-                obscureText: _obscurePassword,
-                decoration: InputDecoration(
-                  labelText: l10n.password,
-                  suffixIcon: IconButton(
-                    tooltip: _obscurePassword
-                        ? context.t('إظهار كلمة المرور', 'Show password')
-                        : context.t('إخفاء كلمة المرور', 'Hide password'),
-                    icon: Icon(
-                      _obscurePassword
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined,
-                    ),
-                    onPressed: () => setState(
-                      () => _obscurePassword = !_obscurePassword,
-                    ),
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                validator: (value) => (value ?? '').length < 6
-                    ? l10n.passwordMinLength
-                    : null,
-              ),
+              PasswordCreateFields(controller: _passwordController),
               const SizedBox(height: 28),
               Text(
                 context.t('البيانات الشخصية', 'Personal details'),

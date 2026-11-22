@@ -2,8 +2,31 @@ const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const crypto = require("crypto");
 
-function hashPassword(password) {
-  return crypto.createHash("sha256").update(String(password).trim()).digest("hex");
+function hashRoomPassword(password) {
+  const salt = crypto.randomBytes(16).toString("hex");
+  const hash = crypto.scryptSync(String(password).trim(), salt, 32).toString("hex");
+  return `s2:${salt}:${hash}`;
+}
+
+function verifyRoomPassword(password, stored) {
+  const value = typeof stored === "string" ? stored : "";
+  const pass = String(password).trim();
+  if (!value) return false;
+
+  if (value.startsWith("s2:")) {
+    const parts = value.split(":");
+    if (parts.length !== 3 || !parts[1] || !parts[2]) return false;
+    const actual = crypto.scryptSync(pass, parts[1], 32);
+    const expected = Buffer.from(parts[2], "hex");
+    if (expected.length !== actual.length) return false;
+    return crypto.timingSafeEqual(actual, expected);
+  }
+
+  const legacy = crypto.createHash("sha256").update(pass).digest("hex");
+  const left = Buffer.from(legacy);
+  const right = Buffer.from(value);
+  if (left.length !== right.length) return false;
+  return crypto.timingSafeEqual(left, right);
 }
 
 function createResearchRoomHandlers() {
@@ -31,10 +54,10 @@ function createResearchRoomHandlers() {
     if (title.length > 200) {
       throw new HttpsError("invalid-argument", "اسم الغرفة طويل جداً");
     }
-    if (isPasswordProtected && password.length < 4) {
+    if (isPasswordProtected && password.length < 8) {
       throw new HttpsError(
         "invalid-argument",
-        "كلمة المرور يجب أن تكون 4 أحرف على الأقل",
+        "كلمة المرور يجب أن تكون 8 أحرف على الأقل",
       );
     }
 
@@ -61,7 +84,7 @@ function createResearchRoomHandlers() {
 
     if (isPasswordProtected) {
       batch.set(db.collection("research_room_secrets").doc(roomRef.id), {
-        passwordHash: hashPassword(password),
+        passwordHash: hashRoomPassword(password),
         creatorId: uid,
         createdAt: FieldValue.serverTimestamp(),
       });
@@ -105,7 +128,7 @@ function createResearchRoomHandlers() {
     }
 
     const pass = typeof password === "string" ? password.trim() : "";
-    if (pass.length < 4) {
+    if (pass.length < 8) {
       throw new HttpsError("invalid-argument", "كلمة المرور قصيرة");
     }
 
@@ -119,8 +142,15 @@ function createResearchRoomHandlers() {
       : null;
     const expected = secretHash || legacyHash;
 
-    if (!expected || hashPassword(pass) !== expected) {
+    if (!expected || !verifyRoomPassword(pass, expected)) {
       throw new HttpsError("permission-denied", "كلمة المرور غير صحيحة");
+    }
+
+    if (!String(expected).startsWith("s2:")) {
+      await db.collection("research_room_secrets").doc(roomId).set(
+        { passwordHash: hashRoomPassword(pass) },
+        { merge: true },
+      );
     }
 
     await roomRef.collection("members").doc(uid).set({
