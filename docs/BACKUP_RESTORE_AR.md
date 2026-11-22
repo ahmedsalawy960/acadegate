@@ -33,7 +33,7 @@ node tool\enable_firestore_backup.cjs
 ### Auth / Config
 
 - صدّر قائمة المستخدمين عند الحاجة عبر Firebase Auth CLI / Admin SDK (ليس بديلاً عن Firestore).
-- وثّق `config/app` يدوياً: يجب أن يبقى `allowBootstrap: false` في الإنتاج.
+- وثّق `config/app` يدوياً: أُزيل مسار allowBootstrap من القواعد نهائياً؛ تعيين المدير يتم عبر node scripts/make-admin.mjs <uid>
 
 ## 2) سكربت تصدير يدوي (اختبار)
 
@@ -74,5 +74,5 @@ gcloud firestore import gs://acadegate-new-firestore-backups/YYYYMMDD --project=
 
 - [x] Backup schedule مفعّل (يومي + أسبوعي)
 - [x] اختبار استعادة واحد موثّق (2026-09-19 → `backup-drill-20260919`)
-- [ ] `allowBootstrap = false`
+- [x] مسار allowBootstrap محذوف من firestore.rules (لا ترقية ذاتية إلى admin)
 - [ ] بناء الويب/المتاجر **بدون** `--dart-define-from-file=dart_defines.json`

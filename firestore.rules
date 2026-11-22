@@ -135,7 +135,7 @@ service cloud.firestore {
 
     // ─── إعدادات التطبيق (الكتابة من Console / Admin SDK فقط) ─
     match /config/{docId} {
-      // قراءة للمستخدمين المسجّلين (للتحقق من allowBootstrap أثناء التطوير).
+      // قراءة للمستخدمين المسجّلين (إعدادات عامة غير حساسة فقط).
       allow read: if isSignedIn();
       allow write: if false;
     }
@@ -210,24 +210,8 @@ service cloud.firestore {
                         && request.resource.data.get('quotaCopyleaksDaily', null)
                             == resource.data.get('quotaCopyleaksDaily', null)
                         && request.resource.data.diff(resource.data)
-                            .affectedKeys().hasOnly(['role', 'activePortal']))
-                    // تطوير فقط: ترقية ذاتية عند allowBootstrap.
-                    // الإنتاج: أبقِ config/app.allowBootstrap = false وعيّن admin من Console.
-                    || (isOwner(userId)
-                        && resource.data.role != 'admin'
-                        && request.resource.data.role == 'admin'
-                        && request.resource.data.get('subscription', 'free')
-                            == resource.data.get('subscription', 'free')
-                        && request.resource.data.get('subscriptionExpiresAt', null)
-                            == resource.data.get('subscriptionExpiresAt', null)
-                        && request.resource.data.get('quotaGeminiDaily', null)
-                            == resource.data.get('quotaGeminiDaily', null)
-                        && request.resource.data.get('quotaScholarDaily', null)
-                            == resource.data.get('quotaScholarDaily', null)
-                        && request.resource.data.get('quotaCopyleaksDaily', null)
-                            == resource.data.get('quotaCopyleaksDaily', null)
-                        && exists(/databases/$(database)/documents/config/app)
-                        && get(/databases/$(database)/documents/config/app).data.allowBootstrap == true);
+                            .affectedKeys().hasOnly(['role', 'activePortal']));
+                    // لا يوجد أي مسار يرقّي المستخدم نفسه إلى admin من العميل. تعيين المدير عبر Admin SDK فقط: node scripts/make-admin.mjs <uid-or-email>
       allow delete: if isAdmin();
 
       match /device_trainings/{trainingId} {

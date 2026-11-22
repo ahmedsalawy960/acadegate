@@ -270,39 +270,6 @@ class UserAccountService {
     );
   }
 
-  /// تطوير فقط: يرفع الحساب الحالي إلى admin إذا كان
-  /// `config/app.allowBootstrap == true` في Firestore.
-  /// عيّن الوثيقة يدوياً من Firebase Console ثم اضغط زر التفعيل في وضع Debug.
-  /// في الإنتاج: عيّن `role: admin` من Console وأبقِ `allowBootstrap` = false.
-  Future<bool> tryClaimDevAdmin() async {
-    if (!kDebugMode) return false;
-
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return false;
-
-    final existing = await loadCurrentAccount();
-    if (existing?.isAdmin == true) return true;
-
-    final configRef = _db.collection('config').doc('app');
-    final config = await configRef.get();
-    if (!config.exists || config.data()?['allowBootstrap'] != true) {
-      return false;
-    }
-
-    await _doc(user.uid).set(
-      {
-        'uid': user.uid,
-        'email': user.email ?? '',
-        'displayName':
-            user.displayName ?? user.email?.split('@').first ?? 'Admin',
-        'role': UserRole.admin,
-        'updatedAt': FieldValue.serverTimestamp(),
-      },
-      SetOptions(merge: true),
-    );
-    return true;
-  }
-
   Stream<List<UserAccount>> watchAllUsers() {
     return _users.snapshots().map(
           (snapshot) {
