@@ -12,6 +12,9 @@ class PasswordStrength {
       RegExp(r'[A-Za-z\u0600-\u06FF]').hasMatch(value) &&
       RegExp('[0-9]').hasMatch(value);
 
+  /// رمز غير المسافة. نقطة قوة إضافية، وليست شرطاً.
+  bool get hasSymbol => RegExp(r'[^A-Za-z0-9\u0600-\u06FF\s]').hasMatch(value);
+
   /// حروف وأرقام فقط، من غير مسافات أو رموز.
   bool get lettersAndDigitsOnly =>
       value.isNotEmpty &&

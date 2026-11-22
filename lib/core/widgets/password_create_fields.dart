@@ -60,8 +60,8 @@ class _PasswordCreateFieldsState extends State<PasswordCreateFields> {
         context.t('حرف ورقم', 'A letter and a number'),
       ),
       (
-        strength.lettersAndDigitsOnly,
-        context.t('بدون رموز أو مسافات', 'No symbols or spaces'),
+        strength.hasSymbol,
+        context.t('الرموز = قوة إضافية', 'Symbols add extra strength'),
       ),
     ];
 
