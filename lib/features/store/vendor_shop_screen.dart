@@ -355,14 +355,14 @@ class VendorShopScreen extends StatelessWidget {
                                                       ),
                                                       decoration: BoxDecoration(
                                                         color: const Color(
-                                                          0xFFFFF3E0,
+                                                          0xFF3A2E14,
                                                         ),
                                                         borderRadius:
                                                             BorderRadius
                                                                 .circular(8),
                                                         border: Border.all(
                                                           color: const Color(
-                                                            0xFFFFCC80,
+                                                            0xFF8A6A2F,
                                                           ),
                                                         ),
                                                       ),
@@ -375,7 +375,7 @@ class VendorShopScreen extends StatelessWidget {
                                                           height: 1.35,
                                                           fontSize: 13,
                                                           color:
-                                                              Colors.brown[900],
+                                                              const Color(0xFFF4F7FB),
                                                         ),
                                                       ),
                                                     ),

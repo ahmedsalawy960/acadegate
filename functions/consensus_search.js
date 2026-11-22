@@ -1,6 +1,6 @@
 'use strict';
 
-const admin = require("firebase-admin");
+const { getAuth } = require("firebase-admin/auth");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { onRequest } = require("firebase-functions/v2/https");
 const {
@@ -44,7 +44,7 @@ function createConsensusSearchHandler(consensusKey) {
 
       let decoded;
       try {
-        decoded = await admin.auth().verifyIdToken(match[1].trim());
+        decoded = await getAuth().verifyIdToken(match[1].trim());
       } catch (_) {
         res.status(401).json({
           error: "جلسة غير صالحة. سجّل الدخول مجدداً.",

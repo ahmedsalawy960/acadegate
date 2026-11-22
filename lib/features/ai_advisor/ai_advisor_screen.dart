@@ -1,8 +1,13 @@
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+import '../billing/plan_limit_sheet.dart';
+import 'assistant/advisor_answer_export.dart';
+import 'assistant/assistant_reply_language.dart';
 
 import '../../core/locale/locale_extensions.dart';
 import '../../core/theme/acadegate_theme.dart';
@@ -48,6 +53,9 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
   String? _activeConversationId;
   bool _isDraftConversation = true;
   bool _isThinking = false;
+  String _streamText = '';
+  String? _streamStatus;
+  DateTime _lastStreamPaint = DateTime.fromMillisecondsSinceEpoch(0);
   /// مخفي افتراضياً على الهاتف حتى لا يغطي حقل الكتابة.
   bool _showAgents = false;
   final _inputFocus = FocusNode();
@@ -446,18 +454,41 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
         : const [];
 
     try {
-      final reply = await _service.ask(
+      final reply = await _service.askStreaming(
         message: trimmed,
         history: historyForAi,
         attachments: geminiParts,
+        onText: (textSoFar) {
+          _streamText = textSoFar;
+          final now = DateTime.now();
+          if (!mounted || now.difference(_lastStreamPaint).inMilliseconds < 80) return;
+          _lastStreamPaint = now;
+          final nearBottom = !_scrollController.hasClients ||
+              _scrollController.position.extentAfter < 120;
+          setState(() {});
+          if (nearBottom) _scrollToBottom();
+        },
+        onStatus: (status) {
+          if (!mounted) return;
+          setState(() => _streamStatus = status);
+        },
       );
       if (!mounted) return;
       setState(() {
         _isThinking = false;
+        _streamText = '';
+        _streamStatus = null;
         _messages.add(reply);
       });
       await _persistMessage(reply, conversationId: conversationId);
-      if (_voiceEnabled && mounted) {
+      if (reply.content.contains(AdvisorBranding.planMarker) && mounted) {
+        await showPlanLimitSheet(context);
+      }
+      final failedReply = reply.content.contains('⚠️');
+      if (_voiceEnabled &&
+          !failedReply &&
+          (kIsWeb || defaultTargetPlatform != TargetPlatform.windows) &&
+          mounted) {
         await _tts.speak(reply.content);
       }
     } catch (_) {
@@ -465,20 +496,60 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
       final errorMessage = AdvisorMessage(
         id: 'err_${DateTime.now().millisecondsSinceEpoch}',
         role: AdvisorMessageRole.assistant,
-        content: context.t(
-          'حدث خطأ أثناء المعالجة. حاول مرة أخرى.',
-          'An error occurred while processing. Please try again.',
-        ),
+        content: '⚠️ ${AdvisorBranding.friendlyFailure('')}',
         createdAt: DateTime.now(),
       );
       setState(() {
         _messages.add(errorMessage);
         _isThinking = false;
+        _streamText = '';
+        _streamStatus = null;
       });
       await _persistMessage(errorMessage, conversationId: conversationId);
     }
 
     _scrollToBottom();
+  }
+
+  Future<void> _chooseReplyLanguage() async {
+    final current = await AssistantReplyLanguagePrefs.load();
+    if (!mounted) return;
+    final options = [
+      (
+        AssistantReplyLanguage.auto,
+        context.t('تلقائي — حسب لغة سؤالك', 'Automatic — same as your question'),
+      ),
+      (AssistantReplyLanguage.arabic, context.t('العربية دائماً', 'Always Arabic')),
+      (AssistantReplyLanguage.english, context.t('الإنجليزية دائماً', 'Always English')),
+    ];
+    final picked = await showDialog<AssistantReplyLanguage>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: Text(context.t('لغة رد المساعد', 'Assistant reply language')),
+        children: [
+          for (final (value, label) in options)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, value),
+              child: Row(
+                children: [
+                  Icon(
+                    value == current
+                        ? Icons.radio_button_checked
+                        : Icons.radio_button_unchecked,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text(label)),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+    if (picked == null || picked == current) return;
+    await AssistantReplyLanguagePrefs.save(picked);
+    if (!mounted) return;
+    _showSnack(context.t('تم حفظ لغة الرد', 'Reply language saved'));
   }
 
   Future<void> _persistMessage(
@@ -584,7 +655,25 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
             itemCount: _messages.length + (_isThinking ? 1 : 0),
             itemBuilder: (context, index) {
               if (_isThinking && index == _messages.length) {
-                return const _TypingIndicator();
+                if (_streamText.trim().isEmpty) {
+                  return _TypingIndicator(status: _streamStatus);
+                }
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _MessageBubble(
+                      message: AdvisorMessage(
+                        id: 'streaming',
+                        role: AdvisorMessageRole.assistant,
+                        content: _streamText,
+                        createdAt: DateTime.now(),
+                        usedCloudAi: true,
+                      ),
+                    ),
+                    if (_streamStatus != null)
+                      _TypingIndicator(status: _streamStatus),
+                  ],
+                );
               }
               return _MessageBubble(
                 message: _messages[index],
@@ -878,6 +967,8 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
                   if (!_isThinking) await _showAttachOptions();
                 case 'new':
                   if (!_isThinking) _newConversation();
+                case 'language':
+                  await _chooseReplyLanguage();
                 case 'viva':
                   await Navigator.push(
                     context,
@@ -909,6 +1000,10 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
                 value: 'new',
                 enabled: !_isThinking,
                 child: Text(context.t('محادثة جديدة', 'New conversation')),
+              ),
+              PopupMenuItem(
+                value: 'language',
+                child: Text(context.t('لغة الرد', 'Reply language')),
               ),
               PopupMenuItem(
                 value: 'viva',
@@ -1137,19 +1232,21 @@ class _ConversationSidebar extends StatelessWidget {
   }
 
   String _formatDate(BuildContext context, DateTime date) {
+    final local = date.toLocal();
+    final hm =
+        '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
     final now = DateTime.now();
-    final diff = now.difference(date);
-    if (diff.inMinutes < 1) return context.t('الآن', 'Now');
-    if (diff.inHours < 1) {
-      return context.t('منذ ${diff.inMinutes} د', '${diff.inMinutes}m ago');
-    }
-    if (diff.inDays < 1) {
-      return context.t('منذ ${diff.inHours} س', '${diff.inHours}h ago');
-    }
-    if (diff.inDays < 7) {
-      return context.t('منذ ${diff.inDays} يوم', '${diff.inDays}d ago');
-    }
-    return '${date.day}/${date.month}/${date.year}';
+    final diff = now.difference(local);
+    final relative = diff.inMinutes < 1
+        ? context.t('الآن', 'Now')
+        : diff.inHours < 1
+            ? context.t('منذ ${diff.inMinutes} د', '${diff.inMinutes}m ago')
+            : diff.inDays < 1
+                ? context.t('منذ ${diff.inHours} س', '${diff.inHours}h ago')
+                : diff.inDays < 7
+                    ? context.t('منذ ${diff.inDays} يوم', '${diff.inDays}d ago')
+                    : '${local.day}/${local.month}/${local.year}';
+    return '$relative · $hm';
   }
 }
 
@@ -1338,27 +1435,73 @@ class _MessageBubble extends StatelessWidget {
                       .toList(),
                 ),
               ),
-            Text(
-              _formatContent(message.content),
-              style: TextStyle(
-                color: isUser ? Colors.white : Colors.black87,
-                height: 1.5,
-              ),
-            ),
-            if (!isUser && onSpeak != null)
-              Align(
-                alignment: AlignmentDirectional.centerEnd,
-                child: IconButton(
-                  visualDensity: VisualDensity.compact,
-                  tooltip: context.t('اقرأ الرد', 'Read aloud'),
-                  onPressed: onSpeak,
-                  icon: Icon(
-                    Icons.volume_up_outlined,
-                    size: 18,
-                    color: Colors.deepPurple.shade400,
-                  ),
+            SelectionArea(
+              child: Text(
+                _formatContent(message.content),
+                style: TextStyle(
+                  color: isUser ? Colors.white : Colors.black87,
+                  height: 1.5,
                 ),
               ),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Text(
+                  _when(message.createdAt),
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    color: isUser
+                        ? Colors.white70
+                        : const Color(0xFF607D8B),
+                  ),
+                ),
+                const Spacer(),
+                _MiniAction(
+                  tooltip: context.t('نسخ', 'Copy'),
+                  icon: Icons.copy_outlined,
+                  onDark: isUser,
+                  onPressed: () =>
+                      AdvisorAnswerExport.copy(context, message.content),
+                ),
+                if (!isUser && onSpeak != null)
+                  _MiniAction(
+                    tooltip: context.t('اقرأ الرد', 'Read aloud'),
+                    icon: Icons.volume_up_outlined,
+                    onPressed: onSpeak!,
+                  ),
+                if (!isUser)
+                  PopupMenuButton<String>(
+                    tooltip: context.t('تصدير', 'Export'),
+                    padding: EdgeInsets.zero,
+                    iconSize: 18,
+                    icon: Icon(
+                      Icons.ios_share_outlined,
+                      size: 18,
+                      color: Colors.deepPurple.shade400,
+                    ),
+                    onSelected: (format) => AdvisorAnswerExport.save(
+                      context,
+                      message,
+                      format: format,
+                    ),
+                    itemBuilder: (ctx) => [
+                      PopupMenuItem(
+                        value: 'docx',
+                        child: Text(ctx.t('Word', 'Word')),
+                      ),
+                      PopupMenuItem(
+                        value: 'pdf',
+                        child: Text(ctx.t('PDF', 'PDF')),
+                      ),
+                      PopupMenuItem(
+                        value: 'txt',
+                        child: Text(ctx.t('نص', 'Text')),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
             if (!isUser && message.catalog.allHits.isNotEmpty) ...[
               const SizedBox(height: 10),
               ...message.catalog.labs.map(
@@ -1384,7 +1527,47 @@ class _MessageBubble extends StatelessWidget {
   }
 
   String _formatContent(String content) {
-    return content.replaceAll('**', '').replaceAll('```', '');
+    return content
+        .replaceAll(AdvisorBranding.planMarker, '')
+        .replaceAll('**', '')
+        .replaceAll('```', '');
+  }
+
+  String _when(DateTime time) {
+    final t = time.toLocal();
+    final hm =
+        '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+    return '${t.day}/${t.month}/${t.year}  $hm';
+  }
+}
+
+class _MiniAction extends StatelessWidget {
+  const _MiniAction({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+    this.onDark = false,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback onPressed;
+  final bool onDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      visualDensity: VisualDensity.compact,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+      tooltip: tooltip,
+      onPressed: onPressed,
+      icon: Icon(
+        icon,
+        size: 18,
+        color: onDark ? Colors.white70 : Colors.deepPurple.shade400,
+      ),
+    );
   }
 }
 
@@ -1479,7 +1662,9 @@ class _CatalogHitCard extends StatelessWidget {
 }
 
 class _TypingIndicator extends StatelessWidget {
-  const _TypingIndicator();
+  const _TypingIndicator({this.status});
+
+  final String? status;
 
   @override
   Widget build(BuildContext context) {
@@ -1501,10 +1686,14 @@ class _TypingIndicator extends StatelessWidget {
               child: CircularProgressIndicator(strokeWidth: 2),
             ),
             const SizedBox(width: 10),
-            Text(context.t(
-              'يجمع الوكلاء المتخصصين...',
-              'Consulting specialist agents...',
-            )),
+            Text(
+              status ??
+                  context.t(
+                    'يفكر في سؤالك…',
+                    'Thinking about your question…',
+                  ),
+              style: const TextStyle(color: Color(0xFF0B1F4D)),
+            ),
           ],
         ),
       ),
@@ -1665,14 +1854,24 @@ class _SttLangChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const accent = Color(0xFF7C4DFF);
     return ChoiceChip(
-      label: Text(label, style: const TextStyle(fontSize: 12)),
+      label: Text(
+        label,
+        style: TextStyle(
+          fontSize: 12,
+          color: selected ? Colors.white : const Color(0xFFB7C3D6),
+          fontWeight: selected ? FontWeight.w700 : FontWeight.normal,
+        ),
+      ),
       selected: selected,
       onSelected: onSelected == null ? null : (_) => onSelected!(),
-      selectedColor: const Color(0xFF4527A0).withValues(alpha: 0.15),
-      labelStyle: TextStyle(
-        color: selected ? const Color(0xFF4527A0) : const Color(0xFFB7C3D6),
-        fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+      showCheckmark: selected,
+      checkmarkColor: Colors.white,
+      selectedColor: accent,
+      backgroundColor: const Color(0xFF152A56),
+      side: BorderSide(
+        color: selected ? accent : const Color(0xFF2A3F6A),
       ),
       visualDensity: VisualDensity.compact,
       padding: const EdgeInsets.symmetric(horizontal: 4),

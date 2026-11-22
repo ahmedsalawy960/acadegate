@@ -112,9 +112,8 @@ class _StoreCartScreenState extends State<StoreCartScreen> {
     final createdIds = <String>[];
     final paidProductIds = <String>[];
     try {
-      final payMethod = choice == PaymentCheckoutChoice.paymob
-          ? PaymentMethod.paymob
-          : PaymentMethod.manual;
+      final payMethod =
+          choice.isOnline ? PaymentMethod.paymob : PaymentMethod.manual;
       for (final item in items) {
         for (var q = 0; q < item.quantity; q++) {
           final orderId = await StoreOrderService.instance.createOrder(
@@ -126,7 +125,8 @@ class _StoreCartScreenState extends State<StoreCartScreen> {
           );
           createdIds.add(orderId);
           if (payMethod == PaymentMethod.paymob) {
-            await StoreOrderService.instance.payOrder(orderId);
+            await StoreOrderService.instance
+                .payOrder(orderId, wallet: choice.isWallet);
           }
         }
         paidProductIds.add(item.productId);

@@ -4,8 +4,8 @@ import 'package:flutter/foundation.dart';
 
 import '../../../core/firebase/callable_http_client.dart';
 import '../../../core/locale/app_translate.dart';
-import '../import/egypt_store_suppliers_catalog.dart';
 import '../import/store_product_search_service.dart';
+import '../import/store_supplier_import_service.dart';
 import '../store_catalog_service.dart';
 import 'store_custom_fit_matcher.dart';
 import 'store_product_discover_models.dart';
@@ -131,9 +131,9 @@ class StoreProductDiscoverService {
       return !appKeys.contains(key);
     }).toList();
 
-    final wooCount = egyptStoreSuppliersWithProductSync
-        .where((s) => (s.wooCommerceBaseUrl ?? '').isNotEmpty)
-        .length;
+    final wooCount =
+        (await StoreSupplierImportService.instance.liveSearchSuppliers())
+            .length;
 
     return ProductDiscoverResult(
       searchQuery: cloud['searchQuery']?.toString() ?? storeQuery,
@@ -214,8 +214,8 @@ class StoreProductDiscoverService {
     required String storeQuery,
     required int perSupplier,
   }) async {
-    final suppliers = egyptStoreSuppliersWithProductSync
-        .where((s) => (s.wooCommerceBaseUrl ?? '').isNotEmpty)
+    final suppliers =
+        (await StoreSupplierImportService.instance.liveSearchSuppliers())
         .map(
           (s) => {
             'id': s.id,

@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../store_catalog_service.dart';
-import 'egypt_store_suppliers_catalog.dart';
+import 'store_supplier_import_service.dart';
 import 'woocommerce_store_api_client.dart';
 
 class StoreSearchHit {
@@ -201,9 +201,8 @@ class StoreProductSearchService {
     String query, {
     required int perSupplier,
   }) async {
-    final suppliers = egyptStoreSuppliersWithProductSync
-        .where((s) => (s.wooCommerceBaseUrl ?? '').isNotEmpty)
-        .toList();
+    final suppliers =
+        await StoreSupplierImportService.instance.liveSearchSuppliers();
     if (suppliers.isEmpty) return const [];
 
     final futures = suppliers.map((supplier) async {

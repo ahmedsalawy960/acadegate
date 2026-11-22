@@ -6,6 +6,10 @@ import '../../core/locale/locale_extensions.dart';
 import '../../core/theme/acadegate_theme.dart';
 import '../../core/storage/storage_service.dart';
 import '../../core/widgets/safe_network_avatar.dart';
+import '../billing/subscription_screen.dart';
+import '../store/store_more_screen.dart';
+import '../auth/complete_personal_info_screen.dart';
+import '../auth/personal_info.dart';
 import '../auth/user_account.dart';
 import '../auth/user_account_service.dart';
 import '../auth/user_role.dart';
@@ -329,6 +333,55 @@ class _AccountProfileScreenState extends State<AccountProfileScreen> {
                 ),
               ),
               const SizedBox(height: 16),
+              Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  side: const BorderSide(color: AcadeGateColors.line),
+                ),
+                child: ListTile(
+                  leading: const Icon(Icons.workspace_premium_outlined),
+                  title: Text(context.t('الاشتراك', 'Subscription')),
+                  subtitle: Text(
+                    account?.isAdmin == true
+                        ? 'Admin'
+                        : SubscriptionTier.label(
+                            account?.effectiveTier ?? SubscriptionTier.free,
+                          ),
+                  ),
+                  trailing: const Icon(Icons.chevron_left),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const SubscriptionScreen()),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  side: const BorderSide(color: AcadeGateColors.line),
+                ),
+                child: ListTile(
+                  leading: const Icon(Icons.grid_view_outlined),
+                  title: Text(context.t('المزيد في المتجر', 'Store more')),
+                  subtitle: Text(
+                    context.t(
+                      'الطلبات، المفضلة، الخصومات، والمقارنة',
+                      'Orders, favorites, offers, and compare',
+                    ),
+                  ),
+                  trailing: const Icon(Icons.chevron_left),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const StoreMoreScreen()),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              _PersonalInfoCard(info: account?.personalInfo ?? const PersonalInfo()),
+              const SizedBox(height: 16),
               if (UserRole.showsMerchantBusiness(role)) ...[
                 MerchantBusinessSection(
                   account: account ??
@@ -393,6 +446,106 @@ class _AccountProfileScreenState extends State<AccountProfileScreen> {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+class _PersonalInfoCard extends StatelessWidget {
+  const _PersonalInfoCard({required this.info});
+
+  final PersonalInfo info;
+
+  @override
+  Widget build(BuildContext context) {
+    String orDash(String v) => v.trim().isEmpty ? '—' : v;
+    final birth = info.birthDate;
+    final age = info.age;
+
+    Widget row(IconData icon, String title, String value) => ListTile(
+          contentPadding: EdgeInsets.zero,
+          dense: true,
+          leading: Icon(icon),
+          title: Text(title),
+          subtitle: Text(value),
+        );
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: AcadeGateColors.line),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    context.t('البيانات الشخصية', 'Personal details'),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: AcadeGateColors.text,
+                    ),
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => CompletePersonalInfoScreen(
+                        initial: info,
+                        isEdit: true,
+                      ),
+                    ),
+                  ),
+                  icon: const Icon(Icons.edit_outlined, size: 18),
+                  label: Text(context.t('تعديل', 'Edit')),
+                ),
+              ],
+            ),
+            Text(
+              context.t(
+                'خاصة بك ولا تظهر لباقي المستخدمين.',
+                'Private — not shown to other users.',
+              ),
+              style: const TextStyle(fontSize: 12, color: Color(0xFFB7C3D6)),
+            ),
+            const SizedBox(height: 8),
+            row(
+              Icons.phone_outlined,
+              context.t('رقم الموبايل', 'Mobile number'),
+              orDash(PersonalInfo.localPhone(info.phone)),
+            ),
+            row(
+              Icons.wc_outlined,
+              context.t('النوع', 'Gender'),
+              Gender.all.contains(info.gender)
+                  ? context.t(
+                      Gender.labelAr(info.gender),
+                      Gender.labelEn(info.gender),
+                    )
+                  : '—',
+            ),
+            row(
+              Icons.cake_outlined,
+              context.t('تاريخ الميلاد', 'Date of birth'),
+              birth == null
+                  ? '—'
+                  : '${birth.day}/${birth.month}/${birth.year}'
+                      '${age == null ? '' : context.t('  ($age سنة)', '  (age $age)')}',
+            ),
+            row(
+              Icons.location_on_outlined,
+              context.t('المحافظة', 'Governorate'),
+              orDash(info.governorate),
+            ),
+          ],
+        ),
       ),
     );
   }

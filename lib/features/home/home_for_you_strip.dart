@@ -12,6 +12,7 @@ import '../academic/supervisor_profile_screen.dart';
 import '../matchmaking/matchmaking_screen.dart';
 import '../matchmaking/smart_matchmaking_engine.dart';
 import '../profile/academic_profile.dart';
+import '../research_journey/research_file.dart';
 import '../profile/academic_profile_service.dart';
 import '../research_marketplace/research_idea_marketplace_detail_screen.dart';
 import '../science_news/science_news_feeds.dart';
@@ -77,12 +78,19 @@ class _HomeForYouStripState extends State<HomeForYouStrip> {
       );
 
       // صارم: نفس الكلية + درجة تطابق > 0 (لا سقوط على كتالوج عام).
+      var thesisText = '';
+      try {
+        thesisText =
+            (await ResearchFileService.instance.watchMine().first)?.matchText ??
+                '';
+      } catch (_) {}
       final supervisorMatches = SmartMatchmakingEngine.matchSupervisors(
         profile,
         content.supervisors,
         limit: 8,
         softFallback: false,
         restrictFaculty: facultyId.isNotEmpty,
+        thesisText: thesisText,
       );
       final ideaMatches = SmartMatchmakingEngine.matchResearchIdeas(
         profile,

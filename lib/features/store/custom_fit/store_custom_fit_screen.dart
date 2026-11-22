@@ -200,8 +200,8 @@ class _StoreCustomFitScreenState extends State<StoreCustomFitScreen> {
           content: Text(
             extracted.error ??
                 context.t(
-                  'تعذر تحليل الصورة. إن استمر الخطأ: احفظها JPG، أو أضف وصفاً قصيراً، أو تحقق من رصيد Gemini.',
-                  'Could not analyze the image. Save as JPG, add a short description, or check Gemini quota.',
+                  'تعذر تحليل الصورة. إن استمر الخطأ: احفظها JPG، أو أضف وصفاً قصيراً، ثم أعد المحاولة.',
+                  'Could not analyze the image. Save as JPG, add a short description, then try again.',
                 ),
           ),
           duration: const Duration(seconds: 8),

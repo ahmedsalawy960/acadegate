@@ -13,6 +13,8 @@ import '../profile/academic_profile_service.dart';
 import '../research_journey/thesis_progress.dart';
 import '../research_journey/thesis_progress_activity.dart';
 import 'email_auth_gate.dart';
+import 'personal_info.dart';
+import 'personal_info_fields.dart';
 import 'portal_service.dart';
 import 'portal_type.dart';
 import 'user_account_service.dart';
@@ -36,7 +38,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _universityOtherController = TextEditingController();
   final _specializationController = TextEditingController();
   final _researchInterestController = TextEditingController();
+  final _phoneController = TextEditingController();
 
+  String? _gender;
+  DateTime? _birthDate;
+  String? _governorate;
   String _selectedRole = UserRole.student;
   String _degree = 'ماجستير';
   String? _university;
@@ -58,6 +64,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _universityOtherController.dispose();
     _specializationController.dispose();
     _researchInterestController.dispose();
+    _phoneController.dispose();
     super.dispose();
   }
 
@@ -103,7 +110,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       researchInterest: researchInterest,
       methodology: 'كمي',
       preferredLanguage: 'العربية',
-      city: '',
+      city: _governorate ?? '',
     );
 
     await AcademicProfileService.instance.saveProfile(profile);
@@ -152,6 +159,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
         firebaseUser: user,
         displayName: displayName,
         role: _selectedRole,
+        personalInfo: PersonalInfo(
+          phone: PersonalInfo.normalizePhone(_phoneController.text) ?? '',
+          gender: _gender ?? '',
+          birthDate: _birthDate,
+          governorate: _governorate ?? '',
+        ),
       );
 
       await _saveAcademicProfileIfNeeded(displayName);
@@ -323,6 +336,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 validator: (value) => (value ?? '').length < 6
                     ? l10n.passwordMinLength
                     : null,
+              ),
+              const SizedBox(height: 28),
+              Text(
+                context.t('البيانات الشخصية', 'Personal details'),
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                context.t(
+                  'خاصة بك ولا تظهر لباقي المستخدمين — تُستخدم للتواصل بخصوص الطلبات والتوصيل.',
+                  'Private to you — used to contact you about orders and delivery.',
+                ),
+                style: const TextStyle(color: Color(0xFFB7C3D6), fontSize: 13),
+              ),
+              const SizedBox(height: 16),
+              PersonalInfoFields(
+                phoneController: _phoneController,
+                gender: _gender,
+                birthDate: _birthDate,
+                governorate: _governorate,
+                onGenderChanged: (v) => setState(() => _gender = v),
+                onBirthDateChanged: (v) => setState(() => _birthDate = v),
+                onGovernorateChanged: (v) => setState(() => _governorate = v),
               ),
               if (_needsAcademicProfile) ...[
                 const SizedBox(height: 28),

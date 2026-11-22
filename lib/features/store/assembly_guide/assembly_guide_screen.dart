@@ -330,12 +330,12 @@ class _AssemblyGuideScreenState extends State<AssemblyGuideScreen> {
               decoration: BoxDecoration(
                 color: _lastCheck!.passed
                     ? const Color(0xFFE8F5E9)
-                    : const Color(0xFFFFF3E0),
+                    : const Color(0xFF3A2E14),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
                   color: _lastCheck!.passed
                       ? const Color(0xFFA5D6A7)
-                      : const Color(0xFFFFCC80),
+                      : const Color(0xFF8A6A2F),
                 ),
               ),
               child: Column(
@@ -349,13 +349,18 @@ class _AssemblyGuideScreenState extends State<AssemblyGuideScreen> {
                       fontWeight: FontWeight.w700,
                       color: _lastCheck!.passed
                           ? Colors.green.shade800
-                          : Colors.orange.shade900,
+                          : const Color(0xFFFBBF24),
                     ),
                   ),
                   const SizedBox(height: 6),
                   Text(
                     _lastCheck!.feedback,
-                    style: const TextStyle(height: 1.4, color: Color(0xFF3E2723)),
+                    style: TextStyle(
+                      height: 1.4,
+                      color: _lastCheck!.passed
+                          ? const Color(0xFF3E2723)
+                          : const Color(0xFFF4F7FB),
+                    ),
                   ),
                   if ((_lastCheck!.tip ?? '').trim().isNotEmpty) ...[
                     const SizedBox(height: 6),
@@ -364,7 +369,12 @@ class _AssemblyGuideScreenState extends State<AssemblyGuideScreen> {
                         'نصيحة: ${_lastCheck!.tip}',
                         'Tip: ${_lastCheck!.tip}',
                       ),
-                      style: const TextStyle(height: 1.4, color: Color(0xFF3E2723)),
+                      style: TextStyle(
+                      height: 1.4,
+                      color: _lastCheck!.passed
+                          ? const Color(0xFF3E2723)
+                          : const Color(0xFFF4F7FB),
+                    ),
                     ),
                   ],
                 ],

@@ -1,13 +1,19 @@
 const crypto = require("crypto");
 const { onCall, onRequest, HttpsError } = require("firebase-functions/v2/https");
-const { defineSecret } = require("firebase-functions/params");
-const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+const { defineSecret, defineString } = require("firebase-functions/params");
+const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
 
 const paymobSecretKey = defineSecret("PAYMOB_SECRET_KEY");
 const paymobPublicKey = defineSecret("PAYMOB_PUBLIC_KEY");
 const paymobHmacSecret = defineSecret("PAYMOB_HMAC_SECRET");
 const paymobIntegrationId = defineSecret("PAYMOB_INTEGRATION_ID");
+// Mobile Wallets integration (Vodafone Cash, Etisalat Cash, Orange Cash,
+// WE Pay). Not a secret — set in functions/.env; empty = wallets disabled.
+const paymobWalletIntegrationId = defineString("PAYMOB_WALLET_INTEGRATION_ID", {
+  default: "",
+});
 
+const PLAN_PRICES_EGP = { plus: 550, pro: 3350 };
 const PAYMOB_BASE = "https://accept.paymob.com";
 const FUNCTIONS_SERVICE_ACCOUNT = "acadegate-new@appspot.gserviceaccount.com";
 const PROJECT_ID = process.env.GCLOUD_PROJECT || "acadegate-new";
@@ -72,11 +78,28 @@ function parseSpecialReference(ref) {
       orderId: parts[1],
     };
   }
+  if (raw.startsWith("plan:")) {
+    const paymentId = raw.slice("plan:".length).split(":")[0];
+    if (!paymentId) return null;
+    return { kind: "plan", paymentId };
+  }
   return null;
 }
 
 function checkoutReference(base) {
   return `${base}:${Date.now().toString(36)}`;
+}
+
+function addOneMonthUtc(date) {
+  return new Date(Date.UTC(
+    date.getUTCFullYear(),
+    date.getUTCMonth() + 1,
+    date.getUTCDate(),
+    date.getUTCHours(),
+    date.getUTCMinutes(),
+    date.getUTCSeconds(),
+    date.getUTCMilliseconds(),
+  ));
 }
 
 function paymobErrorText(data, text, status) {
@@ -220,6 +243,71 @@ async function markWritingPaidHeld(db, serviceId, orderId, tx) {
   };
 }
 
+async function markPlanPaid(db, paymentId, tx) {
+  const ref = db.collection("subscription_payments").doc(paymentId);
+  const paidCents = Number(tx?.amount_cents);
+  let outcome = { ok: false, reason: "missing" };
+  await db.runTransaction(async (t) => {
+    const snap = await t.get(ref);
+    if (!snap.exists) {
+      outcome = { ok: false, reason: "payment_not_found" };
+      return;
+    }
+    const payment = snap.data() || {};
+    if (payment.paymentStatus === "paid") {
+      outcome = { ok: true, reason: "already_paid", userId: payment.userId };
+      return;
+    }
+    const expected = Math.round(Number(payment.amount) * 100);
+    if (!Number.isFinite(paidCents) || paidCents !== expected) {
+      outcome = { ok: false, reason: "amount_mismatch" };
+      return;
+    }
+    const uid = String(payment.userId || "");
+    const tier = payment.tier === "pro" ? "pro" : "plus";
+    if (!uid) {
+      outcome = { ok: false, reason: "missing_user" };
+      return;
+    }
+    const userRef = db.collection("users").doc(uid);
+    const userSnap = await t.get(userRef);
+    const user = userSnap.data() || {};
+    const now = new Date();
+    let start = now;
+    const currentTier = String(user.subscription || "free");
+    const exp = user.subscriptionExpiresAt?.toDate?.() || null;
+    if (currentTier === tier && exp && exp > now) start = exp;
+    const expires = addOneMonthUtc(start);
+    t.set(
+      ref,
+      {
+        paymentStatus: "paid",
+        paidAt: FieldValue.serverTimestamp(),
+        paymobTransactionId: tx?.id ?? null,
+        paymobOrderId: tx?.order?.id ?? null,
+        expiresAt: Timestamp.fromDate(expires),
+      },
+      { merge: true },
+    );
+    t.set(
+      userRef,
+      {
+        subscription: tier,
+        subscriptionExpiresAt: Timestamp.fromDate(expires),
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+    outcome = {
+      ok: true,
+      userId: uid,
+      tier,
+      amount: payment.amount,
+    };
+  });
+  return outcome;
+}
+
 async function addNotification(db, { userId, title, body, type, senderId }) {
   if (!userId) return;
   await db.collection("notifications").add({
@@ -267,14 +355,28 @@ function createPaymobHandlers() {
       const kind = String(data.kind || "store").trim();
       const orderId = String(data.orderId || "").trim();
       const serviceId = String(data.serviceId || "").trim();
-      if (!orderId) {
+      const channel = data.channel === "wallet" ? "wallet" : "card";
+      if (kind !== "subscription" && !orderId) {
         throw new HttpsError("invalid-argument", "orderId مطلوب");
+      }
+
+      let checkoutIntegrationId = integrationId;
+      if (channel === "wallet") {
+        checkoutIntegrationId = String(paymobWalletIntegrationId.value() || "").trim();
+        if (!checkoutIntegrationId || checkoutIntegrationId === String(integrationId).trim()) {
+          throw new HttpsError(
+            "failed-precondition",
+            "الدفع بالمحفظة الإلكترونية غير مفعّل بعد — استخدم البطاقة أو التحويل اليدوي",
+          );
+        }
       }
 
       const db = getFirestore();
       let amount = 0;
       let specialReference = "";
       let title = "AcadeGate order";
+      let planPaymentId = "";
+      let billingPhone = String(data.phone || "").trim();
 
       if (kind === "store") {
         const snap = await db.collection("store_orders").doc(orderId).get();
@@ -320,6 +422,30 @@ function createPaymobHandlers() {
         amount = Number(order.amount ?? 0);
         title = String(order.topic || "Writing order");
         specialReference = checkoutReference(`writing:${serviceId}:${orderId}`);
+      } else if (kind === "subscription") {
+        const tier = String(data.tier || "").trim();
+        amount = PLAN_PRICES_EGP[tier];
+        if (!(amount > 0)) {
+          throw new HttpsError("invalid-argument", "الباقة غير متاحة للدفع");
+        }
+        const userSnap = await db.collection("users").doc(request.auth.uid).get();
+        const user = userSnap.data() || {};
+        billingPhone = String(user.phone || billingPhone || "").trim();
+        title = tier === "pro" ? "الباقة الشاملة" : "الباقة الأساسية";
+        const payRef = db.collection("subscription_payments").doc();
+        planPaymentId = payRef.id;
+        specialReference = checkoutReference(`plan:${planPaymentId}`);
+        await payRef.set({
+          userId: request.auth.uid,
+          email: request.auth.token?.email || "",
+          tier,
+          amount,
+          currency: "EGP",
+          paymentStatus: "pending",
+          paymobChannel: channel,
+          paymobSpecialReference: specialReference,
+          createdAt: FieldValue.serverTimestamp(),
+        });
       } else {
         throw new HttpsError("invalid-argument", "kind غير مدعوم");
       }
@@ -343,9 +469,9 @@ function createPaymobHandlers() {
           firstName,
           lastName,
           email,
-          phone: String(data.phone || "").trim() || "+201000000000",
+          phone: billingPhone || "+201000000000",
         },
-        integrationId,
+        integrationId: checkoutIntegrationId,
         secretKey,
         notificationUrl: webhookUrl(),
         redirectionUrl: String(data.redirectionUrl || "").trim() ||
@@ -358,12 +484,21 @@ function createPaymobHandlers() {
         `&clientSecret=${encodeURIComponent(clientSecret)}`;
 
       // Persist checkout attempt metadata (no paymentStatus forge by client).
-      if (kind === "store") {
+      if (kind === "subscription") {
+        await db.collection("subscription_payments").doc(planPaymentId).set(
+          {
+            paymobCheckoutAt: FieldValue.serverTimestamp(),
+            paymobIntentionId: intention.id || null,
+          },
+          { merge: true },
+        );
+      } else if (kind === "store") {
         await db.collection("store_orders").doc(orderId).set(
           {
             paymobSpecialReference: specialReference,
             paymobCheckoutAt: FieldValue.serverTimestamp(),
             paymobIntentionId: intention.id || null,
+            paymobChannel: channel,
           },
           { merge: true },
         );
@@ -378,6 +513,7 @@ function createPaymobHandlers() {
               paymobSpecialReference: specialReference,
               paymobCheckoutAt: FieldValue.serverTimestamp(),
               paymobIntentionId: intention.id || null,
+              paymobChannel: channel,
             },
             { merge: true },
           );
@@ -391,6 +527,8 @@ function createPaymobHandlers() {
         currency: "EGP",
         title,
         specialReference,
+        channel,
+        paymentId: planPaymentId,
       };
     },
   );
@@ -447,6 +585,20 @@ function createPaymobHandlers() {
               type: "payment_held",
               senderId: "paymob",
             });
+          }
+        } else if (parsed.kind === "plan") {
+          const result = await markPlanPaid(db, parsed.paymentId, obj);
+          if (result.ok && result.reason !== "already_paid" && result.userId) {
+            const planName = result.tier === "pro" ? "الشاملة" : "الأساسية";
+            await addNotification(db, {
+              userId: result.userId,
+              title: "تم تفعيل الاشتراك",
+              body: `تم استلام ${result.amount} ج.م وبدأت باقة ${planName}`,
+              type: "subscription_paid",
+              senderId: "paymob",
+            });
+          } else if (!result.ok) {
+            console.error("plan payment not applied", parsed.paymentId, result.reason);
           }
         } else if (parsed.kind === "writing") {
           const result = await markWritingPaidHeld(

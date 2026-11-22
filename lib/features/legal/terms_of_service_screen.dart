@@ -123,7 +123,19 @@ class TermsOfServiceScreen extends StatelessWidget {
               : 'We may amend these Terms by publishing an updated version in the app. Continued use after the effective date constitutes acceptance. If you disagree, stop using the service and request account closure.',
         ),
         LegalSection(
-          title: isAr ? '17. التواصل' : '17. Contact',
+          title: isAr ? '17. الإعلانات والتقييمات' : '17. Listings & reviews',
+          body: isAr
+              ? 'الإعلان يجب أن يصف المنتج أو الخدمة كما هي: الاسم، الدرجة، الوحدة، والسعر إن وُجد، قبل إتمام الطلب. يُحظر التلاعب بالسعر أو التقييم أو إنشاء طلبات وهمية. التقييم يُقبل بعد تعامل حقيقي، ولصاحب الإعلان حق الرد. لقوائم الدليل نحن وسيط معلومات ولسنا البائع. في طلبات Partner المدفوعة داخل المنصة نحتفظ بالمبلغ حتى تأكيد الاستلام وفق إجراءات الضمان. الرسوم بالجنيه المصري وتظهر قبل الخصم. الرسائل التسويقية اختيارية ويمكن إيقافها من إعدادات الحساب أو بالكتابة إلى الدعم.'
+              : 'A listing must describe the product or service as it is: name, grade, unit, and price when one exists, before checkout. Price manipulation, review manipulation, and fake orders are prohibited. A review is accepted after a real transaction, and the listing owner may reply. For directory listings we are an information connector, not the seller. For Partner orders paid inside the platform we hold the amount until delivery is confirmed under the escrow process. Fees are in Egyptian pounds and are shown before they are charged. Marketing messages are optional and can be stopped from account settings or by writing to support.',
+        ),
+        LegalSection(
+          title: isAr ? '18. الاستخدام الآلي' : '18. Automated use',
+          body: isAr
+              ? 'يُحظر جمع بيانات المنصة ببرامج آلية أو إعادة نشر الكتالوج بشكل يضر بالخدمة أو بالموردين. البحث العادي من داخل التطبيق مسموح.'
+              : 'Collecting Platform data with automated tools, or republishing the catalog in a way that harms the service or suppliers, is prohibited. Ordinary search inside the app is allowed.',
+        ),
+        LegalSection(
+          title: isAr ? '19. التواصل' : '19. Contact',
           body: isAr
               ? 'للاستفسارات: ${AppContactInfo.supportEmail} — أو صفحة المساعدة والدعم.'
               : 'Questions: ${AppContactInfo.supportEmail} — or Help & Support.',

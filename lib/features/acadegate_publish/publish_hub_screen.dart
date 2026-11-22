@@ -315,7 +315,7 @@ class _PendingJournalsPanel extends StatelessWidget {
         return Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
           child: Card(
-            color: Colors.amber.shade50,
+            color: const Color(0xFF3A2E14),
             child: Padding(
               padding: const EdgeInsets.all(12),
               child: Column(
@@ -325,7 +325,7 @@ class _PendingJournalsPanel extends StatelessWidget {
                     context.t('مجلات بانتظار الموافقة', 'Journals pending approval'),
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF4E342E),
+                      color: Color(0xFFF4F7FB),
                     ),
                   ),
                   ...pending.map((j) {
@@ -333,12 +333,12 @@ class _PendingJournalsPanel extends StatelessWidget {
                       contentPadding: EdgeInsets.zero,
                       title: Text(
                         j.name,
-                        style: const TextStyle(color: Color(0xFF4E342E)),
+                        style: const TextStyle(color: Color(0xFFF4F7FB)),
                       ),
                       subtitle: j.partnerUniversity.isNotEmpty
                           ? Text(
                               j.partnerUniversity,
-                              style: const TextStyle(color: Color(0xFF5D4037)),
+                              style: const TextStyle(color: Color(0xFFB7C3D6)),
                             )
                           : null,
                       trailing: Row(

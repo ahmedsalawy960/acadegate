@@ -5,7 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../firebase/callable_http_client.dart';
 import '../locale/app_translate.dart';
 
-enum PaymobOrderKind { store, writing }
+enum PaymobOrderKind { store, writing, subscription }
 
 class PaymobCheckoutSession {
   final String checkoutUrl;
@@ -82,15 +82,23 @@ class PaymobPaymentService {
 
   Future<PaymobCheckoutSession> createCheckout({
     required PaymobOrderKind kind,
-    required String orderId,
+    String orderId = '',
     String? serviceId,
     String? phone,
+    String? tier,
+    bool wallet = false,
   }) async {
     final data = <String, dynamic>{
-      'kind': kind == PaymobOrderKind.store ? 'store' : 'writing',
-      'orderId': orderId,
+      'kind': switch (kind) {
+        PaymobOrderKind.store => 'store',
+        PaymobOrderKind.writing => 'writing',
+        PaymobOrderKind.subscription => 'subscription',
+      },
+      'channel': wallet ? 'wallet' : 'card',
+      if (orderId.isNotEmpty) 'orderId': orderId,
       if (serviceId != null && serviceId.isNotEmpty) 'serviceId': serviceId,
       if (phone != null && phone.trim().isNotEmpty) 'phone': phone.trim(),
+      if (tier != null && tier.isNotEmpty) 'tier': tier,
     };
 
     try {
@@ -124,15 +132,19 @@ class PaymobPaymentService {
   /// Create checkout and open Paymob Unified Checkout in the browser.
   Future<PaymobCheckoutSession> payAndOpen({
     required PaymobOrderKind kind,
-    required String orderId,
+    String orderId = '',
     String? serviceId,
     String? phone,
+    String? tier,
+    bool wallet = false,
   }) async {
     final session = await createCheckout(
       kind: kind,
       orderId: orderId,
       serviceId: serviceId,
       phone: phone,
+      tier: tier,
+      wallet: wallet,
     );
     await openCheckout(session);
     return session;

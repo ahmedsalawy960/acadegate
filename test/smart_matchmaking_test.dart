@@ -187,6 +187,81 @@ void main() {
     expect(blob, isNot(contains('تثبيت الموضوع والمشرف')));
   });
 
+  test('thesis words outrank a bare specialty and name the overlap', () {
+    final profile = _scienceProfile();
+    final fit = AcademicSupervisor(
+      id: 'fit',
+      name: 'د. تحليل',
+      university: 'جامعة الفيوم',
+      speciality: 'كيمياء',
+      bio: 'تكرير الزيوت الصالحة باستخدام HPLC',
+      faculty: 'علوم',
+      category: 'Science',
+      tags: const ['edible oil refining'],
+      methodologies: const ['كمي', 'نوعي', 'مختلط'],
+      isAvailable: true,
+      ownerId: 'owner-1',
+    );
+    final generic = AcademicSupervisor(
+      id: 'generic',
+      name: 'د. عام',
+      university: 'جامعة الفيوم',
+      speciality: 'كيمياء',
+      bio: 'كيمياء عامة',
+      faculty: 'علوم',
+      category: 'Science',
+      methodologies: const ['كمي'],
+      isAvailable: true,
+    );
+    final unavailable = AcademicSupervisor(
+      id: 'away',
+      name: 'د. غير متاح',
+      university: 'جامعة الفيوم',
+      speciality: 'تكرير الزيوت',
+      bio: 'HPLC',
+      faculty: 'علوم',
+      category: 'Science',
+      isAvailable: false,
+      ownerId: 'owner-2',
+    );
+
+    final matches = SmartMatchmakingEngine.matchSupervisors(
+      profile,
+      [generic, unavailable, fit],
+      softFallback: false,
+      thesisText: 'تكرير الزيوت باستخدام HPLC',
+    );
+
+    expect(matches.map((m) => m.item.id), isNot(contains('away')));
+    expect(matches.first.item.id, 'fit');
+    expect(matches.first.reachScore, 100);
+    expect(matches.first.reasons.join(' '), contains('الزيوت'));
+    expect(
+      matches.first.reasons.join(' '),
+      isNot(contains('المنهجية')),
+    );
+    expect(matches.any((m) => m.score == 20), isFalse);
+  });
+
+  test('an idea for the other degree is left out', () {
+    final matches = SmartMatchmakingEngine.matchResearchIdeas(
+      _scienceProfile(),
+      [
+        _idea(title: 'تحليل الزيوت بـ HPLC', details: 'تكرير الزيوت'),
+        AcademicResearchIdea(
+          title: 'تحليل الزيوت في الدكتوراه',
+          provider: 'AcadeGate',
+          details: 'تكرير الزيوت HPLC',
+          category: 'Science',
+          degreeLevel: 'phd',
+        ),
+      ],
+      softFallback: false,
+    );
+    expect(matches, hasLength(1));
+    expect(matches.single.item.degreeLevel, 'masters');
+  });
+
   test('Fayoum English equals الفيوم for city ranking', () {
     expect(NbsleUniversityCities.isSameCity('Fayoum', 'الفيوم'), isTrue);
     expect(NbsleUniversityCities.isSameCity('Alexandria', 'الفيوم'), isFalse);

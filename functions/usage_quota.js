@@ -12,10 +12,25 @@
 
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 
+// month = allowance that lasts the calendar month.
+// day = ceiling so one heavy day cannot empty the month.
 const DEFAULT_LIMITS = {
-  free: { gemini: 20, scholar: 6, consensus: 3, copyleaks: 1 },
-  pro: { gemini: 100, scholar: 30, consensus: 15, copyleaks: 5 },
-  admin: { gemini: 100000, scholar: 100000, consensus: 100000, copyleaks: 100000 },
+  free: {
+    month: { gemini: 0, scholar: 0, consensus: 0, copyleaks: 0 },
+    day: { gemini: 0, scholar: 0, consensus: 0, copyleaks: 0 },
+  },
+  plus: {
+    month: { gemini: 300, scholar: 90, consensus: 45, copyleaks: 15 },
+    day: { gemini: 40, scholar: 15, consensus: 8, copyleaks: 2 },
+  },
+  pro: {
+    month: { gemini: 1500, scholar: 450, consensus: 225, copyleaks: 75 },
+    day: { gemini: 120, scholar: 40, consensus: 20, copyleaks: 6 },
+  },
+  admin: {
+    month: { gemini: 100000, scholar: 100000, consensus: 100000, copyleaks: 100000 },
+    day: { gemini: 100000, scholar: 100000, consensus: 100000, copyleaks: 100000 },
+  },
 };
 
 /** @deprecated use DEFAULT_LIMITS — kept for require() callers */
@@ -23,6 +38,10 @@ const LIMITS = DEFAULT_LIMITS;
 
 function utcDayKey(d = new Date()) {
   return d.toISOString().slice(0, 10);
+}
+
+function utcMonthKey(day = utcDayKey()) {
+  return day.slice(0, 7);
 }
 
 function db() {
@@ -47,22 +66,21 @@ function isPermissionError(err) {
 
 /**
  * @param {FirebaseFirestore.DocumentData} data
- * @returns {'free'|'pro'|'admin'}
+ * @returns {'free'|'plus'|'pro'|'admin'}
  */
 function tierFromUserData(data) {
   if (String(data.role || '') === 'admin') return 'admin';
 
   let sub = String(data.subscription || 'free').trim().toLowerCase();
-  if (sub === 'pro') {
-    const exp = data.subscriptionExpiresAt;
-    if (exp && typeof exp.toDate === 'function') {
-      if (exp.toDate().getTime() < Date.now()) sub = 'free';
-    } else if (typeof exp === 'string' && exp.trim()) {
-      const t = Date.parse(exp);
-      if (Number.isFinite(t) && t < Date.now()) sub = 'free';
-    }
+  if (sub !== 'pro' && sub !== 'plus') return 'free';
+  const exp = data.subscriptionExpiresAt;
+  if (exp && typeof exp.toDate === 'function') {
+    if (exp.toDate().getTime() < Date.now()) return 'free';
+  } else if (typeof exp === 'string' && exp.trim()) {
+    const t = Date.parse(exp);
+    if (Number.isFinite(t) && t < Date.now()) return 'free';
   }
-  return sub === 'pro' ? 'pro' : 'free';
+  return sub;
 }
 
 /**
@@ -84,26 +102,21 @@ async function resolveLimits(uid) {
   const data = userSnap.exists ? userSnap.data() || {} : {};
   const tier = tierFromUserData(data);
 
-  let gemini = DEFAULT_LIMITS[tier]?.gemini ?? DEFAULT_LIMITS.free.gemini;
-  let scholar = DEFAULT_LIMITS[tier]?.scholar ?? DEFAULT_LIMITS.free.scholar;
-  let consensus = DEFAULT_LIMITS[tier]?.consensus ?? DEFAULT_LIMITS.free.consensus;
-  let copyleaks = DEFAULT_LIMITS[tier]?.copyleaks ?? DEFAULT_LIMITS.free.copyleaks;
+  const base = DEFAULT_LIMITS[tier] || DEFAULT_LIMITS.free;
+  const day = { ...base.day };
+  const month = { ...base.month };
 
   try {
     const cfgSnap = await db().collection('config').doc('quotas').get();
     if (cfgSnap.exists) {
-      const cfg = cfgSnap.data() || {};
-      const tierCfg = cfg[tier];
+      const tierCfg = (cfgSnap.data() || {})[tier];
       if (tierCfg && typeof tierCfg === 'object') {
-        if (tierCfg.gemini != null) gemini = positiveInt(tierCfg.gemini, gemini);
-        if (tierCfg.scholar != null) {
-          scholar = positiveInt(tierCfg.scholar, scholar);
-        }
-        if (tierCfg.consensus != null) {
-          consensus = positiveInt(tierCfg.consensus, consensus);
-        }
-        if (tierCfg.copyleaks != null) {
-          copyleaks = positiveInt(tierCfg.copyleaks, copyleaks);
+        for (const kind of ['gemini', 'scholar', 'consensus', 'copyleaks']) {
+          if (tierCfg[kind] != null) day[kind] = positiveInt(tierCfg[kind], day[kind]);
+          const monthKey = `${kind}Month`;
+          if (tierCfg[monthKey] != null) {
+            month[kind] = positiveInt(tierCfg[monthKey], month[kind]);
+          }
         }
       }
     }
@@ -111,20 +124,23 @@ async function resolveLimits(uid) {
     console.warn('config/quotas read failed', e.message || e);
   }
 
-  if (data.quotaGeminiDaily != null) {
-    gemini = positiveInt(data.quotaGeminiDaily, gemini);
-  }
-  if (data.quotaScholarDaily != null) {
-    scholar = positiveInt(data.quotaScholarDaily, scholar);
-  }
+  if (data.quotaGeminiDaily != null) day.gemini = positiveInt(data.quotaGeminiDaily, day.gemini);
+  if (data.quotaScholarDaily != null) day.scholar = positiveInt(data.quotaScholarDaily, day.scholar);
   if (data.quotaConsensusDaily != null) {
-    consensus = positiveInt(data.quotaConsensusDaily, consensus);
+    day.consensus = positiveInt(data.quotaConsensusDaily, day.consensus);
   }
   if (data.quotaCopyleaksDaily != null) {
-    copyleaks = positiveInt(data.quotaCopyleaksDaily, copyleaks);
+    day.copyleaks = positiveInt(data.quotaCopyleaksDaily, day.copyleaks);
   }
 
-  return { tier, gemini, scholar, consensus, copyleaks };
+  return {
+    tier,
+    gemini: day.gemini,
+    scholar: day.scholar,
+    consensus: day.consensus,
+    copyleaks: day.copyleaks,
+    month,
+  };
 }
 
 function allowDegraded(reason) {
@@ -132,9 +148,9 @@ function allowDegraded(reason) {
   return {
     ok: true,
     used: 0,
-    limit: DEFAULT_LIMITS.admin.gemini,
+    limit: DEFAULT_LIMITS.admin.day.gemini,
     tier: 'degraded',
-    remaining: DEFAULT_LIMITS.admin.gemini,
+    remaining: DEFAULT_LIMITS.admin.day.gemini,
     day: utcDayKey(),
     degraded: true,
   };
@@ -167,26 +183,22 @@ async function consumeQuota({ uid, kind }) {
     return allowDegraded(e.message || e);
   }
 
-  const limit =
-    kind === 'gemini'
-      ? limits.gemini
-      : kind === 'scholar'
-        ? limits.scholar
-        : kind === 'consensus'
-          ? limits.consensus
-          : limits.copyleaks;
+  const dayLimit = limits[kind];
+  const monthLimit = limits.month[kind];
   const tier = limits.tier;
   const day = utcDayKey();
-  const ref = db().collection('usage').doc(uid).collection('daily').doc(day);
+  const month = utcMonthKey(day);
+  const dayRef = db().collection('usage').doc(uid).collection('daily').doc(day);
+  const monthRef = db().collection('usage').doc(uid).collection('monthly').doc(month);
 
   // Admins are never blocked by the daily counter (still logged for metrics).
   if (tier === 'admin') {
     try {
-      const snap = await ref.get();
+      const snap = await dayRef.get();
       const data = snap.exists ? snap.data() || {} : {};
       const used = Math.max(0, Number(data[kind] || 0) || 0);
       const next = used + 1;
-      await ref.set(
+      await dayRef.set(
         {
           [kind]: next,
           date: day,
@@ -202,9 +214,9 @@ async function consumeQuota({ uid, kind }) {
       return {
         ok: true,
         used: next,
-        limit,
+        limit: dayLimit,
         tier,
-        remaining: limit,
+        remaining: dayLimit,
         day,
         bypassed: true,
       };
@@ -213,9 +225,9 @@ async function consumeQuota({ uid, kind }) {
       return {
         ok: true,
         used: 0,
-        limit,
+        limit: dayLimit,
         tier,
-        remaining: limit,
+        remaining: dayLimit,
         day,
         bypassed: true,
       };
@@ -224,42 +236,53 @@ async function consumeQuota({ uid, kind }) {
 
   try {
     const out = await db().runTransaction(async (tx) => {
-      const snap = await tx.get(ref);
-      const data = snap.exists ? snap.data() || {} : {};
-      const used = Math.max(0, Number(data[kind] || 0) || 0);
-      if (used >= limit) {
+      const daySnap = await tx.get(dayRef);
+      const monthSnap = await tx.get(monthRef);
+      const dayData = daySnap.exists ? daySnap.data() || {} : {};
+      const monthData = monthSnap.exists ? monthSnap.data() || {} : {};
+      const dayUsed = Math.max(0, Number(dayData[kind] || 0) || 0);
+      const monthUsed = Math.max(0, Number(monthData[kind] || 0) || 0);
+      if (monthUsed >= monthLimit) {
         return {
           ok: false,
           code: 'resource-exhausted',
-          used,
-          limit,
+          scope: 'month',
+          used: monthUsed,
+          limit: monthLimit,
           tier,
           remaining: 0,
           day,
         };
       }
-      const next = used + 1;
-      tx.set(
-        ref,
-        {
-          [kind]: next,
-          date: day,
+      if (dayUsed >= dayLimit) {
+        return {
+          ok: false,
+          code: 'resource-exhausted',
+          scope: 'day',
+          used: dayUsed,
+          limit: dayLimit,
           tier,
-          limitGemini: limits.gemini,
-          limitScholar: limits.scholar,
-          limitCopyleaks: limits.copyleaks,
-          limitConsensus: limits.consensus,
-          updatedAt: FieldValue.serverTimestamp(),
-        },
-        { merge: true },
-      );
+          remaining: 0,
+          day,
+        };
+      }
+      const stamp = {
+        [kind]: FieldValue.increment(1),
+        tier,
+        updatedAt: FieldValue.serverTimestamp(),
+      };
+      tx.set(dayRef, { ...stamp, date: day }, { merge: true });
+      tx.set(monthRef, { ...stamp, month }, { merge: true });
       return {
         ok: true,
-        used: next,
-        limit,
+        used: monthUsed + 1,
+        limit: monthLimit,
+        dayUsed: dayUsed + 1,
+        dayLimit,
         tier,
-        remaining: Math.max(0, limit - next),
+        remaining: Math.max(0, monthLimit - monthUsed - 1),
         day,
+        scope: 'month',
       };
     });
     return out;
@@ -279,15 +302,17 @@ async function consumeQuota({ uid, kind }) {
 function quotaExceededHttpPayload(q, kind) {
   const label =
     kind === 'scholar'
-      ? 'Google Scholar'
+      ? 'البحث عن المراجع'
       : kind === 'consensus'
-        ? 'Consensus'
+        ? 'خلاصة الدراسات'
         : kind === 'copyleaks'
-          ? 'Copyleaks'
-          : 'AcadeGate AI';
+          ? 'فحص الأصالة'
+          : 'المساعدة في الكتابة';
+  const windowAr = q.scope === 'day' ? 'حد اليوم' : 'رصيد هذا الشهر';
+  const windowEn = q.scope === 'day' ? 'today’s limit' : 'this month’s balance';
   const tier = q.tier || 'free';
-  const ar = `وصلت للحد اليومي لـ ${label} (${q.used}/${q.limit}). عدّل الحد من لوحة الإدارة أو حاول غداً.`;
-  const en = `Daily ${label} limit reached (${q.used}/${q.limit}). Adjust the limit in admin or try tomorrow.`;
+  const ar = `انتهى حد باقتك: ${windowAr} لـ ${label} (${q.used}/${q.limit}). فعّل اشتراكاً، أو انتقل لباقة أعلى، أو اطلب زيادة الحد.`;
+  const en = `Plan limit reached: ${windowEn} for ${label} (${q.used}/${q.limit}). Activate a plan, move to a higher plan, or ask to raise the limit.`;
   return { error: ar, errorEn: en, code: 'quota_exceeded', quota: q, tier };
 }
 

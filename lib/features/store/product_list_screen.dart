@@ -16,6 +16,7 @@ import 'seed/faculty_books_library_screen.dart';
 import 'seed/open_library_books_service.dart';
 import 'store_catalog_service.dart';
 import 'store_categories.dart';
+import 'store_favorites.dart';
 import 'store_product_navigation.dart';
 import 'store_theme.dart';
 
@@ -51,6 +52,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
   @override
   void initState() {
     super.initState();
+    StoreFavorites.instance.ensureLoaded();
     _reloadProducts();
   }
 
@@ -967,6 +969,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: _ProductCard(
+                      productId: product.id,
                       name: product.name,
                       price: formattedPrice,
                       storeName: storeName,
@@ -994,6 +997,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
 }
 
 class _ProductCard extends StatelessWidget {
+  final String productId;
   final String name;
   final String price;
   final String storeName;
@@ -1009,6 +1013,7 @@ class _ProductCard extends StatelessWidget {
   final VoidCallback onTap;
 
   const _ProductCard({
+    required this.productId,
     required this.name,
     required this.price,
     required this.storeName,
@@ -1070,13 +1075,16 @@ class _ProductCard extends StatelessWidget {
                 child: SizedBox(
                   width: 88,
                   height: 88,
-                  child: hasImage
-                      ? Image.network(
-                          imageUrl!.trim(),
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => _iconBox(),
-                        )
-                      : _iconBox(),
+                  child: ColoredBox(
+                    color: Colors.white,
+                    child: hasImage
+                        ? Image.network(
+                            imageUrl!.trim(),
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, _, _) => _iconBox(),
+                          )
+                        : _iconBox(),
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -1084,15 +1092,42 @@ class _ProductCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 15,
-                        color: StoreTheme.ink,
-                      ),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            name,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 15,
+                              color: StoreTheme.ink,
+                            ),
+                          ),
+                        ),
+                        ListenableBuilder(
+                          listenable: StoreFavorites.instance,
+                          builder: (context, _) {
+                            final saved =
+                                StoreFavorites.instance.contains(productId);
+                            return IconButton(
+                              visualDensity: VisualDensity.compact,
+                              tooltip: context.t('المفضلة', 'Favorite'),
+                              onPressed: () =>
+                                  StoreFavorites.instance.toggle(productId),
+                              icon: Icon(
+                                saved ? Icons.favorite : Icons.favorite_border,
+                                color: saved
+                                    ? Colors.redAccent
+                                    : StoreTheme.muted,
+                                size: 20,
+                              ),
+                            );
+                          },
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 4),
                     Text(

@@ -22,6 +22,7 @@ import '../auth/usage_quota_banner.dart';
 import '../profile/academic_profile.dart';
 import '../profile/academic_profile_screen.dart';
 import '../profile/academic_profile_service.dart';
+import '../research_journey/research_file.dart';
 import '../research_journey/thesis_progress.dart';
 import '../research_journey/thesis_progress_activity.dart';
 import '../research_supply_chain/research_goal.dart';
@@ -166,6 +167,19 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
           ThesisActivityId.thesisStudio.name,
         );
       }
+      await ResearchFileService.instance.upsert(
+        title: draft.proposedTitle,
+        aim: _goalController.text.trim().isNotEmpty
+            ? _goalController.text.trim()
+            : draft.goal.raw,
+        field: draft.goal.field,
+        questions: draft.researchQuestions,
+        chapters: [
+          for (final chapter in draft.chapters)
+            if (chapter.title(_arabicDraft).trim().isNotEmpty)
+              chapter.title(_arabicDraft).trim(),
+        ],
+      );
     } catch (e) {
       debugPrint('Thesis studio persist failed: $e');
     }
@@ -1197,7 +1211,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
                 'سجّل الدخول لربط استوديو الرسالة بـ AcadeGate: يقرأ هدفك كاملاً، يضع العنوان بلغة المسودة، ويصفّي المقالات والرسائل الجامعية من الفهارس حسب أمر كل فقرة.',
                 'Sign in to connect Thesis Studio to AcadeGate: it reads your full goal, writes the title in the draft language, and filters papers and dissertations from indexes for each paragraph command.',
               ),
-              color: Colors.orange.shade50,
+              color: const Color(0xFF3A2E14),
             ),
           const SizedBox(height: 8),
           SizedBox(
@@ -1583,16 +1597,16 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color ?? const Color(0xFFFFF8E1),
+        color: color ?? const Color(0xFF3A2E14),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFFFE082)),
+        border: Border.all(color: const Color(0xFF8A6A2F)),
       ),
       child: Text(
         text,
         style: const TextStyle(
           height: 1.4,
           fontSize: 13,
-          color: Color(0xFF3E2723),
+          color: Color(0xFFF4F7FB),
         ),
       ),
     );

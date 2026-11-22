@@ -252,13 +252,13 @@ class _OriginalityCheckScreenState extends State<OriginalityCheckScreen> {
 
   Widget _warningCard() {
     return Card(
-      color: Colors.amber.shade50,
+      color: const Color(0xFF3A2E14),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.info_outline, color: Colors.amber.shade900),
+            const Icon(Icons.info_outline, color: Color(0xFFFBBF24)),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -270,7 +270,7 @@ class _OriginalityCheckScreenState extends State<OriginalityCheckScreen> {
                 ),
                 style: TextStyle(
                   height: 1.45,
-                  color: Colors.amber.shade900,
+                  color: const Color(0xFFF4F7FB),
                 ),
               ),
             ),

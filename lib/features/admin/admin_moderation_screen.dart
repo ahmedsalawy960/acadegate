@@ -3,6 +3,7 @@ import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 import '../../core/locale/l10n_lookup.dart';
 import '../../core/locale/locale_extensions.dart';
 import '../../core/theme/acadegate_theme.dart';
+import '../billing/subscription_requests_admin.dart';
 import '../auth/user_account.dart';
 import '../auth/user_account_service.dart';
 import '../auth/user_role.dart';
@@ -1135,6 +1136,7 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
 
         return Column(
           children: [
+            const SubscriptionRequestsAdmin(),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
               child: Row(
@@ -1167,7 +1169,7 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
                   final isDuplicate =
                       emailKey.isNotEmpty && (emailCounts[emailKey] ?? 0) > 1;
                   return Card(
-                    color: isDuplicate ? const Color(0xFFFFF8E1) : null,
+                    color: isDuplicate ? const Color(0xFF3A2E14) : null,
                     child: ListTile(
                       leading: CircleAvatar(
                         child: Text(
@@ -1183,7 +1185,10 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
                               user.displayName.isNotEmpty
                                   ? user.displayName
                                   : user.email,
-                              style: const TextStyle(fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: AcadeGateColors.text,
+                              ),
                             ),
                           ),
                           if (isDuplicate)
@@ -1192,12 +1197,15 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
                               child: Chip(
                                 label: Text(
                                   context.t('مكرر', 'Duplicate'),
-                                  style: const TextStyle(fontSize: 11),
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Color(0xFF3A2E14),
+                                  ),
                                 ),
                                 visualDensity: VisualDensity.compact,
                                 materialTapTargetSize:
                                     MaterialTapTargetSize.shrinkWrap,
-                                backgroundColor: Colors.orange.shade100,
+                                backgroundColor: const Color(0xFFFBBF24),
                               ),
                             ),
                         ],
@@ -1205,8 +1213,9 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
                       subtitle: Text(
                         '${user.email}\n'
                         '${L10nLookup.currentRoleLabel(UserRole.label(user.role))}'
-                        ' · ${user.isProActive ? 'Pro' : 'Free'}'
+                        ' · ${user.isAdmin ? 'Admin' : SubscriptionTier.label(user.effectiveTier)}'
                         '${isDuplicate ? context.t(' · ملف مكرر لنفس البريد', ' · duplicate email profile') : ''}',
+                        style: const TextStyle(color: AcadeGateColors.muted),
                       ),
                       isThreeLine: true,
                       trailing: PopupMenuButton<String>(
@@ -1443,14 +1452,18 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
                         decoration: InputDecoration(
                           labelText: context.t('الباقة', 'Plan'),
                         ),
-                        items: const [
+                        items: [
                           DropdownMenuItem(
                             value: SubscriptionTier.free,
-                            child: Text('Free'),
+                            child: Text(SubscriptionTier.label(SubscriptionTier.free)),
+                          ),
+                          DropdownMenuItem(
+                            value: SubscriptionTier.plus,
+                            child: Text(SubscriptionTier.label(SubscriptionTier.plus)),
                           ),
                           DropdownMenuItem(
                             value: SubscriptionTier.pro,
-                            child: Text('Pro'),
+                            child: Text(SubscriptionTier.label(SubscriptionTier.pro)),
                           ),
                         ],
                         onChanged: (v) {
@@ -1458,7 +1471,8 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
                           setLocal(() => tier = v);
                         },
                       ),
-                      if (tier == SubscriptionTier.pro) ...[
+                      if (tier == SubscriptionTier.pro ||
+                          tier == SubscriptionTier.plus) ...[
                         const SizedBox(height: 12),
                         DropdownButtonFormField<int>(
                           value: days,

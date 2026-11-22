@@ -307,13 +307,13 @@ class _HumanitiesTopicsScreenState extends State<HumanitiesTopicsScreen> {
                                     visualDensity: VisualDensity.compact,
                                     backgroundColor: isLive
                                         ? const Color(0xFFE8F5E9)
-                                        : const Color(0xFFFFF3E0),
+                                        : const Color(0xFF3A2E14),
                                     labelStyle: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w700,
                                       color: isLive
                                           ? const Color(0xFF1B5E20)
-                                          : const Color(0xFF3E2723),
+                                          : const Color(0xFFFBBF24),
                                     ),
                                     label: Text(
                                       isLive

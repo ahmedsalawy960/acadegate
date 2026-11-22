@@ -1,36 +1,36 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../billing/app_plans.dart';
 import 'user_account.dart';
 
 /// Mirrors Cloud Function defaults in [functions/usage_quota.js].
 class UsageQuotaLimits {
-  static const freeGemini = 20;
-  static const freeScholar = 6;
-  static const proGemini = 100;
-  static const proScholar = 30;
-
-  static int geminiFor(String tier, {int? override}) {
-    if (override != null && override >= 0) return override;
+  static int geminiMonthFor(String tier) {
     switch (tier) {
       case 'admin':
         return 100000;
       case SubscriptionTier.pro:
-        return proGemini;
+        return 1500;
+      case SubscriptionTier.plus:
+        return 300;
       default:
-        return freeGemini;
+        return 0;
     }
   }
 
-  static int scholarFor(String tier, {int? override}) {
-    if (override != null && override >= 0) return override;
+  static int scholarMonthFor(String tier) {
     switch (tier) {
       case 'admin':
         return 100000;
       case SubscriptionTier.pro:
-        return proScholar;
+        return 450;
+      case SubscriptionTier.plus:
+        return 90;
       default:
-        return freeScholar;
+        return 0;
     }
   }
 }
@@ -56,13 +56,49 @@ class DailyUsageSnapshot {
     this.storedScholarLimit,
   });
 
-  int get geminiLimit =>
-      UsageQuotaLimits.geminiFor(tier, override: geminiLimitOverride);
-  int get scholarLimit =>
-      UsageQuotaLimits.scholarFor(tier, override: scholarLimitOverride);
+  int get geminiLimit => UsageQuotaLimits.geminiMonthFor(tier);
+  int get scholarLimit => UsageQuotaLimits.scholarMonthFor(tier);
   int get geminiRemaining => (geminiLimit - geminiUsed).clamp(0, geminiLimit);
   int get scholarRemaining =>
       (scholarLimit - scholarUsed).clamp(0, scholarLimit);
+}
+
+class UsageMeter {
+  final String titleAr;
+  final String titleEn;
+  final int monthUsed;
+  final int monthLimit;
+  final int dayUsed;
+  final int dayLimit;
+
+  const UsageMeter({
+    required this.titleAr,
+    required this.titleEn,
+    required this.monthUsed,
+    required this.monthLimit,
+    required this.dayUsed,
+    required this.dayLimit,
+  });
+
+  bool get unlimited => monthLimit >= 100000;
+
+  int get monthRemaining =>
+      unlimited ? monthLimit : (monthLimit - monthUsed).clamp(0, monthLimit);
+
+  int get dayRemaining =>
+      unlimited ? dayLimit : (dayLimit - dayUsed).clamp(0, dayLimit);
+}
+
+class PlanUsageSnapshot {
+  final String monthKey;
+  final String dayKey;
+  final List<UsageMeter> meters;
+
+  const PlanUsageSnapshot({
+    required this.monthKey,
+    required this.dayKey,
+    required this.meters,
+  });
 }
 
 class UsageQuotaService {
@@ -89,8 +125,8 @@ class UsageQuotaService {
     return _db
         .collection('usage')
         .doc(user.uid)
-        .collection('daily')
-        .doc(day)
+        .collection('monthly')
+        .doc(day.substring(0, 7))
         .snapshots()
         .map((snap) {
       final data = snap.data() ?? {};
@@ -107,5 +143,101 @@ class UsageQuotaService {
         storedScholarLimit: (data['limitScholar'] as num?)?.toInt(),
       );
     });
+  }
+
+  Stream<PlanUsageSnapshot> watchPeriod({required UserAccount account}) {
+    final user = FirebaseAuth.instance.currentUser;
+    final day = utcDayKey();
+    final month = day.substring(0, 7);
+    if (user == null) {
+      return Stream.value(
+        PlanUsageSnapshot(monthKey: month, dayKey: day, meters: const []),
+      );
+    }
+
+    final controller = StreamController<PlanUsageSnapshot>();
+    Map<String, dynamic>? monthData;
+    Map<String, dynamic>? dayData;
+
+    void emit() {
+      if (monthData == null || dayData == null || controller.isClosed) return;
+      controller.add(
+        _snapshot(
+          account: account,
+          monthKey: month,
+          dayKey: day,
+          monthData: monthData!,
+          dayData: dayData!,
+        ),
+      );
+    }
+
+    final monthSub = _db
+        .collection('usage')
+        .doc(user.uid)
+        .collection('monthly')
+        .doc(month)
+        .snapshots()
+        .listen(
+      (snap) {
+        monthData = snap.data() ?? {};
+        emit();
+      },
+      onError: controller.addError,
+    );
+    final daySub = _db
+        .collection('usage')
+        .doc(user.uid)
+        .collection('daily')
+        .doc(day)
+        .snapshots()
+        .listen(
+      (snap) {
+        dayData = snap.data() ?? {};
+        emit();
+      },
+      onError: controller.addError,
+    );
+    controller.onCancel = () async {
+      await monthSub.cancel();
+      await daySub.cancel();
+    };
+    return controller.stream;
+  }
+
+  PlanUsageSnapshot _snapshot({
+    required UserAccount account,
+    required String monthKey,
+    required String dayKey,
+    required Map<String, dynamic> monthData,
+    required Map<String, dynamic> dayData,
+  }) {
+    final tier = account.effectiveTier;
+    final unlimited = account.isAdmin;
+    final plan = AppPlans.byId(
+      tier == 'admin' ? SubscriptionTier.pro : tier,
+    );
+    const kinds = ['gemini', 'scholar', 'consensus', 'copyleaks'];
+    final dayOverrides = <String, int?>{
+      'gemini': account.quotaGeminiDaily,
+      'scholar': account.quotaScholarDaily,
+      'copyleaks': account.quotaCopyleaksDaily,
+    };
+    final meters = <UsageMeter>[];
+    for (var i = 0; i < kinds.length; i++) {
+      final allowance = plan.allowances[i];
+      final kind = kinds[i];
+      meters.add(
+        UsageMeter(
+          titleAr: allowance.titleAr,
+          titleEn: allowance.titleEn,
+          monthUsed: (monthData[kind] as num?)?.toInt() ?? 0,
+          monthLimit: unlimited ? 100000 : allowance.perMonth,
+          dayUsed: (dayData[kind] as num?)?.toInt() ?? 0,
+          dayLimit: unlimited ? 100000 : (dayOverrides[kind] ?? allowance.perDay),
+        ),
+      );
+    }
+    return PlanUsageSnapshot(monthKey: monthKey, dayKey: dayKey, meters: meters);
   }
 }

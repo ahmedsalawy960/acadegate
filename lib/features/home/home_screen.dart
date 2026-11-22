@@ -37,6 +37,7 @@ import '../moderation/approval_status.dart';
 import '../moderation/moderation_service.dart';
 import '../messaging/conversations_screen.dart';
 import '../notifications/notifications_screen.dart';
+import '../more/app_more_screen.dart';
 import '../profile/account_app_bar_avatar.dart';
 import '../research_supply_chain/research_supply_chain_screen.dart';
 import '../thesis_studio/thesis_studio_screen.dart';
@@ -529,6 +530,21 @@ class _HomeScreenState extends State<HomeScreen> {
           const SmartMatchAppBarButton(),
           if (FirebaseAuth.instance.currentUser != null) ...[
             const AccountAppBarAvatar(),
+            TextButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AppMoreScreen()),
+                );
+              },
+              child: Text(
+                context.t('المزيد', 'More'),
+                style: const TextStyle(
+                  color: AcadeGateColors.text,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
             IconButton(
               tooltip: l10n.logout,
               icon: const Icon(Icons.logout),

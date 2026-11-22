@@ -107,6 +107,34 @@ class StatisticalTableFileParser {
   }
 
   static StatisticalDataset _fromXlsx(Uint8List bytes, String fileName) {
+    final grid = xlsxFirstSheetGrid(bytes);
+
+    if (grid.length < 2) {
+      throw FormatException(
+        appTr(
+          'ورقة Excel فارغة أو بدون صف عناوين',
+          'Excel sheet is empty or missing a header row',
+        ),
+      );
+    }
+
+    // Normalize row widths.
+    final width = grid
+        .map((r) => r.length)
+        .reduce((a, b) => a > b ? a : b)
+        .clamp(1, 64);
+    final normalized = grid
+        .map((r) => [
+              ...r.take(width),
+              ...List.filled(width > r.length ? width - r.length : 0, ''),
+            ])
+        .toList();
+
+    return _gridToDataset(normalized, fileName);
+  }
+
+  /// Non-empty rows of the first worksheet as raw cell text (ragged widths).
+  static List<List<String>> xlsxFirstSheetGrid(Uint8List bytes) {
     final archive = ZipDecoder().decodeBytes(bytes);
     final shared = _loadSharedStrings(archive);
     final sheetPath = _firstWorksheetPath(archive);
@@ -136,29 +164,7 @@ class StatisticalTableFileParser {
       );
       if (line.any((c) => c.trim().isNotEmpty)) grid.add(line);
     }
-
-    if (grid.length < 2) {
-      throw FormatException(
-        appTr(
-          'ورقة Excel فارغة أو بدون صف عناوين',
-          'Excel sheet is empty or missing a header row',
-        ),
-      );
-    }
-
-    // Normalize row widths.
-    final width = grid
-        .map((r) => r.length)
-        .reduce((a, b) => a > b ? a : b)
-        .clamp(1, 64);
-    final normalized = grid
-        .map((r) => [
-              ...r.take(width),
-              ...List.filled(width > r.length ? width - r.length : 0, ''),
-            ])
-        .toList();
-
-    return _gridToDataset(normalized, fileName);
+    return grid;
   }
 
   static List<String> _loadSharedStrings(Archive archive) {

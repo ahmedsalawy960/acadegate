@@ -49,9 +49,9 @@ class CatalogDisclaimerBanner extends StatelessWidget {
       width: double.infinity,
       padding: EdgeInsets.all(compact ? 10 : 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF8E1),
+        color: const Color(0xFF3A2E14),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFFFE082)),
+        border: Border.all(color: const Color(0xFF8A6A2F)),
       ),
       child: Text(
         context.t(
@@ -61,7 +61,7 @@ class CatalogDisclaimerBanner extends StatelessWidget {
         style: TextStyle(
           height: 1.35,
           fontSize: compact ? 12 : 13,
-          color: Colors.brown[900],
+          color: const Color(0xFFF4F7FB),
         ),
       ),
     );

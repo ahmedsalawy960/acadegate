@@ -135,7 +135,7 @@ class SampleRequestListView extends StatelessWidget {
 
             return Card(
               color: sla.isOverdue && sla.daysOverdue >= 3
-                  ? Colors.orange.shade50
+                  ? const Color(0xFF3A2E14)
                   : null,
               child: ListTile(
                 title: Row(

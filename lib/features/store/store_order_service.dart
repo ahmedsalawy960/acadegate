@@ -133,7 +133,11 @@ class StoreOrderService {
   }
 
   /// Opens Paymob checkout; [paymentStatus] updates via webhook only.
-  Future<void> payOrder(String orderId, {String? phone}) async {
+  Future<void> payOrder(
+    String orderId, {
+    String? phone,
+    bool wallet = false,
+  }) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       throw Exception(appTr('يجب تسجيل الدخول', 'You must sign in'));
@@ -152,6 +156,7 @@ class StoreOrderService {
       kind: PaymobOrderKind.store,
       orderId: orderId,
       phone: phone,
+      wallet: wallet,
     );
   }
 

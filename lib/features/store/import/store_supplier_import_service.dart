@@ -135,7 +135,10 @@ class StoreSupplierImportService {
     final bySupplier = <String, int>{};
 
     if (syncProducts) {
-      final targets = egyptStoreSuppliersWithProductSync;
+      final hidden = await hiddenSupplierIds();
+      final targets = egyptStoreSuppliersWithProductSync
+          .where((s) => !hidden.contains(s.id))
+          .toList();
       for (var i = 0; i < targets.length; i++) {
         if (shouldCancel?.call() == true) {
           throw StateError('cancelled');
@@ -334,4 +337,84 @@ class StoreSupplierImportService {
 
   static String _productDocId(String supplierId, int externalId) =>
       'wc_${supplierId}_$externalId';
+
+  /// Suppliers whose directory products an admin pulled from the store
+  /// (e.g. because a reseller lists them under their own name).
+  Future<Set<String>> hiddenSupplierIds() async {
+    final snap = await _db
+        .collection(suppliersCollection)
+        .where('productsHidden', isEqualTo: true)
+        .get();
+    final ids = snap.docs.map((d) => d.id).toSet();
+    _hiddenCache = ids;
+    _hiddenCacheAt = DateTime.now();
+    return ids;
+  }
+
+  Set<String>? _hiddenCache;
+  DateTime? _hiddenCacheAt;
+
+  /// WooCommerce suppliers customers may see in live search / compare.
+  /// Hidden suppliers are excluded so a reseller's listing is never shown
+  /// next to the original supplier's own price.
+  Future<List<EgyptStoreSupplier>> liveSearchSuppliers() async {
+    var hidden = _hiddenCache;
+    final fresh = _hiddenCacheAt != null &&
+        DateTime.now().difference(_hiddenCacheAt!) < const Duration(minutes: 10);
+    if (hidden == null || !fresh) {
+      try {
+        hidden = await hiddenSupplierIds();
+      } catch (_) {
+        hidden ??= const {};
+      }
+    }
+    final excluded = hidden;
+    return egyptStoreSuppliersWithProductSync
+        .where((s) => (s.wooCommerceBaseUrl ?? '').isNotEmpty)
+        .where((s) => !excluded.contains(s.id))
+        .toList();
+  }
+
+  /// Hides (suspends) or restores every synced directory product of
+  /// [supplierId], and pauses / resumes its catalog sync. Returns the number
+  /// of products changed.
+  Future<int> setSupplierProductsHidden({
+    required String supplierId,
+    required bool hidden,
+  }) async {
+    final account =
+        await UserAccountService.instance.watchCurrentAccount().first;
+    if (account?.isAdmin != true) {
+      throw Exception('متاح للمسؤولين فقط');
+    }
+
+    await _db.collection(suppliersCollection).doc(supplierId).set({
+      'productsHidden': hidden,
+      'productsHiddenAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+    _hiddenCacheAt = null;
+
+    final snap = await _db
+        .collection(productsCollection)
+        .where('importSource', isEqualTo: 'wc_$supplierId')
+        .get();
+    final target =
+        hidden ? ApprovalStatus.suspended : ApprovalStatus.approved;
+    final docs = snap.docs
+        .where((d) => d.data()['approvalStatus']?.toString() != target)
+        .toList();
+
+    const chunk = 400;
+    for (var i = 0; i < docs.length; i += chunk) {
+      final batch = _db.batch();
+      for (final d in docs.skip(i).take(chunk)) {
+        batch.update(d.reference, {
+          'approvalStatus': target,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+      await batch.commit();
+    }
+    return docs.length;
+  }
 }

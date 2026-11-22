@@ -70,8 +70,8 @@ class PrivacyPolicyScreen extends StatelessWidget {
         LegalSection(
           title: isAr ? '6. المساعد الأكاديمي' : '6. Academic Assistant',
           body: isAr
-              ? 'عند استخدام المساعد الأكاديمي قد تُرسل أسئلتك والمرفقات (نص/صورة/PDF ضمن الحدود) إلى Google Gemini لتوليد الردود. لا تُستخدم هذه المدخلات لبيع بياناتك الشخصية لأطراف إعلانية. تجنّب رفع بيانات حساسة غير ضرورية (هويات مرضى، أسرار تجارية، بيانات قاصرين). قد تُحفظ المحادثات لحسابك المسجّل لتحسين التجربة.'
-              : 'When you use the Academic Assistant, your prompts and attachments (text/image/PDF within limits) may be sent to Google Gemini to generate replies. Inputs are not sold for advertising. Avoid uploading unnecessary sensitive data (patient identifiers, trade secrets, children’s data). Conversations may be stored for signed-in users to improve continuity.',
+              ? 'عند استخدام المساعد الأكاديمي قد تُرسل أسئلتك والمرفقات (نص/صورة/PDF ضمن الحدود) إلى مزود خدمة الذكاء الاصطناعي لتوليد الردود. لا تُستخدم هذه المدخلات لبيع بياناتك الشخصية لأطراف إعلانية. تجنّب رفع بيانات حساسة غير ضرورية (هويات مرضى، أسرار تجارية، بيانات قاصرين). قد تُحفظ المحادثات لحسابك المسجّل لتحسين التجربة.'
+              : 'When you use the Academic Assistant, your prompts and attachments (text/image/PDF within limits) may be sent to the AI service provider to generate replies. Inputs are not sold for advertising. Avoid uploading unnecessary sensitive data (patient identifiers, trade secrets, children’s data). Conversations may be stored for signed-in users to improve continuity.',
         ),
         LegalSection(
           title: isAr ? '7. المشاركة والمعالجون' : '7. Sharing & processors',
@@ -134,7 +134,13 @@ class PrivacyPolicyScreen extends StatelessWidget {
               : 'We may update this policy. The effective date and version appear above. Continued use after publication means you have reviewed the update. For material changes we may show an in-app notice when feasible.',
         ),
         LegalSection(
-          title: isAr ? '15. التواصل' : '15. Contact',
+          title: isAr ? '15. ما لا نطلبه' : '15. What we do not ask for',
+          body: isAr
+              ? 'لا نطلب ديناً أو رأياً سياسياً أو أصلاً عرقياً. إن أرسلت رسالة إلى مورد أو مشرف تُحفظ الرسالة وتصل إلى صاحب الإعلان المعني فقط، مع بيانات الحساب اللازمة للرد. التقييمات العامة تظهر باسم الحساب. طلب الحذف عبر «حقوق الخصوصية» يُراجع خلال سبعة أيام بعد التحقق من الهوية، مع الإبقاء على سجلات المعاملات التي يلزم القانون الاحتفاظ بها.'
+              : 'We do not ask for religion, political opinion, or ethnicity. If you message a supplier or supervisor, the message is stored and delivered only to that listing owner, with the account details needed to reply. Public reviews show the account name. A deletion request via Privacy rights is reviewed within seven days after identity is checked, while transaction records the law requires us to keep are retained.',
+        ),
+        LegalSection(
+          title: isAr ? '16. التواصل' : '16. Contact',
           body: isAr
               ? 'البريد: ${AppContactInfo.supportEmail}\nأو عبر «المساعدة والدعم» في التذييل.'
               : 'Email: ${AppContactInfo.supportEmail}\nor Help & Support in the app footer.',

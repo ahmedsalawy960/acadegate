@@ -26,6 +26,7 @@ import 'merchant_store_screen.dart';
 import 'product_detail_screen.dart';
 import 'product_list_screen.dart';
 import 'store_cart_screen.dart';
+import 'store_more_screen.dart';
 import 'store_cart_service.dart';
 import 'store_catalog_service.dart';
 import 'store_categories.dart';
@@ -474,6 +475,16 @@ class _StoreHubScreenState extends State<StoreHubScreen> {
                 ),
               );
             },
+          ),
+          IconButton(
+            tooltip: context.t('حساب المتجر', 'Store account'),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const StoreMoreScreen()),
+              );
+            },
+            icon: const Icon(Icons.grid_view_outlined),
           ),
           IconButton(
             tooltip: context.t('تحديث', 'Refresh'),

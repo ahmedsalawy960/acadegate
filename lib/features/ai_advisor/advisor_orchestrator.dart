@@ -169,24 +169,8 @@ class AdvisorOrchestrator {
       );
       return AdvisorOrchestratorResult(
         content: appTr(
-          '⚠️ **تعذر الاتصال بـ ${AdvisorBranding.cloudBadge}**\n'
-              '${cloud.error}\n\n'
-              '---\n'
-              '**رد احتياطي (محرك محلي):**\n\n'
-              '$local\n\n'
-              '---\n'
-              'لتفعيل المساعد الأكاديمي:\n'
-              '1. سجّل الدخول على Chrome/Web\n'
-              '2. أو شغّل على Windows مع `dart_defines.json`',
-          '⚠️ **Could not connect to ${AdvisorBranding.cloudBadge}**\n'
-              '${cloud.error}\n\n'
-              '---\n'
-              '**Fallback response (local engine):**\n\n'
-              '$local\n\n'
-              '---\n'
-              'To turn on the Academic Assistant:\n'
-              '1. Sign in on Chrome/Web\n'
-              '2. Or run on Windows with `dart_defines.json`',
+          '⚠️ ${AdvisorBranding.friendlyFailure(cloud.error)}\n\n$local',
+          '⚠️ ${AdvisorBranding.friendlyFailure(cloud.error)}\n\n$local',
         ),
         agentLabels: labels,
         cloudError: cloud.error,

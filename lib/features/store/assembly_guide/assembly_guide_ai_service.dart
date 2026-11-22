@@ -33,8 +33,8 @@ class AssemblyGuideAiService {
   }) async {
     if (!GeminiAdvisorClient.isAvailable) {
       throw Exception(appTr(
-        'ولّد الدليل يحتاج تسجيل الدخول أو مفتاح Gemini محلياً.',
-        'Guide generation needs sign-in or a local Gemini key.',
+        'توليد الدليل يحتاج تسجيل الدخول.',
+        'Guide generation needs sign-in.',
       ));
     }
 

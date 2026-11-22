@@ -1,9 +1,11 @@
 import '../../core/locale/app_translate.dart';
 import '../../core/offline/local_profile_store.dart';
 import '../academic/academic_content_service.dart';
+import '../academic/academic_models.dart';
 import '../matchmaking/smart_matchmaking_engine.dart';
 import '../notifications/notification_service.dart';
 import '../profile/academic_profile_service.dart';
+import '../research_journey/research_file.dart';
 import '../supervision/supervision_request_service.dart';
 
 class SmartMatchAlertService {
@@ -47,15 +49,26 @@ class SmartMatchAlertService {
         content.supervisors.where((s) => !s.isDemo && s.id != null).toList();
     if (realSupervisors.isEmpty) return;
 
+    var thesisText = '';
+    try {
+      thesisText =
+          (await ResearchFileService.instance.watchMine().first)?.matchText ??
+              '';
+    } catch (_) {}
     final matches = SmartMatchmakingEngine.matchSupervisors(
       profile,
       realSupervisors,
-      limit: 1,
+      limit: 8,
+      thesisText: thesisText,
     );
-    if (matches.isEmpty) return;
-
-    final top = matches.first;
-    if (top.score < _minScoreToNotify) return;
+    MatchResult<AcademicSupervisor>? top;
+    for (final match in matches) {
+      if (match.score >= _minScoreToNotify && (match.reachScore ?? 0) > 0) {
+        top = match;
+        break;
+      }
+    }
+    if (top == null) return;
 
     final supervisorId = top.item.id!;
     if (await LocalProfileStore.instance.wasSmartMatchSupervisorNotified(

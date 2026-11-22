@@ -7,6 +7,8 @@ import '../../core/directory/directory_trust_service.dart';
 import '../../core/directory/directory_trust_status.dart';
 import '../../core/locale/locale_extensions.dart';
 import '../store/add_product_screen.dart';
+import '../store/bulk/product_sheet_import_screen.dart';
+import '../store/bulk/woo_store_link_screen.dart';
 
 /// After Managed Verified: arrange supplier directory data + add products.
 class ManagedSupplierProfileScreen extends StatefulWidget {
@@ -119,6 +121,20 @@ class _ManagedSupplierProfileScreenState
     }
   }
 
+  String get _storeName => _nameAr.text.trim().isNotEmpty
+      ? _nameAr.text.trim()
+      : _nameEn.text.trim();
+
+  String get _contactLine => [
+        if (_phone.text.trim().isNotEmpty) _phone.text.trim(),
+        if (_whatsapp.text.trim().isNotEmpty) _whatsapp.text.trim(),
+        if (_email.text.trim().isNotEmpty) _email.text.trim(),
+      ].join(' · ');
+
+  void _open(Widget screen) {
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -216,30 +232,48 @@ class _ManagedSupplierProfileScreenState
                 ),
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
-                  onPressed: () {
-                    final storeName = _nameAr.text.trim().isNotEmpty
-                        ? _nameAr.text.trim()
-                        : _nameEn.text.trim();
-                    final contact = [
-                      if (_phone.text.trim().isNotEmpty) _phone.text.trim(),
-                      if (_whatsapp.text.trim().isNotEmpty)
-                        _whatsapp.text.trim(),
-                      if (_email.text.trim().isNotEmpty) _email.text.trim(),
-                    ].join(' · ');
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => AddProductScreen(
-                          categoryTitle: 'مستلزمات عامة',
-                          supplierId: widget.supplierId,
-                          storeNameHint: storeName,
-                          contactHint: contact,
-                        ),
-                      ),
-                    );
-                  },
+                  onPressed: () => _open(
+                    AddProductScreen(
+                      categoryTitle: 'مستلزمات عامة',
+                      supplierId: widget.supplierId,
+                      storeNameHint: _storeName,
+                      contactHint: _contactLine,
+                    ),
+                  ),
                   icon: const Icon(Icons.add_box_outlined),
                   label: Text(
                     context.t('إضافة منتج / صور', 'Add product / images'),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: () => _open(
+                    ProductSheetImportScreen(
+                      supplierId: widget.supplierId,
+                      storeNameHint: _storeName,
+                      contactHint: _contactLine,
+                    ),
+                  ),
+                  icon: const Icon(Icons.table_chart_outlined),
+                  label: Text(
+                    context.t('رفع قائمة منتجات (Excel / CSV)',
+                        'Upload product list (Excel / CSV)'),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: () => _open(
+                    WooStoreLinkScreen(
+                      supplierId: widget.supplierId,
+                      storeNameHint: _storeName,
+                      contactHint: _contactLine,
+                      websiteHint: _website.text.trim(),
+                    ),
+                  ),
+                  icon: const Icon(Icons.storefront_outlined),
+                  label: Text(
+                    context.t('ربط المتجر الإلكتروني للمورد',
+                        'Link supplier online store'),
                   ),
                 ),
               ],

@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import '../../core/firebase/callable_http_client.dart';
 import '../admin/admin_activity_service.dart';
 import 'merchant_business_profile.dart';
+import 'personal_info.dart';
 import 'portal_type.dart';
 import 'provider_org_profile.dart';
 import 'user_account.dart';
@@ -54,6 +55,7 @@ class UserAccountService {
     required User firebaseUser,
     required String displayName,
     required String role,
+    PersonalInfo? personalInfo,
   }) async {
     if (role == UserRole.admin) {
       throw Exception('لا يمكن إنشاء حساب مدير من التطبيق');
@@ -65,6 +67,7 @@ class UserAccountService {
       'displayName': displayName.trim(),
       'role': role,
       'createdAt': FieldValue.serverTimestamp(),
+      if (personalInfo != null) ...personalInfo.toMap(),
     });
 
     // ignore: unawaited_futures
@@ -458,6 +461,20 @@ class UserAccountService {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
     await _doc(user.uid).update({'activePortal': FieldValue.delete()});
+  }
+
+  Future<void> savePersonalInfo(PersonalInfo info) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('يجب تسجيل الدخول');
+    if (!info.isComplete) throw Exception('أكمل جميع البيانات الشخصية');
+
+    await _doc(user.uid).set(
+      {
+        ...info.toMap(),
+        'personalInfoUpdatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
   }
 
   Future<void> updateDisplayName(String displayName) async {

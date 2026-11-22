@@ -86,6 +86,73 @@ class _AdminStoreImportScreenState extends State<AdminStoreImportScreen> {
     }
   }
 
+  Future<void> _toggleProductsHidden(
+    EgyptStoreSupplier supplier, {
+    required bool hide,
+  }) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(
+          hide
+              ? ctx.t('إخفاء منتجات ${supplier.nameAr}؟',
+                  'Hide ${supplier.nameEn} products?')
+              : ctx.t('إظهار منتجات ${supplier.nameAr}؟',
+                  'Show ${supplier.nameEn} products?'),
+        ),
+        content: Text(
+          hide
+              ? ctx.t(
+                  'ستختفي كل منتجات هذا المورد المستوردة من المتجر وتتوقف مزامنتها (بما فيها المزامنة الأسبوعية). لن يُحذف شيء ويمكنك إظهارها لاحقاً.\n\nاستخدم هذا عندما تعيد بيع منتجاته باسمك حتى لا تظهر مكررة.',
+                  'All synced products of this supplier will be hidden from the store and its sync paused (including the weekly sync). Nothing is deleted and you can show them again.\n\nUse this when you resell its products under your own name to avoid duplicates.',
+                )
+              : ctx.t(
+                  'ستعود منتجات المورد للظهور في المتجر وتُستأنف مزامنتها.',
+                  'The supplier products will reappear and its sync resumes.',
+                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(ctx.t('إلغاء', 'Cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(hide ? ctx.t('إخفاء', 'Hide') : ctx.t('إظهار', 'Show')),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    setState(() => _syncing = true);
+    try {
+      final changed =
+          await StoreSupplierImportService.instance.setSupplierProductsHidden(
+        supplierId: supplier.id,
+        hidden: hide,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            hide
+                ? context.t('تم إخفاء $changed منتج', 'Hid $changed products')
+                : context.t('تم إظهار $changed منتج', 'Restored $changed products'),
+          ),
+          backgroundColor: StoreTheme.verified,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$e'), backgroundColor: Colors.red),
+      );
+    } finally {
+      if (mounted) setState(() => _syncing = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return AdminAccessGate(
@@ -261,6 +328,7 @@ class _AdminStoreImportScreenState extends State<AdminStoreImportScreen> {
             isVerifiedSeller: data?['isVerifiedSeller'] == true,
             claimedByUid: data?['claimedByUid']?.toString(),
           );
+          final productsHidden = data?['productsHidden'] == true;
           return ListTile(
             leading: Icon(
               supplier.productSyncEnabled
@@ -283,7 +351,10 @@ class _AdminStoreImportScreenState extends State<AdminStoreImportScreen> {
                     if (supplier.city.isNotEmpty) supplier.city,
                     if (supplier.phone.isNotEmpty) supplier.phone,
                     if (supplier.productSyncEnabled)
-                      context.t('مزامنة منتجات', 'Product sync'),
+                      productsHidden
+                          ? context.t('منتجاته مخفية · المزامنة متوقفة',
+                              'Products hidden · sync paused')
+                          : context.t('مزامنة منتجات', 'Product sync'),
                   ].join(' · '),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -336,6 +407,27 @@ class _AdminStoreImportScreenState extends State<AdminStoreImportScreen> {
                       )
                       .toList(),
                 ),
+                if (supplier.productSyncEnabled)
+                  IconButton(
+                    tooltip: productsHidden
+                        ? context.t('إظهار منتجاته في المتجر',
+                            'Show its products in the store')
+                        : context.t('إخفاء منتجاته من المتجر',
+                            'Hide its products from the store'),
+                    icon: Icon(
+                      productsHidden
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                      size: 20,
+                      color: productsHidden ? StoreTheme.danger : null,
+                    ),
+                    onPressed: _syncing
+                        ? null
+                        : () => _toggleProductsHidden(
+                              supplier,
+                              hide: !productsHidden,
+                            ),
+                  ),
                 IconButton(
                   tooltip: context.t('فتح الموقع', 'Open website'),
                   icon: const Icon(Icons.open_in_new, size: 20),

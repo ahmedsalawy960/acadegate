@@ -17,14 +17,21 @@ import '../../core/locale/locale_extensions.dart';
 import '../../core/storage/storage_service.dart';
 
 import '../auth/provider_publish_gate.dart';
-import '../auth/user_account_service.dart';
-import '../auth/user_role.dart';
 import '../analytics/kpi_analytics_service.dart';
+import 'bulk/merchant_sell_gate.dart';
 import 'store_badges.dart';
 import 'store_categories.dart';
 import 'store_theme.dart';
 
 
+
+/// An existing product used to prefill [AddProductScreen].
+class ProductDuplicateSource {
+  final String id;
+  final Map<String, dynamic> data;
+
+  const ProductDuplicateSource({required this.id, required this.data});
+}
 
 class AddProductScreen extends StatefulWidget {
   final String categoryTitle;
@@ -32,6 +39,8 @@ class AddProductScreen extends StatefulWidget {
   final String? supplierId;
   final String? storeNameHint;
   final String? contactHint;
+  /// Prefills every field from this product; saving creates a new document.
+  final ProductDuplicateSource? duplicateOf;
 
   const AddProductScreen({
     super.key,
@@ -39,6 +48,7 @@ class AddProductScreen extends StatefulWidget {
     this.supplierId,
     this.storeNameHint,
     this.contactHint,
+    this.duplicateOf,
   });
 
   @override
@@ -84,6 +94,8 @@ class _AddProductScreenState extends State<AddProductScreen> {
   final Set<String> _selectedBadges = {};
 
   XFile? _imageFile;
+
+  String? _copiedImageUrl;
 
 
 
@@ -142,6 +154,31 @@ class _AddProductScreenState extends State<AddProductScreen> {
     if (contactHint.isNotEmpty) {
       _contactController.text = contactHint;
     }
+    final source = widget.duplicateOf?.data;
+    if (source != null) _prefillFrom(source);
+  }
+
+  void _prefillFrom(Map<String, dynamic> d) {
+    String s(String key) => d[key]?.toString().trim() ?? '';
+    final name = s('name');
+    _nameController.text =
+        name.isEmpty ? '' : '$name ${appTr('(نسخة)', '(copy)')}';
+    _priceController.text = s('price');
+    _descriptionController.text = s('description');
+    _storeNameController.text = s('storeName');
+    _contactController.text = s('contact');
+    // SKU identifies a single variant, so the copy starts without one.
+    _brandController.text = s('brand');
+    _unitController.text = s('unit');
+    _gradeController.text = s('grade');
+    _originController.text = s('originCountry');
+    _cityController.text = s('city');
+    _inStock = d['inStock'] != false;
+    _fastShipping = d['fastShipping'] == true;
+    final badges = d['badges'];
+    if (badges is List) _selectedBadges.addAll(badges.map((b) => '$b'));
+    final image = s('imageUrl');
+    if (image.isNotEmpty) _copiedImageUrl = image;
   }
 
   String? _validateRequired(String? value) {
@@ -181,102 +218,9 @@ class _AddProductScreenState extends State<AddProductScreen> {
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
+    final account = await ensureMerchantCanSell(context);
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            context.t(
-              'يجب تسجيل الدخول لإضافة منتج',
-              'You must sign in to add a product',
-            ),
-          ),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-
-    await UserAccountService.instance.ensureAccountExists(user);
-    var account = await UserAccountService.instance.loadCurrentAccount();
-    if (!UserRole.canSellProducts(account?.role)) {
-      if (!mounted) return;
-      final enable = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: Text(ctx.t('تفعيل حساب تاجر؟', 'Enable merchant account?')),
-          content: Text(
-            ctx.t(
-              'حسابك الحالي ليس بدور تاجر/مورد. لتتمكن من حفظ المنتجات، فعّل دور التاجر لهذا الحساب.',
-              'Your account is not a merchant/supplier. Enable the merchant role to save products.',
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: Text(ctx.t('إلغاء', 'Cancel')),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: Text(ctx.t('تفعيل وحفظ', 'Enable & save')),
-            ),
-          ],
-        ),
-      );
-      if (enable != true) return;
-      try {
-        await UserAccountService.instance.enableMerchantSelling();
-        account = await UserAccountService.instance.loadCurrentAccount();
-      } catch (e) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              context.t(
-                'تعذر تفعيل دور التاجر: $e',
-                'Could not enable merchant role: $e',
-              ),
-            ),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-        return;
-      }
-      if (!UserRole.canSellProducts(account?.role)) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              context.t(
-                'ما زال الحساب بدون صلاحية بيع. سجّل حساباً بدور تاجر أو تواصل مع الإدارة.',
-                'Account still cannot sell. Register as a merchant or contact admin.',
-              ),
-            ),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-        return;
-      }
-      if (!ProviderPublishGate.canSubmitContent(account)) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              context.t(
-                ProviderPublishGate.blockMessageAr(account),
-                ProviderPublishGate.blockMessageEn(account),
-              ),
-            ),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-        return;
-      }
-    }
+    if (account == null || user == null || !mounted) return;
 
     setState(() {
       _isSaving = true;
@@ -286,7 +230,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
       final price =
           num.parse(_priceController.text.trim().replaceAll(',', '.'));
 
-      String? imageUrl;
+      String? imageUrl = _copiedImageUrl;
       if (_imageFile != null) {
         imageUrl = await StorageService.instance.uploadImage(
           file: _imageFile!,
@@ -298,6 +242,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
         'name': _nameController.text.trim(),
         'price': price,
         'category': widget.categoryTitle,
+        if (widget.duplicateOf != null) 'duplicatedFrom': widget.duplicateOf!.id,
         'description': _descriptionController.text.trim(),
         'storeName': _storeNameController.text.trim(),
         'contact': _contactController.text.trim(),
@@ -393,7 +338,11 @@ class _AddProductScreenState extends State<AddProductScreen> {
 
       appBar: AcadeGateAppBar(
 
-        title: Text(context.t('إضافة منتج', 'Add product')),
+        title: Text(
+          widget.duplicateOf != null
+              ? context.t('نسخ منتج', 'Duplicate product')
+              : context.t('إضافة منتج', 'Add product'),
+        ),
 
         backgroundColor: StoreTheme.appBar,
 
@@ -629,11 +578,14 @@ class _AddProductScreenState extends State<AddProductScreen> {
 
                   label: Text(
 
-                    _imageFile == null
-
-                        ? context.t('إضافة صورة المنتج', 'Add product image')
-
-                        : context.t('تم اختيار الصورة', 'Image selected'),
+                    _imageFile != null
+                        ? context.t('تم اختيار الصورة', 'Image selected')
+                        : _copiedImageUrl != null
+                            ? context.t(
+                                'صورة المنتج الأصلي — اضغط للتغيير',
+                                'Original product image — tap to change',
+                              )
+                            : context.t('إضافة صورة المنتج', 'Add product image'),
 
                   ),
 

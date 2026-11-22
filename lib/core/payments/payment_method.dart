@@ -6,4 +6,14 @@ class PaymentMethod {
   static const manual = 'manual';
 }
 
-enum PaymentCheckoutChoice { paymob, manual, cancel }
+/// [paymob] = card, [wallet] = mobile wallet; both settle through Paymob
+/// and are stored as [PaymentMethod.paymob].
+enum PaymentCheckoutChoice { paymob, wallet, manual, cancel }
+
+extension PaymentCheckoutChoiceX on PaymentCheckoutChoice {
+  bool get isOnline =>
+      this == PaymentCheckoutChoice.paymob ||
+      this == PaymentCheckoutChoice.wallet;
+
+  bool get isWallet => this == PaymentCheckoutChoice.wallet;
+}

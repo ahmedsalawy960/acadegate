@@ -142,7 +142,7 @@ class HumanitiesFieldToolsScreen extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Card(
-            color: const Color(0xFFFFF8E1),
+            color: const Color(0xFF3A2E14),
             child: Padding(
               padding: const EdgeInsets.all(12),
               child: Text(
@@ -150,7 +150,7 @@ class HumanitiesFieldToolsScreen extends StatelessWidget {
                   'لا تكرار هنا: أدوات البناء والتحليل تُفتح من مراحل البوابة فقط.',
                   'No duplication here: build and analysis tools open only from portal stages.',
                 ),
-                style: TextStyle(height: 1.45, color: Colors.grey[800]),
+                style: const TextStyle(height: 1.45, color: Color(0xFFF4F7FB)),
               ),
             ),
           ),

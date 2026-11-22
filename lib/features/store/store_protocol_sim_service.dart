@@ -96,10 +96,10 @@ class StoreProtocolSimService {
       return ProtocolSimResult(
         error: appTr(
           GeminiAdvisorClient.needsSignInForCloudAi
-              ? 'محاكاة البروتوكول تتطلب تسجيل الدخول أو مفتاح Gemini.'
+              ? 'محاكاة البروتوكول تتطلب تسجيل الدخول.'
               : 'محاكاة البروتوكول غير متاحة حالياً.',
           GeminiAdvisorClient.needsSignInForCloudAi
-              ? 'Protocol simulation requires sign-in or a Gemini key.'
+              ? 'Protocol simulation requires sign-in.'
               : 'Protocol simulation is unavailable right now.',
         ),
         disclaimer: disclaimer,

@@ -14,6 +14,7 @@ import '../guides/section_guide_catalog.dart';
 import '../guides/section_guide_screen.dart';
 import '../research_supply_chain/research_supply_chain_screen.dart';
 import '../smart_labs/smart_lab_detail_screen.dart';
+import '../research_journey/research_file.dart';
 import 'smart_matchmaking_engine.dart';
 
 class MatchmakingScreen extends StatefulWidget {
@@ -87,21 +88,35 @@ class _MatchmakingScreenState extends State<MatchmakingScreen> {
   Future<void> _runMatching(AcademicProfile profile) async {
     final content = await AcademicContentService.instance.fetchAll();
     if (!mounted) return;
+    var thesisText = '';
+    try {
+      thesisText =
+          (await ResearchFileService.instance.watchMine().first)?.matchText ??
+              '';
+    } catch (_) {}
     _supervisorMatches = SmartMatchmakingEngine.matchSupervisors(
       profile,
       content.supervisors,
+      softFallback: false,
+      restrictFaculty: (profile.resolvedFacultyCategory ?? '').isNotEmpty,
+      thesisText: thesisText,
     );
     if (!widget.supervisorJourney) {
       _ideaMatches = SmartMatchmakingEngine.matchResearchIdeas(
         profile,
         content.ideas,
+        softFallback: false,
       );
       final labs = await AcademicContentService.instance.searchLabs(
         facultyId: profile.resolvedFacultyCategory,
         limit: 60,
       );
       if (!mounted) return;
-      _labMatches = SmartMatchmakingEngine.matchLabs(profile, labs);
+      _labMatches = SmartMatchmakingEngine.matchLabs(
+        profile,
+        labs,
+        softFallback: false,
+      );
     } else {
       _ideaMatches = [];
       _labMatches = [];
@@ -362,8 +377,8 @@ class _MatchmakingScreenState extends State<MatchmakingScreen> {
                 padding: const EdgeInsets.only(bottom: 12),
                 child: Text(
                   context.t(
-                    'مرتّبة حسب التوافق مع ملفك — اضغط لعرض الملف وطلب الإشراف',
-                    'Ranked by profile fit — tap to view profile and request supervision',
+                    'مرتّبة حسب ملف الرسالة ثم ملفك. «موضوع» هو التوافق، و«وصول» يعني أن الطلب يصله.',
+                    'Ranked by your thesis file, then your profile. Topic is the fit. Reach means the request can get to them.',
                   ),
                   style: TextStyle(color: const Color(0xFFB7C3D6), fontSize: 13),
                 ),
@@ -460,7 +475,18 @@ class _MatchmakingScreenState extends State<MatchmakingScreen> {
                       ),
                     ),
                   ),
-                  _ScoreBadge(score: result.score),
+                  _ScoreBadge(
+                    score: result.score,
+                    label: context.t('موضوع', 'Topic'),
+                  ),
+                  if (result.reachScore != null) ...[
+                    const SizedBox(width: 6),
+                    _ScoreBadge(
+                      score: result.reachScore!,
+                      label: context.t('وصول', 'Reach'),
+                      reach: true,
+                    ),
+                  ],
                 ],
               ),
               const SizedBox(height: 6),
@@ -752,13 +778,13 @@ class _DemoDataBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      color: Colors.orange.shade50,
+      color: const Color(0xFF3A2E14),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.info_outline, color: Colors.orange.shade800),
+            const Icon(Icons.info_outline, color: Color(0xFFFBBF24)),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -775,7 +801,7 @@ class _DemoDataBanner extends StatelessWidget {
                         'Supervisors shown are demo data. '
                         'When real supervisors register, matches will appear automatically.',
                       ),
-                style: TextStyle(color: Colors.orange.shade900, height: 1.4),
+                style: const TextStyle(color: Color(0xFFF4F7FB), height: 1.4),
               ),
             ),
           ],
@@ -788,16 +814,26 @@ class _DemoDataBanner extends StatelessWidget {
 class _ScoreBadge extends StatelessWidget {
   final int score;
   final bool compact;
+  final String? label;
+  final bool reach;
 
-  const _ScoreBadge({required this.score, this.compact = false});
+  const _ScoreBadge({
+    required this.score,
+    this.compact = false,
+    this.label,
+    this.reach = false,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final color = score >= 70
-        ? Colors.green
-        : score >= 40
-        ? Colors.orange
-        : Colors.red;
+    final color = reach
+        ? (score > 0 ? const Color(0xFF66BB6A) : const Color(0xFFB7C3D6))
+        : score >= 70
+            ? Colors.green
+            : score >= 40
+                ? Colors.orange
+                : Colors.red;
+    final caption = label == null ? '$score%' : '$label $score%';
 
     return Container(
       padding: EdgeInsets.symmetric(
@@ -810,11 +846,11 @@ class _ScoreBadge extends StatelessWidget {
         border: Border.all(color: color),
       ),
       child: Text(
-        '$score%',
+        caption,
         style: TextStyle(
           color: color,
           fontWeight: FontWeight.bold,
-          fontSize: compact ? 12 : 14,
+          fontSize: compact ? 12 : 13,
         ),
       ),
     );

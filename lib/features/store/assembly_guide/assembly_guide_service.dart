@@ -104,8 +104,8 @@ class AssemblyGuideService {
       return AssemblyGuideCheckResult(
         passed: false,
         feedback: appTr(
-          'فحص الصورة يحتاج تسجيل الدخول أو مفتاح Gemini.',
-          'Photo check needs sign-in or a Gemini key.',
+          'فحص الصورة يحتاج تسجيل الدخول.',
+          'Photo check needs sign-in.',
         ),
       );
     }

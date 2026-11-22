@@ -102,6 +102,8 @@ class AdvisorBranding {
       RegExp(r'geminiAdvisor', caseSensitive: false),
       (_) => name,
     );
+    s = s.replaceAll(RegExp(r'https?://\S+'), '');
+    s = s.replaceAll(RegExp(r'\bAPI\b'), '');
 
     // Collapse repeated brand: "AcadeGate / AcadeGate" → "AcadeGate"
     s = s.replaceAll(
@@ -111,5 +113,45 @@ class AdvisorBranding {
     s = s.replaceAll(RegExp('$name(?:\\s*/\\s*$name)+', caseSensitive: false), name);
 
     return s;
+  }
+
+  static const planMarker = '[[plan]]';
+
+  static String get planLimitReached => appTr(
+        '$planMarker انتهى حد باقتك الحالية. يمكنك تفعيل اشتراك، أو تعديل الباقة، أو طلب زيادة الحد.',
+        '$planMarker Your current plan limit is used up. Activate a subscription, adjust the plan, or ask to raise the limit.',
+      );
+
+  static String get _generic => appTr(
+        'تعذر إكمال الرد الآن. حاول مرة أخرى.',
+        'Could not finish the reply. Please try again.',
+      );
+
+  /// Any failure shown to a researcher: no vendor, model, key, or link.
+  static String friendlyFailure(String? raw) {
+    final s = (raw ?? '').trim();
+    if (s.isEmpty) return _generic;
+    final lower = s.toLowerCase();
+    if (s.contains('الحد اليومي') ||
+        s.contains('حد باقتك') ||
+        s.contains('رصيد هذا الشهر') ||
+        s.contains('حد اليوم') ||
+        lower.contains('daily') ||
+        RegExp(r'quota|رصيد|429|resource.?exhausted', caseSensitive: false)
+            .hasMatch(s)) {
+      return planLimitReached;
+    }
+    if (s.contains('سجّل الدخول') ||
+        s.contains('تسجيل الدخول') ||
+        lower.contains('sign in')) {
+      return publicize(s);
+    }
+    if (RegExp(
+      r'gemini|api\s*key|aistudio|googleapis|exception|cloud function|http',
+      caseSensitive: false,
+    ).hasMatch(s)) {
+      return _generic;
+    }
+    return publicize(s);
   }
 }

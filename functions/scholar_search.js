@@ -1,6 +1,6 @@
 'use strict';
 
-const admin = require("firebase-admin");
+const { getAuth } = require("firebase-admin/auth");
 const { onRequest } = require("firebase-functions/v2/https");
 const {
   consumeQuota,
@@ -42,7 +42,7 @@ function createGoogleScholarSearchHandler(serpapiKey) {
 
       let decoded;
       try {
-        decoded = await admin.auth().verifyIdToken(match[1].trim());
+        decoded = await getAuth().verifyIdToken(match[1].trim());
       } catch (_) {
         res.status(401).json({
           error: "جلسة غير صالحة. سجّل الدخول مجدداً.",

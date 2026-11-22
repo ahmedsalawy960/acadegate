@@ -269,11 +269,12 @@ class _OrderCard extends StatelessWidget {
                             return;
                           }
                           try {
-                            if (choice == PaymentCheckoutChoice.paymob) {
+                            if (choice.isOnline) {
                               await WritingService.instance.payOrder(
                                 serviceId: order.serviceId!,
                                 orderId: order.id!,
                                 amount: amount,
+                                wallet: choice.isWallet,
                               );
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(

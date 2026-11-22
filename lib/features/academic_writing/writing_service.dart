@@ -250,6 +250,7 @@ class WritingService {
     required String serviceId,
     required String orderId,
     required num amount,
+    bool wallet = false,
   }) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) throw Exception(appTr('يجب تسجيل الدخول', 'Sign in required'));
@@ -268,6 +269,7 @@ class WritingService {
       kind: PaymobOrderKind.writing,
       orderId: orderId,
       serviceId: serviceId,
+      wallet: wallet,
     );
   }
 

@@ -8,7 +8,6 @@ import '../academic_writing/writing_models.dart';
 import '../ai_advisor/grounded_reference_service.dart';
 import '../ai_advisor/grounded_work.dart';
 import '../matchmaking/smart_matchmaking_engine.dart';
-import '../supervisor_import/multi_source_supervisor_service.dart';
 import '../profile/academic_profile.dart';
 import '../research_fund/industry_challenge_models.dart';
 import '../humanities/humanities_faculties.dart';
@@ -125,35 +124,18 @@ class ResearchSupplyChainEngine {
       softFallback: false,
       requireTokens: topicTokens,
     );
-    List<AcademicSupervisor> liveSupervisors = const [];
-    try {
-      final hits = await MultiSourceSupervisorService.instance.search(
-        topic: goal.fieldEn.isNotEmpty ? goal.fieldEn : goal.field,
-        university: effectiveProfile.university,
-        limit: 16,
-      );
-      liveSupervisors = hits.map((h) => h.toAcademicSupervisor()).toList();
-    } catch (_) {}
-    final catalogKeys = {
-      for (final s in content.supervisors)
-        if (s.orcid.isNotEmpty)
-          'orcid:${s.orcid.toLowerCase()}'
-        else
-          'name:${s.name.toLowerCase()}',
-    };
-    final extraSupervisors = liveSupervisors.where((s) {
-      final key = s.orcid.isNotEmpty
-          ? 'orcid:${s.orcid.toLowerCase()}'
-          : 'name:${s.name.toLowerCase()}';
-      return !catalogKeys.contains(key);
-    });
+    // ترشيح من كتالوج AcadeGate فقط (مشرفون مسجّلون/مستوردون في الكليات).
+    // مصادر OpenAlex الحية تُستبعد هنا لأنها بلا كلية/تخصص داخل المنصة.
+    final catalogSupervisors = content.supervisors
+        .where((s) => !s.isDemo && s.isPubliclyVisible)
+        .toList();
     final supervisorMatches = SmartMatchmakingEngine.matchSupervisors(
       effectiveProfile,
-      [...content.supervisors, ...extraSupervisors],
+      catalogSupervisors,
       limit: _supervisorLimit,
       softFallback: false,
       requireTokens: topicTokens,
-      restrictFaculty: false,
+      restrictFaculty: true,
     );
     final labMatches = prefersLibraries
         ? const <MatchResult<AcademicLab>>[]

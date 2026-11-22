@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:acadegate/core/widgets/acadegate_selectable.dart';
+import 'complete_personal_info_screen.dart';
+import 'personal_info.dart';
 import 'portal_selection_screen.dart';
 import 'portal_service.dart';
 import 'portal_type.dart';
@@ -22,6 +24,7 @@ class _PortalGatewayState extends State<PortalGateway> {
   String? _role;
   bool _loading = true;
   bool _needsRoleSetup = false;
+  PersonalInfo? _missingPersonalInfo;
 
   @override
   void initState() {
@@ -43,6 +46,17 @@ class _PortalGatewayState extends State<PortalGateway> {
       return;
     }
 
+    if (account != null &&
+        !account.isAdmin &&
+        !account.personalInfo.isComplete) {
+      setState(() {
+        _needsRoleSetup = false;
+        _missingPersonalInfo = account.personalInfo;
+        _loading = false;
+      });
+      return;
+    }
+
     var portal = await PortalService.instance.getActivePortal();
 
     // Students must stay on the researcher/user portal.
@@ -55,6 +69,7 @@ class _PortalGatewayState extends State<PortalGateway> {
     if (!mounted) return;
     setState(() {
       _needsRoleSetup = false;
+      _missingPersonalInfo = null;
       _portal = portal;
       _role = role.isEmpty ? null : role;
       _loading = false;
@@ -102,6 +117,14 @@ class _PortalGatewayState extends State<PortalGateway> {
       );
     } else if (_needsRoleSetup) {
       page = RoleSetupScreen(onCompleted: _loadPortal);
+    } else if (_missingPersonalInfo != null) {
+      page = CompletePersonalInfoScreen(
+        initial: _missingPersonalInfo!,
+        onCompleted: () {
+          setState(() => _loading = true);
+          _loadPortal();
+        },
+      );
     } else if (_portal == null) {
       page = PortalSelectionScreen(onSelect: _onPortalSelected);
     } else {

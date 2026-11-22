@@ -7,6 +7,9 @@ import 'advisor_attachment.dart';
 import 'advisor_branding.dart';
 import 'advisor_message.dart';
 import 'advisor_orchestrator.dart';
+import 'advisor_router.dart';
+import 'assistant/academic_assistant_client.dart';
+import 'catalog_hit.dart';
 import 'gemini_advisor_client.dart';
 
 class AiAdvisorService {
@@ -85,6 +88,97 @@ class AiAdvisorService {
           '(or more than one if needed).\n\n'
           '$mode\n'
           '$persistence',
+    );
+  }
+
+  static const _deepAgents = {
+    AdvisorAgentId.thesisPlanning,
+    AdvisorAgentId.thesisWriter,
+    AdvisorAgentId.literatureReview,
+    AdvisorAgentId.dataAnalysis,
+    AdvisorAgentId.researchSimulation,
+    AdvisorAgentId.researchIdea,
+  };
+
+  /// Deep reasoning for substantial requests; the server only grants it to Pro/admin.
+  static bool wantsDeepThinking(String message, {bool hasAttachments = false}) {
+    if (hasAttachments) return true;
+    final t = message.trim();
+    if (t.length >= 160) return true;
+    if (t.length < 25) return false;
+    final plan = AdvisorRouter.instance.route(t);
+    return plan.allAgents.any(_deepAgents.contains);
+  }
+
+  static List<Map<String, String>> historyForModel(List<AdvisorMessage> history) {
+    return history
+        .where(
+          (m) =>
+              (m.content.trim().isNotEmpty || m.attachments.isNotEmpty) &&
+              !m.content.startsWith('⚠️'),
+        )
+        .map((m) {
+          var text = m.content;
+          if (m.attachments.isNotEmpty) {
+            final names = m.attachments.map((a) => a.name).join(appTr('، ', ', '));
+            final note = appTr('[مرفقات: $names]', '[Attachments: $names]');
+            text = text.isEmpty ? note : '$text\n$note';
+          }
+          return {
+            'role': m.role == AdvisorMessageRole.user ? 'user' : 'assistant',
+            'text': text,
+          };
+        })
+        .toList();
+  }
+
+  /// Streaming, tool-using assistant. Falls back to [ask] when the new
+  /// backend is unreachable or the user is signed out.
+  Future<AdvisorMessage> askStreaming({
+    required String message,
+    List<AdvisorMessage> history = const [],
+    List<GeminiInlinePart> attachments = const [],
+    void Function(String textSoFar)? onText,
+    void Function(String? status)? onStatus,
+  }) async {
+    if (!AcademicAssistantClient.isAvailable) {
+      return ask(message: message, history: history, attachments: attachments);
+    }
+
+    final result = await AcademicAssistantClient.instance.run(
+      message: message,
+      history: historyForModel(history),
+      attachments: attachments,
+      deep: wantsDeepThinking(message, hasAttachments: attachments.isNotEmpty),
+      onText: onText,
+      onStatus: onStatus,
+    );
+
+    if (result.backendUnavailable) {
+      return ask(message: message, history: history, attachments: attachments);
+    }
+
+    final content = result.isSuccess
+        ? result.text
+        : [
+            if (result.text.trim().isNotEmpty) result.text.trim(),
+            '⚠️ ${AdvisorBranding.friendlyFailure(result.error)}',
+          ].join('\n\n');
+
+    final catalog = result.toolbox.catalog;
+    return AdvisorMessage(
+      id: _nextId(),
+      role: AdvisorMessageRole.assistant,
+      content: content,
+      createdAt: DateTime.now(),
+      usedCloudAi: true,
+      agentLabels: [
+        if (result.deep) appTr('تفكير عميق', 'Deep thinking'),
+        ...result.toolLabels,
+      ],
+      catalog: catalog.isEmpty
+          ? const CatalogSearchSnapshot(intent: CatalogIntentSummary.empty)
+          : catalog,
     );
   }
 

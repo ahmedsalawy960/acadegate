@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../l10n/app_localizations.dart';
 import '../academic/academic_content_service.dart';
 import '../profile/academic_profile_service.dart';
+import '../research_journey/research_file.dart';
 import 'matchmaking_screen.dart';
 import 'smart_matchmaking_engine.dart';
 
@@ -33,10 +34,17 @@ class _SmartMatchAppBarButtonState extends State<SmartMatchAppBarButton> {
     final content = await AcademicContentService.instance.fetchAll(
       includeLabs: false,
     );
+    var thesisText = '';
+    try {
+      thesisText =
+          (await ResearchFileService.instance.watchMine().first)?.matchText ??
+              '';
+    } catch (_) {}
     final matches = SmartMatchmakingEngine.matchSupervisors(
       profile,
       content.supervisors,
       limit: 1,
+      thesisText: thesisText,
     );
     if (!mounted || matches.isEmpty) return;
 

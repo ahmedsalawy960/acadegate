@@ -86,7 +86,8 @@ function createStoreOrderStatsHandlers() {
   const onStoreOrderPaidHeld = onDocumentUpdated(
     {
       document: "store_orders/{orderId}",
-      region: "us-central1",
+      // Firestore lives in eur3; triggers must be collocated in europe-west1.
+      region: "europe-west1",
     },
     async (event) => {
       const before = event.data?.before?.data() || {};

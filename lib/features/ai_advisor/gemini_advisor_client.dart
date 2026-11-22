@@ -291,8 +291,8 @@ class GeminiAdvisorClient {
     return chosen ??
         GeminiGenerateResult(
           error: appTr(
-            'تعذر الحصول على رد من Gemini',
-            'Could not get a response from Gemini',
+            'تعذر الحصول على رد من المساعد',
+            'Could not get a response from the assistant',
           ),
         );
   }
@@ -521,7 +521,7 @@ class GeminiAdvisorClient {
       if (response.statusCode < 200 || response.statusCode >= 300) {
         final apiError = _parseApiError(response.body);
         return GeminiGenerateResult(
-          error: 'Gemini ($model): $apiError',
+          error: apiError,
         );
       }
 
@@ -535,16 +535,16 @@ class GeminiAdvisorClient {
       if (blockReason != null && blockReason.isNotEmpty) {
         return GeminiGenerateResult(
           error: appTr(
-            'Gemini ($model): المحتوى محظور ($blockReason)',
-            'Gemini ($model): content blocked ($blockReason)',
+            'تعذر عرض هذا المحتوى',
+            'This content could not be shown',
           ),
         );
       }
 
       return GeminiGenerateResult(
         error: appTr(
-          'Gemini ($model): رد فارغ — جرّب صياغة أخرى أو نموذجاً مختلفاً',
-          'Gemini ($model): empty response — try different wording or another model',
+          'لم يصل رد — جرّب صياغة أخرى',
+          'No reply arrived — try different wording',
         ),
       );
     } catch (e) {
@@ -552,7 +552,7 @@ class GeminiAdvisorClient {
           ? appTr(' (غالباً CORS على المتصفح)', ' (likely CORS in the browser)')
           : '';
       return GeminiGenerateResult(
-        error: appTr('اتصال Gemini$hint: $e', 'Gemini connection$hint: $e'),
+        error: appTr('تعذر الاتصال$hint', 'Could not connect$hint'),
       );
     }
   }
@@ -807,13 +807,13 @@ class GeminiAdvisorClient {
           .timeout(const Duration(seconds: 90));
       if (response.statusCode < 200 || response.statusCode >= 300) {
         return GeminiImageResult(
-          error: 'Gemini ($model): ${_parseApiError(response.body)}',
+          error: _parseApiError(response.body),
         );
       }
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       return _imageResultFromMap(data, modelHint: model);
     } catch (e) {
-      return GeminiImageResult(error: 'Gemini image: $e');
+      return GeminiImageResult(error: '$e');
     }
   }
 

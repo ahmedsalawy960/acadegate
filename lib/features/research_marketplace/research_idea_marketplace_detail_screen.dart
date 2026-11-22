@@ -410,7 +410,7 @@ class _ResearchIdeaMarketplaceDetailScreenState
                   Text(idea.details, style: const TextStyle(height: 1.5)),
                   const SizedBox(height: 20),
                   Card(
-                    color: const Color(0xFFFFF3E0),
+                    color: const Color(0xFF3A2E14),
                     child: ListTile(
                       leading: const CircleAvatar(
                         backgroundColor: Color(0x33EF6C00),
@@ -424,7 +424,7 @@ class _ResearchIdeaMarketplaceDetailScreenState
                         ),
                         style: const TextStyle(
                           fontWeight: FontWeight.w800,
-                          color: Color(0xFF3E2723),
+                          color: Color(0xFFF4F7FB),
                         ),
                       ),
                       subtitle: Text(
@@ -432,11 +432,11 @@ class _ResearchIdeaMarketplaceDetailScreenState
                           'تشابه تقريبي · دراسات سابقة (يشمل Scholar) · أسئلة · حجز — بدون إلزام DOI',
                           'Approx. similarity · prior studies (incl. Scholar) · questions · claim — DOI not required',
                         ),
-                        style: const TextStyle(color: Color(0xFF5D4037)),
+                        style: const TextStyle(color: Color(0xFFB7C3D6)),
                       ),
                       trailing: const Icon(
                         Icons.chevron_left,
-                        color: Color(0xFF5D4037),
+                        color: Color(0xFFB7C3D6),
                       ),
                       onTap: () {
                         Navigator.push(

@@ -8,6 +8,7 @@ import '../../core/locale/locale_extensions.dart';
 import '../../core/locale/locale_service.dart';
 import '../humanities/humanities_faculties.dart';
 import '../profile/academic_profile_service.dart';
+import 'research_file_card.dart';
 import 'thesis_progress.dart';
 import 'thesis_progress_activity.dart';
 import 'thesis_progress_engine.dart';
@@ -330,6 +331,10 @@ class _ThesisProgressScreenState extends State<ThesisProgressScreen> {
       padding: const EdgeInsets.all(16),
 
       children: [
+
+        const ResearchFileCard(),
+
+        const SizedBox(height: 12),
 
         Card(
 

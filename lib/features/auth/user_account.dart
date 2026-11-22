@@ -1,24 +1,30 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'merchant_business_profile.dart';
+import 'personal_info.dart';
 import 'provider_org_profile.dart';
 import 'user_role.dart';
 
 /// Billing / AI quota tier (manual Pro for beta; Paymob later).
 class SubscriptionTier {
   static const free = 'free';
+  static const plus = 'plus';
   static const pro = 'pro';
 
   static String normalize(String? raw) {
     final v = (raw ?? free).trim().toLowerCase();
-    return v == pro ? pro : free;
+    if (v == pro) return pro;
+    if (v == plus) return plus;
+    return free;
   }
 
   static String label(String tier) {
     switch (normalize(tier)) {
       case pro:
-        return 'Pro';
+        return 'شاملة';
+      case plus:
+        return 'أساسية';
       default:
-        return 'Free';
+        return 'مجانية';
     }
   }
 }
@@ -48,6 +54,7 @@ class UserAccount {
   /// `pending` | `approved` | `rejected` — admin review of provider signup.
   final String? providerApprovalStatus;
   final String providerRejectionReason;
+  final PersonalInfo personalInfo;
 
   const UserAccount({
     required this.uid,
@@ -67,6 +74,7 @@ class UserAccount {
     this.needsRoleSetup = false,
     this.providerApprovalStatus,
     this.providerRejectionReason = '',
+    this.personalInfo = const PersonalInfo(),
   });
 
   bool get isAdmin => UserRole.isAdmin(role);
@@ -80,12 +88,16 @@ class UserAccount {
     return url.isNotEmpty;
   }
 
+  bool get isPlusActive => _tierActive(SubscriptionTier.plus);
+
   /// Effective paid Pro (not expired). Admins are treated as Pro for UI.
   bool get isProActive {
     if (isAdmin) return true;
-    if (SubscriptionTier.normalize(subscription) != SubscriptionTier.pro) {
-      return false;
-    }
+    return _tierActive(SubscriptionTier.pro);
+  }
+
+  bool _tierActive(String tier) {
+    if (SubscriptionTier.normalize(subscription) != tier) return false;
     final exp = subscriptionExpiresAt;
     if (exp == null) return true;
     return exp.isAfter(DateTime.now());
@@ -93,7 +105,9 @@ class UserAccount {
 
   String get effectiveTier {
     if (isAdmin) return 'admin';
-    return isProActive ? SubscriptionTier.pro : SubscriptionTier.free;
+    if (isProActive) return SubscriptionTier.pro;
+    if (isPlusActive) return SubscriptionTier.plus;
+    return SubscriptionTier.free;
   }
 
   static int? _optionalInt(dynamic raw) {
@@ -144,6 +158,7 @@ class UserAccount {
       providerApprovalStatus: map['providerApprovalStatus']?.toString(),
       providerRejectionReason:
           map['providerRejectionReason']?.toString() ?? '',
+      personalInfo: PersonalInfo.fromMap(map),
     );
   }
 

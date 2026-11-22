@@ -213,15 +213,16 @@ class _BookEquipmentScreenState extends State<BookEquipmentScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.orange[50],
+                      color: const Color(0xFF3A2E14),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.orange[200]!),
+                      border: Border.all(color: const Color(0xFF8A6A2F)),
                     ),
                     child: Text(
                       context.t(
                         'هذا مختبر تجريبي. أضف المختبر في Firebase لتفعيل الحجز الحقيقي.',
                         'This is a demo lab. Add the lab in Firebase to enable real booking.',
                       ),
+                      style: const TextStyle(color: Color(0xFFF4F7FB), height: 1.4),
                     ),
                   )
                 else

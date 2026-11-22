@@ -7,13 +7,17 @@ import '../../core/locale/app_translate.dart';
 
 class MatchResult<T> {
   final T item;
+  /// Topic fit, 0–100.
   final int score;
+  /// Whether a supervision request can reach this person. Null for ideas and labs.
+  final int? reachScore;
   final List<String> reasons;
 
   const MatchResult({
     required this.item,
     required this.score,
     required this.reasons,
+    this.reachScore,
   });
 }
 
@@ -38,13 +42,15 @@ class SmartMatchmakingEngine {
   }
 
   static int topicHitCount(String text, Iterable<String> tokens) {
-    final hay = text.toLowerCase();
-    var n = 0;
-    for (final token in meaningfulTokens(tokens)) {
-      if (hay.contains(token)) n++;
-    }
-    return n;
+    return matchingTokens(text, tokens).length;
   }
+
+  static List<String> matchingTokens(String text, Iterable<String> tokens) {
+    final hay = text.toLowerCase();
+    return meaningfulTokens(tokens).where((token) => hay.contains(token)).toList();
+  }
+
+  static String _wordList(List<String> words) => words.take(4).join(appTr('، ', ', '));
 
   static List<MatchResult<AcademicSupervisor>> matchSupervisors(
     AcademicProfile profile,
@@ -53,8 +59,9 @@ class SmartMatchmakingEngine {
     bool softFallback = true,
     List<String> requireTokens = const [],
     bool restrictFaculty = true,
+    String thesisText = '',
   }) {
-    if (supervisors.isEmpty) return [];
+    if (supervisors.isEmpty || (softFallback && supervisors.isEmpty)) return [];
 
     final facultyId = profile.resolvedFacultyCategory;
     var pool = _supervisorPool(
@@ -70,29 +77,16 @@ class SmartMatchmakingEngine {
               supervisor,
               facultyId: facultyId,
               requireTokens: requireTokens,
+              thesisText: thesisText,
             ))
         .toList()
-      ..sort((a, b) => b.score.compareTo(a.score));
+      ..sort((a, b) {
+        final byTopic = b.score.compareTo(a.score);
+        if (byTopic != 0) return byTopic;
+        return (b.reachScore ?? 0).compareTo(a.reachScore ?? 0);
+      });
 
-    final matched = results
-        .where((result) => result.score > 0)
-        .take(limit)
-        .toList();
-    if (matched.isNotEmpty) return matched;
-    if (!softFallback) return [];
-    return results.take(limit).map((result) {
-      if (result.score > 0) return result;
-      return MatchResult(
-        item: result.item,
-        score: 20,
-        reasons: [
-          appTr(
-            'مشرف مقترح يمكن أن يفيد مسارك',
-            'Suggested supervisor who may help your path',
-          ),
-        ],
-      );
-    }).toList();
+    return results.where((result) => result.score > 0).take(limit).toList();
   }
 
   static List<AcademicSupervisor> _supervisorPool(
@@ -101,43 +95,47 @@ class SmartMatchmakingEngine {
     AcademicProfile profile, {
     bool restrictFaculty = true,
   }) {
-    var pool = supervisors;
-
-    final realSupervisors = supervisors.where((item) => !item.isDemo).toList();
-    if (realSupervisors.isNotEmpty) {
-      pool = realSupervisors;
+    var pool = supervisors
+        .where(
+          (item) =>
+              !item.isDemo && item.isPubliclyVisible && item.isAvailable,
+        )
+        .toList();
+    if (pool.isEmpty) {
+      // لا نرجع بيانات تجريبية إذا وُجد طلب تقييد كلية — أفضل فراغ من ترشيح وهمي.
+      if (restrictFaculty && (facultyId ?? '').isNotEmpty) return const [];
+      pool = supervisors.where((item) => item.isPubliclyVisible).toList();
     }
 
-    if (restrictFaculty && facultyId != null) {
-      final inFaculty =
-          pool.where((item) => _supervisorMatchesFaculty(item, facultyId)).toList();
-      if (inFaculty.isNotEmpty) {
-        pool = inFaculty;
-      } else {
-        // لا تُرجع مشرفين من كليات أخرى عند التقييد الصارم.
-        pool = const [];
-      }
+    if (restrictFaculty && facultyId != null && facultyId.isNotEmpty) {
+      final inFaculty = pool
+          .where((item) => _supervisorMatchesFaculty(item, facultyId))
+          .toList();
+      // صارم: لا مشرفين من كليات أخرى ولا بلا كلية/تصنيف.
+      pool = inFaculty;
     }
 
     return pool;
   }
 
+  /// يشترط انتماءً واضحاً للكلية عبر category أو faculty القابل للحل — لا مطابقة غامضة.
   static bool _supervisorMatchesFaculty(
     AcademicSupervisor supervisor,
     String facultyId,
   ) {
-    if (supervisor.category == facultyId) return true;
+    final category = supervisor.category.trim();
+    if (category.isNotEmpty && category == facultyId) return true;
 
-    final facultyTitle = facultyTitleForCategory(facultyId).toLowerCase();
-    final shortTitle = facultyTitle.replaceAll('كلية ', '').trim();
-    final supervisorFaculty = supervisor.faculty.toLowerCase();
+    final resolved = resolveFacultyId(supervisor.faculty);
+    if (resolved != null && resolved == facultyId) return true;
 
-    if (supervisorFaculty.contains(facultyTitle) ||
-        (shortTitle.isNotEmpty && supervisorFaculty.contains(shortTitle))) {
+    // بعض السجلات القديمة تخزّن عنوان الكلية في category كنص عربي.
+    final fromCategoryTitle = resolveFacultyId(category);
+    if (fromCategoryTitle != null && fromCategoryTitle == facultyId) {
       return true;
     }
 
-    return resolveFacultyId(supervisor.faculty) == facultyId;
+    return false;
   }
 
   static List<MatchResult<AcademicResearchIdea>> matchResearchIdeas(
@@ -174,23 +172,7 @@ class SmartMatchmakingEngine {
         .toList()
       ..sort((a, b) => b.score.compareTo(a.score));
 
-    final matched =
-        results.where((result) => result.score > 0).take(limit).toList();
-    if (matched.isNotEmpty) return matched;
-    if (!softFallback) return [];
-    return results.take(limit).map((result) {
-      if (result.score > 0) return result;
-      return MatchResult(
-        item: result.item,
-        score: 18,
-        reasons: [
-          appTr(
-            'فكرة مقترحة قد تلهم موضوعك',
-            'Suggested idea that may inspire your topic',
-          ),
-        ],
-      );
-    }).toList();
+    return results.where((result) => result.score > 0).take(limit).toList();
   }
 
   static List<MatchResult<AcademicLab>> matchLabs(
@@ -219,6 +201,8 @@ class SmartMatchmakingEngine {
           .toList();
       if (inFaculty.isNotEmpty) {
         pool = inFaculty;
+      } else if (softFallback) {
+        pool = const [];
       } else {
         pool = const [];
       }
@@ -237,31 +221,15 @@ class SmartMatchmakingEngine {
       ..sort((a, b) => b.score.compareTo(a.score));
 
     final scored = results.where((result) => result.score > 0).toList();
-    final matched = cityFirst
-        ? rankLabsCityFirst(
-            scored,
-            profile.city,
-            localLimit: localLimit,
-            otherLimit: otherLimit,
-          )
-        : scored.take(limit).toList();
-    if (matched.isNotEmpty) return matched;
-    if (!softFallback) return [];
-
-    // Always offer useful labs for the faculty/topic rather than an empty step.
-    return results.take(limit).map((result) {
-      if (result.score > 0) return result;
-      return MatchResult(
-        item: result.item,
-        score: 22,
-        reasons: [
-          appTr(
-            'مختبر مقترح يمكن أن يفيد بحثك',
-            'Suggested lab that may help your research',
-          ),
-        ],
+    if (cityFirst) {
+      return rankLabsCityFirst(
+        scored,
+        profile.city,
+        localLimit: localLimit,
+        otherLimit: otherLimit,
       );
-    }).toList();
+    }
+    return scored.take(limit).toList();
   }
 
   static List<MatchResult<AcademicLab>> rankLabsCityFirst(
@@ -292,101 +260,135 @@ class SmartMatchmakingEngine {
     AcademicSupervisor supervisor, {
     String? facultyId,
     List<String> requireTokens = const [],
+    String thesisText = '',
   }) {
-    final topicText = [
-      supervisor.speciality,
-      supervisor.bio,
-      ...supervisor.tags,
-    ].join(' ');
-    final fieldTokens =
+    if (_rejectsStudentDegree(supervisor, profile)) {
+      return MatchResult(
+        item: supervisor,
+        score: 0,
+        reachScore: supervisor.hasMessagingAccount ? 100 : 0,
+        reasons: const [],
+      );
+    }
+
+    final profileTokens =
         requireTokens.isNotEmpty ? requireTokens : profile.topicKeywords;
-    final topicHits = topicHitCount(topicText, fieldTokens);
-    if (fieldTokens.isNotEmpty && topicHits == 0) {
-      return MatchResult(item: supervisor, score: 0, reasons: const []);
+    final thesisTokens = meaningfulTokens(
+      thesisText.toLowerCase().split(RegExp(r'[\s,،.؛;:]+')),
+    );
+    final seekTokens = {...profileTokens, ...thesisTokens}.toList();
+    final about = '${supervisor.speciality} ${supervisor.bio}';
+    final thesisHits = matchingTokens(about, thesisTokens);
+    final profileHits = matchingTokens(about, profileTokens)
+        .where((token) => !thesisHits.contains(token))
+        .toList();
+    final matchedTopics = supervisor.tags
+        .where((tag) => matchingTokens(tag, seekTokens).isNotEmpty)
+        .take(3)
+        .toList();
+
+    if (seekTokens.isNotEmpty &&
+        thesisHits.isEmpty &&
+        profileHits.isEmpty &&
+        matchedTopics.isEmpty) {
+      return MatchResult(
+        item: supervisor,
+        score: 0,
+        reachScore: supervisor.hasMessagingAccount ? 100 : 0,
+        reasons: const [],
+      );
     }
 
     var score = 0;
     final reasons = <String>[];
 
-    if (topicHits > 0) {
-      score += (topicHits * 16).clamp(0, 64);
+    if (thesisHits.isNotEmpty) {
+      score += (thesisHits.length * 22).clamp(0, 66);
       reasons.add(
         appTr(
-          'تطابق في مجال البحث والتخصص',
-          'Match in research field and specialization',
+          'من ملف الرسالة: ${_wordList(thesisHits)}',
+          'From your thesis file: ${_wordList(thesisHits)}',
+        ),
+      );
+    }
+    if (profileHits.isNotEmpty) {
+      score += (profileHits.length * 12).clamp(0, 36);
+      reasons.add(
+        appTr(
+          'من ملفك: ${_wordList(profileHits)}',
+          'From your profile: ${_wordList(profileHits)}',
+        ),
+      );
+    }
+    if (matchedTopics.isNotEmpty) {
+      score += (matchedTopics.length * 10).clamp(0, 30);
+      reasons.add(
+        appTr(
+          'موضوعات نشره: ${matchedTopics.join(appTr('، ', ', '))}',
+          'Publication topics: ${matchedTopics.join(', ')}',
         ),
       );
     }
 
     if (facultyId != null && _supervisorMatchesFaculty(supervisor, facultyId)) {
-      score += 10;
+      score += 8;
       reasons.add(
         appTr('نفس كليتك الأكاديمية', 'Same academic faculty as you'),
       );
     }
 
-    if (_containsEither(profile.specialization, supervisor.speciality)) {
-      score += 18;
-      reasons.add(
-        appTr(
-          'تخصصك قريب من تخصص المشرف',
-          'Your field aligns with the supervisor\'s',
-        ),
-      );
-    }
-
     if (_containsEither(profile.university, supervisor.university)) {
-      score += 6;
+      score += 4;
       reasons.add(
         appTr('نفس الجامعة أو جهة قريبة', 'Same or nearby university'),
       );
     }
 
-    if (supervisor.methodologies.contains(profile.methodology)) {
+    if (_explicitMethodology(supervisor.methodologies) &&
+        supervisor.methodologies.contains(profile.methodology)) {
       score += 6;
       reasons.add(
         appTr('المنهجية البحثية متوافقة', 'Compatible research methodology'),
       );
     }
 
-    if (_containsEither(profile.researchInterest, supervisor.bio)) {
-      score += 12;
-      reasons.add(
-        appTr(
-          'اهتمامك البحثي يتوافق مع خبرة المشرف',
-          'Your research interest matches the supervisor\'s expertise',
-        ),
-      );
-    }
-
-    if (supervisor.isAvailable) {
-      score += 3;
-    }
-
-    if (supervisor.worksCount >= 15) {
-      score += 4;
-      reasons.add(
-        appTr(
-          'إنتاج علمي مسجّل على الملف (${supervisor.worksCount} عملاً)',
-          'Recorded scientific output on file (${supervisor.worksCount} works)',
-        ),
-      );
-    }
-    if (supervisor.hIndex >= 5) {
-      score += 3;
-      reasons.add(
-        appTr(
-          'H-index ${supervisor.hIndex} من بيانات المشرف',
-          'H-index ${supervisor.hIndex} from supervisor data',
-        ),
-      );
-    }
-
     return MatchResult(
       item: supervisor,
       score: score.clamp(0, 100),
+      reachScore: supervisor.hasMessagingAccount ? 100 : 0,
       reasons: reasons.toSet().take(4).toList(),
     );
+  }
+
+  /// The default trio is filled in automatically and is not a real choice.
+  static bool _explicitMethodology(List<String> methods) {
+    final norm = methods
+        .map((item) => item.trim().toLowerCase())
+        .where((item) => item.isNotEmpty)
+        .toSet();
+    const arabic = {'كمي', 'نوعي', 'مختلط'};
+    const english = {'quantitative', 'qualitative', 'mixed'};
+    if (norm.length == 3 && norm.containsAll(arabic)) return false;
+    if (norm.length == 3 && norm.containsAll(english)) return false;
+    return norm.isNotEmpty;
+  }
+
+  static bool _rejectsStudentDegree(
+    AcademicSupervisor supervisor,
+    AcademicProfile profile,
+  ) {
+    final text =
+        '${supervisor.speciality} ${supervisor.bio} ${supervisor.tags.join(' ')}'
+            .toLowerCase();
+    final phdOnly = text.contains('دكتوراه فقط') || text.contains('phd only');
+    final mastersOnly = text.contains('ماجستير فقط') ||
+        text.contains('masters only') ||
+        text.contains("master's only");
+    final masters = isMastersLevelDegree(profile.degree);
+    final doctoral = isDoctoralDegree(profile.degree);
+    if (phdOnly && masters && !doctoral) return true;
+    if (mastersOnly && doctoral && !masters) return true;
+    return false;
   }
 
   static MatchResult<AcademicResearchIdea> _scoreResearchIdea(
@@ -397,20 +399,23 @@ class SmartMatchmakingEngine {
     final ideaText = [idea.title, idea.details, ...idea.tags].join(' ');
     final fieldTokens =
         requireTokens.isNotEmpty ? requireTokens : profile.topicKeywords;
-    final topicHits = topicHitCount(ideaText, fieldTokens);
-    if (fieldTokens.isNotEmpty && topicHits == 0) {
+    final hits = matchingTokens(ideaText, fieldTokens);
+    if (fieldTokens.isNotEmpty && hits.isEmpty) {
+      return MatchResult(item: idea, score: 0, reasons: const []);
+    }
+    if (_ideaRejectsDegree(idea, profile)) {
       return MatchResult(item: idea, score: 0, reasons: const []);
     }
 
     var score = 0;
     final reasons = <String>[];
 
-    if (topicHits > 0) {
-      score += (topicHits * 18).clamp(0, 72);
+    if (hits.isNotEmpty) {
+      score += (hits.length * 18).clamp(0, 72);
       reasons.add(
         appTr(
-          'الفكرة قريبة من اهتمامك البحثي',
-          'Idea aligns with your research interest',
+          'كلمات مشتركة: ${_wordList(hits)}',
+          'Shared words: ${_wordList(hits)}',
         ),
       );
     }
@@ -426,24 +431,12 @@ class SmartMatchmakingEngine {
     }
 
     final level = idea.degreeLevel.toLowerCase().trim();
-    if (level.isNotEmpty) {
-      final doctoral = isDoctoralDegree(profile.degree);
-      final masters = isMastersLevelDegree(profile.degree);
-      if (level == 'both') {
-        score += 6;
-      } else if (level == 'phd' && doctoral) {
-        score += 10;
-        reasons.add(
-          appTr('مناسبة لمستوى الدكتوراه', 'Fits doctoral level'),
-        );
-      } else if (level == 'masters' && masters) {
-        score += 10;
-        reasons.add(
-          appTr('مناسبة لمستوى الماجستير', 'Fits master\'s level'),
-        );
-      } else if ((level == 'phd' && masters) || (level == 'masters' && doctoral)) {
-        score -= 8;
-      }
+    if (level == 'phd' && isDoctoralDegree(profile.degree)) {
+      score += 8;
+      reasons.add(appTr('مناسبة لمستوى الدكتوراه', 'Fits doctoral level'));
+    } else if (level == 'masters' && isMastersLevelDegree(profile.degree)) {
+      score += 8;
+      reasons.add(appTr('مناسبة لمستوى الماجستير', 'Fits master\'s level'));
     }
 
     if (_containsEither(profile.researchInterest, idea.title)) {
@@ -496,18 +489,21 @@ class SmartMatchmakingEngine {
     ].join(' ');
     final fieldTokens =
         requireTokens.isNotEmpty ? requireTokens : profile.topicKeywords;
-    final topicHits = topicHitCount(topicText, fieldTokens);
-    if (fieldTokens.isNotEmpty && topicHits == 0) {
+    final hits = matchingTokens(topicText, fieldTokens);
+    if (fieldTokens.isNotEmpty && hits.isEmpty) {
       return MatchResult(item: lab, score: 0, reasons: const []);
     }
 
     var score = 0;
     final reasons = <String>[];
 
-    if (topicHits > 0) {
-      score += (topicHits * 18).clamp(0, 72);
+    if (hits.isNotEmpty) {
+      score += (hits.length * 18).clamp(0, 72);
       reasons.add(
-        appTr('المختبر يخدم مجال دراستك', 'Lab serves your field of study'),
+        appTr(
+          'كلمات مشتركة: ${_wordList(hits)}',
+          'Shared words: ${_wordList(hits)}',
+        ),
       );
     }
 
@@ -544,21 +540,21 @@ class SmartMatchmakingEngine {
       );
     }
 
-    if (topicHits > 0 && lab.acceptsExternalSamples) {
+    if (hits.isNotEmpty && lab.acceptsExternalSamples) {
       score += 4;
       reasons.add(
         appTr('يقبل عينات خارجية', 'Accepts external samples'),
       );
     }
 
-    if (topicHits > 0 && lab.offersSampleAnalysis) {
+    if (hits.isNotEmpty && lab.offersSampleAnalysis) {
       score += 5;
       reasons.add(
         appTr('يوفر تحليل عينات', 'Offers sample analysis'),
       );
     }
 
-    if (topicHits > 0 && lab.ratingAvg >= 4) {
+    if (hits.isNotEmpty && lab.ratingAvg >= 4) {
       score += 3;
     }
 
@@ -567,6 +563,19 @@ class SmartMatchmakingEngine {
       score: score.clamp(0, 100),
       reasons: reasons.toSet().take(3).toList(),
     );
+  }
+
+  static bool _ideaRejectsDegree(
+    AcademicResearchIdea idea,
+    AcademicProfile profile,
+  ) {
+    final level = idea.degreeLevel.toLowerCase().trim();
+    if (level.isEmpty || level == 'both') return false;
+    final masters = isMastersLevelDegree(profile.degree);
+    final doctoral = isDoctoralDegree(profile.degree);
+    if (level == 'phd' && masters && !doctoral) return true;
+    if (level == 'masters' && doctoral && !masters) return true;
+    return false;
   }
 
   static bool _containsEither(String a, String b) {

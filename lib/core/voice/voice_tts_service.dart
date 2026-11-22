@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 
 import '../locale/locale_service.dart';
@@ -26,9 +27,11 @@ class VoiceTtsService {
     await _tts.setVolume(1.0);
     await _tts.setSpeechRate(0.48);
     await _tts.setPitch(1.0);
-    try {
-      await _tts.awaitSpeakCompletion(true);
-    } catch (_) {}
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.windows) {
+      try {
+        await _tts.awaitSpeakCompletion(true);
+      } catch (_) {}
+    }
     _tts.setStartHandler(() {
       _speaking = true;
       _notify();

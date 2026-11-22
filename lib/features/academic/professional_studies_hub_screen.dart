@@ -196,7 +196,7 @@ class _ProfessionalStudiesHubScreenState
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: Colors.orange.shade50,
+                          color: const Color(0xFF3A2E14),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
@@ -206,7 +206,11 @@ class _ProfessionalStudiesHubScreenState
                             'In-app official applications unlock after a partnership. '
                             'You can register interest now and open the external admissions page.',
                           ),
-                          style: const TextStyle(height: 1.45, fontSize: 13),
+                          style: const TextStyle(
+                            height: 1.45,
+                            fontSize: 13,
+                            color: Color(0xFFF4F7FB),
+                          ),
                         ),
                       ),
                     ],
@@ -763,7 +767,7 @@ class _InstitutionCard extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: institution.isPartnered
                         ? Colors.green.shade50
-                        : Colors.orange.shade50,
+                        : const Color(0xFF3A2E14),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
@@ -775,7 +779,7 @@ class _InstitutionCard extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                       color: institution.isPartnered
                           ? Colors.green.shade800
-                          : Colors.orange.shade900,
+                          : const Color(0xFFFBBF24),
                     ),
                   ),
                 ),

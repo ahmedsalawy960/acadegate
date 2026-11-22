@@ -454,7 +454,7 @@ class _ManuscriptFormatScreenState extends State<ManuscriptFormatScreen> {
           const SizedBox(height: 8),
           if (m.references.isEmpty)
             Card(
-              color: Colors.amber.shade50,
+              color: const Color(0xFF3A2E14),
               child: Padding(
                 padding: const EdgeInsets.all(12),
                 child: Column(
@@ -467,7 +467,7 @@ class _ManuscriptFormatScreenState extends State<ManuscriptFormatScreen> {
                       ),
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF4E342E),
+                        color: Color(0xFFF4F7FB),
                       ),
                     ),
                     const SizedBox(height: 6),
@@ -480,7 +480,7 @@ class _ManuscriptFormatScreenState extends State<ManuscriptFormatScreen> {
                             ? 'Tap “Format references now” so the app reads from Introduction, finds the references, and restyles them.'
                             : 'Go back to the draft, upload a PDF or DOCX, then format references.',
                       ),
-                      style: const TextStyle(color: Color(0xFF4E342E), fontSize: 13),
+                      style: const TextStyle(color: Color(0xFFB7C3D6), fontSize: 13),
                     ),
                   ],
                 ),

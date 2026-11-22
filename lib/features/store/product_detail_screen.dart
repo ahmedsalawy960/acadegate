@@ -256,7 +256,7 @@ class ProductDetailScreen extends StatelessWidget {
     }
 
     try {
-      if (choice == PaymentCheckoutChoice.paymob) {
+      if (choice.isOnline) {
         final orderId = await StoreOrderService.instance.createOrder(
           productId: productId!,
           productName: name,
@@ -264,7 +264,8 @@ class ProductDetailScreen extends StatelessWidget {
           sellerId: createdBy!,
           paymentMethod: PaymentMethod.paymob,
         );
-        await StoreOrderService.instance.payOrder(orderId);
+        await StoreOrderService.instance
+            .payOrder(orderId, wallet: choice.isWallet);
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -753,9 +754,9 @@ class ProductDetailScreen extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEDE7F6),
+                  color: const Color(0xFF2A2140),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFD1C4E9)),
+                  border: Border.all(color: const Color(0xFF6D5A8A)),
                 ),
                 child: Text(
                   context.t(
@@ -764,7 +765,11 @@ class ProductDetailScreen extends StatelessWidget {
                     'Encrypted knowledge asset · ${licenseMode == KnowledgeLicenseMode.rental ? 'rental' : 'sale'} · '
                     'Used inside AcadeGate after payment confirmation. Protection reduces leakage; not absolute DRM.',
                   ),
-                  style: const TextStyle(fontSize: 13, height: 1.4),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    height: 1.4,
+                    color: Color(0xFFF4F7FB),
+                  ),
                 ),
               ),
               const SizedBox(height: 10),
@@ -1010,42 +1015,61 @@ class _ProductGalleryState extends State<_ProductGallery> {
     if (widget.urls.isEmpty) {
       return Center(child: widget.placeholder);
     }
-    return Column(
-      children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: SizedBox(
-            height: 220,
-            width: double.infinity,
-            child: PageView.builder(
-              itemCount: widget.urls.length,
-              onPageChanged: (i) => setState(() => _index = i),
-              itemBuilder: (_, i) => Image.network(
-                widget.urls[i],
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => widget.placeholder,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = MediaQuery.sizeOf(context).width >= 600;
+        final maxWidth = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : 360.0;
+        final frameWidth = isWide
+            ? (maxWidth * 0.72).clamp(320.0, 520.0)
+            : maxWidth;
+        final frameHeight = (frameWidth * (isWide ? 0.72 : 0.9))
+            .clamp(isWide ? 240.0 : 200.0, isWide ? 380.0 : 340.0);
+        return Column(
+          children: [
+            Center(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: ColoredBox(
+                  color: Colors.white,
+                  child: SizedBox(
+                    height: frameHeight,
+                    width: frameWidth,
+                    child: PageView.builder(
+                      itemCount: widget.urls.length,
+                      onPageChanged: (i) => setState(() => _index = i),
+                      itemBuilder: (_, i) => Image.network(
+                        widget.urls[i],
+                        fit: BoxFit.contain,
+                        alignment: Alignment.center,
+                        errorBuilder: (_, _, _) => widget.placeholder,
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ),
-          ),
-        ),
-        if (widget.urls.length > 1) ...[
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(widget.urls.length, (i) {
-              return Container(
-                width: 7,
-                height: 7,
-                margin: const EdgeInsets.symmetric(horizontal: 3),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: i == _index ? StoreTheme.accent : Colors.grey[350],
-                ),
-              );
-            }),
-          ),
-        ],
-      ],
+            if (widget.urls.length > 1) ...[
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(widget.urls.length, (i) {
+                  return Container(
+                    width: 7,
+                    height: 7,
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: i == _index ? StoreTheme.accent : Colors.grey[350],
+                    ),
+                  );
+                }),
+              ),
+            ],
+          ],
+        );
+      },
     );
   }
 }

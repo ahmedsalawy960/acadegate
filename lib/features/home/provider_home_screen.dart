@@ -25,6 +25,7 @@ import '../contributor/contributor_hub_screen.dart';
 import '../contributor/submit_lab_screen.dart';
 import '../contributor/submit_supervisor_screen.dart';
 import '../messaging/conversations_screen.dart';
+import '../more/app_more_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../profile/account_app_bar_avatar.dart';
 import '../research_fund/industry_challenges_screen.dart';
@@ -34,6 +35,7 @@ import '../store/merchant_store_screen.dart';
 import '../analysis_labs/sample_requests_screens.dart';
 import '../smart_labs/incoming_lab_bookings_screen.dart';
 import '../supervision/supervision_requests_screen.dart';
+import '../research_journey/supervisor_research_files_screen.dart';
 import '../supervisor_dashboard/supervisor_workload_screen.dart';
 
 /// بوابة مقدمي الخدمات: تاجر، مختبر، كاتب، ناشر أفكار، مشرف.
@@ -139,6 +141,21 @@ class ProviderHomeScreen extends StatelessWidget {
           ),
           if (isLoggedIn) ...[
             const AccountAppBarAvatar(),
+            TextButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AppMoreScreen()),
+                );
+              },
+              child: Text(
+                context.t('المزيد', 'More'),
+                style: const TextStyle(
+                  color: AcadeGateColors.text,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
             IconButton(
               tooltip: l10n.logout,
               icon: const Icon(Icons.logout),
@@ -296,6 +313,17 @@ class _ProviderBody extends StatelessWidget {
             ),
           ],
           if (_showSupervisionIncoming(role)) ...[
+            _tile(
+              context,
+              icon: Icons.menu_book_outlined,
+              title: context.t('ملفات الرسائل', 'Thesis files'),
+              subtitle: context.t(
+                'ملفات الطلاب الذين ربطوا حسابك',
+                'Files from students who linked your account',
+              ),
+              color: const Color(0xFF1565C0),
+              screen: const SupervisorResearchFilesScreen(),
+            ),
             _tile(
               context,
               icon: Icons.dashboard_outlined,

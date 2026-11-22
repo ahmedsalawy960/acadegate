@@ -43,6 +43,43 @@ class CatalogSearchService {
     );
   }
 
+  /// Direct lookup with already-extracted fields (used by assistant tools).
+  Future<CatalogSearchSnapshot> searchStructured({
+    String equipment = '',
+    String city = '',
+    String specialty = '',
+  }) async {
+    final cityName = city.trim().isEmpty
+        ? null
+        : (NbsleUniversityCities.canonicalCity(city.trim()).isNotEmpty
+            ? NbsleUniversityCities.canonicalCity(city.trim())
+            : city.trim());
+    final intent = CatalogIntent(
+      wantsLabs: equipment.trim().isNotEmpty || specialty.trim().isEmpty,
+      wantsSupervisors: specialty.trim().isNotEmpty,
+      city: cityName,
+      equipmentQuery: equipment.trim(),
+      supervisorQuery: specialty.trim(),
+    );
+    final labs = intent.wantsLabs
+        ? await _searchLabs(intent)
+        : const <CatalogHit>[];
+    final supervisors = intent.wantsSupervisors
+        ? await _searchSupervisors(intent)
+        : const <CatalogHit>[];
+    return CatalogSearchSnapshot(
+      intent: CatalogIntentSummary(
+        wantsLabs: intent.wantsLabs,
+        wantsSupervisors: intent.wantsSupervisors,
+        city: cityName ?? '',
+        equipmentQuery: intent.equipmentQuery,
+        supervisorQuery: intent.supervisorQuery,
+      ),
+      labs: labs,
+      supervisors: supervisors,
+    );
+  }
+
   String extraContextForModel(CatalogSearchSnapshot snapshot) {
     if (!snapshot.intent.wantsLabs && !snapshot.intent.wantsSupervisors) {
       return '';

@@ -495,7 +495,16 @@ async function runStoreSuppliersSync({ adminUid = "system_store_sync" } = {}) {
   let productsUpdated = 0;
   const productsBySupplier = {};
 
+  // Admin hid these suppliers' directory products (e.g. resold under a
+  // merchant's own name) — re-syncing would re-approve them.
+  const hiddenSnap = await db
+    .collection("store_suppliers")
+    .where("productsHidden", "==", true)
+    .get();
+  const hidden = new Set(hiddenSnap.docs.map((d) => d.id));
+
   for (const supplier of SUPPLIERS) {
+    if (hidden.has(supplier.id)) continue;
     const products = await fetchWooProducts(supplier.woo);
     const stats = await upsertProducts(db, supplier, products, adminUid);
     productsImported += stats.imported;

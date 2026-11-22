@@ -105,6 +105,8 @@ exports.adminComputeWeeklyKpis = adminComputeWeeklyKpis;
 exports.adminSetWeeklyAdSpend = adminSetWeeklyAdSpend;
 exports.kpiWeeklyScheduled = kpiWeeklyScheduled;
 
+exports.academicAssistant = require("./academic_assistant").academicAssistant;
+
 // Secrets PAYMOB_* are set in Firebase. defineSecret runs only while this is true.
 const ENABLE_PAYMOB = true;
 if (ENABLE_PAYMOB) {
@@ -889,6 +891,8 @@ exports.geminiAdvisor = onCall(
     timeoutSeconds: 180,
     memory: "1GiB",
     cors: true,
+    // Same Firestore account as the rest of the functions.
+    serviceAccount: "acadegate-new@appspot.gserviceaccount.com",
   },
   async (request) => {
     if (!request.auth) {
