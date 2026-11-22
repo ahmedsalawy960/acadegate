@@ -13,7 +13,6 @@ class CitationHttp {
     'api.openalex.org',
     'api.semanticscholar.org',
     'www.ebi.ac.uk',
-    'serpapi.com',
     'pub.orcid.org',
     'query.wikidata.org',
   };

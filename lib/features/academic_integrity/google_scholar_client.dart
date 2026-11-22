@@ -1,11 +1,9 @@
 import 'dart:convert';
 
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../../core/locale/app_translate.dart';
-import 'citation_http.dart';
 
 class GoogleScholarHit {
   final String title;
@@ -37,7 +35,7 @@ class ScholarSearchException implements Exception {
   String toString() => message;
 }
 
-/// Google Scholar via SerpAPI Cloud Function (or optional client key on desktop).
+/// Google Scholar via the Cloud Function only. The SerpAPI key stays on the server.
 /// Direct Scholar scraping is not supported (no public API / ToS).
 class GoogleScholarClient {
   GoogleScholarClient._();
@@ -47,14 +45,6 @@ class GoogleScholarClient {
   static const _fnUrl =
       'https://us-central1-acadegate-new.cloudfunctions.net/googleScholarSearchHttp';
 
-  /// Optional local/desktop key — debug only; production uses Cloud Function secret.
-  static const _clientKey = String.fromEnvironment('SERPAPI_API_KEY');
-
-  static bool get hasClientKey =>
-      kDebugMode &&
-      _clientKey.isNotEmpty &&
-      !_clientKey.contains('ضع_');
-
   Future<List<GoogleScholarHit>> search(
     String query, {
     int limit = 20,
@@ -62,22 +52,7 @@ class GoogleScholarClient {
   }) async {
     final q = query.replaceAll(RegExp(r'\s+'), ' ').trim();
     if (q.length < 3) return const [];
-
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      return _searchViaFunction(q, limit: limit, fromYear: fromYear);
-    }
-
-    final fromFn = await _searchViaFunction(
-      q,
-      limit: limit,
-      fromYear: fromYear,
-      requireAuth: false,
-    );
-    if (fromFn.isNotEmpty) return fromFn.take(limit).toList();
-
-    if (!hasClientKey) return const [];
-    return _searchViaSerpApiDirect(q, limit: limit, fromYear: fromYear);
+    return _searchViaFunction(q, limit: limit, fromYear: fromYear);
   }
 
   Future<List<GoogleScholarHit>> _searchViaFunction(
@@ -151,50 +126,6 @@ class GoogleScholarClient {
       }
     } catch (_) {}
     return null;
-  }
-
-  /// SerpAPI returns max ~20 per page; paginate to gather more studies.
-  Future<List<GoogleScholarHit>> _searchViaSerpApiDirect(
-    String q, {
-    required int limit,
-    int? fromYear,
-  }) async {
-    final want = limit.clamp(1, 60);
-    final out = <GoogleScholarHit>[];
-    final seen = <String>{};
-    for (var start = 0; start < want; start += 20) {
-      final pageSize = (want - start).clamp(1, 20);
-      final uri = Uri.parse('https://serpapi.com/search.json').replace(
-        queryParameters: {
-          'engine': 'google_scholar',
-          'q': q,
-          'api_key': _clientKey,
-          'num': '$pageSize',
-          'start': '$start',
-          'hl': 'en',
-          if (fromYear != null && fromYear > 1900) 'as_ylo': '$fromYear',
-        },
-      );
-      try {
-        final response = await CitationHttp.get(
-          uri,
-          headers: const {'Accept': 'application/json'},
-        ).timeout(const Duration(seconds: 35));
-        if (response.statusCode != 200) break;
-        final page = _parsePayload(response.body);
-        if (page.isEmpty) break;
-        for (final hit in page) {
-          final key = (hit.doi?.isNotEmpty == true)
-              ? 'doi:${hit.doi}'
-              : 't:${hit.title.toLowerCase()}';
-          if (seen.add(key)) out.add(hit);
-        }
-        if (page.length < pageSize) break;
-      } catch (_) {
-        break;
-      }
-    }
-    return out.take(want).toList();
   }
 
   List<GoogleScholarHit> _parsePayload(String body) {
