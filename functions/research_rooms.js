@@ -128,9 +128,6 @@ function createResearchRoomHandlers() {
     }
 
     const pass = typeof password === "string" ? password.trim() : "";
-    if (pass.length < 8) {
-      throw new HttpsError("invalid-argument", "كلمة المرور قصيرة");
-    }
 
     const secretSnap = await db
       .collection("research_room_secrets")

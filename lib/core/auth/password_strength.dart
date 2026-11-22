@@ -22,7 +22,7 @@ class PasswordStrength {
 
   int get metCount => checks.where((ok) => ok).length;
 
-  bool get isStrong => metCount == 4;
+  bool get isStrong => longEnough && hasLetterAndNumber;
 
-  bool get isWeak => value.isNotEmpty && metCount < 4;
+  bool get isWeak => value.isNotEmpty && !isStrong;
 }
