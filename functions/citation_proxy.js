@@ -1,4 +1,7 @@
 const { onRequest } = require("firebase-functions/v2/https");
+const { createIpRateLimiter } = require("./http_rate_limit");
+
+const rateLimit = createIpRateLimiter({ windowMs: 60_000, max: 30 });
 
 const ALLOWED_HOSTS = new Set([
   "api.crossref.org",
@@ -25,6 +28,7 @@ function createCitationProxyHandler() {
       res.status(204).send("");
       return;
     }
+    if (rateLimit(req, res)) return;
 
     const targetRaw = req.query.url;
     if (!targetRaw || typeof targetRaw !== "string") {
@@ -50,6 +54,10 @@ function createCitationProxyHandler() {
         headers: DEFAULT_HEADERS,
       });
       const body = await response.text();
+      if (body.length > 2_000_000) {
+        res.status(502).json({ error: "Upstream response too large" });
+        return;
+      }
       res.status(response.status);
       res.set("Content-Type", response.headers.get("content-type") || "application/json");
       res.send(body);
