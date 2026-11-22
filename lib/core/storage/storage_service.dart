@@ -4,11 +4,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+import 'package:uuid/uuid.dart';
 
 class StorageService {
   StorageService._();
 
   static final StorageService instance = StorageService._();
+  static const _uuid = Uuid();
 
   final FirebaseStorage _storage = FirebaseStorage.instance;
   final ImagePicker _picker = ImagePicker();
@@ -39,7 +41,7 @@ class StorageService {
     final ext = file.name.split('.').last.toLowerCase();
     final safeExt = ['jpg', 'jpeg', 'png', 'webp'].contains(ext) ? ext : 'jpg';
     final path =
-        'uploads/${user.uid}/$folder/${DateTime.now().millisecondsSinceEpoch}.$safeExt';
+        'uploads/${user.uid}/$folder/${_uuid.v4()}.$safeExt';
 
     final ref = _storage.ref().child(path);
     await ref.putData(
@@ -65,7 +67,7 @@ class StorageService {
     final safeExt = rawExt.replaceAll(RegExp(r'[^a-z0-9]'), '');
     final ext = safeExt.isEmpty ? 'bin' : safeExt;
     final path =
-        'uploads/${user.uid}/chat/${DateTime.now().millisecondsSinceEpoch}.$ext';
+        'uploads/${user.uid}/chat/${_uuid.v4()}.$ext';
     final ref = _storage.ref().child(path);
     final mime = contentType.contains('/')
         ? contentType
@@ -94,7 +96,7 @@ class StorageService {
         ? ext
         : (contentType.contains('pdf') ? 'pdf' : 'png');
     final path =
-        'uploads/${user.uid}/$folder/${DateTime.now().millisecondsSinceEpoch}.$safeExt';
+        'uploads/${user.uid}/$folder/${_uuid.v4()}.$safeExt';
     final ref = _storage.ref().child(path);
     final mime = contentType.contains('/')
         ? contentType
