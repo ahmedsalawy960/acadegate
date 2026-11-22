@@ -1,5 +1,6 @@
 import 'dart:ui' show PlatformDispatcher;
 
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
@@ -21,6 +22,9 @@ import 'features/auth/portal_gateway.dart';
 import 'features/auth/welcome_screen.dart';
 import 'l10n/app_localizations.dart';
 
+/// مفتاح موقع reCAPTCHA Enterprise من Firebase Console → App Check.
+const _kRecaptchaV3SiteKey = '6LeYmi0uAAAAAPHEl5ObwU6gYOTAHZJQZj-Kev4Z';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   registerVideoPlayerDesktop();
@@ -28,6 +32,19 @@ void main() async {
     usePathUrlStrategy();
   }
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  try {
+    await FirebaseAppCheck.instance.activate(
+      providerAndroid: kDebugMode
+          ? const AndroidDebugProvider()
+          : const AndroidPlayIntegrityProvider(),
+      providerApple: kDebugMode
+          ? const AppleDebugProvider()
+          : const AppleAppAttestProvider(),
+      providerWeb: ReCaptchaEnterpriseProvider(_kRecaptchaV3SiteKey),
+    );
+  } catch (error, stack) {
+    debugPrint('App Check activate failed: $error\n$stack');
+  }
   await PushNotificationBootstrap.init();
   await LocaleService.instance.init();
 
