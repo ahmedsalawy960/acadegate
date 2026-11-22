@@ -8,7 +8,8 @@ service firebase.storage {
       allow write: if request.auth != null
                    && request.auth.uid == userId
                    && request.resource.size < 15 * 1024 * 1024
-                   && request.resource.contentType.matches('image/.*');
+                   && request.resource.contentType.matches('image/.*')
+                   && request.resource.name.matches('.*\\.(png|jpe?g|webp|gif)$');
     }
 
     // مرفقات الشات — أي مستخدم مسجّل يمكنه القراءة (الرابط يُشارك داخل الرسالة)
@@ -30,7 +31,8 @@ service firebase.storage {
                    && request.auth.uid == userId
                    && request.resource.size < 15 * 1024 * 1024
                    && (request.resource.contentType.matches('image/.*')
-                       || request.resource.contentType == 'application/pdf');
+                       || request.resource.contentType == 'application/pdf')
+                   && request.resource.name.matches('.*\\.(png|jpe?g|webp|pdf)$');
     }
 
     // صور منتجات المتجر — قراءة عامة للعرض في الكتالوج
@@ -40,7 +42,8 @@ service firebase.storage {
                    && request.auth.uid == userId
                    && request.resource.size < 40 * 1024 * 1024
                    && (request.resource.contentType.matches('image/.*')
-                       || request.resource.contentType == 'video/mp4');
+                       || request.resource.contentType == 'video/mp4')
+                   && request.resource.name.matches('.*\\.(png|jpe?g|webp|gif|mp4)$');
     }
 
     // أصول معرفية مشفّرة — البائع أو حامل ترخيص نشط فقط
@@ -88,7 +91,8 @@ service firebase.storage {
                    && request.resource.size < 10 * 1024 * 1024
                    && (request.resource.contentType.matches('image/.*')
                        || request.resource.contentType.matches('application/pdf')
-                       || request.resource.contentType.matches('text/.*'));
+                       || request.resource.contentType.matches('text/.*'))
+                   && request.resource.name.matches('.*\\.(png|jpe?g|webp|pdf|txt|md)$');
     }
 
     match /uploads/{userId}/viva/{allPaths=**} {
@@ -96,7 +100,8 @@ service firebase.storage {
       allow write: if request.auth != null
                    && request.auth.uid == userId
                    && request.resource.size < 40 * 1024 * 1024
-                   && request.resource.contentType == 'application/pdf';
+                   && request.resource.contentType == 'application/pdf'
+                   && request.resource.name.matches('.*\\.pdf$');
     }
 
     // فصول المنهجية (PDF) — فحص سلامة المنهجية
@@ -105,7 +110,8 @@ service firebase.storage {
       allow write: if request.auth != null
                    && request.auth.uid == userId
                    && request.resource.size < 40 * 1024 * 1024
-                   && request.resource.contentType == 'application/pdf';
+                   && request.resource.contentType == 'application/pdf'
+                   && request.resource.name.matches('.*\\.pdf$');
     }
 
     // ملفات CAD (STEP/STL) من PartWork / ty\e — للتوافق المخصص
