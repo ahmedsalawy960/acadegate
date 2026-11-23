@@ -11,6 +11,7 @@ import '../../../core/locale/app_translate.dart';
 import '../advisor_attachment.dart';
 import '../advisor_branding.dart';
 import '../grounded_reference_service.dart';
+import 'assistant_attachment_payload.dart';
 import 'assistant_prompt.dart';
 import 'assistant_response_decoder.dart';
 import 'assistant_reply_language.dart';
@@ -128,11 +129,12 @@ class AcademicAssistantClient {
 
     final attachmentPayload = attachments
         .map(
-          (a) => {
-            'mimeType': a.mimeType,
-            if (a.hasInlineData) 'base64Data': a.base64Data,
-            if (a.hasStoragePath) 'storagePath': a.storagePath,
-          },
+          (a) => buildAssistantAttachmentPayload(
+            fileName: a.fileName,
+            mimeType: a.mimeType,
+            base64Data: a.base64Data,
+            storagePath: a.storagePath,
+          ),
         )
         .toList();
 
