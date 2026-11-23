@@ -21,14 +21,26 @@ class AdvisorAttachmentService {
   final ImagePicker _imagePicker = ImagePicker();
   final FirebaseStorage _storage = FirebaseStorage.instance;
 
-  static const _allowedMimePrefixes = [
-    'image/',
-    'application/pdf',
-    'text/plain',
-    'text/csv',
-    'application/msword',
-    'application/vnd.openxmlformats-officedocument',
-  ];
+  static const mimeByExtension = <String, String>{
+    'png': 'image/png',
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'webp': 'image/webp',
+    'pdf': 'application/pdf',
+    'docx':
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'xlsx':
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'pptx':
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'doc': 'application/msword',
+    'xls': 'application/vnd.ms-excel',
+    'ppt': 'application/vnd.ms-powerpoint',
+    'txt': 'text/plain',
+    'md': 'text/markdown',
+    'csv': 'text/csv',
+    'tsv': 'text/tab-separated-values',
+  };
 
   Future<PendingAdvisorAttachment?> pickImage() async {
     final file = await _imagePicker.pickImage(
@@ -73,17 +85,7 @@ class AdvisorAttachmentService {
   Future<PendingAdvisorAttachment?> pickFile() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: const [
-        'pdf',
-        'txt',
-        'csv',
-        'doc',
-        'docx',
-        'png',
-        'jpg',
-        'jpeg',
-        'webp',
-      ],
+      allowedExtensions: mimeByExtension.keys.toList(),
       withData: true,
     );
     if (result == null || result.files.isEmpty) return null;
@@ -166,6 +168,7 @@ class AdvisorAttachmentService {
       );
     }
 
+    _assertMessageLimits(normalized);
     final user = FirebaseAuth.instance.currentUser;
     final useStorage = preferStorage && user != null;
     if (!useStorage) {
@@ -175,17 +178,18 @@ class AdvisorAttachmentService {
     try {
       final parts = <GeminiInlinePart>[];
       for (final item in normalized) {
+        final mime = _requiredMime(item);
         final safeName = item.name.replaceAll(RegExp(r'[^\w.\-]+'), '_');
         final path =
             'uploads/${user.uid}/advisor/$conversationId/${DateTime.now().millisecondsSinceEpoch}_$safeName';
         final ref = _storage.ref().child(path);
         await ref.putData(
           Uint8List.fromList(item.bytes),
-          SettableMetadata(contentType: item.mimeType),
+          SettableMetadata(contentType: mime),
         );
         parts.add(
           GeminiInlinePart(
-            mimeType: item.mimeType,
+            mimeType: mime,
             base64Data: '',
             fileName: item.name,
             storagePath: path,
@@ -213,8 +217,8 @@ class AdvisorAttachmentService {
     }
     if (!_isAllowedMime(mimeType)) {
       throw Exception(appTr(
-        'نوع الملف غير مدعوم. جرّب صورة أو PDF أو Word أو نص.',
-        'Unsupported file type. Try an image, PDF, Word, or text file.',
+        'نوع الملف غير مدعوم. المسموح: صور، PDF، Word، Excel، PowerPoint، أو نص.',
+        'Unsupported file type. Allowed: images, PDF, Word, Excel, PowerPoint, or text.',
       ));
     }
 
@@ -226,32 +230,59 @@ class AdvisorAttachmentService {
     );
   }
 
-  bool _isAllowedMime(String mime) {
-    return _allowedMimePrefixes.any((prefix) => mime.startsWith(prefix));
+  bool _isAllowedMime(String mime) => mimeByExtension.containsValue(mime);
+
+  String _extensionOf(String name) {
+    final base = name.split(RegExp(r'[\\/]')).last;
+    final dot = base.lastIndexOf('.');
+    if (dot < 0 || dot == base.length - 1) return '';
+    return base.substring(dot + 1).toLowerCase();
   }
 
   String _mimeFromName(String name, {required String fallback}) {
-    final ext = name.split('.').last.toLowerCase();
-    return switch (ext) {
-      'jpg' || 'jpeg' => 'image/jpeg',
-      'png' => 'image/png',
-      'webp' => 'image/webp',
-      'gif' => 'image/gif',
-      'pdf' => 'application/pdf',
-      'txt' => 'text/plain',
-      'csv' => 'text/csv',
-      'doc' => 'application/msword',
-      'docx' =>
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      _ => fallback,
-    };
+    return mimeByExtension[_extensionOf(name)] ?? fallback;
+  }
+
+  void _assertMessageLimits(List<PendingAdvisorAttachment> items) {
+    if (items.length > maxAttachmentsPerMessage) {
+      throw Exception(appTr(
+        'يمكن إرفاق $maxAttachmentsPerMessage ملفات كحد أقصى',
+        'You can attach up to $maxAttachmentsPerMessage files',
+      ));
+    }
+    for (final item in items) {
+      if (item.bytes.length > maxBytes) {
+        throw Exception(appTr(
+          'حجم الملف يجب ألا يتجاوز 10 ميجابايت',
+          'File size must not exceed 10 MB',
+        ));
+      }
+      if (!_isAllowedMime(_mimeFromName(item.name, fallback: item.mimeType))) {
+        throw Exception(appTr(
+          'نوع الملف غير مدعوم. المسموح: صور، PDF، Word، Excel، PowerPoint، أو نص.',
+          'Unsupported file type. Allowed: images, PDF, Word, Excel, PowerPoint, or text.',
+        ));
+      }
+    }
+  }
+
+  String _requiredMime(PendingAdvisorAttachment item) {
+    final mime = mimeByExtension[_extensionOf(item.name)] ?? '';
+    if (!_isAllowedMime(mime)) {
+      throw Exception(appTr(
+        'نوع الملف غير مدعوم. المسموح: صور، PDF، Word، Excel، PowerPoint، أو نص.',
+        'Unsupported file type. Allowed: images, PDF, Word, Excel, PowerPoint, or text.',
+      ));
+    }
+    return mime;
   }
 
   List<GeminiInlinePart> toGeminiParts(List<PendingAdvisorAttachment> pending) {
+    _assertMessageLimits(pending);
     return pending
         .map(
           (item) => GeminiInlinePart(
-            mimeType: item.mimeType,
+            mimeType: _requiredMime(item),
             base64Data: base64Encode(item.bytes),
             fileName: item.name,
           ),
@@ -265,13 +296,14 @@ class AdvisorAttachmentService {
   }) async {
     if (pending.isEmpty) return [];
 
+    _assertMessageLimits(pending);
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       return pending
           .map(
             (item) => AdvisorAttachment(
               name: item.name,
-              mimeType: item.mimeType,
+              mimeType: _requiredMime(item),
               url: '',
               isImage: item.isImage,
             ),
@@ -281,6 +313,7 @@ class AdvisorAttachmentService {
 
     final uploaded = <AdvisorAttachment>[];
     for (final item in pending) {
+      final mime = _requiredMime(item);
       final safeName = item.name.replaceAll(RegExp(r'[^\w.\-]+'), '_');
       final path =
           'uploads/${user.uid}/advisor/$conversationId/${DateTime.now().millisecondsSinceEpoch}_$safeName';
@@ -288,13 +321,13 @@ class AdvisorAttachmentService {
       final ref = _storage.ref().child(path);
       await ref.putData(
         Uint8List.fromList(item.bytes),
-        SettableMetadata(contentType: item.mimeType),
+        SettableMetadata(contentType: mime),
       );
       final url = await ref.getDownloadURL();
       uploaded.add(
         AdvisorAttachment(
           name: item.name,
-          mimeType: item.mimeType,
+          mimeType: mime,
           url: url,
           isImage: item.isImage,
         ),
