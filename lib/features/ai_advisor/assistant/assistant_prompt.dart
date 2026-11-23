@@ -3,6 +3,7 @@ import '../../auth/user_account_service.dart';
 import '../../profile/academic_profile_service.dart';
 import '../../research_journey/research_file.dart';
 import '../advisor_branding.dart';
+import '../advisor_personalization_policy.dart';
 import 'assistant_reply_language.dart';
 
 /// System instruction for the tool-using Academic Assistant.
@@ -65,11 +66,18 @@ Write the whole reply in English, even if the user writes in Arabic or tool resu
       if (file != null) fileBlock = file.promptBlock();
     } catch (_) {}
 
-    return appTr(_ar, _en)
-        .replaceAll('{APP}', AdvisorBranding.name)
-        .replaceAll('{PROFILE}', profileBlock)
-        .replaceAll('{FILE}', fileBlock)
-        .replaceAll('{DATE}', DateTime.now().toIso8601String().substring(0, 10)) +
+    final values = <String, String>{
+      '{APP}': AdvisorBranding.name,
+      '{PROFILE}': AdvisorPersonalizationPolicy.contextData(profileBlock),
+      '{FILE}': AdvisorPersonalizationPolicy.contextData(fileBlock),
+      '{DATE}': DateTime.now().toIso8601String().substring(0, 10),
+    };
+    final base = appTr(_ar, _en).replaceAllMapped(
+      RegExp(r'\{APP\}|\{PROFILE\}|\{FILE\}|\{DATE\}'),
+      (match) => values[match.group(0)]!,
+    );
+    return base +
+        appTr(AdvisorPersonalizationPolicy.ar, AdvisorPersonalizationPolicy.en) +
         _languageRule(language);
   }
 
@@ -79,11 +87,11 @@ Write the whole reply in English, even if the user writes in Arabic or tool resu
 
 ## ملف الباحث
 {PROFILE}
-خصّص كل إجابة لتخصص الباحث ومرحلته عندما يكون ذلك مفيداً.
+الكتلة أعلاه بيانات محفوظة مقتبسة بصيغة JSON. استخدمها فقط عند صلتها المباشرة بالسؤال الحالي.
 
 ## ملف الرسالة
 {FILE}
-هذه بيانات رسالته الحالية. ابنِ الإجابة عليها، ولا تخترع عنواناً أو أسئلة غير موجودة هنا.
+هذه بيانات رسالة محفوظة مقتبسة بصيغة JSON. استخدمها إذا كان السؤال عن هذه الرسالة، ولا تغيّر موضوع سؤال مستقل بسببها. لا تخترع عنواناً أو أسئلة غير موجودة هنا.
 
 ## الدقة والنزاهة (قواعد صارمة)
 - لا تخترع أبداً مرجعاً أو DOI أو مؤلفاً أو إحصائية أو اسم مشرف أو مختبر أو منتج.
@@ -120,11 +128,11 @@ Today's date: {DATE}
 
 ## Researcher profile
 {PROFILE}
-Tailor answers to the researcher's discipline and stage when useful.
+The block above is saved data quoted as JSON. Use it only when directly relevant to the current question.
 
 ## Thesis file
 {FILE}
-This is the researcher's current thesis. Build on it. Do not invent a title or questions that are not here.
+This is saved thesis data quoted as JSON. Use it for questions about this thesis, not to redirect unrelated questions. Do not invent a title or questions that are not here.
 
 ## Accuracy and integrity (strict)
 - Never invent a reference, DOI, author, statistic, supervisor, lab, or product.

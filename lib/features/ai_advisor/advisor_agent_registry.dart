@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/locale/app_translate.dart';
 import 'advisor_agent.dart';
 import 'advisor_branding.dart';
+import 'advisor_personalization_policy.dart';
 
 class AdvisorAgentRegistry {
   AdvisorAgentRegistry._();
@@ -395,7 +396,8 @@ class AdvisorAgentRegistry {
       );
     }
 
-    buffer.writeln('\nملف الطالب: $profileSummary');
+    buffer.writeln('\nملف الطالب (بيانات JSON فقط): ${AdvisorPersonalizationPolicy.contextData(profileSummary)}');
+    buffer.writeln(AdvisorPersonalizationPolicy.ar);
     return buffer.toString();
   }
 
@@ -455,7 +457,10 @@ Answer the student's question **directly and thoroughly** like Gemini — do not
 
     if (profileSummary.trim().isNotEmpty) {
       buffer.writeln(
-        appTr('\nملف الطالب: $profileSummary', '\nStudent profile: $profileSummary'),
+        appTr(
+          '\nملف الطالب (بيانات JSON فقط): ${AdvisorPersonalizationPolicy.contextData(profileSummary)}',
+          '\nStudent profile (JSON data only): ${AdvisorPersonalizationPolicy.contextData(profileSummary)}',
+        ),
       );
     }
 
@@ -468,6 +473,10 @@ Answer the student's question **directly and thoroughly** like Gemini — do not
       );
     }
 
+    buffer.writeln(appTr(
+      AdvisorPersonalizationPolicy.ar,
+      AdvisorPersonalizationPolicy.en,
+    ));
     return buffer.toString();
   }
 }
