@@ -143,8 +143,8 @@ class ThesisStudioPdfService {
           if (draft.literatureMap.isEmpty) {
             para(
               appTr(
-                'لا توجد دراسات DOI مؤكدة في هذه المسودة. لم تُختلق مصادر.',
-                'No DOI-confirmed studies are in this draft. No sources were invented.',
+                'لا توجد مراجع من الفهارس في هذه المسودة. لم تُختلق مصادر.',
+                'No indexed references are in this draft. No sources were invented.',
               ),
             );
           } else {
@@ -164,8 +164,8 @@ class ThesisStudioPdfService {
           if (draft.literature.works.isEmpty) {
             para(
               appTr(
-                'لا توجد دراسات DOI مؤكدة في هذه المسودة. لم تُختلق مصادر.',
-                'No DOI-confirmed studies are in this draft. No sources were invented.',
+                'لا توجد مراجع من الفهارس في هذه المسودة. لم تُختلق مصادر.',
+                'No indexed references are in this draft. No sources were invented.',
               ),
             );
           } else {

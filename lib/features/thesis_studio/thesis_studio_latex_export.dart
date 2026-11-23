@@ -75,7 +75,7 @@ class ThesisStudioLatexExport {
 
   String bibtex(ThesisDraft draft) {
     final buf = StringBuffer(
-      '% AcadeGate — DOI-confirmed works only. Never invent entries.\n',
+      '% AcadeGate — Indexed works only. Never invent entries.\n',
     );
     for (var i = 0; i < draft.literature.works.length; i++) {
       final w = draft.literature.works[i];
@@ -126,11 +126,11 @@ $rows
         ? 'أكاديجيت — استوديو الرسالة\n'
             'ارفع هذا الأرشيف إلى Overleaf. للإنجليزية: pdfLaTeX + biber.\n'
             'للعربية: XeLaTeX + biber وخط Amiri.\n'
-            'الاستشهادات من دراسات DOI مؤكدة فقط.\n'
+            'الاستشهادات من قائمة المراجع المجلوبة؛ يظهر DOI إن وجد. راجع كل مصدر من أصله.\n'
         : 'AcadeGate Thesis Studio\n'
             'Upload this archive to Overleaf. English: pdfLaTeX + biber.\n'
             'Arabic: XeLaTeX + biber with Amiri.\n'
-            'Citations are DOI-confirmed only.\n';
+            'Citations come from the indexed reference list; DOI is shown when available. Verify each source against the original.\n';
     final files = <String, String>{
       'main.tex': mainTex(draft, profile: profile),
       'references.bib': bibtex(draft),

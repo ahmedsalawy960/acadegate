@@ -16,8 +16,8 @@ class ThesisStudioBranding {
       );
 
   static String get description => appTr(
-        'التخطيط حسب نوع الرسالة يبقى أسفل الهدف. كل فقرة تُولَّد وحدها من أمر تكتبه تحتها، مع أداة تجلب دراسات ورسائل ذات DOI من الفهارس العالمية. تصدير PDF وWord وLaTeX/BibTeX. المسودة للمراجعة وليست نسخة تسليم، ولا نلتف على كاشفات الانتحال.',
-        'Thesis-type controls stay under your goal. Each paragraph is generated from the command you type beneath it, with a tool that fetches DOI-confirmed papers and theses from global indexes. Export PDF, Word, and LaTeX/BibTeX. A draft to verify — not a submission copy, and not plagiarism-detector evasion.',
+        'التخطيط حسب نوع الرسالة يبقى أسفل الهدف. كل فقرة تُولَّد وحدها من أمر تكتبه تحتها، مع أداة تجلب دراسات ورسائل من الفهارس العالمية، مع DOI إن وجد. تصدير PDF وWord وLaTeX/BibTeX. المسودة للمراجعة وليست نسخة تسليم، ولا نلتف على كاشفات الانتحال.',
+        'Thesis-type controls stay under your goal. Each paragraph is generated from the command you type beneath it, with a tool that fetches indexed papers and theses from global indexes. Export PDF, Word, and LaTeX/BibTeX. A draft to verify — not a submission copy, and not plagiarism-detector evasion.',
       );
 
   static String get buildButton => appTr(

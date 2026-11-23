@@ -20,14 +20,14 @@ class ThesisLiteratureMapper {
   static String comparisonTable(List<LiteratureMapRow> rows, {required bool arabic}) {
     if (rows.isEmpty) {
       return appTr(
-        'لا يوجد جدول مقارنة بعد — لم تُؤكَّد دراسات DOI.',
-        'No comparison table yet — no DOI-confirmed studies.',
+        'لا يوجد جدول مقارنة بعد — لم تُجلب مراجع من الفهارس.',
+        'No comparison table yet — no indexed references.',
       );
     }
     final buffer = StringBuffer(
       arabic
-          ? 'جدول مقارنة الأدبيات (من بيانات مؤكدة فقط؛ الفرض والعينة تُستخرج من النص الأصلي):\n'
-          : 'Literature comparison (confirmed metadata only; hypotheses and sample size come from the original text):\n',
+          ? 'جدول مقارنة الأدبيات (من بيانات الفهارس فقط؛ الفرض والعينة تُستخرج من النص الأصلي):\n'
+          : 'Literature comparison (indexed metadata only; hypotheses and sample size come from the original text):\n',
     );
     for (final row in rows) {
       final w = row.work;
@@ -51,7 +51,7 @@ class ThesisLiteratureMapper {
     final abs = work.abstractText.trim();
     if (abs.length >= 40) {
       final cut = abs.length > 280 ? '${abs.substring(0, 280)}…' : abs;
-      return appTr('من الملخص المؤكد: $cut', 'From the confirmed abstract: $cut');
+      return appTr('من الملخص المجلوب: $cut', 'From the provided abstract: $cut');
     }
     return appTr(
       'الفرضية، حجم العينة، والنتائج الإحصائية تُراجع من النص الكامل عبر DOI — لم تُختلق هنا.',

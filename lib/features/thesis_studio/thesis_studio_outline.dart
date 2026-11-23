@@ -93,9 +93,9 @@ class ThesisStudioOutline {
             : 'مراجعة الأدبيات في $fieldAr',
         titleEn: 'Literature and prior scholarship on $fieldEn',
         purposeAr:
-            'فصل الدراسات السابقة: فقرة لكل مرجع معتمد (مؤلف، سنة، موضوع، نتائج من الملخص) من DOI مؤكد — مع إمكانية الاستيراد باللصق.',
+            'فصل الدراسات السابقة: فقرة لكل مرجع معتمد (مؤلف، سنة، موضوع، نتائج من الملخص) من بيانات الفهارس (DOI إن وجد) — مع إمكانية الاستيراد باللصق.',
         purposeEn:
-            'Prior-studies chapter: one paragraph per relied-on work (author, year, topic, findings from abstract) from confirmed DOIs — paste-import supported.',
+            'Prior-studies chapter: one paragraph per relied-on work (author, year, topic, findings from abstract) from indexed reference metadata (DOI when available) — paste-import supported.',
         depth: ThesisChapterDepth.full,
       ),
     );
@@ -105,9 +105,9 @@ class ThesisStudioOutline {
         titleAr: 'مبحث تحليلي أول في $fieldAr',
         titleEn: 'First analytical chapter on $fieldEn',
         purposeAr:
-            'تحليل موضوعي/نصي مبني على المصادر المؤكدة فقط.',
+            'تحليل موضوعي/نصي مبني على المصادر المجلوبة من الفهارس فقط.',
         purposeEn:
-            'Thematic or textual analysis grounded only in confirmed sources.',
+            'Thematic or textual analysis grounded only in indexed sources.',
         depth: ThesisChapterDepth.full,
       ),
     );
@@ -217,8 +217,8 @@ class ThesisStudioOutline {
             id: 'discussion',
             titleAr: 'مناقشة $fieldAr',
             titleEn: 'Discussion of $fieldEn',
-            purposeAr: 'يُكتب بعد النتائج الحقيقية مقابل الدراسات المؤكدة.',
-            purposeEn: 'Written after real results against confirmed studies.',
+            purposeAr: 'يُكتب بعد النتائج الحقيقية مقابل الدراسات المجلوبة من الفهارس.',
+            purposeEn: 'Written after real results against indexed studies.',
             depth: ThesisChapterDepth.scaffold,
           ),
         );
@@ -314,9 +314,9 @@ class ThesisStudioOutline {
             id: 'discussion',
             titleAr: 'المناقشة',
             titleEn: 'Discussion',
-            purposeAr: 'تفسير مقابل الأدبيات المؤكدة بعد النتائج الحقيقية.',
+            purposeAr: 'تفسير مقابل الأدبيات المجلوبة من الفهارس بعد النتائج الحقيقية.',
             purposeEn:
-                'Interpretation against confirmed literature after real results.',
+                'Interpretation against indexed literature after real results.',
             depth: ThesisChapterDepth.scaffold,
           ),
         );

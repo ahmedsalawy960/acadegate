@@ -76,12 +76,12 @@ class ThesisStudioEngine {
           : abstractRefs,
       note: appTr(
         '${draft.note ?? ''}\n'
-                'جُلب ${literature.works.length} مرجعاً مؤكداً عند بناء الهيكل. '
+                'جُلب ${literature.works.length} مرجعاً من الفهارس عند بناء الهيكل. '
                 '${draft.titleOptions.length > 1 ? 'اختر من ${draft.titleOptions.length} عناوين مقترحة.' : ''} '
                 '${draft.abstractText.trim().isNotEmpty ? 'الملخص جاهز للمراجعة.' : ''}'
             .trim(),
         '${draft.note ?? ''}\n'
-                'Fetched ${literature.works.length} confirmed sources while building the outline. '
+                'Fetched ${literature.works.length} indexed sources while building the outline. '
                 '${draft.titleOptions.length > 1 ? 'Pick from ${draft.titleOptions.length} proposed titles.' : ''} '
                 '${draft.abstractText.trim().isNotEmpty ? 'Abstract is ready to review.' : ''}'
             .trim(),
@@ -459,8 +459,8 @@ class ThesisStudioEngine {
     if (pooled.isEmpty) {
       throw StateError(
         draft.arabic
-            ? 'لا مراجع مؤكدة من فصل المقدمة أو الأدبيات بعد. اجلب مراجع المقدمة أولاً، أو الصق DOI.'
-            : 'No confirmed references from the introduction or literature yet. Harvest introduction sources first, or paste DOIs.',
+            ? 'لا مراجع مجلوبة من فصل المقدمة أو الأدبيات بعد. اجلب مراجع المقدمة أولاً، أو الصق DOI.'
+            : 'No indexed references from the introduction or literature yet. Harvest introduction sources first, or paste DOIs.',
       );
     }
     onProgress?.call(
@@ -645,8 +645,8 @@ class ThesisStudioEngine {
     if (paragraph.references.isEmpty) {
       throw StateError(
         draft.arabic
-            ? 'لا مرجع مؤكد لهذه البطاقة.'
-            : 'No confirmed reference on this card.',
+            ? 'لا مرجع لهذه البطاقة.'
+            : 'No indexed reference on this card.',
       );
     }
     onProgress?.call(

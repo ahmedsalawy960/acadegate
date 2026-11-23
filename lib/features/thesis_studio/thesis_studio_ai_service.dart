@@ -1020,8 +1020,8 @@ Rules: never invent a DOI, author, or journal. Do not claim the research is fini
   ) {
     final goal = plan.goal;
     final citeRule = arabic
-        ? 'استشهد فقط بالأعمال المرقّمة في قائمة المراجع بصيغة [n]. ممنوع DOI أو مؤلف أو سنة غير موجودة في القائمة. إن لم تكفِ الدراسات اكتب فصلاً أقصر وصرّح بالفجوة. RAG: ابنِ الجملة على الملخص/العنوان المؤكد لا على التخمين.'
-        : 'Cite only the numbered works as [n]. Never add a DOI, author, or year that is not on the list. If studies are few, write a shorter chapter and name the gap. RAG: ground every claim in the confirmed title/abstract, never in guesswork.';
+        ? 'استشهد فقط بالأعمال المرقّمة في قائمة المراجع بصيغة [n]. ممنوع DOI أو مؤلف أو سنة غير موجودة في القائمة. إن لم تكفِ الدراسات اكتب فصلاً أقصر وصرّح بالفجوة. RAG: ابنِ الجملة على الملخص/العنوان المجلوب لا على التخمين.'
+        : 'Cite only the numbered works as [n]. Never add a DOI, author, or year that is not on the list. If studies are few, write a shorter chapter and name the gap. RAG: ground every claim in the provided title/abstract, never in guesswork.';
     final depthRule = switch (template.depth) {
       ThesisChapterDepth.scaffold => arabic
           ? 'هذا الفصل هيكل فقط بعد جمع البيانات. ممنوع اختلاق أرقام أو إحصاء أو منحنيات حتى لو طُلبت $targetWords كلمة.'
@@ -1461,7 +1461,7 @@ Do not append a reference list. Do not copy other paragraphs. Do not evade AI de
     buffer.writeln(
       plan.arabic
           ? 'عدد المراجع من الفهارس: ${literature.works.length}'
-          : 'Confirmed studies: ${literature.works.length}',
+          : 'Indexed references: ${literature.works.length}',
     );
     return buffer.toString();
   }
@@ -1480,7 +1480,7 @@ Do not append a reference list. Do not copy other paragraphs. Do not evade AI de
 (1) مدخل يوضح نطاق المراجعة وكيف تُرتَّب الدراسات.
 (2) تنظيم موضوعي (محاور) لا سرد دراسةً بعد دراسة بلا ربط.
 (3) تركيب نقدي: قارن الأهداف والمنهج والعينة والنتائج بين الدراسات المرقّمة [n] فقط.
-(4) أبرز الاتفاق والاختلاف والقيود مما يظهر في العناوين/الملخصات المؤكدة — ممنوع اختلاق تفاصيل غير موجودة في القائمة.
+(4) أبرز الاتفاق والاختلاف والقيود مما يظهر في العناوين/الملخصات المجلوبة — ممنوع اختلاق تفاصيل غير موجودة في القائمة.
 (5) اختم بفجوة بحثية واضحة تربط هدف الرسالة.
 ممنوع إعادة كتابة المقدمة أو وصف تجربتك أو اختلاق DOI/مؤلف/سنة/إحصاء.
 '''
@@ -1490,7 +1490,7 @@ Required shape (as in scientific and literary theses):
 (1) Open with the review's scope and how studies are organized.
 (2) Organize thematically (themes), not as an unlinked study-by-study dump.
 (3) Critically synthesize: compare aims, methods, samples, and findings across numbered studies [n] only.
-(4) State agreements, disagreements, and limits visible from confirmed titles/abstracts — invent no missing details.
+(4) State agreements, disagreements, and limits visible from provided titles/abstracts — invent no missing details.
 (5) End with an explicit research gap tied to the thesis goal.
 Do not rewrite the introduction, describe your experiment, or invent DOI/author/year/statistics.
 ''';
@@ -1509,8 +1509,8 @@ Do not rewrite the introduction, describe your experiment, or invent DOI/author/
             : 'Exclusive job: empty results-and-discussion frame awaiting measurements. Invent no numbers. Do not copy the literature chapter.';
       case 'discussion':
         return arabic
-            ? 'مهمة هذا الفصل حصرياً: هيكل مناقشة يُملأ بعد النتائج الحقيقية مقابل الدراسات المؤكدة فقط.'
-            : 'Exclusive job: discussion frame to be filled after real results, against confirmed studies only.';
+            ? 'مهمة هذا الفصل حصرياً: هيكل مناقشة يُملأ بعد النتائج الحقيقية مقابل الدراسات المجلوبة من الفهارس فقط.'
+            : 'Exclusive job: discussion frame to be filled after real results, against indexed studies only.';
       case 'theory':
         return arabic
             ? 'مهمة هذا الفصل حصرياً: الإطار النظري للمفاهيم. ليس مقدمة عامة ولا نتائج.'
@@ -1655,8 +1655,8 @@ Do not rewrite the introduction, describe your experiment, or invent DOI/author/
             ? 'لم تُجلب مراجع من الفهارس بعد؛ يبقى الإطار قصيراً حتى تُراجع المصادر، ولا تُختلق مراجع.'
             : 'No indexed studies yet; the frame stays short until sources are reviewed, and none are invented.')
         : (plan.arabic
-            ? 'تُبنى الأسئلة على الدراسات المؤكدة $cites دون تلخيص نتائج غير موجودة.'
-            : 'Questions rest on confirmed studies $cites without summarising findings that do not exist.');
+            ? 'تُبنى الأسئلة على الدراسات المجلوبة من الفهارس $cites دون تلخيص نتائج غير موجودة.'
+            : 'Questions rest on indexed studies $cites without summarising findings that do not exist.');
     if (plan.kind == ThesisKind.literary) {
       if (plan.arabic) {
         return '''
@@ -1666,10 +1666,10 @@ Do not rewrite the introduction, describe your experiment, or invent DOI/author/
 تُقرأ $field بوصفها إشكالية قرائية/تحليلية لا تجربة معملية. يحدد الفصل المدونة، والمنهج (نقدي أو تحليلي أو تاريخي أو مقارن)، وحدود ما يمكن ادّعاؤه قبل قراءة الأصول.
 
 1.2 المشكلة
-المشكلة هي فجوة في الدراسات المؤكدة حول $field داخل السياق المحدد، لا نقص في «نتائج معملية».
+المشكلة هي فجوة في الدراسات المجلوبة من الفهارس حول $field داخل السياق المحدد، لا نقص في «نتائج معملية».
 
 1.3 الأهداف
-صياغة سؤال بحث قابل للنقاش، وربط الحجة بالمصادر المؤكدة فقط، وتأجيل الشواهد غير المقروءة.
+صياغة سؤال بحث قابل للنقاش، وربط الحجة بالمصادر المجلوبة من الفهارس فقط، وتأجيل الشواهد غير المقروءة.
 
 1.4 الأسئلة
 $questions
@@ -1690,7 +1690,7 @@ This chapter is the introduction to a thesis on $field. It is not a literature r
 The work treats $field as a reading/analytical problem, not a laboratory experiment. It names the corpus, the method (critical, analytic, historical, or comparative), and the limit of what can be claimed before the sources are read.
 
 1.2 Problem
-The problem is a gap in the confirmed scholarship on $field in the chosen setting, not a missing set of lab results.
+The problem is a gap in the indexed scholarship on $field in the chosen setting, not a missing set of lab results.
 
 1.3 Aims
 State a discussable research question, keep claims inside indexed sources, and postpone unread evidence.
@@ -1712,7 +1712,7 @@ $sourceLine
 هذا الفصل هو مقدمة رسالة ${plan.goal.degreeLabel} في $field وفق الهيكل المختار (${plan.shapeLabel}). ليس مراجعة أدبيات، وليس بروتوكول تجربة، وليس نتائج.
 
 1.1 السياق
-يقع موضوع $field عند تقاطع القياس والجودة في السياق المستهدف (${plan.goal.institutionLabel}). الدراسات المؤكدة ترسم الخريطة الخارجية فقط.
+يقع موضوع $field عند تقاطع القياس والجودة في السياق المستهدف (${plan.goal.institutionLabel}). الدراسات المجلوبة من الفهارس ترسم الخريطة الخارجية فقط.
 
 1.2 مشكلة الدراسة
 المشكلة عملية: غياب بروتوكول محدد بضوابط جودة لـ $field في هذا السياق. المسودة تعامل الفجوة كمسألة تصميم لا كنتيجة.
@@ -1738,7 +1738,7 @@ $sourceLine
 This chapter is the introduction to a ${plan.goal.degreeLabel} thesis on $field, following the selected spine (${plan.shapeLabel}). It is not a literature review, not an experimental protocol, and not a results chapter.
 
 1.1 Context
-Work on $field sits at the meeting point of measurement and quality in the intended setting (${plan.goal.institutionLabel}). Confirmed studies map the outer field only.
+Work on $field sits at the meeting point of measurement and quality in the intended setting (${plan.goal.institutionLabel}). Indexed studies map the outer field only.
 
 1.2 Research problem
 The practical problem is the absence of a locally specified, quality-controlled protocol for $field. This draft treats the gap as a design problem, not as a finding.
@@ -1772,7 +1772,7 @@ $sourceLine
 هذا الفصل إطار نظري لـ $field فقط، وليس مقدمة عامة ولا نتائج.
 
 يُختار من المفاهيم ما يفسّر الإشكالية (حدود المصطلح، المقاربة، وحدة التحليل).
-${cites.isEmpty ? 'بسبب قلة المصادر المؤكدة يُؤجَّل التوسيع ولا تُختلق نظريات.' : 'الانطلاق من $cites لصياغة المفاهيم بعد قراءة النص الكامل.'}
+${cites.isEmpty ? 'بسبب قلة المصادر المجلوبة من الفهارس يُؤجَّل التوسيع ولا تُختلق نظريات.' : 'الانطلاق من $cites لصياغة المفاهيم بعد قراءة النص الكامل.'}
 
 ما يُستبعد: بروتوكول معملي، جداول، وإعادة كتابة أسئلة الفصل الأول.
 ''';
@@ -1781,7 +1781,7 @@ ${cites.isEmpty ? 'بسبب قلة المصادر المؤكدة يُؤجَّل 
 This chapter is a theoretical frame for $field only. It is not a general introduction and not results.
 
 Concepts are limited to what explains the problem (term boundaries, approach, unit of analysis).
-${cites.isEmpty ? 'With few confirmed sources, expansion waits and no theory is invented.' : 'Start from $cites to draft concepts after the full texts are read.'}
+${cites.isEmpty ? 'With few indexed sources, expansion waits and no theory is invented.' : 'Start from $cites to draft concepts after the full texts are read.'}
 
 Excluded: laboratory protocol, tables, and a rewrite of Chapter 1 questions.
 ''';
@@ -1799,7 +1799,7 @@ Excluded: laboratory protocol, tables, and a rewrite of Chapter 1 questions.
         : (plan.arabic ? 'محور أول' : 'a first axis');
     if (plan.arabic) {
       return '''
-هذا المبحث يطوّر $axis في $field. الحجة تعتمد على المصادر المؤكدة $cites فقط.
+هذا المبحث يطوّر $axis في $field. الحجة تعتمد على المصادر المجلوبة من الفهارس $cites فقط.
 
 مسار العمل: قراءة الأصل عبر DOI، استخراج الشاهد، ثم التفسير داخل حدود المدونة. لا تُختلق اقتباسات أو وثائق.
 
@@ -1807,7 +1807,7 @@ Excluded: laboratory protocol, tables, and a rewrite of Chapter 1 questions.
 ''';
     }
     return '''
-This chapter develops $axis in $field. The argument uses only confirmed sources $cites.
+This chapter develops $axis in $field. The argument uses only indexed sources $cites.
 
 Workflow: read the original via DOI, extract evidence, then interpret inside the corpus limits. Quotations and archives are not invented.
 
@@ -1916,7 +1916,7 @@ $sourceLine$profileNote
 
 شكل 1. يُضاف بعد وجود قيم حقيقية في الجدول 2.
 
-${merged ? 'المناقشة تُكتب بعد الجدول 2 مقابل الدراسات المؤكدة فقط، لا بنسخ فصل الأدبيات.' : 'التفسير يُترك لفصل المناقشة بعد وجود قيم حقيقية.'}
+${merged ? 'المناقشة تُكتب بعد الجدول 2 مقابل الدراسات المجلوبة من الفهارس فقط، لا بنسخ فصل الأدبيات.' : 'التفسير يُترك لفصل المناقشة بعد وجود قيم حقيقية.'}
 ''';
     }
     return '''
@@ -1932,7 +1932,7 @@ Table 2. $methods indicators (after measurement)
 
 Figure 1. Added only after Table 2 holds real values.
 
-${merged ? 'Discussion is written after Table 2, against confirmed studies only — not by copying the literature chapter.' : 'Interpretation is left to the Discussion chapter after real values exist.'}
+${merged ? 'Discussion is written after Table 2, against indexed studies only — not by copying the literature chapter.' : 'Interpretation is left to the Discussion chapter after real values exist.'}
 ''';
   }
 
@@ -1968,7 +1968,7 @@ Do not interpret numbers that do not exist, and do not retell the introduction o
     final cites = _citationHints(literature);
     if (plan.arabic) {
       return '''
-خاتمة مسودة $field. المساهمة الحالية هي الإطار والأدبيات المؤكدة${plan.kind == ThesisKind.literary ? ' ومسار المباحث التحليلية' : ' وبروتوكول العمل'} — لا نتائج ملفّقة.
+خاتمة مسودة $field. المساهمة الحالية هي الإطار والأدبيات المجلوبة من الفهارس${plan.kind == ThesisKind.literary ? ' ومسار المباحث التحليلية' : ' وبروتوكول العمل'} — لا نتائج ملفّقة.
 
 الحدود: المسودة ليست رسالة جاهزة للتسليم ولا بديلاً عن ${plan.kind == ThesisKind.literary ? 'قراءة الأصول' : 'تنفيذ التجربة'}.
 ${cites.isEmpty ? 'أولوية المراجع: DOI أدق قبل التوسيع.' : 'أعد قراءة $cites مع المشرف قبل أي ادعاء نهائي.'}
@@ -1977,7 +1977,7 @@ ${cites.isEmpty ? 'أولوية المراجع: DOI أدق قبل التوسيع
 ''';
     }
     return '''
-Conclusion of the $field draft. The present contribution is the frame and confirmed literature${plan.kind == ThesisKind.literary ? ' plus the analytic chapter path' : ' plus a working protocol'} — not fabricated findings.
+Conclusion of the $field draft. The present contribution is the frame and indexed literature${plan.kind == ThesisKind.literary ? ' plus the analytic chapter path' : ' plus a working protocol'} — not fabricated findings.
 
 Limits: this is not a submission copy and not a substitute for ${plan.kind == ThesisKind.literary ? 'reading the originals' : 'running the experiment'}.
 ${cites.isEmpty ? 'Reference priority: a more precise DOI before expansion.' : 'Re-read $cites with the supervisor before any final claim.'}
@@ -2005,7 +2005,7 @@ Next steps: lock the questions, read the full texts, then ${plan.kind == ThesisK
       return '''
 هذا فصل مراجعة الأدبيات في $field بصيغة رسالة جامعية: نطاق المراجعة، محاور موضوعية، مقارنة نقدية للمناهج والعينات والنتائج، ثم فجوة بحثية. ليس مقدمة الرسالة ولا وصف تجربتك.
 
-تُراجع الدراسات المؤكدة فقط. الفرض التفصيلي والإحصاء يُستخرجان من النص الكامل لاحقاً — لا تُختلق من العنوان.
+تُراجع الدراسات المجلوبة من الفهارس فقط. الفرض التفصيلي والإحصاء يُستخرجان من النص الكامل لاحقاً — لا تُختلق من العنوان.
 
 $table
 
@@ -2015,7 +2015,7 @@ $table
     return '''
 This is the literature-review chapter on $field in thesis form: review scope, thematic synthesis, critical comparison of methods/samples/findings, then a research gap. It is not the introduction and not a description of your experiment.
 
-Only confirmed studies are reviewed. Detailed hypotheses and statistics come later from full texts — never invent them from titles.
+Only indexed studies are reviewed. Detailed hypotheses and statistics come later from full texts — never invent them from titles.
 
 $table
 
