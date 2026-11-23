@@ -88,14 +88,9 @@ service firebase.storage {
       allow read: if request.auth != null && request.auth.uid == userId;
       allow write: if request.auth != null
                    && request.auth.uid == userId
-                   && request.resource.size < 10 * 1024 * 1024
-                   && (request.resource.contentType.matches('image/.*')
-                       || request.resource.contentType.matches('application/pdf')
-                       || request.resource.contentType.matches('text/.*')
-                       || request.resource.contentType == 'text/csv'
-                       || request.resource.contentType == 'application/msword'
-                       || request.resource.contentType == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
-                   && request.resource.name.matches('.*\\.(png|jpe?g|webp|pdf|txt|md|csv|doc|docx)$');
+                   && request.resource.size <= 20 * 1024 * 1024
+                   && request.resource.contentType.matches('image/png|image/jpeg|image/webp|image/gif|image/heic|image/heif|application/pdf|application/msword|application/vnd\\.openxmlformats-officedocument\\.wordprocessingml\\.document|application/vnd\\.oasis\\.opendocument\\.text|application/vnd\\.ms-excel|application/vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet|application/vnd\\.oasis\\.opendocument\\.spreadsheet|application/vnd\\.ms-powerpoint|application/vnd\\.openxmlformats-officedocument\\.presentationml\\.presentation|application/vnd\\.oasis\\.opendocument\\.presentation|text/plain|text/markdown|text/csv|text/tab-separated-values|application/json|application/rtf')
+                   && request.resource.name.matches('(?i).*\\.(png|jpe?g|webp|gif|heic|heif|pdf|docx?|odt|xlsx?|ods|pptx?|odp|txt|md|csv|tsv|json|rtf|tex|bib|r|py|ipynb)$');
     }
 
     match /uploads/{userId}/viva/{allPaths=**} {

@@ -15,20 +15,61 @@ class AdvisorAttachmentService {
 
   static final AdvisorAttachmentService instance = AdvisorAttachmentService._();
 
-  static const maxBytes = 10 * 1024 * 1024;
+  static const maxImageAndTextBytes = 10 * 1024 * 1024;
+  static const maxOfficeBytes = 20 * 1024 * 1024;
+  static const maxMessageBytes = 30 * 1024 * 1024;
+  static const maxBytes = maxImageAndTextBytes;
   static const maxAttachmentsPerMessage = 4;
 
   final ImagePicker _imagePicker = ImagePicker();
   final FirebaseStorage _storage = FirebaseStorage.instance;
 
-  static const _allowedMimePrefixes = [
-    'image/',
-    'application/pdf',
-    'text/plain',
-    'text/csv',
-    'application/msword',
-    'application/vnd.openxmlformats-officedocument',
-  ];
+  static const mimeByExtension = <String, String>{
+    'png': 'image/png',
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'webp': 'image/webp',
+    'gif': 'image/gif',
+    'heic': 'image/heic',
+    'heif': 'image/heif',
+    'pdf': 'application/pdf',
+    'doc': 'application/msword',
+    'docx':
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'odt': 'application/vnd.oasis.opendocument.text',
+    'xls': 'application/vnd.ms-excel',
+    'xlsx':
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'ods': 'application/vnd.oasis.opendocument.spreadsheet',
+    'ppt': 'application/vnd.ms-powerpoint',
+    'pptx':
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'odp': 'application/vnd.oasis.opendocument.presentation',
+    'txt': 'text/plain',
+    'md': 'text/markdown',
+    'csv': 'text/csv',
+    'tsv': 'text/tab-separated-values',
+    'json': 'application/json',
+    'rtf': 'application/rtf',
+    'tex': 'text/plain',
+    'bib': 'text/plain',
+    'r': 'text/plain',
+    'py': 'text/plain',
+    'ipynb': 'text/plain',
+  };
+
+  static const _officeExtensions = {
+    'pdf',
+    'doc',
+    'docx',
+    'odt',
+    'xls',
+    'xlsx',
+    'ods',
+    'ppt',
+    'pptx',
+    'odp',
+  };
 
   Future<PendingAdvisorAttachment?> pickImage() async {
     final file = await _imagePicker.pickImage(
@@ -74,15 +115,34 @@ class AdvisorAttachmentService {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: const [
-        'pdf',
-        'txt',
-        'csv',
-        'doc',
-        'docx',
         'png',
         'jpg',
         'jpeg',
         'webp',
+        'gif',
+        'heic',
+        'heif',
+        'pdf',
+        'doc',
+        'docx',
+        'odt',
+        'xls',
+        'xlsx',
+        'ods',
+        'ppt',
+        'pptx',
+        'odp',
+        'txt',
+        'md',
+        'csv',
+        'tsv',
+        'json',
+        'rtf',
+        'tex',
+        'bib',
+        'r',
+        'py',
+        'ipynb',
       ],
       withData: true,
     );
@@ -165,6 +225,7 @@ class AdvisorAttachmentService {
         item.isImage ? normalizeImageForGemini(item) : item,
       );
     }
+    _assertWithinMessageLimits(normalized);
 
     final user = FirebaseAuth.instance.currentUser;
     final useStorage = preferStorage && user != null;
@@ -205,16 +266,18 @@ class AdvisorAttachmentService {
     required String mimeType,
     required bool isImage,
   }) {
-    if (bytes.length > maxBytes) {
+    final limit = _sizeLimitFor(name);
+    if (bytes.length > limit) {
+      final mb = limit == maxOfficeBytes ? 20 : 10;
       throw Exception(appTr(
-        'حجم الملف يجب ألا يتجاوز 10 ميجابايت',
-        'File size must not exceed 10 MB',
+        'حجم الملف يجب ألا يتجاوز $mb ميجابايت',
+        'File size must not exceed $mb MB',
       ));
     }
     if (!_isAllowedMime(mimeType)) {
       throw Exception(appTr(
-        'نوع الملف غير مدعوم. جرّب صورة أو PDF أو Word أو نص.',
-        'Unsupported file type. Try an image, PDF, Word, or text file.',
+        'نوع الملف غير مدعوم. الملفات المسموحة: صور، PDF، Office، أو نص.',
+        'Unsupported file type. Allowed files: images, PDF, Office, or text.',
       ));
     }
 
@@ -226,28 +289,42 @@ class AdvisorAttachmentService {
     );
   }
 
-  bool _isAllowedMime(String mime) {
-    return _allowedMimePrefixes.any((prefix) => mime.startsWith(prefix));
+  bool _isAllowedMime(String mime) => mimeByExtension.containsValue(mime);
+
+  String _extensionOf(String name) {
+    final base = name.split(RegExp(r'[\\/]')).last;
+    final dot = base.lastIndexOf('.');
+    if (dot < 0 || dot == base.length - 1) return '';
+    return base.substring(dot + 1).toLowerCase();
+  }
+
+  int _sizeLimitFor(String name) {
+    if (_officeExtensions.contains(_extensionOf(name))) return maxOfficeBytes;
+    return maxImageAndTextBytes;
+  }
+
+  void _assertWithinMessageLimits(List<PendingAdvisorAttachment> items) {
+    if (items.length > maxAttachmentsPerMessage) {
+      throw Exception(appTr(
+        'يمكن إرفاق $maxAttachmentsPerMessage ملفات كحد أقصى',
+        'You can attach up to $maxAttachmentsPerMessage files',
+      ));
+    }
+    final total = items.fold<int>(0, (sum, item) => sum + item.bytes.length);
+    if (total > maxMessageBytes) {
+      throw Exception(appTr(
+        'إجمالي المرفقات يجب ألا يتجاوز 30 ميجابايت',
+        'Attachments must not exceed 30 MB in total',
+      ));
+    }
   }
 
   String _mimeFromName(String name, {required String fallback}) {
-    final ext = name.split('.').last.toLowerCase();
-    return switch (ext) {
-      'jpg' || 'jpeg' => 'image/jpeg',
-      'png' => 'image/png',
-      'webp' => 'image/webp',
-      'gif' => 'image/gif',
-      'pdf' => 'application/pdf',
-      'txt' => 'text/plain',
-      'csv' => 'text/csv',
-      'doc' => 'application/msword',
-      'docx' =>
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      _ => fallback,
-    };
+    return mimeByExtension[_extensionOf(name)] ?? fallback;
   }
 
   List<GeminiInlinePart> toGeminiParts(List<PendingAdvisorAttachment> pending) {
+    _assertWithinMessageLimits(pending);
     return pending
         .map(
           (item) => GeminiInlinePart(
@@ -265,6 +342,7 @@ class AdvisorAttachmentService {
   }) async {
     if (pending.isEmpty) return [];
 
+    _assertWithinMessageLimits(pending);
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       return pending

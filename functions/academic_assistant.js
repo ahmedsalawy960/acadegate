@@ -62,30 +62,139 @@ function sanitizeContents(raw) {
 
 async function resolveAttachmentParts(attachments, uid) {
   if (!Array.isArray(attachments) || attachments.length === 0) return [];
+  const mimeByExt = {
+    png: "image/png",
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    webp: "image/webp",
+    gif: "image/gif",
+    heic: "image/heic",
+    heif: "image/heif",
+    pdf: "application/pdf",
+    doc: "application/msword",
+    docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    odt: "application/vnd.oasis.opendocument.text",
+    xls: "application/vnd.ms-excel",
+    xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ods: "application/vnd.oasis.opendocument.spreadsheet",
+    ppt: "application/vnd.ms-powerpoint",
+    pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    odp: "application/vnd.oasis.opendocument.presentation",
+    txt: "text/plain",
+    md: "text/markdown",
+    csv: "text/csv",
+    tsv: "text/tab-separated-values",
+    json: "application/json",
+    rtf: "application/rtf",
+    tex: "text/plain",
+    bib: "text/plain",
+    r: "text/plain",
+    py: "text/plain",
+    ipynb: "text/plain",
+  };
+  const officeExts = new Set(["pdf", "doc", "docx", "odt", "xls", "xlsx", "ods", "ppt", "pptx", "odp"]);
+  const textExts = new Set(["txt", "md", "csv", "tsv", "json", "rtf", "tex", "bib", "r", "py", "ipynb"]);
+  const maxImageText = 10 * 1024 * 1024;
+  const maxOffice = 20 * 1024 * 1024;
+  const maxMessage = 30 * 1024 * 1024;
+  const maxBase64Text = 14 * 1024 * 1024;
+
+  function extensionOf(name) {
+    const base = String(name || "").split(/[/\\]/).pop() || "";
+    const dot = base.lastIndexOf(".");
+    if (dot < 0 || dot === base.length - 1) return "";
+    return base.slice(dot + 1).toLowerCase();
+  }
+
+  function sizeLimit(ext) {
+    return officeExts.has(ext) ? maxOffice : maxImageText;
+  }
+
+  function startsWithBytes(buf, hex) {
+    const sig = Buffer.from(hex, "hex");
+    return buf.length >= sig.length && buf.subarray(0, sig.length).equals(sig);
+  }
+
+  function assertFileBytes(ext, buf) {
+    if (!Buffer.isBuffer(buf) || buf.length === 0 || buf.length > sizeLimit(ext)) {
+      throw new HttpsError("invalid-argument", "حجم الملف يتجاوز الحد المسموح");
+    }
+    const zipOffice = new Set(["docx", "xlsx", "pptx", "odt", "ods", "odp"]);
+    const oleOffice = new Set(["doc", "xls", "ppt"]);
+    let ok = false;
+    if (ext === "pdf") ok = buf.subarray(0, 4).toString("ascii") === "%PDF";
+    else if (zipOffice.has(ext)) ok = buf.subarray(0, 2).toString("ascii") === "PK";
+    else if (oleOffice.has(ext)) ok = startsWithBytes(buf, "d0cf11e0");
+    else if (ext === "png") ok = startsWithBytes(buf, "89504e47");
+    else if (ext === "jpg" || ext === "jpeg") ok = startsWithBytes(buf, "ffd8ff");
+    else if (ext === "gif") {
+      const head = buf.subarray(0, 6).toString("ascii");
+      ok = head === "GIF87a" || head === "GIF89a";
+    } else if (ext === "webp") {
+      ok = buf.length >= 12
+        && buf.subarray(0, 4).toString("ascii") === "RIFF"
+        && buf.subarray(8, 12).toString("ascii") === "WEBP";
+    } else if (ext === "heic" || ext === "heif") {
+      const brand = buf.length >= 12 ? buf.subarray(8, 12).toString("ascii") : "";
+      ok = buf.length >= 12
+        && buf.subarray(4, 8).toString("ascii") === "ftyp"
+        && ["heic", "heix", "hevc", "heif", "heim", "heis", "mif1", "msf1"].includes(brand);
+    } else if (textExts.has(ext)) {
+      const binary = startsWithBytes(buf, "4d5a")
+        || startsWithBytes(buf, "504b")
+        || startsWithBytes(buf, "7f454c46")
+        || startsWithBytes(buf, "d0cf11e0")
+        || buf.subarray(0, 512).includes(0);
+      const head = buf.subarray(0, 512).toString("utf8").replace(/^\uFEFF/, "").trim().toLowerCase();
+      const markup = /^<(?:!--|!doctype|html|svg|script|head|body|iframe|meta|link|style)\b/.test(head)
+        || head.startsWith("<?xml");
+      ok = !binary && !markup;
+    }
+    if (!ok) throw new HttpsError("invalid-argument", "محتوى الملف لا يطابق نوعه");
+  }
+
   const { getStorage } = require("firebase-admin/storage");
   const bucket = getStorage().bucket();
   const parts = [];
+  let total = 0;
   for (const a of attachments.slice(0, 8)) {
     if (!a || typeof a !== "object") continue;
-    let mimeType = String(a.mimeType || a.mime_type || "");
-    let b64 = a.base64Data || a.base64_data;
     const storagePath = a.storagePath || a.storage_path;
-    if ((!b64 || !String(b64).trim()) && storagePath) {
-      const path = String(storagePath).replace(/^\/+/, "");
-      if (!path.startsWith(`uploads/${uid}/`)) {
+    let buf = null;
+    let ext = "";
+    if (storagePath) {
+      const path = String(storagePath).replace(/\\/g, "/").replace(/^\/+/, "");
+      if (path.includes("..") || !path.startsWith(`uploads/${uid}/advisor/`)) {
         throw new HttpsError("permission-denied", "مسار الملف غير مسموح");
       }
-      const [buf] = await bucket.file(path).download();
-      b64 = buf.toString("base64");
+      ext = extensionOf(path);
+      if (!mimeByExt[ext]) throw new HttpsError("invalid-argument", "نوع الملف غير مسموح");
+      const file = bucket.file(path);
+      const [meta] = await file.getMetadata();
+      const size = Number(meta && meta.size);
+      if (!Number.isFinite(size) || size <= 0 || size > sizeLimit(ext)) {
+        throw new HttpsError("invalid-argument", "حجم الملف يتجاوز الحد المسموح");
+      }
+      const [downloaded] = await file.download();
+      buf = downloaded;
+    } else {
+      let clean = String(a.base64Data || a.base64_data || "").replace(/\s/g, "");
+      const dataUrl = clean.match(/^data:[^;]*;base64,(.+)$/i);
+      if (dataUrl) clean = dataUrl[1];
+      if (!clean) continue;
+      if (clean.length > maxBase64Text) {
+        throw new HttpsError("invalid-argument", "المرفق أكبر من الحد المسموح");
+      }
+      ext = extensionOf(a.fileName || a.file_name || a.name || "");
+      if (!mimeByExt[ext]) throw new HttpsError("invalid-argument", "نوع الملف غير مسموح");
+      buf = Buffer.from(clean, "base64");
     }
-    if (!mimeType || !b64) continue;
-    let clean = String(b64).replace(/\s/g, "");
-    const dataUrl = clean.match(/^data:([^;]+);base64,(.+)$/i);
-    if (dataUrl) {
-      mimeType = dataUrl[1] || mimeType;
-      clean = dataUrl[2];
+    assertFileBytes(ext, buf);
+    total += buf.length;
+    if (total > maxMessage) {
+      throw new HttpsError("invalid-argument", "إجمالي المرفقات يتجاوز 30 ميجابايت");
     }
-    if (clean) parts.push({ inlineData: { mimeType, data: clean } });
+    parts.push({ inlineData: { mimeType: mimeByExt[ext], data: buf.toString("base64") } });
   }
   return parts;
 }
@@ -240,7 +349,14 @@ async function streamOnce({ model, apiKey, body, onText }) {
   }
 }
 
-exports._test = { appendPart, sanitizeContents, injectAttachments, streamOnce, generationConfigFor };
+exports._test = {
+  appendPart,
+  sanitizeContents,
+  injectAttachments,
+  streamOnce,
+  generationConfigFor,
+  resolveAttachmentParts,
+};
 
 exports.academicAssistant = onCall(
   {
