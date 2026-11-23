@@ -1,6 +1,7 @@
 import '../../core/locale/app_translate.dart';
 import '../ai_advisor/grounded_work.dart';
 import 'thesis_studio_models.dart';
+import 'thesis_abstract_result.dart';
 
 class ThesisLiteratureMapper {
   ThesisLiteratureMapper._();
@@ -31,9 +32,11 @@ class ThesisLiteratureMapper {
     );
     for (final row in rows) {
       final w = row.work;
+      final doiUri = thesisDoiUri(w.doi);
       buffer.writeln(
         '[${row.index}] ${w.authors.isEmpty ? '—' : w.authors} | ${w.year ?? 'n.d.'} | ${w.title}'
-        '${w.journal == null || w.journal!.isEmpty ? '' : ' | ${w.journal}'} | https://doi.org/${w.doi}',
+        '${w.journal == null || w.journal!.isEmpty ? '' : ' | ${w.journal}'}'
+        '${doiUri == null ? '' : ' | $doiUri'}',
       );
       if (row.focus.isNotEmpty) buffer.writeln('   ${row.focus}');
       if (row.notes.isNotEmpty) buffer.writeln('   ${row.notes}');

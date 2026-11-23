@@ -8,6 +8,7 @@ import '../acadegate_publish/citation_formatter.dart';
 import '../profile/academic_profile.dart';
 import '../ai_advisor/grounded_work.dart';
 import 'thesis_studio_branding.dart';
+import 'thesis_abstract_result.dart';
 import 'thesis_studio_citations.dart';
 import 'thesis_studio_models.dart';
 
@@ -149,8 +150,10 @@ class ThesisStudioPdfService {
             );
           } else {
             for (final row in draft.literatureMap) {
+              final doiUri = thesisDoiUri(row.work.doi);
               para(
-                '[${row.index}] ${row.work.authors} (${row.work.year ?? 'n.d.'}) ${row.work.title} — https://doi.org/${row.work.doi}',
+                '[${row.index}] ${row.work.authors} (${row.work.year ?? 'n.d.'}) ${row.work.title}'
+                '${doiUri == null ? '' : ' — $doiUri'}',
               );
             }
           }
