@@ -59,7 +59,6 @@ class GoogleScholarClient {
     String q, {
     required int limit,
     int? fromYear,
-    bool requireAuth = true,
   }) async {
     try {
       final headers = <String, String>{'Accept': 'application/json'};
@@ -69,7 +68,7 @@ class GoogleScholarClient {
         if (token != null && token.isNotEmpty) {
           headers['Authorization'] = 'Bearer $token';
         }
-      } else if (requireAuth) {
+      } else {
         throw ScholarSearchException(
           appTr(
             'سجّل الدخول لاستخدام بحث Google Scholar.',
