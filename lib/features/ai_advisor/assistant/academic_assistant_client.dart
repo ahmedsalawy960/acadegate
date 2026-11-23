@@ -12,6 +12,7 @@ import '../advisor_attachment.dart';
 import '../advisor_branding.dart';
 import '../grounded_reference_service.dart';
 import 'assistant_prompt.dart';
+import 'assistant_response_decoder.dart';
 import 'assistant_reply_language.dart';
 import 'assistant_tools.dart';
 
@@ -181,9 +182,13 @@ class AcademicAssistantClient {
       }
 
       usedDeep = usedDeep || res.deep;
-      // Non-streaming transports (web) deliver the text only at the end.
-      if (visible.length == prefix.length && res.text.isNotEmpty) {
-        visible.write(res.text);
+      // The final result is authoritative, even when some deltas were lost,
+      // normalized by the backend, or already displayed. Never append it twice.
+      final finalVisible = '$prefix${res.text}';
+      if (visible.toString() != finalVisible) {
+        visible
+          ..clear()
+          ..write(finalVisible);
         onText?.call(visible.toString());
       }
 
@@ -278,49 +283,27 @@ class AcademicAssistantClient {
         );
       }
 
-      final contentType = response.headers['content-type'] ?? '';
-      Map<String, dynamic>? result;
-
-      if (contentType.contains('text/event-stream')) {
-        await for (final line in response.stream
-            .transform(utf8.decoder)
-            .transform(const LineSplitter())
-            .timeout(const Duration(seconds: 240))) {
-          if (!line.startsWith('data:')) continue;
-          final raw = line.substring(5).trim();
-          if (raw.isEmpty) continue;
-          final Map<String, dynamic> event;
-          try {
-            event = Map<String, dynamic>.from(jsonDecode(raw) as Map);
-          } catch (_) {
-            continue;
-          }
-          if (event['message'] is Map) {
-            final t = (event['message'] as Map)['t'];
-            if (t is String && t.isNotEmpty) onDelta(t);
-          } else if (event['result'] is Map) {
-            result = Map<String, dynamic>.from(event['result'] as Map);
-          } else if (event['error'] is Map) {
-            _throwCallableError(Map<String, dynamic>.from(event['error'] as Map));
-          }
-        }
-      } else {
-        final body = await response.stream.bytesToString();
-        final decoded = jsonDecode(body);
-        if (decoded is Map && decoded['error'] is Map) {
-          _throwCallableError(Map<String, dynamic>.from(decoded['error'] as Map));
-        }
-        if (decoded is Map && decoded['result'] is Map) {
-          result = Map<String, dynamic>.from(decoded['result'] as Map);
-        }
-      }
-
-      if (result == null) {
+      final Map<String, dynamic> result;
+      try {
+        result = await readAssistantResponse(
+          response.stream,
+          contentType: response.headers['content-type'] ?? '',
+          statusCode: response.statusCode,
+          onDelta: onDelta,
+        );
+      } on AssistantWireException catch (e) {
+        final message = e.code == 'invalid-response'
+            ? appTr(
+                'رد غير مكتمل أو غير صالح من الخادم. أعد المحاولة.',
+                'The server response was incomplete or invalid. Try again.',
+              )
+            : e.message;
         throw AssistantBackendException(
-          'internal',
-          appTr('رد غير مكتمل من الخادم.', 'Incomplete response from the server.'),
+          e.code == 'invalid-response' ? 'internal' : e.code,
+          message,
         );
       }
+
       if (result['error'] != null) {
         throw AssistantBackendException('internal', result['error'].toString());
       }
@@ -350,9 +333,4 @@ class AcademicAssistantClient {
     }
   }
 
-  Never _throwCallableError(Map<String, dynamic> error) {
-    final status = (error['status'] ?? 'internal').toString().toLowerCase().replaceAll('_', '-');
-    final message = (error['message'] ?? status).toString();
-    throw AssistantBackendException(status == 'not-found' ? 'not-found' : status, message);
-  }
 }
