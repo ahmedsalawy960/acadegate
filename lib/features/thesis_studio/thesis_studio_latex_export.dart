@@ -7,6 +7,7 @@ import '../acadegate_publish/citation_formatter.dart';
 import '../acadegate_publish/publish_models.dart';
 import '../profile/academic_profile.dart';
 import 'thesis_studio_citation_report.dart';
+import 'thesis_abstract_result.dart';
 import 'thesis_studio_models.dart';
 
 class ThesisStudioLatexExport {
@@ -86,11 +87,20 @@ class ThesisStudioLatexExport {
       if (w.journal != null && w.journal!.trim().isNotEmpty) {
         buf.writeln('  journal = {${_bibField(w.journal!.trim())}},');
       }
-      buf.writeln('  doi = {${_bibField(w.doi)}},');
-      buf.writeln('  url = {https://doi.org/${w.doi}}');
+      final doiUri = thesisDoiUri(w.doi);
+      if (doiUri != null) {
+        final doi = Uri.decodeComponent(doiUri.path).substring(1);
+        buf.writeln('  doi = {${_bibField(doi)}},');
+        buf.writeln('  url = {${_bibField(doiUri.toString())}},');
+      }
       buf.writeln('}');
     }
     return buf.toString();
+  }
+
+  String _reportDoiSuffix(String doi) {
+    final uri = thesisDoiUri(doi);
+    return uri == null ? '' : ' \\newline {\\small ${_escape(uri.toString())}}';
   }
 
   String citationReportTex(ThesisDraft draft) {
@@ -98,7 +108,7 @@ class ThesisStudioLatexExport {
     final arabic = draft.arabic;
     final rows = [
       for (final row in report.rows(draft))
-        '${row.index} & ${_escape(row.work.title)} \\newline {\\small https://doi.org/${row.work.doi}} & ${row.used ? 'yes' : 'no'} \\\\',
+        '${row.index} & ${_escape(row.work.title)}${_reportDoiSuffix(row.work.doi)} & ${row.used ? 'yes' : 'no'} \\\\',
     ].join('\n');
     return '''
 \\documentclass[11pt,a4paper]{article}
