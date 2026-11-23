@@ -139,6 +139,8 @@ class GeminiAdvisorClient {
     List<GeminiInlinePart> attachments = const [],
     int maxOutputTokens = 8192,
     bool preferPro = false,
+    // Abstract actions opt out: retries may consume another quota unit.
+    bool retryCloudFailure = true,
   }) {
     return _oneAtATime(() async {
       final result = await _generateResultNow(
@@ -148,6 +150,7 @@ class GeminiAdvisorClient {
         attachments: attachments,
         maxOutputTokens: maxOutputTokens,
         preferPro: preferPro,
+        retryCloudFailure: retryCloudFailure,
       );
       return _publicGenerateResult(result);
     });
@@ -185,6 +188,7 @@ class GeminiAdvisorClient {
     List<GeminiInlinePart> attachments = const [],
     int maxOutputTokens = 8192,
     bool preferPro = false,
+    bool retryCloudFailure = true,
   }) async {
     final needsStorageBackend =
         attachments.any((a) => a.hasStoragePath) && canUseCloudBackend;
@@ -202,7 +206,7 @@ class GeminiAdvisorClient {
       final retryWouldRepeat =
           cloudError.contains('انتهى رصيد') ||
           cloudError.contains('no longer available');
-      if (!viaFunction.isSuccess && !retryWouldRepeat) {
+      if (retryCloudFailure && !viaFunction.isSuccess && !retryWouldRepeat) {
         debugPrint('geminiAdvisor retry: ${viaFunction.error}');
         await Future<void>.delayed(const Duration(seconds: 2));
         final again = await _generateViaCloudFunction(

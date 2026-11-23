@@ -71,7 +71,11 @@ class ThesisStudioAiService {
           : local.researchQuestions,
       fromGemini: true,
       modelUsed: front.modelUsed,
-      note: appTr(
+      note: front.abstractText.isEmpty
+          ? (plan.arabic
+              ? 'تعذر توليد ملخص مكتمل؛ لم يُحفظ رد قصير أو مبتور. راجع المسودة وأعد توليد الملخص يدوياً.'
+              : 'A complete abstract could not be generated; no short or cut-off response was saved. Review the draft and regenerate the abstract manually.')
+          : appTr(
         'مسودة مولَّدة للمراجعة على ${plan.targetPages} صفحة مستهدفة. تحقق من كل استشهاد مع النص الأصلي قبل التسليم. لا نختلق نتائج معملية.',
         'Generated draft for review at a ${plan.targetPages}-page target. Verify every citation against the original before submission. We do not invent lab results.',
       ),
@@ -576,8 +580,8 @@ ${command.trim().isEmpty ? heading : command.trim()}
     lastFillDiagnostic = null;
     final arabic = plan.arabic;
     final failureMessage = arabic
-        ? 'تعذر توليد الملخص. لم يتغير الملخص السابق. أعد المحاولة.'
-        : 'Could not generate the abstract. The previous abstract is unchanged. Try again.';
+        ? 'تعذر توليد ملخص مكتمل (قد يكون الرد قصيراً أو مبتوراً). لم يتغير الملخص السابق. يمكنك إعادة المحاولة يدوياً.'
+        : 'Could not generate a complete abstract (the response may be too short or cut off). The previous abstract is unchanged. You can retry manually.';
     if (!GeminiAdvisorClient.isAvailable) {
       throw ThesisAbstractGenerationException(failureMessage);
     }
@@ -607,6 +611,7 @@ Stay strictly inside the thesis goal; the abstract command is only a lens on tha
       ].join('\n'),
       maxOutputTokens: 2500,
       preferPro: true,
+      retryCloudFailure: false,
     );
     if (!result.isSuccess || result.text == null) {
       final detail = result.error?.trim() ?? '';
@@ -846,6 +851,7 @@ ${ResearchGoalParser.contextForAi(draft.goal.raw)}
 ''',
       maxOutputTokens: 4096,
       preferPro: true,
+      retryCloudFailure: false,
     );
     if (!result.isSuccess || result.text == null) return draft;
     final map = _parseJsonMap(result.text!);
@@ -869,7 +875,10 @@ ${ResearchGoalParser.contextForAi(draft.goal.raw)}
         !titles.any((e) => e.toLowerCase() == primary.toLowerCase())) {
       titles.insert(0, primary);
     }
-    final abstractText = map['abstract']?.toString().trim() ?? '';
+    final abstractText = map['abstract'] is String
+        ? (map['abstract'] as String).trim()
+        : '';
+    final abstractAccepted = isUsableGeneratedAbstract(abstractText);
     final questions = <String>[];
     final rawQ = map['questions'];
     if (rawQ is List) {
@@ -897,12 +906,16 @@ ${ResearchGoalParser.contextForAi(draft.goal.raw)}
       plan: draft.plan.copyWith(goal: goal),
       proposedTitle: chosen,
       titleOptions: titles.take(6).toList(),
-      abstractText: abstractText.length >= 80 ? abstractText : draft.abstractText,
+      abstractText: generatedAbstractOrPrevious(abstractText, draft.abstractText),
       researchQuestions:
           questions.isNotEmpty ? questions.take(6).toList() : draft.researchQuestions,
       fromGemini: true,
       modelUsed: result.modelUsed,
-      note: appTr(
+      note: !abstractAccepted
+          ? (arabic
+              ? 'الملخص المولد قصير أو غير مكتمل؛ لم يتغير الملخص السابق. راجع العنوان والأسئلة، ثم أعد توليد الملخص يدوياً.'
+              : 'The generated abstract was too short or incomplete; the previous abstract is unchanged. Review the title and questions, then regenerate the abstract manually.')
+          : appTr(
         'عدة عناوين وملخص وأسئلة من AcadeGate بلغة المسودة ($lang). اختر عنواناً، ثم اكتب أمر كل فقرة فارغة مع مراجعها.',
         'Several titles, an abstract, and questions from AcadeGate in the draft language ($lang). Pick a title, then command each empty paragraph with its sources.',
       ),
@@ -983,6 +996,7 @@ Rules: never invent a DOI, author, or journal. Do not claim the research is fini
       userMessage: _contextBlock(plan, literature, profile),
       maxOutputTokens: 2500,
       preferPro: true,
+      retryCloudFailure: false,
     );
     if (!result.isSuccess || result.text == null) {
       return (title: '', abstractText: '', questions: const <String>[], modelUsed: null);
@@ -991,7 +1005,7 @@ Rules: never invent a DOI, author, or journal. Do not claim the research is fini
     if (map == null) {
       return (
         title: '',
-        abstractText: result.text!.trim(),
+        abstractText: '',
         questions: const <String>[],
         modelUsed: result.modelUsed,
       );
@@ -1006,7 +1020,10 @@ Rules: never invent a DOI, author, or journal. Do not claim the research is fini
     }
     return (
       title: map['title']?.toString().trim() ?? '',
-      abstractText: map['abstract']?.toString().trim() ?? '',
+      abstractText: generatedAbstractOrPrevious(
+        map['abstract'] is String ? map['abstract'] as String : null,
+        '',
+      ),
       questions: questions.take(5).toList(),
       modelUsed: result.modelUsed,
     );
