@@ -43,5 +43,9 @@ void main() {
     expect(back.birthDate, DateTime(1999, 3, 7));
     expect(info.toMap()['birthDate'], '1999-03-07');
     expect(const PersonalInfo().isComplete, isFalse);
+    expect(
+      const PersonalInfo(gender: Gender.male, governorate: 'الجيزة').isComplete,
+      isTrue,
+    );
   });
 }

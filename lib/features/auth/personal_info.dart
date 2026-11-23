@@ -28,10 +28,7 @@ class PersonalInfo {
   static const maxAge = 100;
 
   bool get isComplete =>
-      phone.trim().isNotEmpty &&
-      Gender.all.contains(gender) &&
-      birthDate != null &&
-      governorate.trim().isNotEmpty;
+      Gender.all.contains(gender) && governorate.trim().isNotEmpty;
 
   int? get age => birthDate == null ? null : ageOn(birthDate!, DateTime.now());
 

@@ -64,14 +64,17 @@ class PersonalInfoFields extends StatelessWidget {
           keyboardType: TextInputType.phone,
           textDirection: TextDirection.ltr,
           decoration: InputDecoration(
-            labelText: context.t('رقم الموبايل', 'Mobile number'),
+            labelText: context.t(
+              'رقم الموبايل (اختياري)',
+              'Mobile number (optional)',
+            ),
             hintText: '01xxxxxxxxx',
             prefixIcon: const Icon(Icons.phone_outlined),
             border: _border,
           ),
           validator: (value) {
             final v = (value ?? '').trim();
-            if (v.isEmpty) return context.t('رقم الموبايل مطلوب', 'Mobile number is required');
+            if (v.isEmpty) return null;
             if (PersonalInfo.normalizePhone(v) == null) {
               return context.t(
                 'رقم غير صحيح — مثال: 01012345678 (أو رقم دولي يبدأ بـ +)',
@@ -103,9 +106,7 @@ class PersonalInfoFields extends StatelessWidget {
         const SizedBox(height: 16),
         FormField<DateTime>(
           initialValue: birthDate,
-          validator: (_) => birthDate == null
-              ? context.t('تاريخ الميلاد مطلوب', 'Date of birth is required')
-              : null,
+          validator: (_) => null,
           builder: (state) => InkWell(
             borderRadius: BorderRadius.circular(12),
             onTap: enabled
@@ -117,7 +118,10 @@ class PersonalInfoFields extends StatelessWidget {
             child: InputDecorator(
               isEmpty: birthDate == null,
               decoration: InputDecoration(
-                labelText: context.t('تاريخ الميلاد', 'Date of birth'),
+                labelText: context.t(
+                  'تاريخ الميلاد (اختياري)',
+                  'Date of birth (optional)',
+                ),
                 prefixIcon: const Icon(Icons.cake_outlined),
                 suffixText: age == null
                     ? null
