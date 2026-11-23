@@ -1,0 +1,17 @@
+Advisor validator fixtures
+
+advisor-office.json contains gzip-compressed, base64-encoded synthetic test documents.
+These files contain test data only, no user files.
+
+DOCX: generated with python-docx, paragraph "Advisor fixture: water sample A".
+XLSX: generated with openpyxl, columns sample/value and row A/42.
+PPTX: generated with python-pptx, one blank slide.
+DOC, XLS, PPT: exported from those files using LibreOffice 7.3.7.2 headless.
+
+The JSON format keeps the patch text-only and tests offline. No Office application
+or Python dependency is needed to run the Node tests.
+
+These small files test basic interoperability, not all Office versions/features.
+The legacy DOC validator expects Word 97 or newer binary FIB structures. Very old
+formats may need conversion. This is structural screening, not antivirus and not
+a guarantee that the downstream model supports every accepted MIME type.

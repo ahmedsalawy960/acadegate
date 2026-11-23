@@ -13,10 +13,13 @@
     "audit:ci": "npm audit --omit=dev --audit-level=high"
   },
   "dependencies": {
+    "cfb": "1.2.2",
     "firebase-admin": "^14.5.1",
     "firebase-functions": "^7.4.0",
     "google-auth-library": "^10.7.0",
     "mammoth": "^1.9.0",
-    "pdf-parse": "^1.1.1"
+    "pdf-parse": "^1.1.1",
+    "saxes": "6.0.0",
+    "yauzl": "3.4.0"
   }
 }
