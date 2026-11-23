@@ -31,6 +31,7 @@ import '../guides/section_guide_screen.dart';
 import 'arabic_thesis_catalogs.dart';
 import 'thesis_library_service.dart';
 import 'thesis_studio_ai_service.dart';
+import 'thesis_abstract_result.dart';
 import 'thesis_studio_branding.dart';
 import 'thesis_studio_citation_report.dart';
 import 'thesis_studio_citations.dart';
@@ -527,6 +528,20 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
       if (isWrite) {
         ThesisStudioAiService.instance.lastFillDiagnostic = null;
       }
+    } on ThesisAbstractGenerationException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message),
+          backgroundColor: Colors.red,
+          action: SnackBarAction(
+            label: context.t('إعادة المحاولة', 'Retry'),
+            onPressed: () {
+              if (_busyKey == null) _writeAbstract();
+            },
+          ),
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -673,8 +688,8 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
             content: Text(
               n > 0
                   ? context.t(
-                      'تم جلب $n مرجعاً مؤكداً بـ DOI لهذه الفقرة.',
-                      'Fetched $n DOI-confirmed sources for this paragraph.',
+                      'تم جلب $n مرجعاً من الفهارس لهذه الفقرة.',
+                      'Fetched $n indexed references for this paragraph.',
                     )
                   : context.t(
                       'لم يُعثر على مراجع مناسبة. جرّب صياغة إنجليزية أدق للموضوع أو كلمات مفتاحية علمية.',
@@ -956,7 +971,8 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
   }
 
   Future<void> _openDoi(String doi) async {
-    final uri = Uri.parse('https://doi.org/$doi');
+    final uri = thesisDoiUri(doi);
+    if (uri == null) return;
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
@@ -1164,8 +1180,8 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
           const SizedBox(height: 6),
           Text(
             context.t(
-              'APA/Harvard/Chicago: يظهر داخل النص (مؤلف، سنة) من القائمة المؤكدة. IEEE/Vancouver: [n]. النموذج يكتب [n] حتى لا يختلق أسماء. أوامر عربية تُترجم تلقائياً إلى استعلامات إنجليزية للفهارس العلمية.',
-              'APA/Harvard/Chicago: in-text shows (Author, Year) from the confirmed list. IEEE/Vancouver: [n]. The model writes [n] so it cannot invent names. Arabic commands are auto-translated into English scholarly search queries.',
+              'APA/Harvard/Chicago: يظهر داخل النص (مؤلف، سنة) من قائمة المراجع المجلوبة. IEEE/Vancouver: [n]. النموذج يكتب [n] حتى لا يختلق أسماء. أوامر عربية تُترجم تلقائياً إلى استعلامات إنجليزية للفهارس العلمية.',
+              'APA/Harvard/Chicago: in-text shows (Author, Year) from the harvested reference list. IEEE/Vancouver: [n]. The model writes [n] so it cannot invent names. Arabic commands are auto-translated into English scholarly search queries.',
             ),
             style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6), height: 1.35),
           ),
@@ -1715,7 +1731,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
                       : '${draft.plan.discipline.facultyEn}'
                           '${draft.plan.discipline.labelEn.isNotEmpty ? ' / ${draft.plan.discipline.labelEn}' : ''}',
                 '${draft.literature.works.length} '
-                    '${context.t('دراسة/رسالة DOI مؤكدة', 'DOI-confirmed papers/theses')}',
+                    '${context.t('دراسة/رسالة من الفهارس', 'indexed papers/theses')}',
                 if (draft.fromGemini ||
                     (draft.modelUsed != null &&
                         draft.modelUsed!.trim().isNotEmpty))
@@ -1838,8 +1854,8 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
           children: [
             Text(
               context.t(
-                'خريطة الأدبيات (DOI مؤكد فقط)',
-                'Literature map (DOI-confirmed only)',
+                'خريطة الأدبيات (مراجع من الفهارس)',
+                'Literature map (indexed references)',
               ),
               style: const TextStyle(
                 color: const Color(0xFFFDE68A),
@@ -1860,8 +1876,8 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
             if (draft.literature.works.isEmpty)
               Text(
                 context.t(
-                  'لا توجد دراسات DOI بعد. اكتب أمر الفقرة الفارغة ثم اضغط «جلب المراجع».',
-                  'No DOI studies yet. Type a command under an empty paragraph, then tap “Fetch sources”.',
+                  'لا توجد مراجع مجلوبة بعد. اكتب أمر الفقرة الفارغة ثم اضغط «جلب المراجع».',
+                  'No references fetched yet. Type a command under an empty paragraph, then tap “Fetch sources”.',
                 ),
               )
             else
@@ -1895,7 +1911,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontSize: 11),
                   ),
-                  trailing: IconButton(
+                  trailing: thesisDoiUri(row.work.doi) == null ? null : IconButton(
                     tooltip: 'DOI',
                     icon: const Icon(Icons.open_in_new, size: 18),
                     onPressed: () => _openDoi(row.work.doi),
@@ -2206,8 +2222,8 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
             const SizedBox(height: 8),
             Text(
               context.t(
-                'في المسودة الآن: $works مرجعاً مؤكداً ($withAbs بملخص).',
-                'In draft now: $works confirmed works ($withAbs with abstracts).',
+                'في المسودة الآن: $works مرجعاً من الفهارس ($withAbs بملخص).',
+                'In draft now: $works indexed works ($withAbs with abstracts).',
               ),
               style: TextStyle(fontSize: 11, color: const Color(0xFFB7C3D6)),
             ),
@@ -2738,8 +2754,8 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
                             SnackBar(
                               content: Text(
                                 context.t(
-                                  'لا مرجع مؤكد على هذه البطاقة لتلخيص Abstract.',
-                                  'No confirmed reference on this card to summarise.',
+                                  'لا مرجع على هذه البطاقة لتلخيص Abstract.',
+                                  'No reference on this card to summarise.',
                                 ),
                               ),
                             ),
@@ -2808,9 +2824,9 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
           const SizedBox(height: 8),
           Text(
             context.t(
-              'مرجع مؤكد: ${paragraph.references.length}'
+              'مرجع من الفهارس: ${paragraph.references.length}'
               '${hasAbsLabel(paragraph) ? ' · Abstract ✓' : ' · Abstract؟'}',
-              'Confirmed reference: ${paragraph.references.length}'
+              'Indexed reference: ${paragraph.references.length}'
               '${hasAbsLabel(paragraph) ? ' · Abstract ✓' : ' · Abstract?'}',
             ),
             style: TextStyle(
@@ -2966,8 +2982,8 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
           const SizedBox(height: 8),
           Text(
             context.t(
-              '${references.length} مرجع مؤكد لهذا الأمر',
-              '${references.length} confirmed sources for this command',
+              '${references.length} مرجع من الفهارس لهذا الأمر',
+              '${references.length} indexed references for this command',
             ),
             style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
           ),
@@ -2985,7 +3001,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
                 '${references[i].year ?? 'n.d.'} · ${references[i].doi}',
                 style: const TextStyle(fontSize: 11),
               ),
-              trailing: IconButton(
+              trailing: thesisDoiUri(references[i].doi) == null ? null : IconButton(
                 tooltip: 'DOI',
                 icon: const Icon(Icons.open_in_new, size: 16),
                 onPressed: () => _openDoi(references[i].doi),

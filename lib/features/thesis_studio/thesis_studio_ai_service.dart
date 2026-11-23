@@ -7,6 +7,7 @@ import '../ai_advisor/grounded_work.dart';
 import '../profile/academic_profile.dart';
 import '../research_supply_chain/research_goal.dart';
 import 'thesis_studio_command.dart';
+import 'thesis_abstract_result.dart';
 import 'thesis_studio_kind.dart';
 import 'thesis_studio_length.dart';
 import 'thesis_studio_literature_map.dart';
@@ -51,8 +52,8 @@ class ThesisStudioAiService {
     if (!GeminiAdvisorClient.isAvailable) {
       return local.copyWith(
         note: appTr(
-          'سجّل الدخول — المسودة الحالية هيكل كامل بمراجع مؤكدة فقط.',
-          'Sign in — the current draft is a full outline with confirmed references only.',
+          'سجّل الدخول — المسودة الحالية هيكل كامل بمراجع من الفهارس فقط.',
+          'Sign in — the current draft is a full outline with indexed references only.',
         ),
       );
     }
@@ -572,19 +573,25 @@ ${command.trim().isEmpty ? heading : command.trim()}
     required String command,
     AcademicProfile? profile,
   }) async {
-    final local = _localAbstractSlot(plan, literature, command);
-    if (!GeminiAdvisorClient.isAvailable) return local;
+    lastFillDiagnostic = null;
     final arabic = plan.arabic;
-    final result = await GeminiAdvisorClient.instance.generateResult(
-      systemPrompt: arabic
-          ? '''
+    final failureMessage = arabic
+        ? 'تعذر توليد الملخص. لم يتغير الملخص السابق. أعد المحاولة.'
+        : 'Could not generate the abstract. The previous abstract is unchanged. Try again.';
+    if (!GeminiAdvisorClient.isAvailable) {
+      throw ThesisAbstractGenerationException(failureMessage);
+    }
+    try {
+      final result = await GeminiAdvisorClient.instance.generateResult(
+        systemPrompt: arabic
+            ? '''
 أنت تكتب ملخص رسالة علمية بالعربية الفصحى المبسطة (180-250 كلمة).
 لا تختلق DOI أو مؤلفاً أو نتيجة. لا تزعم أن البحث أُنجز.
 استشهد فقط بـ [n] من القائمة إن وُجدت دراسات. هذه فقرة واحدة للمراجعة.
 نص عادي بلا Markdown أو # أو * أو صيغ \$ .
 التزم بهدف الرسالة؛ أمر الملخص عدسة على الهدف لا موضوعاً جديداً.
 '''
-          : '''
+            : '''
 You write a thesis abstract in clear academic English (180-250 words).
 Never invent a DOI, author, or result. Do not claim the research is finished.
 Cite only [n] from the list if studies exist. This is one paragraph to review.
@@ -601,7 +608,12 @@ Stay strictly inside the thesis goal; the abstract command is only a lens on tha
       maxOutputTokens: 2500,
       preferPro: true,
     );
-    if (!result.isSuccess || result.text == null) return local;
+    if (!result.isSuccess || result.text == null) {
+      final detail = result.error?.trim() ?? '';
+      throw ThesisAbstractGenerationException(
+        detail.isEmpty ? failureMessage : '$failureMessage\n$detail',
+      );
+    }
     final cleaned = await GroundedReferenceService.instance.enforceVerifiedDois(
       _stripInventedMarkers(
         result.text!,
@@ -609,8 +621,13 @@ Stay strictly inside the thesis goal; the abstract command is only a lens on tha
       ),
       known: literature,
     );
-    return cleaned.trim().length >= 80 ? cleaned.trim() : local;
+    return requireGeneratedAbstract(cleaned, failureMessage: failureMessage);
+  } on ThesisAbstractGenerationException {
+    rethrow;
+  } catch (_) {
+    throw ThesisAbstractGenerationException(failureMessage);
   }
+}
 
   Future<String> _growChapter({
     required ThesisPlan plan,
@@ -784,7 +801,7 @@ Stay strictly inside the thesis goal; the abstract command is only a lens on tha
       ],
       note: appTr(
         'الهيكل فارغ عمداً. يُقرأ هدفك كاملاً للعنوان والأسئلة. كل فقرة تُولَّد وحدها مع مراجع ذلك الأمر، بما فيها الرسائل الجامعية ذات DOI.',
-        'The outline is empty on purpose. Your full goal is read for the title and questions. Each paragraph is generated with sources for that command, including DOI-confirmed dissertations.',
+        'The outline is empty on purpose. Your full goal is read for the title and questions. Each paragraph is generated with sources for that command, including indexed dissertations.',
       ),
     );
   }
@@ -931,7 +948,7 @@ ${ResearchGoalParser.contextForAi(draft.goal.raw)}
           : (resolved.kind == ThesisKind.literary
               ? '${goal.degreeLabel} in $field: an analytical reading'
               : '${goal.degreeLabel} in $field: a ${resolved.kind == ThesisKind.experimental ? 'laboratory' : 'field'} study'),
-      abstractText: _localAbstract(resolved, literature, methods, profile),
+      abstractText: '', // No generated content is available in an offline outline.
       researchQuestions: questions,
       chapters: [
         for (final t in outline) _localChapter(resolved, literature, t, profile),
@@ -1347,8 +1364,8 @@ Do not append a reference list. Do not copy other paragraphs. Do not evade AI de
     }
     if (literature.works.isEmpty) {
       return arabic
-          ? 'فقرة فارغة: لا توجد دراسات DOI مؤكدة لهذا الأمر بعد. استخدم أداة جلب المراجع أسفل الفقرة ثم ولّدها.'
-          : 'Empty paragraph: no DOI-confirmed studies for this command yet. Use the literature tool under the paragraph, then generate it.';
+          ? 'فقرة فارغة: لا توجد مراجع من الفهارس لهذا الأمر بعد. استخدم أداة جلب المراجع أسفل الفقرة ثم ولّدها.'
+          : 'Empty paragraph: no indexed studies for this command yet. Use the literature tool under the paragraph, then generate it.';
     }
     final focus = paragraph.references.isNotEmpty
         ? paragraph.references
@@ -1375,26 +1392,6 @@ Do not append a reference list. Do not copy other paragraphs. Do not evade AI de
       );
     }
     return lines.join(' ');
-  }
-
-  String _localAbstractSlot(
-    ThesisPlan plan,
-    GroundedReferenceBundle literature,
-    String command,
-  ) {
-    final arabic = plan.arabic;
-    if (literature.works.isEmpty) {
-      return arabic
-          ? 'ملخص فارغ حتى تُجلب مراجع مؤكدة لأمر هذه الفقرة.'
-          : 'Empty abstract until DOI-confirmed studies are fetched for this paragraph command.';
-    }
-    final n = literature.works.length;
-    final cue = command.trim().isEmpty
-        ? (arabic ? plan.goal.field : plan.goal.fieldEn)
-        : command.trim();
-    return arabic
-        ? 'مسودة ملخص حول «$cue» استناداً إلى $n دراسة مؤكدة بـ DOI. تُراجع مع المشرف؛ لا نتائج ملفّقة.'
-        : 'Working abstract on “$cue” from $n DOI-confirmed studies. Review with your supervisor; no fabricated results.';
   }
 
   bool _acceptableParagraph(
@@ -1463,7 +1460,7 @@ Do not append a reference list. Do not copy other paragraphs. Do not evade AI de
     }
     buffer.writeln(
       plan.arabic
-          ? 'عدد الدراسات المؤكدة: ${literature.works.length}'
+          ? 'عدد المراجع من الفهارس: ${literature.works.length}'
           : 'Confirmed studies: ${literature.works.length}',
     );
     return buffer.toString();
@@ -1655,8 +1652,8 @@ Do not rewrite the introduction, describe your experiment, or invent DOI/author/
     final questions = _localQuestions(plan, methods).map((q) => '• $q').join('\n');
     final sourceLine = cites.isEmpty
         ? (plan.arabic
-            ? 'لم تُؤكَّد دراسات DOI بعد؛ يبقى الإطار قصيراً حتى تُراجع المصادر، ولا تُختلق مراجع.'
-            : 'No DOI-confirmed studies yet; the frame stays short until sources are reviewed, and none are invented.')
+            ? 'لم تُجلب مراجع من الفهارس بعد؛ يبقى الإطار قصيراً حتى تُراجع المصادر، ولا تُختلق مراجع.'
+            : 'No indexed studies yet; the frame stays short until sources are reviewed, and none are invented.')
         : (plan.arabic
             ? 'تُبنى الأسئلة على الدراسات المؤكدة $cites دون تلخيص نتائج غير موجودة.'
             : 'Questions rest on confirmed studies $cites without summarising findings that do not exist.');
@@ -1696,7 +1693,7 @@ The work treats $field as a reading/analytical problem, not a laboratory experim
 The problem is a gap in the confirmed scholarship on $field in the chosen setting, not a missing set of lab results.
 
 1.3 Aims
-State a discussable research question, keep claims inside DOI-confirmed sources, and postpone unread evidence.
+State a discussable research question, keep claims inside indexed sources, and postpone unread evidence.
 
 1.4 Questions
 $questions
@@ -1723,7 +1720,7 @@ $sourceLine
 1.3 الأهداف
 (1) صياغة هدف قابل للقياس لـ $field.
 (2) ربط الهدف بأدوات $methods بوصفها مقترحة لا منفَّذة.
-(3) إبقاء الادعاءات داخل الأدبيات ذات DOI المؤكد.
+(3) إبقاء الادعاءات داخل المراجع المجلوبة من الفهارس.
 
 1.4 الأسئلة / الفروض المقترحة
 $questions
@@ -1749,7 +1746,7 @@ The practical problem is the absence of a locally specified, quality-controlled 
 1.3 Aims
 (1) State a measurable aim for $field.
 (2) Align that aim with $methods as proposed tools, not completed runs.
-(3) Keep every claim inside the DOI-confirmed bibliography.
+(3) Keep every claim inside the indexed bibliography.
 
 1.4 Questions / working hypotheses
 $questions
@@ -1997,8 +1994,8 @@ Next steps: lock the questions, read the full texts, then ${plan.kind == ThesisK
     final field = _fieldLabel(goal);
     if (literature.works.isEmpty) {
       return plan.arabic
-          ? 'فصل مراجعة الأدبيات في $field. لم يُعثر على أعمال بـ DOI مؤكد عبر فهارس AcadeGate. لم تُختلق أي دراسة. هذا الفصل ليس مقدمة ولا بروتوكول تجربة.'
-          : 'Literature-review chapter on $field. No DOI-confirmed works were found via AcadeGate indexes. No study was invented. This chapter is neither the introduction nor an experimental protocol.';
+          ? 'فصل مراجعة الأدبيات في $field. لم يُعثر على مراجع من الفهارس عبر فهارس AcadeGate. لم تُختلق أي دراسة. هذا الفصل ليس مقدمة ولا بروتوكول تجربة.'
+          : 'Literature-review chapter on $field. No indexed works were found via AcadeGate indexes. No study was invented. This chapter is neither the introduction nor an experimental protocol.';
     }
     final table = ThesisLiteratureMapper.comparisonTable(
       ThesisLiteratureMapper.fromBundle(literature),
@@ -2026,59 +2023,32 @@ For each theme: synthesize numbered studies [n], compare what they measured and 
 ''';
   }
 
-  static String _localAbstract(
-    ThesisPlan plan,
-    GroundedReferenceBundle literature,
-    String methods,
-    AcademicProfile? profile,
-  ) {
-    final goal = plan.goal;
-    final field = _fieldLabel(goal);
-    final uni = profile != null && profile.university.trim().isNotEmpty
-        ? profile.university.trim()
-        : '';
-    if (plan.arabic) {
-      return 'مسودة ${goal.degreeLabel} في $field (${plan.kindLabel}). '
-          'جمعت المنصة ${literature.works.length} دراسة DOI مؤكدة دون اختلاق مصادر. '
-          'الهيكل المختار: ${plan.shapeLabel}. '
-          '${plan.kind == ThesisKind.experimental ? 'المقدمة ومراجعة الأدبيات مسودتان طويلتان لكل فصل غرضه؛ الجزء العملي بروتوكول $methods؛ النتائج جداول فارغة حتى تُجمع البيانات. ' : ''}'
-          '${uni.isNotEmpty ? 'السياق: $uni. ' : ''}'
-          'ليست رسالة جاهزة من عشرات الصفحات ولا نسخة تسليم.';
-    }
-    return 'A ${goal.degreeLabel} draft in $field (${plan.kindLabel}). '
-        'The platform collected ${literature.works.length} DOI-confirmed studies and invented none. '
-        'Selected structure: ${plan.shapeLabel}. '
-        '${plan.kind == ThesisKind.experimental ? 'Introduction and literature are separate chapter drafts; experimental work is a $methods protocol; results remain empty tables until data exist. ' : ''}'
-        '${uni.isNotEmpty ? 'Context: $uni. ' : ''}'
-        'Not a finished multi-chapter submission and not a 150-page thesis.';
-  }
-
   static List<String> _localQuestions(ThesisPlan plan, String methods) {
     final field = _fieldLabel(plan.goal);
     if (plan.kind == ThesisKind.literary) {
       if (plan.arabic) {
         return [
           'كيف يُقرأ $field في المدونة المحددة وما الإشكالية النقدية؟',
-          'ما الفجوة في الدراسات المؤكدة بـ DOI حول $field؟',
+          'ما الفجوة في المراجع المجلوبة من الفهارس حول $field؟',
           'أي منهج تحليلي يناسب $field دون إسقاط أدوات تجريبية عليه؟',
         ];
       }
       return [
         'How is $field to be read in the chosen corpus, and what is the critical problem?',
-        'What gap remains in the DOI-confirmed scholarship on $field?',
+        'What gap remains in the indexed scholarship on $field?',
         'Which analytic method fits $field without imposing lab tools on it?',
       ];
     }
     if (plan.arabic) {
       return [
         'كيف يُقاس أو يُختبر $field باستخدام $methods؟',
-        'ما الفجوة المتبقية في الدراسات المؤكدة بـ DOI حول $field؟',
+        'ما الفجوة المتبقية في المراجع المجلوبة من الفهارس حول $field؟',
         'أي ضبط جودة أو تصميم يلزم قبل تفسير أي نتيجة؟',
       ];
     }
     return [
       'How can $field be measured or tested with $methods?',
-      'What gap remains in the DOI-confirmed studies on $field?',
+      'What gap remains in the indexed studies on $field?',
       'Which quality control or design is required before any result is interpreted?',
     ];
   }
