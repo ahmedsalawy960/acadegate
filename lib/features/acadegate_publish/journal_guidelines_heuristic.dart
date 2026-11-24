@@ -24,6 +24,14 @@ class JournalGuidelinesHeuristic {
       }
       out[key] = value;
     });
+    // Richer extraction cannot silently erase source-side style uncertainty.
+    if (heuristic['citationStyleUnresolved'] == true) {
+      out.remove('citationStyle');
+      out.remove('referenceListPlainNumber');
+      out['citationStyleUnresolved'] = true;
+      out['citationStyleUncertainty'] = heuristic['citationStyleUncertainty'];
+      _removeCitationClaims(out);
+    }
     out['found'] = true;
     return out;
   }
@@ -471,10 +479,128 @@ class JournalGuidelinesHeuristic {
       }
     }
 
+    _scopeCitationEvidence(text, rules);
+
     if (requireDistinctive) {
       return _isDistinctive(rules) ? rules : null;
     }
     return rules['found'] == true ? rules : null;
+  }
+
+  /// A style name in a cited work, abbreviation resource or optional policy
+  /// is not a mandatory style for this manuscript. Keep uncertainty explicit
+  /// so example inference and richer extraction cannot revive a guess.
+  static void _scopeCitationEvidence(String text, Map<String, dynamic> rules) {
+    var style = rules['citationStyle']?.toString();
+    final compact = text.replaceAll(RegExp(r'\s+'), ' ');
+    final flexible = RegExp(
+      r'(?:references?|reference style)[^.]{0,100}(?:any style|any reference style)|'
+      r'accept any reference style|'
+      r'(?:free[ -]format|format[ -]free)[^.]{0,300}(?:references?|reference style)|'
+      r'(?:references?|reference style)[^.]{0,300}(?:free[ -]format|format[ -]free)',
+      caseSensitive: false,
+    ).hasMatch(compact);
+    final candidates = <String>{};
+    final conditionalHeadings = <int, bool>{};
+    for (final raw in text.split('\n')) {
+      final heading = RegExp(r'^\s*(#{1,6})\s+(.+)').firstMatch(raw);
+      if (heading != null) {
+        final level = heading.group(1)!.length;
+        conditionalHeadings.removeWhere((key, _) => key >= level);
+        conditionalHeadings[level] = RegExp(
+          r'revis(?:ed|ion)|accept(?:ed|ance)|production',
+          caseSensitive: false,
+        ).hasMatch(heading.group(2)!);
+      }
+      for (final sentence in raw.split(RegExp(r'(?<=[.!?])\s+'))) {
+        if (conditionalHeadings.values.any((value) => value) ||
+            RegExp(
+              r'\b(?:may|optional|suggest|recommend|prefer|example|sample|abbreviat|'
+              r'chemical abstracts|journal titles?|typesett|if you wish|'
+              r'not required|not mandatory|not necessary|do not|does not|'
+              r'need not|no particular|no specific|for information only|'
+              r'revised manuscript|after acceptance)\w*\b',
+              caseSensitive: false,
+            ).hasMatch(sentence)) {
+          continue;
+        }
+        // A reference entry naming a manual/society is still source content.
+        if (RegExp(r'\b(?:19|20)\d{2}\b').hasMatch(sentence) ||
+            RegExp(r'https?://|doi\b', caseSensitive: false).hasMatch(sentence)) {
+          continue;
+        }
+        for (final named in [
+          'acs',
+          'ieee',
+          'apa',
+          'harvard',
+          'chicago',
+          'vancouver',
+        ]) {
+          if (RegExp('\\b$named\\b', caseSensitive: false).hasMatch(sentence) &&
+              RegExp(
+                r'\b(?:must|shall|should|follow|use|uses|using|required|formatted|prepared|conform)\b',
+                caseSensitive: false,
+              ).hasMatch(sentence)) {
+            candidates.add(named);
+          }
+        }
+        if (RegExp(
+          r'(?:references?|citations?|in.text|reference numbers)[^.]{0,100}(?:numbered|sequential|square brackets|\[\s*\d*\s*\])|numbered references',
+          caseSensitive: false,
+        ).hasMatch(sentence)) {
+          candidates.add('vancouver');
+        }
+      }
+    }
+    // IEEE explicitly named alongside numeric instructions is one style.
+    if (candidates.contains('ieee') &&
+        !RegExp(r'\bvancouver\b', caseSensitive: false).hasMatch(text)) {
+      candidates.remove('vancouver');
+      if (candidates.length == 1) {
+        style = 'ieee';
+        rules['citationStyle'] = style;
+      }
+    }
+    // Preserve the existing bracket/list variant when numeric evidence agrees.
+    final numeric =
+        candidates.length == 1 &&
+        candidates.contains('vancouver') &&
+        (style == 'ieee' || style == 'vancouver');
+    final valid =
+        !flexible &&
+        rules['citationStyleUnresolved'] != true &&
+        (numeric || (candidates.length == 1 && candidates.contains(style)));
+    final conditional =
+        !valid &&
+        (style != null ||
+            flexible ||
+            rules['referenceExample'] != null ||
+            rules['inTextExample'] != null ||
+            candidates.isNotEmpty ||
+            RegExp(r'\b(?:apa|acs|ieee|harvard|chicago|vancouver)\b',
+              caseSensitive: false).hasMatch(text));
+    if (!conditional) return;
+    rules.remove('citationStyle');
+    rules.remove('referenceListPlainNumber');
+    rules['citationStyleUnresolved'] = true;
+    rules['citationStyleUncertainty'] = flexible
+        ? 'Reference style is optional/free-format or depends on submission stage.'
+        : 'No single unqualified reference-style instruction was established.';
+    _removeCitationClaims(rules);
+    (rules['keyRequirements'] as List).add(rules['citationStyleUncertainty']);
+    rules['found'] = true;
+  }
+
+  static void _removeCitationClaims(Map<String, dynamic> rules) {
+    if (rules['keyRequirements'] is! List) return;
+    (rules['keyRequirements'] as List).removeWhere(
+      (item) => RegExp(
+        r'ACS citation style|IEEE citation style|APA citation style|'
+        r'Numbered references|References as 1|In-text \[n\]',
+        caseSensitive: false,
+      ).hasMatch(item.toString()),
+    );
   }
 
   static bool _isDistinctive(Map<String, dynamic> rules) {
