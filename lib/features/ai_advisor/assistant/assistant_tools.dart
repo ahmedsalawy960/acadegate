@@ -213,6 +213,8 @@ class AssistantToolbox {
             if (w.doi.isNotEmpty) 'doi': w.doi,
             if (w.year != null) 'year': w.year,
             'source_index': w.source,
+            if (w.citationCount != null) 'citation_count': w.citationCount,
+            if (w.tldr.trim().isNotEmpty) 'tldr': w.tldr,
             if (w.abstractText.trim().isNotEmpty)
               'abstract': w.abstractText.length > _maxAbstract
                   ? '${w.abstractText.substring(0, _maxAbstract)}…'

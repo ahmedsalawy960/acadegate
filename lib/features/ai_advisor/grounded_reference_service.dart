@@ -135,6 +135,8 @@ class GroundedReferenceService {
           'Semantic Scholar',
           journal: work.venue,
           abstractText: work.abstractText,
+          tldr: work.tldr,
+          citationCount: work.citationCount,
           externalUrl: work.url,
         );
       }
@@ -689,6 +691,8 @@ class GroundedReferenceService {
     String source, {
     String? journal,
     String? abstractText,
+    String? tldr,
+    int? citationCount,
     String? externalUrl,
     bool requireDoi = false,
   }) {
@@ -707,6 +711,8 @@ class GroundedReferenceService {
       source: source,
       journal: journal,
       abstractText: abstractText?.trim() ?? '',
+      tldr: tldr?.trim() ?? '',
+      citationCount: citationCount,
       externalUrl: (externalUrl ?? '').trim(),
     );
     final key = incoming.mergeKey;
@@ -715,11 +721,17 @@ class GroundedReferenceService {
       byKey[key] = incoming;
       return;
     }
+    byKey[key] = mergeWorks(existing, incoming);
+  }
+
+  /// Merges two records of the same work from different indexes, keeping the
+  /// DOI-bearing record as the base and filling gaps from the other.
+  static GroundedWork mergeWorks(GroundedWork existing, GroundedWork incoming) {
     // Prefer the record that already has a DOI / richer metadata.
     final preferIncoming = incoming.hasDoi && !existing.hasDoi;
     final base = preferIncoming ? incoming : existing;
     final other = preferIncoming ? existing : incoming;
-    byKey[key] = GroundedWork(
+    return GroundedWork(
       title: base.title,
       doi: base.hasDoi ? base.doi : other.doi,
       year: base.year ?? other.year,
@@ -731,6 +743,8 @@ class GroundedReferenceService {
       abstractText: base.abstractText.trim().isNotEmpty
           ? base.abstractText
           : other.abstractText,
+      tldr: base.tldr.trim().isNotEmpty ? base.tldr : other.tldr,
+      citationCount: base.citationCount ?? other.citationCount,
       externalUrl: base.externalUrl.trim().isNotEmpty
           ? base.externalUrl
           : other.externalUrl,

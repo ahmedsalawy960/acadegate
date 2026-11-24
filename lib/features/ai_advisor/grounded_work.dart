@@ -8,6 +8,10 @@ class GroundedWork {
   final String source;
   final String? journal;
   final String abstractText;
+  /// One-line evidence summary from the index, when available.
+  final String tldr;
+  /// Times cited, when the index reports it.
+  final int? citationCount;
   /// Landing page when DOI is missing (external academic indexes).
   final String externalUrl;
 
@@ -22,6 +26,8 @@ class GroundedWork {
     this.authors = '',
     this.journal,
     this.abstractText = '',
+    this.tldr = '',
+    this.citationCount,
     this.externalUrl = '',
   });
 
