@@ -2395,6 +2395,30 @@ class ManuscriptDocumentParser {
   static bool _isPostBibliographyBoundary(String text) {
     final t = text.trim();
     if (t.length > 300) return false;
+    // Only an entire declaration heading ends the bibliography. A matching
+    // word inside a reference title or organization name is not a boundary.
+    // Apply this same boundary to text parsing and body-block harvesting so
+    // post-reference prose is retained in the body, never appended to a ref.
+    if (RegExp(
+      r'^(?:\d+[.)]?\s*)?(?:acknowledg(?:e)?ments?|funding(?: statement)?|'
+      r'financial (?:support|disclosures?)|author(?:s|[’\x27]s)? contributions?|'
+      r'contributions? (?:of|by) (?:the )?authors?|author information|'
+      r'ethic(?:s|al) (?:approval|statement|declarations?|considerations?)|'
+      r'conflicts? of interests?(?: statement)?|competing interests?|'
+      r'declarations? of (?:competing interests?|conflicts? of interests?)|'
+      r'data (?:and (?:code|materials) )?availability(?: statement)?|'
+      r'consent (?:to participate|for publication)|'
+      r'agradecimientos|financiamiento|financiaci[oó]n|'
+      r'contribuci[oó]n de (?:la )?autor[ií]a|'
+      r'contribuciones? de (?:los )?autores|'
+      r'declaraci[oó]n de conflictos? de intereses|'
+      r'declaraci[oó]n sobre el uso de inteligencia artificial|'
+      r'الشكر والتقدير|مساهمات المؤلفين|التمويل|تضارب المصالح|'
+      r'الموافقة الأخلاقية)\s*[:.：]?$',
+      caseSensitive: false,
+    ).hasMatch(t)) {
+      return true;
+    }
     return RegExp(
       r'^(?:(?:\d+[.)]?\s*)?(?:appendices|appendix(?:\s+[A-Z0-9]+)?|'
       r'supplementary(?:\s+(?:materials?|information|files?))?|'
@@ -2704,7 +2728,7 @@ class ManuscriptDocumentParser {
 
         if (region == _CiteImportRegion.bibliography && tag == 'p') {
           final plain = _paragraphPlainText(child).trim();
-          if (_isAppendixHeading(plain)) {
+          if (_isPostBibliographyBoundary(plain)) {
             region = _CiteImportRegion.body;
           } else {
             final paraBlocks = _blocksFromDocxParagraph(
@@ -4154,7 +4178,7 @@ class ManuscriptDocumentParser {
 
     final heading = RegExp(
       r'(?:^|\n)\s*(?:\d+\.?\s*)?(References?|Bibliography|Works Cited|'
-      r'Reference List|Literature Cited|REFERENCES|المراجع|قائمة المراجع|'
+      r'Reference List|Literature Cited|REFERENCES|Referencias(?: bibliogr[aá]ficas)?|Bibliograf[ií]a|المراجع|قائمة المراجع|'
       r'المصادر)\s*:?\s*(?:\n|$)',
       caseSensitive: false,
     );
@@ -4235,7 +4259,7 @@ class ManuscriptDocumentParser {
 
     return RegExp(
       r'^(?:\d+\.?\s*)?(References?|Bibliography|Works Cited|Reference List|'
-      r'Literature Cited|REFERENCES)\s*:?\.?\s*$',
+      r'Literature Cited|REFERENCES|Referencias(?: bibliogr[aá]ficas)?|Bibliograf[ií]a)\s*:?\.?\s*$',
       caseSensitive: false,
     ).hasMatch(t) ||
         RegExp(r'^(?:\d+\.?\s*)?(المراجع|قائمة المراجع|المصادر)( والمصادر)?\s*:?\.?\s*$')
