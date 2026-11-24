@@ -13,15 +13,21 @@ const { consumeQuota, quotaExceededHttpsError } = require("./usage_quota");
 
 const geminiApiKey = defineSecret("GEMINI_API_KEY");
 
+// Deprecated IDs stay out of both lists: gemini-2.5-flash and gemini-2.5-pro
+// auto-route to cheaper models on 2026-12-01 (Gemini API deprecations page),
+// which would silently weaken every answer.
 const PRO_MODEL = "gemini-3.1-pro-preview";
-const DEEP_MODELS = [PRO_MODEL, "gemini-3.6-flash", "gemini-3-flash-preview", "gemini-2.5-pro"];
+const DEEP_MODELS = [PRO_MODEL, "gemini-3.8-flash", "gemini-3.6-flash"];
 const FAST_MODELS = [
-  "gemini-2.5-flash",
-  "gemini-3.1-flash-lite",
-  "gemini-3-flash-preview",
   "gemini-3.6-flash",
+  "gemini-3-flash-preview",
+  "gemini-3.1-flash-lite",
 ];
-const LEGACY_THINKING = new Set(["gemini-2.5-flash", "gemini-2.5-pro"]);
+
+/** The model a request should be served by when nothing is failing. */
+function primaryModelFor(deep) {
+  return (deep ? DEEP_MODELS : FAST_MODELS)[0];
+}
 
 const MAX_ROUNDS = 6;
 const TURN_TTL_MS = 15 * 60 * 1000;
@@ -247,11 +253,9 @@ async function admitRound(uid, turnId) {
 
 function generationConfigFor(model, { deep, hasMedia }) {
   const config = { maxOutputTokens: deep ? 16384 : 8192 };
-  if (LEGACY_THINKING.has(model)) {
-    config.temperature = 0.5;
-    if (!hasMedia) config.thinkingConfig = { thinkingBudget: deep ? 4096 : 0 };
-  } else if (String(model).startsWith("gemini-3")) {
-    // Gemini 3: keep default temperature (Google advises against lowering it).
+  const name = String(model);
+  if (name.startsWith("gemini-3") || name.startsWith("gemini-4")) {
+    // Gemini 3+: keep default temperature (Google advises against lowering it).
     if (!hasMedia) config.thinkingConfig = { thinkingLevel: deep ? "high" : "medium" };
   } else {
     config.temperature = 0.5;
@@ -396,6 +400,9 @@ exports._test = {
   generationConfigFor,
   admitTurnOrFailOpen,
   shouldFailOpenOnAdmissionError,
+  primaryModelFor,
+  DEEP_MODELS,
+  FAST_MODELS,
 };
 
 exports.academicAssistant = onCall(
@@ -448,7 +455,8 @@ exports.academicAssistant = onCall(
 
     const tier = await admitTurnOrFailOpen(uid, turnId);
     console.log("academicAssistant model loop", tier);
-    const deep = data.mode === "deep" && (tier === "pro" || tier === "admin");
+    const requestedDeep = data.mode === "deep";
+    const deep = requestedDeep && (tier === "pro" || tier === "admin");
 
     const attachmentParts = await resolveAttachmentParts(data.attachments, uid);
     injectAttachments(contents, attachmentParts);
@@ -529,6 +537,8 @@ exports.academicAssistant = onCall(
         functionCalls,
         model,
         deep,
+        requestedDeep,
+        downgraded: model !== primaryModelFor(deep),
         tier,
         finishReason: result.finishReason || null,
       };

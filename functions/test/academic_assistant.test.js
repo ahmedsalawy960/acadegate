@@ -329,3 +329,45 @@ test("deep mode gets a larger stream budget than fast mode", () => {
   assert.ok(deep.totalMs > fast.totalMs);
   assert.ok(deep.idleMs >= fast.idleMs);
 });
+
+const {
+  primaryModelFor,
+  DEEP_MODELS,
+  FAST_MODELS,
+  generationConfigFor,
+} = require("../academic_assistant")._test;
+
+test("model classes exclude deprecated ids that auto-route to weaker models", () => {
+  const retired = ["gemini-2.5-flash", "gemini-2.5-pro"];
+  for (const id of retired) {
+    assert.ok(!DEEP_MODELS.includes(id), `${id} must leave DEEP_MODELS`);
+    assert.ok(!FAST_MODELS.includes(id), `${id} must leave FAST_MODELS`);
+  }
+});
+
+test("each class leads with its strongest supported model", () => {
+  assert.strictEqual(DEEP_MODELS[0], "gemini-3.1-pro-preview");
+  assert.strictEqual(FAST_MODELS[0], "gemini-3.6-flash");
+  assert.strictEqual(primaryModelFor(true), DEEP_MODELS[0]);
+  assert.strictEqual(primaryModelFor(false), FAST_MODELS[0]);
+});
+
+test("the lite model is only a last-resort fast fallback", () => {
+  assert.strictEqual(FAST_MODELS[FAST_MODELS.length - 1], "gemini-3.1-flash-lite");
+  assert.ok(!DEEP_MODELS.some((m) => m.includes("lite")), "deep never serves lite");
+});
+
+test("generation config uses thinking levels, never legacy thinking budgets", () => {
+  for (const model of [...DEEP_MODELS, ...FAST_MODELS]) {
+    for (const deep of [true, false]) {
+      const config = generationConfigFor(model, { deep, hasMedia: false });
+      assert.ok(
+        !("thinkingBudget" in (config.thinkingConfig || {})),
+        `${model} must not get a thinkingBudget`,
+      );
+      assert.strictEqual(config.thinkingConfig.thinkingLevel, deep ? "high" : "medium");
+    }
+  }
+  const media = generationConfigFor(FAST_MODELS[0], { deep: false, hasMedia: true });
+  assert.ok(!media.thinkingConfig, "media turns skip thinking config");
+});
