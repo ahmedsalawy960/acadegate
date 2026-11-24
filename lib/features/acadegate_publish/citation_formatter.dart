@@ -190,6 +190,13 @@ class CitationFormatter {
     s = _cleanRawCitation(s);
     if (s.length < 16) return null;
 
+    // The publication year after the author list identifies APA structure.
+    // A quoted word in an APA title is not an IEEE title delimiter.
+    if (RegExp(r"^[\p{Lu}][\p{L}'\-]*,\s*[A-Z]\.", unicode: true)
+        .hasMatch(s)) {
+      final apa = _parseApaLikeLine(s);
+      if (apa != null) return apa;
+    }
     if (RegExp(r'"[^"]{8,}"|“[^”]{8,}”').hasMatch(s)) {
       final ieee = _parseIeeeLikeLine(s);
       if (ieee != null) return ieee;
@@ -967,8 +974,12 @@ class CitationFormatter {
           caseSensitive: false,
         ).firstMatch(rest)?.group(1)?.replaceAll(' ', '') ??
         '';
+    final publicationRest = rest.replaceAll(
+      RegExp(r'https?://\S+|\bdoi\s*:\s*\S+', caseSensitive: false),
+      '',
+    );
     final years = RegExp(r'\b((?:19|20)\d{2})\b')
-        .allMatches(rest)
+        .allMatches(publicationRest)
         .map((m) => m.group(1)!)
         .toList();
     final year = years.isEmpty ? '' : years.last;
@@ -1107,8 +1118,9 @@ class CitationFormatter {
     s = s.replaceAll(RegExp(r'\s+and\s+', caseSensitive: false), ', ');
     s = s.replaceAll(RegExp(r'\bet\s+al\.?', caseSensitive: false), '');
     final pairs = RegExp(
-      r"([A-Z][a-z][A-Za-z'\-]*),\s*"
+      r"([\p{Lu}][\p{Ll}][\p{L}'\-]*),\s*"
       r"((?:[A-Z](?:[a-z]+|\.)?)(?:\s+[A-Z](?:[a-z]+|\.)?)*)",
+      unicode: true,
     )
         .allMatches(s)
         .map((m) => '${m.group(1)!.trim()}, ${m.group(2)!.trim()}')
