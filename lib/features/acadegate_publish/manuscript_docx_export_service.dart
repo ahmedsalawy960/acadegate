@@ -447,7 +447,7 @@ class ManuscriptDocxExportService {
 <w:p>
   <w:pPr>
     <w:jc w:val="center"/>
-    <w:spacing w:before="60" w:after="60" w:line="${rules.lineSpacingExactTwips}" w:lineRule="${rules.lineSpacingRule}"/>
+    <w:spacing w:before="60" w:after="60" w:line="240" w:lineRule="auto"/>
   </w:pPr>
   <w:r>
     <w:drawing>

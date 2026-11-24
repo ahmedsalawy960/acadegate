@@ -3477,12 +3477,40 @@ class ManuscriptDocumentParser {
   }
 
   static (int, int)? _drawingExtentEmu(XmlElement node) {
-    for (final el in node.findAllElements('extent')) {
+    // DrawingML prefixes vary between publishers. Match the local name.
+    for (final el in _descendantsNamed(node, 'extent')) {
       final cx = int.tryParse(el.getAttribute('cx') ?? '');
       final cy = int.tryParse(el.getAttribute('cy') ?? '');
       if (cx != null && cy != null && cx > 0 && cy > 0) {
         return (cx, cy);
       }
+    }
+    // Older Word equation objects use a VML preview with CSS point sizes,
+    // not a DrawingML extent. Keep that aspect ratio instead of guessing 4:3.
+    for (final shape in _descendantsNamed(node, 'shape')) {
+      final style = shape.getAttribute('style') ?? '';
+      int? dimension(String property) {
+        final match = RegExp(
+          '(?:^|;)\\s*$property'
+              r'\s*:\s*([0-9]+(?:\.[0-9]+)?)\s*(pt|in|cm|mm|px)\s*(?:;|$)',
+          caseSensitive: false,
+        ).firstMatch(style);
+        if (match == null) return null;
+        final value = double.tryParse(match.group(1)!);
+        if (value == null || value <= 0 || !value.isFinite) return null;
+        final factor = switch (match.group(2)!.toLowerCase()) {
+          'pt' => 12700.0,
+          'in' => 914400.0,
+          'cm' => 360000.0,
+          'mm' => 36000.0,
+          _ => 9525.0,
+        };
+        return (value * factor).round();
+      }
+
+      final width = dimension('width');
+      final height = dimension('height');
+      if (width != null && height != null) return (width, height);
     }
     return null;
   }
