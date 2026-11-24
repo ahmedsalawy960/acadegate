@@ -86,7 +86,9 @@ class JournalGuidelinesHeuristic {
     final headingScopes = <int, bool>{};
     final localFontScope = RegExp(
       r'\b(tables?|figures?|images?|graphical abstract|captions?|legends?|'
-      r'artwork|chemical structures?|atom labels?|latex|tex)\b',
+      r'artwork|chemical structures?|atom labels?|latex|tex|'
+      r'special characters?|insert symbol|character code|diacritics?|'
+      r'phonetic symbols?|transliterated Arabic|European accents?)\b',
       caseSensitive: false,
     );
     for (final raw in text.split('\n')) {
@@ -100,7 +102,10 @@ class JournalGuidelinesHeuristic {
       if (headingScopes.values.any((excluded) => excluded)) continue;
       for (final line in raw.split(RegExp(r'(?<=[.!?])\s+'))) {
         if (localFontScope.hasMatch(line) || RegExp(
-          r'fonts?\s+such as|(?:recommended|suggested)\s+fonts?',
+          r'fonts?\s+such as|(?:recommended|suggested)\s+fonts?|'
+          r'(?:may|can)\s+(?:choose|use)\s+(?:either\s+)?(?:Times New Roman|Arial)|'
+          r'(?:Greek|Hebrew|Cyrillic)\s+(?:letters?|characters?)|'
+          r'(?:font|typeface)[^.]{0,60}dropdown menu',
           caseSensitive: false,
         ).hasMatch(line)) {
           continue;
