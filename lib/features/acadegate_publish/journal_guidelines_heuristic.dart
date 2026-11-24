@@ -74,13 +74,33 @@ class JournalGuidelinesHeuristic {
 
     // Local exceptions and optional font lists cannot set whole-paper fonts.
     // Keep these out of font extraction without discarding other guide rules.
-    final bodyFontText = text.split(RegExp(r'(?<=[.!?])\s+|\n+')).where((line) {
-      return !RegExp(
-        r'\b(tables?|figures?|graphical abstract|captions?|legends?|artwork)\b|'
-        r'fonts?\s+such as|(?:recommended|suggested)\s+fonts?',
-        caseSensitive: false,
-      ).hasMatch(line);
-    }).join('\n');
+    final fontLines = <String>[];
+    final headingScopes = <int, bool>{};
+    final localFontScope = RegExp(
+      r'\b(tables?|figures?|images?|graphical abstract|captions?|legends?|'
+      r'artwork|chemical structures?|atom labels?|latex|tex)\b',
+      caseSensitive: false,
+    );
+    for (final raw in text.split('\n')) {
+      final heading = RegExp(r'^\s*(#{1,6})\s+(.+)$').firstMatch(raw);
+      if (heading != null) {
+        final level = heading.group(1)!.length;
+        headingScopes.removeWhere((key, _) => key >= level);
+        headingScopes[level] = localFontScope.hasMatch(heading.group(2)!);
+        continue;
+      }
+      if (headingScopes.values.any((excluded) => excluded)) continue;
+      for (final line in raw.split(RegExp(r'(?<=[.!?])\s+'))) {
+        if (localFontScope.hasMatch(line) || RegExp(
+          r'fonts?\s+such as|(?:recommended|suggested)\s+fonts?',
+          caseSensitive: false,
+        ).hasMatch(line)) {
+          continue;
+        }
+        fontLines.add(line);
+      }
+    }
+    final bodyFontText = fontLines.join('\n');
 
     if (_has(
       bodyFontText,
