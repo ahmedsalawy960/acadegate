@@ -297,11 +297,37 @@ function appendPart(out, part) {
   }
 }
 
-async function streamOnce({ model, apiKey, body, onText }) {
+/**
+ * Per-model stream caps. Deep answers with thinking regularly exceed 25s, so
+ * they get a larger budget; the idle cap aborts a stalled stream in any mode.
+ */
+function streamLimitsFor(deep) {
+  return deep
+    ? { idleMs: 45000, totalMs: 240000 }
+    : { idleMs: 30000, totalMs: 75000 };
+}
+
+/**
+ * One model call over streamGenerateContent (SSE). Text deltas reach onText
+ * as they arrive; parts are merged exactly like a non-streamed response.
+ * Aborts when the stream goes idle for limits.idleMs or runs past
+ * limits.totalMs overall.
+ */
+async function streamOnce({ model, apiKey, body, onText, limits }) {
+  const { idleMs, totalMs } = limits || streamLimitsFor(false);
   const url =
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`;
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 25000);
+  const startedAt = Date.now();
+  let lastActivity = startedAt;
+  const watchdog = setInterval(() => {
+    const now = Date.now();
+    if (now - lastActivity > idleMs) {
+      controller.abort(new Error("stream-idle-timeout"));
+    } else if (now - startedAt > totalMs) {
+      controller.abort(new Error("stream-total-timeout"));
+    }
+  }, 1000);
   try {
     const res = await fetch(url, {
       method: "POST",
@@ -313,23 +339,51 @@ async function streamOnce({ model, apiKey, body, onText }) {
       const errBody = await res.text();
       return { ok: false, status: res.status, errBody };
     }
-    const json = await res.json();
     const parts = [];
     let finishReason = null;
-    const blockReason = json?.promptFeedback?.blockReason || null;
-    const cand = Array.isArray(json?.candidates) ? json.candidates[0] : null;
-    if (cand?.finishReason) finishReason = cand.finishReason;
+    let blockReason = null;
     let streamedChars = 0;
-    for (const p of cand?.content?.parts || []) {
-      appendPart(parts, p);
-      if (p && p.thought !== true && typeof p.text === "string" && p.text.length > 0) {
-        streamedChars += p.text.length;
-        onText(p.text);
+    const handleData = (payload) => {
+      let chunk;
+      try {
+        chunk = JSON.parse(payload);
+      } catch (_) {
+        return;
       }
+      blockReason = chunk?.promptFeedback?.blockReason || blockReason;
+      const cand = Array.isArray(chunk?.candidates) ? chunk.candidates[0] : null;
+      if (cand?.finishReason) finishReason = cand.finishReason;
+      for (const p of cand?.content?.parts || []) {
+        appendPart(parts, p);
+        if (p && p.thought !== true && typeof p.text === "string" && p.text.length > 0) {
+          streamedChars += p.text.length;
+          onText(p.text);
+        }
+      }
+    };
+    const decoder = new TextDecoder();
+    let buffer = "";
+    for await (const piece of res.body) {
+      lastActivity = Date.now();
+      buffer += decoder.decode(piece, { stream: true });
+      let idx;
+      while ((idx = buffer.indexOf("\n")) >= 0) {
+        const line = buffer.slice(0, idx).replace(/\r$/, "");
+        buffer = buffer.slice(idx + 1);
+        if (!line.startsWith("data:")) continue;
+        const payload = line.slice(5).trim();
+        if (payload && payload !== "[DONE]") handleData(payload);
+      }
+    }
+    buffer += decoder.decode();
+    const tail = buffer.trim();
+    if (tail.startsWith("data:")) {
+      const payload = tail.slice(5).trim();
+      if (payload && payload !== "[DONE]") handleData(payload);
     }
     return { ok: true, parts, finishReason, blockReason, streamedChars };
   } finally {
-    clearTimeout(timer);
+    clearInterval(watchdog);
   }
 }
 
@@ -338,6 +392,7 @@ exports._test = {
   sanitizeContents,
   injectAttachments,
   streamOnce,
+  streamLimitsFor,
   generationConfigFor,
   admitTurnOrFailOpen,
   shouldFailOpenOnAdmissionError,
@@ -420,10 +475,11 @@ exports.academicAssistant = onCall(
 
       let result;
       try {
-        result = await streamOnce({ model, apiKey, body, onText });
+        const limits = streamLimitsFor(deep);
+        result = await streamOnce({ model, apiKey, body, onText, limits });
         if (!result.ok && body.generationConfig.thinkingConfig && /thinking/i.test(result.errBody)) {
           delete body.generationConfig.thinkingConfig;
-          result = await streamOnce({ model, apiKey, body, onText });
+          result = await streamOnce({ model, apiKey, body, onText, limits });
         }
       } catch (err) {
         const message = err.name === "TimeoutError" || err.name === "AbortError"

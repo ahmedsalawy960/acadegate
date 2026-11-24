@@ -122,3 +122,210 @@ test("classifier: HttpsError is a decision, anything else is transient", () => {
     true,
   );
 });
+
+const { streamOnce, streamLimitsFor } = require("../academic_assistant")._test;
+
+function sseResponse(chunks, { status = 200 } = {}) {
+  const encoder = new TextEncoder();
+  const events = chunks.map(
+    (c) => `data: ${JSON.stringify(c)}\r\n\r\n`,
+  );
+  const bytes = events.map((e) => encoder.encode(e));
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    text: async () => "error body",
+    body: (async function* () {
+      for (const b of bytes) yield b;
+    })(),
+  };
+}
+
+async function withMockFetch(impl, fn) {
+  const original = global.fetch;
+  global.fetch = impl;
+  try {
+    return await fn();
+  } finally {
+    global.fetch = original;
+  }
+}
+
+test("streams SSE deltas as they arrive and merges the parts", async () => {
+  const chunks = [
+    { candidates: [{ content: { parts: [{ text: "Hello " }] } }] },
+    { candidates: [{ content: { parts: [{ text: "world" }] } }] },
+    {
+      candidates: [
+        {
+          content: { parts: [{ functionCall: { name: "search", args: {} }, thoughtSignature: "S1" }] },
+          finishReason: "STOP",
+        },
+      ],
+    },
+  ];
+  const deltas = [];
+  const result = await withMockFetch(
+    async () => sseResponse(chunks),
+    () =>
+      streamOnce({
+        model: "m",
+        apiKey: "k",
+        body: {},
+        onText: (t) => deltas.push(t),
+        limits: { idleMs: 5000, totalMs: 10000 },
+      }),
+  );
+  assert.strictEqual(result.ok, true);
+  assert.deepStrictEqual(deltas, ["Hello ", "world"]);
+  assert.deepStrictEqual(result.parts, [
+    { text: "Hello world" },
+    { functionCall: { name: "search", args: {} }, thoughtSignature: "S1" },
+  ]);
+  assert.strictEqual(result.finishReason, "STOP");
+  assert.strictEqual(result.streamedChars, 11);
+});
+
+test("handles SSE events split across network chunks", async () => {
+  const encoder = new TextEncoder();
+  const payload = 'data: {"candidates":[{"content":{"parts":[{"text":"ab"}]}}]}\r\n\r\n';
+  const all = encoder.encode(payload);
+  const mid = Math.floor(all.length / 2);
+  const deltas = [];
+  const result = await withMockFetch(
+    async () => ({
+      ok: true,
+      status: 200,
+      body: (async function* () {
+        yield all.subarray(0, mid);
+        yield all.subarray(mid);
+      })(),
+    }),
+    () =>
+      streamOnce({
+        model: "m",
+        apiKey: "k",
+        body: {},
+        onText: (t) => deltas.push(t),
+        limits: { idleMs: 5000, totalMs: 10000 },
+      }),
+  );
+  assert.strictEqual(result.ok, true);
+  assert.deepStrictEqual(deltas, ["ab"]);
+});
+
+test("ignores malformed SSE data lines and keeps parsing", async () => {
+  const encoder = new TextEncoder();
+  const deltas = [];
+  const result = await withMockFetch(
+    async () => ({
+      ok: true,
+      status: 200,
+      body: (async function* () {
+        yield encoder.encode("data: {broken json\r\n\r\n");
+        yield encoder.encode('data: {"candidates":[{"content":{"parts":[{"text":"ok"}]}}]}\r\n\r\n');
+      })(),
+    }),
+    () =>
+      streamOnce({
+        model: "m",
+        apiKey: "k",
+        body: {},
+        onText: (t) => deltas.push(t),
+        limits: { idleMs: 5000, totalMs: 10000 },
+      }),
+  );
+  assert.strictEqual(result.ok, true);
+  assert.deepStrictEqual(deltas, ["ok"]);
+});
+
+test("returns the HTTP error body for rejected calls", async () => {
+  const result = await withMockFetch(
+    async () => ({ ok: false, status: 429, text: async () => "quota exceeded" }),
+    () =>
+      streamOnce({
+        model: "m",
+        apiKey: "k",
+        body: {},
+        onText: () => {},
+        limits: { idleMs: 5000, totalMs: 10000 },
+      }),
+  );
+  assert.deepStrictEqual(result, { ok: false, status: 429, errBody: "quota exceeded" });
+});
+
+test("aborts a stream that goes idle", async () => {
+  let capturedSignal = null;
+  await assert.rejects(
+    withMockFetch(
+      async (url, opts) => {
+        capturedSignal = opts.signal;
+        return {
+          ok: true,
+          status: 200,
+          body: (async function* () {
+            yield new TextEncoder().encode('data: {"candidates":[{"content":{"parts":[{"text":"hi"}]}}]}\r\n\r\n');
+            await new Promise((_, reject) => {
+              capturedSignal.addEventListener("abort", () =>
+                reject(capturedSignal.reason || new Error("aborted")),
+              );
+            });
+          })(),
+        };
+      },
+      () =>
+        streamOnce({
+          model: "m",
+          apiKey: "k",
+          body: {},
+          onText: () => {},
+          limits: { idleMs: 30, totalMs: 60000 },
+        }),
+    ),
+    /stream-idle-timeout/,
+  );
+});
+
+test("aborts a stream that exceeds the total cap", async () => {
+  let capturedSignal = null;
+  await assert.rejects(
+    withMockFetch(
+      async (url, opts) => {
+        capturedSignal = opts.signal;
+        return {
+          ok: true,
+          status: 200,
+          body: (async function* () {
+            const enc = new TextEncoder();
+            while (true) {
+              yield enc.encode('data: {"candidates":[{"content":{"parts":[{"text":"."}]}]}}]}\r\n\r\n');
+              await new Promise((resolve, reject) => {
+                const t = setTimeout(resolve, 10);
+                capturedSignal.addEventListener("abort", () => {
+                  clearTimeout(t);
+                  reject(capturedSignal.reason || new Error("aborted"));
+                });
+              });
+            }
+          })(),
+        };
+      },
+      () =>
+        streamOnce({
+          model: "m",
+          apiKey: "k",
+          body: {},
+          onText: () => {},
+          limits: { idleMs: 60000, totalMs: 50 },
+        }),
+    ),
+    /stream-total-timeout/,
+  );
+});
+
+test("deep mode gets a larger stream budget than fast mode", () => {
+  const fast = streamLimitsFor(false);
+  const deep = streamLimitsFor(true);
+  assert.ok(deep.totalMs > fast.totalMs);
+  assert.ok(deep.idleMs >= fast.idleMs);
+});
