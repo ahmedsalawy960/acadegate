@@ -72,13 +72,23 @@ class JournalGuidelinesHeuristic {
       rules['found'] = true;
     }
 
+    // Local exceptions and optional font lists cannot set whole-paper fonts.
+    // Keep these out of font extraction without discarding other guide rules.
+    final bodyFontText = text.split(RegExp(r'(?<=[.!?])\s+|\n+')).where((line) {
+      return !RegExp(
+        r'\b(tables?|figures?|graphical abstract|captions?|legends?|artwork)\b|'
+        r'fonts?\s+such as|(?:recommended|suggested)\s+fonts?',
+        caseSensitive: false,
+      ).hasMatch(line);
+    }).join('\n');
+
     if (_has(
-      text,
+      bodyFontText,
       r'(?:font|typeface|type face)[^.]{0,40}times new roman|times new roman[^.]{0,40}(?:font|typeface)|تايمز',
     )) {
       rules['fontFamily'] = 'Times New Roman';
     } else if (_has(
-      text,
+      bodyFontText,
       r'(?:font|typeface)[^.]{0,30}\barial\b|\barial\b[^.]{0,30}(?:font|typeface)|أريال',
     )) {
       rules['fontFamily'] = 'Arial';
@@ -88,7 +98,7 @@ class JournalGuidelinesHeuristic {
       r'(?:font|typeface|text)[^.\d]{0,40}(\d{1,2})[\s-]?(?:point|pt|نقطة)|'
       r'(\d{1,2})[\s-]?(?:point|pt|نقطة)[^.]{0,30}(?:font|typeface)',
       caseSensitive: false,
-    ).firstMatch(text);
+    ).firstMatch(bodyFontText);
     if (fontPt != null) {
       final pt = int.parse(fontPt.group(1) ?? fontPt.group(2)!);
       if (pt >= 8 && pt <= 16) {
