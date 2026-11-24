@@ -47,6 +47,7 @@ class JournalFormatRules {
   final bool headingUppercase;
   final String titleAlign;
   final bool pageNumbers;
+  final bool continuousLineNumbers;
   final bool runningHeader;
   final int? abstractMaxWords;
   final List<String> sectionOrder;
@@ -93,6 +94,7 @@ class JournalFormatRules {
     this.headingUppercase = false,
     this.titleAlign = 'center',
     this.pageNumbers = true,
+    this.continuousLineNumbers = false,
     this.runningHeader = false,
     this.abstractMaxWords,
     this.sectionOrder = const [],
@@ -292,6 +294,8 @@ class JournalFormatRules {
           'Figure/table width: at most ${figureMaxWidthCm!.toStringAsFixed(1)} cm; legends below figures',
         ),
       if (pageNumbers) appTr('ترقيم الصفحات: نعم', 'Page numbers: yes'),
+      if (continuousLineNumbers)
+        appTr('ترقيم الأسطر: متصل', 'Continuous line numbers'),
       if (runningHeader)
         appTr('ترويسة جارية باسم المجلة', 'Running header with journal name'),
       if (abstractMaxWords != null)
@@ -342,6 +346,7 @@ class JournalFormatRules {
     bool? headingUppercase,
     String? titleAlign,
     bool? pageNumbers,
+    bool? continuousLineNumbers,
     bool? runningHeader,
     int? abstractMaxWords,
     List<String>? sectionOrder,
@@ -388,6 +393,7 @@ class JournalFormatRules {
       headingUppercase: headingUppercase ?? this.headingUppercase,
       titleAlign: titleAlign ?? this.titleAlign,
       pageNumbers: pageNumbers ?? this.pageNumbers,
+      continuousLineNumbers: continuousLineNumbers ?? this.continuousLineNumbers,
       runningHeader: runningHeader ?? this.runningHeader,
       abstractMaxWords: abstractMaxWords ?? this.abstractMaxWords,
       sectionOrder: sectionOrder ?? this.sectionOrder,
@@ -537,6 +543,9 @@ class JournalFormatRules {
               ? 'center'
               : (fallback?.titleAlign ?? 'center')),
       pageNumbers: extracted['pageNumbers'] != false,
+      continuousLineNumbers: extracted.containsKey('continuousLineNumbers')
+          ? extracted['continuousLineNumbers'] == true
+          : (fallback?.continuousLineNumbers ?? false),
       runningHeader: extracted['runningHeader'] == true ||
           extracted['runningTitleMaxChars'] != null ||
           (fallback?.runningHeader ?? false),

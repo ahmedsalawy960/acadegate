@@ -379,6 +379,20 @@ class JournalGuidelinesHeuristic {
           .add('Figure legends below the figure');
       rules['found'] = true;
     }
+    final continuousLines = text.split(RegExp(r'(?<=[.!?])\s+|\n+')).any((line) {
+      if (RegExp(r'supplement|supporting information|\bmay\b|optional|'
+          r'do not use|without|must not|should not', caseSensitive: false)
+          .hasMatch(line)) {
+        return false;
+      }
+      return RegExp(r'\b(?:use|include|required|must|should)\b[^.!?]{0,100}'
+          r'continuous line numbers?', caseSensitive: false).hasMatch(line);
+    });
+    if (continuousLines) {
+      rules['continuousLineNumbers'] = true;
+      (rules['keyRequirements'] as List).add('Continuous line numbers');
+      rules['found'] = true;
+    }
     if (_has(text, r'page numbers?|ترقيم الصفحات')) {
       rules['pageNumbers'] = true;
     }

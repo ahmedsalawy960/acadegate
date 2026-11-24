@@ -1149,6 +1149,10 @@ class ManuscriptDocxExportService {
     return parts.join();
   }
 
+  String _lineNumberXml(JournalFormatRules rules) => rules.continuousLineNumbers
+      ? '<w:lnNumType w:countBy="1" w:distance="360" w:restart="continuous"/>'
+      : '';
+
   String _continuousSectionBreak(JournalFormatRules rules, {required int columns}) {
     return '''
 <w:p>
@@ -1157,6 +1161,7 @@ class ManuscriptDocxExportService {
       ${_headerFooterRefs(rules)}
       ${_paperSizeXml(rules)}
       ${_pageMarXml(rules)}
+      ${_lineNumberXml(rules)}
       <w:cols w:num="$columns" w:space="720"/>
       <w:type w:val="continuous"/>
     </w:sectPr>
@@ -1170,6 +1175,7 @@ class ManuscriptDocxExportService {
   ${_headerFooterRefs(rules)}
   ${_paperSizeXml(rules)}
   ${_pageMarXml(rules)}
+  ${_lineNumberXml(rules)}
   <w:cols w:num="$columns" w:space="720"/>
 </w:sectPr>''';
   }
@@ -1190,6 +1196,7 @@ class ManuscriptDocxExportService {
 <w:hdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
   <w:p>
     <w:pPr>
+      <w:suppressLineNumbers/>
       <w:jc w:val="center"/>
     </w:pPr>
     <w:r>
@@ -1209,6 +1216,7 @@ class ManuscriptDocxExportService {
 <w:ftr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
   <w:p>
     <w:pPr>
+      <w:suppressLineNumbers/>
       <w:jc w:val="center"/>
     </w:pPr>
     <w:r>
