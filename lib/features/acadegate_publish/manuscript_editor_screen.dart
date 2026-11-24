@@ -446,9 +446,6 @@ class _ManuscriptEditorScreenState extends State<ManuscriptEditorScreen>
       final equations = manuscript.bodyBlocks
           .where((b) => b.type == ManuscriptBlockType.equation)
           .length;
-      final blockMsg = parsed.bodyBlocks.length >= ManuscriptDocumentParser.maxImportedBlocks
-          ? context.t(' (اختُصر جزء من النص)', ' (some text truncated)')
-          : '';
       if (parsed.references.isEmpty && parsed.bodyBlocks.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -462,9 +459,9 @@ class _ManuscriptEditorScreenState extends State<ManuscriptEditorScreen>
       } else {
         var msg = context.t(
           'تم استيراد ${parsed.references.length} مرجعاً، ${manuscript.bodyBlocks.length} عنصراً'
-          ' ($tables جداول، ${images + tableCellImages} صور، $equations معادلات)$blockMsg',
+          ' ($tables جداول، ${images + tableCellImages} صور، $equations معادلات)',
           'Imported ${parsed.references.length} refs, ${manuscript.bodyBlocks.length} blocks'
-          ' ($tables tables, ${images + tableCellImages} figures, $equations equations)$blockMsg',
+          ' ($tables tables, ${images + tableCellImages} figures, $equations equations)',
         );
         if (tables > 0 && tableCellImages == 0) {
           msg += context.t(

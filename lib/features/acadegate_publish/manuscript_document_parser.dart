@@ -38,12 +38,6 @@ enum _CiteImportRegion { frontMatter, body, bibliography }
 class ManuscriptDocumentParser {
   ManuscriptDocumentParser._();
 
-  /// Soft cap only — media (figures/tables/equations) is never dropped.
-  static const maxImportedBlocks = 500;
-  static const maxImportedReferences = 200;
-  static const maxBlockTextLength = 120000;
-  static const maxRawTextLength = 20000;
-
   /// Keep imported pictures as data URIs for the same-session Word export.
   /// Firestore cannot store them — [stripDataUrisForPersistence] runs on save.
   /// Uploading first then re-fetching with raw `http.get` returns 403 / CORS 0
@@ -208,88 +202,24 @@ class ManuscriptDocumentParser {
       block.type == ManuscriptBlockType.equation;
 
   static List<ManuscriptBlock> sanitizeImportedBlocks(List<ManuscriptBlock> blocks) {
-    final trimmed = blocks.map((block) {
-      final text = AcademicText.sanitize(block.text);
-      final clipped = text.length <= maxBlockTextLength
-          ? text
-          : text.substring(0, maxBlockTextLength);
-      final rows = block.rows
-          .map((row) => row.map(AcademicText.sanitize).toList())
-          .toList();
-      return block.copyWith(text: clipped, rows: rows);
-    }).toList();
-
-    if (trimmed.length <= maxImportedBlocks) return trimmed;
-
-    // Never drop images/tables/equations — only trim excess paragraphs.
-    final mediaCount = trimmed.where(_isMediaBlock).length;
-    final maxTextBlocks =
-        (maxImportedBlocks - mediaCount).clamp(10, maxImportedBlocks);
-    final out = <ManuscriptBlock>[];
-    var textKept = 0;
-    var omitted = 0;
-    for (final block in trimmed) {
-      if (_isMediaBlock(block)) {
-        out.add(block);
-        continue;
-      }
-      if (textKept < maxTextBlocks) {
-        out.add(block);
-        textKept++;
-      } else {
-        omitted++;
-      }
-    }
-    if (omitted > 0) {
-      out.add(ManuscriptBlock(
-        id: 'import_truncated_${DateTime.now().millisecondsSinceEpoch}',
-        type: ManuscriptBlockType.paragraph,
-        text: appTr(
-          '… تم اختصار $omitted فقرة نصية — الجداول والصور والمعادلات محفوظة',
-          '… $omitted text paragraphs omitted — tables, figures and equations kept',
-        ),
-      ));
-    }
-    return out;
+    return blocks.map((block) => block.copyWith(
+      text: AcademicText.sanitize(block.text),
+      rows: block.rows.map((row) => row.map(AcademicText.sanitize).toList()).toList(),
+    )).toList();
   }
 
   static List<PublishReference> sanitizeImportedReferences(
     List<PublishReference> references,
   ) {
-    final capped = references.take(maxImportedReferences).map((ref) {
-      final raw = AcademicText.sanitize(ref.rawText);
-      final clipped = raw.length <= maxRawTextLength
-          ? raw
-          : '${raw.substring(0, maxRawTextLength)} '
-              '… [shortened — open the original file for the full reference]';
-      return ref.copyWith(
-        rawText: clipped,
-        year: AcademicText.westernDigits(ref.year),
-        volume: AcademicText.westernDigits(ref.volume),
-        issue: AcademicText.westernDigits(ref.issue),
-        pages: AcademicText.westernDigits(ref.pages),
-        doi: AcademicText.fixDoiCommas(AcademicText.westernDigits(ref.doi)),
-      );
-    }).toList();
-
-    final stamped = stampImportedNumbers(capped);
-    if (references.length <= maxImportedReferences) return stamped;
-
-    return [
-      ...stamped,
-      PublishReference(
-        id: 'ref_truncated_${DateTime.now().millisecondsSinceEpoch}',
-        type: ReferenceType.journal,
-        title: appTr(
-          '… ${references.length - maxImportedReferences} مراجع إضافية',
-          '… ${references.length - maxImportedReferences} more references',
-        ),
-        rawText: appTr(
-          '… ${references.length - maxImportedReferences} مراجع إضافية — راجع الملف الأصلي',
-          '… ${references.length - maxImportedReferences} more references — see original file',
-        ),
-      ),
-    ];
+    final sanitized = references.map((ref) => ref.copyWith(
+      rawText: AcademicText.sanitize(ref.rawText),
+      year: AcademicText.westernDigits(ref.year),
+      volume: AcademicText.westernDigits(ref.volume),
+      issue: AcademicText.westernDigits(ref.issue),
+      pages: AcademicText.westernDigits(ref.pages),
+      doi: AcademicText.fixDoiCommas(AcademicText.westernDigits(ref.doi)),
+    )).toList();
+    return stampImportedNumbers(sanitized);
   }
 
   /// Keep printed [n] / "n." from the imported file. Fill gaps only for
