@@ -4735,7 +4735,7 @@ class ManuscriptDocumentParser {
   }
 
   static bool _hasBibYear(String text) =>
-      RegExp(r'\b(?:19|20)\d{2}\b').hasMatch(text);
+      RegExp(r'\b(?:19|20)\d{2}[a-z]?\b|\(n\.d\.(?:-[a-z])?\)', caseSensitive: false).hasMatch(text);
 
   static List<PublishReference> _parseParagraphBlocks(String section) {
     final blocks = section
@@ -4768,8 +4768,11 @@ class ManuscriptDocumentParser {
     }
     if (CitationCues.isRunningMatterLine(t)) return false;
     if (_isTableCaption(t) || _isFigureCaption(t)) return false;
-    if (DocxScientificExtractor.isFrontMatterAuthorText(t)) return false;
-    return RegExp(r'\b(?:19|20)\d{2}\b').hasMatch(t);
+    final explicitUndated = RegExp(r'\(n\.d\.(?:-[a-z])?\)', caseSensitive: false).hasMatch(t);
+    if (!explicitUndated && DocxScientificExtractor.isFrontMatterAuthorText(t)) {
+      return false;
+    }
+    return _hasBibYear(t);
   }
 
   static bool _looksLikeReference(String block) {

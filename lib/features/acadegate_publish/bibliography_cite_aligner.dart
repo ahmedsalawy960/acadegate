@@ -267,6 +267,11 @@ class BibliographyCiteAligner {
             (folded.length >= 4 && n.startsWith(folded)),
       );
       if (!hit) continue;
+      // A surname may occur in a URL hostname or path. It is not an entry
+      // boundary unless it begins a new whitespace-delimited token.
+      if (m.start > 0 && !RegExp(r'\s').hasMatch(blob[m.start - 1])) {
+        continue;
+      }
       if (m.start == 0) return 0;
       final before = blob.substring(0, m.start);
       final ended = RegExp(r'\b(?:19|20)\d{2}[a-z]?\s*[.;]?\s*$').hasMatch(before) ||
