@@ -23,9 +23,11 @@ class AiAdvisorService {
 
   bool get isCloudAiEnabled => GeminiAdvisorClient.isAvailable;
 
+  /// Unique across app restarts: conversations are reloaded from
+  /// Firestore, so a per-session counter would overwrite old messages.
   String _nextId() {
     _messageCounter++;
-    return 'msg_$_messageCounter';
+    return newAdvisorMessageId(_messageCounter);
   }
 
   AdvisorMessage welcomeMessage() {
