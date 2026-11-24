@@ -37,15 +37,30 @@ class JournalTemplateReader {
   }) {
     if (bytes.isEmpty) return null;
     final lower = filename.toLowerCase();
-    if (!lower.endsWith('.docx') && !lower.endsWith('.doc')) return null;
+    if (!lower.endsWith('.docx')) return null;
 
     try {
       final archive = ZipDecoder().decodeBytes(bytes);
+      final documentEntry = archive.findFile('word/document.xml');
+      if (documentEntry == null) return null;
+      final document = XmlDocument.parse(
+        utf8.decode(documentEntry.content as List<int>),
+      );
+      const wordNamespace =
+          'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+      final root = document.rootElement;
+      if (root.name.local != 'document' ||
+          root.namespaceUri != wordNamespace ||
+          root.getElement('body', namespace: wordNamespace) == null) {
+        return null;
+      }
       final text = _plainText(archive);
       final layout = _layoutFromStyles(archive);
       final heuristic = text.length >= 15
           ? JournalGuidelinesHeuristic.extract(text) ?? <String, dynamic>{}
           : <String, dynamic>{};
+      // A readable ZIP or placeholder text does not prove extracted rules.
+      if (layout.isEmpty && heuristic['found'] != true) return null;
       final merged = <String, dynamic>{
         'found': true,
         'confidence': 'high',

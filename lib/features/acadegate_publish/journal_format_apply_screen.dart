@@ -389,8 +389,8 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(context.t(
-              'تعذر قراءة القالب. استخدم ملف Word (.docx) من موقع المجلة.',
-              'Could not read the template. Use a Word (.docx) file from the journal site.',
+              'لم نستخرج قواعد تنسيق قابلة للاستخدام. افتح القالب في Word واحفظه كـ DOCX، أو الصق دليل المؤلفين. قواعدك الحالية لم تتغير.',
+              'No usable format rules were extracted. Open the template in Word and save as DOCX, or paste the author guide. Your current rules were kept.',
             )),
           ),
         );
