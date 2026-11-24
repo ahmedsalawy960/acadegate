@@ -127,8 +127,15 @@ class JournalTemplateReader {
       }
       final pgMar = sect.findElements('w:pgMar').toList();
       if (pgMar.isNotEmpty) {
-        final top = int.tryParse(pgMar.first.getAttribute('w:top') ?? '') ?? 0;
-        if (top > 200) out['marginCm'] = (top / 567).clamp(1.0, 4.0);
+        final margins = ['top', 'right', 'bottom', 'left'].map((side) =>
+            int.tryParse(pgMar.first.getAttribute('w:$side') ?? '')).toList();
+        // The exporter has one uniform margin field. A top margin alone or
+        // asymmetric margins cannot establish the other three sides.
+        if (margins.every((value) => value != null && value >= 567 && value <= 2268) &&
+            margins.toSet().length == 1 &&
+            (int.tryParse(pgMar.first.getAttribute('w:gutter') ?? '0') ?? -1) == 0) {
+          out['marginCm'] = margins.first! / 567;
+        }
       }
       final cols = sect.findElements('w:cols').toList();
       final num = int.tryParse(
