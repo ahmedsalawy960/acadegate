@@ -2405,7 +2405,13 @@ class ManuscriptDocumentParser {
     List<ManuscriptBlock> blocks,
   ) {
     final out = <ManuscriptBlock>[];
+    var afterMainBibliography = false;
     for (final block in blocks) {
+      if (_isPostBibliographyBoundary(block.text)) afterMainBibliography = true;
+      if (afterMainBibliography) {
+        out.add(block);
+        continue;
+      }
       if (_isMediaBlock(block)) {
         out.add(block);
         continue;
@@ -2424,6 +2430,19 @@ class ManuscriptDocumentParser {
       }
     }
     return out;
+  }
+
+  /// End of the main bibliography, not a title or an organization name.
+  static bool _isPostBibliographyBoundary(String text) {
+    final t = text.trim();
+    if (t.length > 300) return false;
+    return RegExp(
+      r'^(?:(?:\d+[.)]?\s*)?(?:appendices|appendix(?:\s+[A-Z0-9]+)?|'
+      r'supplementary(?:\s+(?:materials?|information|files?))?|'
+      r'supporting information|tables?|figures?|figure legends?|table legends?)'
+      r'\s*[:.]?|(?:table|figure)\s+\d+[.:]\s+[^\n]+)$',
+      caseSensitive: false,
+    ).hasMatch(t);
   }
 
   static bool _isAppendixHeading(String text) {
@@ -4297,7 +4316,9 @@ class ManuscriptDocumentParser {
     if (nl > 0 && nl < 80) {
       section = section.substring(nl + 1);
     }
-    return section.trim();
+    final lines = section.split('\n');
+    final end = lines.indexWhere(_isPostBibliographyBoundary);
+    return (end < 0 ? section : lines.take(end).join('\n')).trim();
   }
 
   static List<PublishReference> _parseReferences(String fullText) {
@@ -4316,7 +4337,7 @@ class ManuscriptDocumentParser {
             _isBibliographicNumberedLine(ref.rawText) ||
             _looksLikeReference(ref.rawText))
         .toList();
-    final harvested = _harvestNumberedBibliographyLines(fullText);
+    final harvested = _harvestNumberedBibliographyLines(source);
     final mixed = section.isEmpty
         ? const <PublishReference>[]
         : _parseMixedBibliography(section);
@@ -4951,9 +4972,17 @@ class ManuscriptDocumentParser {
         harvestFrom = trailingAt;
       }
     }
+    var afterMainBibliography = false;
     for (var i = 0; i < blocks.length; i++) {
       final block = blocks[i];
       final afterBib = harvestFrom != null && i >= harvestFrom;
+      if (afterBib && _isPostBibliographyBoundary(block.text)) {
+        afterMainBibliography = true;
+      }
+      if (afterMainBibliography) {
+        out.add(block);
+        continue;
+      }
       if (!afterBib) {
         if (block.type == ManuscriptBlockType.heading &&
             _isBibliographyHeadingLine(block.text)) {
