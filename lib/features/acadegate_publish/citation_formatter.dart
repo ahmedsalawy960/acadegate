@@ -966,6 +966,13 @@ class CitationFormatter {
         cursor = s.length - next.length + 1;
         continue;
       }
+      final and = RegExp(r'^and\s+', caseSensitive: false).firstMatch(next);
+      if (and != null && authorRe.hasMatch(next.substring(and.end))) {
+        cursor = s.length - next.length + and.end;
+        continue;
+      }
+      // A comma after the last initials belongs to the author/title boundary.
+      if (next.startsWith(',')) cursor = s.length - next.length + 1;
       break;
     }
     if (authors.isEmpty) return (authors: const <String>[], rest: s);
