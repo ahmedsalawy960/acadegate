@@ -163,6 +163,39 @@ function injectAttachments(contents, attachmentParts) {
 }
 
 /**
+ * Admission failures split in two. An HttpsError is a decision that must be
+ * honored: quota exhausted, foreign turn, stale turn, or too many rounds.
+ * Anything else is infrastructure noise (Firestore hiccup, admit race
+ * timeout) and must not block an answer, so it fails open as the free tier.
+ */
+function shouldFailOpenOnAdmissionError(error) {
+  return !(error instanceof HttpsError);
+}
+
+async function admitTurnOrFailOpen(
+  uid,
+  turnId,
+  { admit = admitRound, timeoutMs = 8000 } = {},
+) {
+  let timer = null;
+  try {
+    const admitted = await Promise.race([
+      admit(uid, turnId),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error("admit-timeout")), timeoutMs);
+      }),
+    ]);
+    return (admitted && admitted.tier) || "free";
+  } catch (e) {
+    if (!shouldFailOpenOnAdmissionError(e)) throw e;
+    console.error("academicAssistant admit skipped", (e && e.message) || e);
+    return "free";
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+/**
  * Charges quota on the first call of a turn; later calls must reuse the same
  * turnId within TURN_TTL_MS and MAX_ROUNDS.
  */
@@ -300,7 +333,15 @@ async function streamOnce({ model, apiKey, body, onText }) {
   }
 }
 
-exports._test = { appendPart, sanitizeContents, injectAttachments, streamOnce, generationConfigFor };
+exports._test = {
+  appendPart,
+  sanitizeContents,
+  injectAttachments,
+  streamOnce,
+  generationConfigFor,
+  admitTurnOrFailOpen,
+  shouldFailOpenOnAdmissionError,
+};
 
 exports.academicAssistant = onCall(
   {
@@ -350,18 +391,7 @@ exports.academicAssistant = onCall(
       throw new HttpsError("failed-precondition", "GEMINI_API_KEY غير مضبوط في Firebase Functions");
     }
 
-    let tier = "free";
-    try {
-      const admitted = await Promise.race([
-        admitRound(uid, turnId),
-        new Promise((_, reject) => {
-          setTimeout(() => reject(new Error("admit-timeout")), 8000);
-        }),
-      ]);
-      tier = admitted.tier || "free";
-    } catch (e) {
-      console.error("academicAssistant admit skipped", e.message || e);
-    }
+    const tier = await admitTurnOrFailOpen(uid, turnId);
     console.log("academicAssistant model loop", tier);
     const deep = data.mode === "deep" && (tier === "pro" || tier === "admin");
 

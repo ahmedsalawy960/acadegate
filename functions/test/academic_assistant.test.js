@@ -49,3 +49,76 @@ test("attachments go to the latest user text message, not functionResponse turns
   assert.strictEqual(contents[0].parts.length, 2);
   assert.strictEqual(contents[2].parts.length, 1);
 });
+
+const {
+  admitTurnOrFailOpen,
+  shouldFailOpenOnAdmissionError,
+} = require("../academic_assistant")._test;
+const { HttpsError } = require("firebase-functions/v2/https");
+
+test("quota and session decisions are enforced, not skipped", async () => {
+  const quotaError = new HttpsError("resource-exhausted", "انتهى حد باقتك");
+  await assert.rejects(
+    admitTurnOrFailOpen("u1", "turn-123456", {
+      admit: async () => {
+        throw quotaError;
+      },
+    }),
+    (e) => e === quotaError,
+  );
+  await assert.rejects(
+    admitTurnOrFailOpen("u1", "turn-123456", {
+      admit: async () => {
+        throw new HttpsError("permission-denied", "جلسة غير صالحة");
+      },
+    }),
+    /جلسة غير صالحة/,
+  );
+  await assert.rejects(
+    admitTurnOrFailOpen("u1", "turn-123456", {
+      admit: async () => {
+        throw new HttpsError("deadline-exceeded", "انتهت مهلة هذا الطلب");
+      },
+    }),
+    /انتهت مهلة/,
+  );
+});
+
+test("infrastructure admission failures fail open as the free tier", async () => {
+  const tier = await admitTurnOrFailOpen("u1", "turn-123456", {
+    admit: async () => {
+      throw new Error("firestore unavailable");
+    },
+  });
+  assert.strictEqual(tier, "free");
+});
+
+test("slow admission races to a free-tier fail-open", async () => {
+  const tier = await admitTurnOrFailOpen("u1", "turn-123456", {
+    admit: () => new Promise(() => {}),
+    timeoutMs: 20,
+  });
+  assert.strictEqual(tier, "free");
+});
+
+test("the admitted tier is returned to the caller", async () => {
+  const tier = await admitTurnOrFailOpen("u1", "turn-123456", {
+    admit: async () => ({ tier: "pro" }),
+  });
+  assert.strictEqual(tier, "pro");
+});
+
+test("classifier: HttpsError is a decision, anything else is transient", () => {
+  assert.strictEqual(
+    shouldFailOpenOnAdmissionError(new HttpsError("resource-exhausted", "x")),
+    false,
+  );
+  assert.strictEqual(
+    shouldFailOpenOnAdmissionError(new HttpsError("deadline-exceeded", "x")),
+    false,
+  );
+  assert.strictEqual(
+    shouldFailOpenOnAdmissionError(new Error("admit-timeout")),
+    true,
+  );
+});
