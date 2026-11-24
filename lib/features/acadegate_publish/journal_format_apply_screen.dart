@@ -572,12 +572,7 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
           citationStyle: exportRules.citationStyle,
           journalId: widget.journal.id,
           journalName: widget.journal.name,
-          status: ManuscriptStatus.formatted,
         ),
-      );
-      await ManuscriptService.instance.markFormatted(
-        widget.manuscriptId,
-        exportRules.citationStyle,
       );
 
       final sourceBytes = await _loadSourceDocxBytes(m);
@@ -593,16 +588,16 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(context.t(
-              'أُلغي حفظ ملف Word — لم تُحدَّث حالة التقديم.',
-              'Word save was cancelled — submission status was not updated.',
+              'أُلغي حفظ ملف Word — لم تُحدَّث حالة الجاهزية.',
+              'Word save was cancelled — readiness status was not updated.',
             )),
           ),
         );
         return;
       }
 
-      // Only mark submitted after the researcher actually saved/shared the file.
-      await ManuscriptService.instance.submitToJournal(
+      // A saved Word file is ready for manual submission, not submitted.
+      await ManuscriptService.instance.markReadyToSubmit(
         manuscriptId: widget.manuscriptId,
         journalId: widget.journal.id,
         journalName: widget.journal.name,

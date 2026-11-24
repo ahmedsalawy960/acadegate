@@ -217,7 +217,7 @@ class ManuscriptService {
     });
   }
 
-  Future<void> submitToJournal({
+  Future<void> markReadyToSubmit({
     required String manuscriptId,
     required String journalId,
     required String journalName,
@@ -225,8 +225,9 @@ class ManuscriptService {
     await _manuscripts.doc(manuscriptId).update({
       'journalId': journalId,
       'journalName': journalName,
-      'status': ManuscriptStatus.submitted.name,
-      'submittedAt': FieldValue.serverTimestamp(),
+      'status': ManuscriptStatus.readyToSubmit.name,
+      'readyToSubmitAt': FieldValue.serverTimestamp(),
+      'submittedAt': FieldValue.delete(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }

@@ -20,7 +20,22 @@ enum InTextCitationForm {
   superscript,
 }
 
-enum ManuscriptStatus { draft, formatted, submitted }
+enum ManuscriptStatus {
+  draft,
+  formatted,
+  readyToSubmit,
+  // Legacy export-only value. Never write it for a Word download.
+  submitted,
+}
+
+ManuscriptStatus manuscriptStatusFromStored(Object? value) {
+  // Older versions wrote submitted after exporting, without journal submission.
+  if (value == 'submitted') return ManuscriptStatus.readyToSubmit;
+  return ManuscriptStatus.values.firstWhere(
+    (status) => status.name == value,
+    orElse: () => ManuscriptStatus.draft,
+  );
+}
 
 enum ReferenceType { journal, book, web, conference }
 
@@ -632,10 +647,7 @@ class PublishManuscript {
       citationStyle: style,
       journalId: map['journalId']?.toString(),
       journalName: map['journalName']?.toString(),
-      status: ManuscriptStatus.values.firstWhere(
-        (s) => s.name == map['status'],
-        orElse: () => ManuscriptStatus.draft,
-      ),
+      status: manuscriptStatusFromStored(map['status']),
       updatedAt: (map['updatedAt'] as Timestamp?)?.toDate(),
     );
   }
