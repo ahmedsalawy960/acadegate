@@ -34,7 +34,7 @@ void main() {
           '<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/>'
           '<w:sz w:val="24"/>'
           '</w:rPr></w:rPrDefault></w:docDefaults>'
-          '<w:style><w:pPr><w:spacing w:line="480" w:lineRule="auto"/></w:pPr></w:style>'
+          '<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:pPr><w:spacing w:line="480" w:lineRule="auto"/></w:pPr></w:style>'
           '</w:styles>',
         ),
       ));

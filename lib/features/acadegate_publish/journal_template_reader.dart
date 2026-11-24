@@ -143,45 +143,77 @@ class JournalTemplateReader {
     if (entry == null) return;
     try {
       final doc = XmlDocument.parse(utf8.decode(entry.content as List<int>));
-      final defaults = doc.findAllElements('w:rPrDefault').toList();
-      final rPrList = defaults.isNotEmpty
-          ? defaults.first.findElements('w:rPr').toList()
-          : doc.findAllElements('w:rPr').toList();
-      if (rPrList.isNotEmpty) {
-        final rPr = rPrList.first;
-        final font = rPr.findElements('w:rFonts').toList();
-        final name = font.isEmpty
-            ? ''
-            : (font.first.getAttribute('w:ascii') ??
-                font.first.getAttribute('w:hAnsi') ??
-                '');
-        if (name.trim().isNotEmpty) out['fontFamily'] = name.trim();
-        final sz = rPr.findElements('w:sz').toList();
-        final half = sz.isEmpty
-            ? null
-            : int.tryParse(sz.first.getAttribute('w:val') ?? '');
+      // Only document defaults and the declared default paragraph style can
+      // establish whole-body defaults. Heading/caption/character styles cannot.
+      final defaults = doc.rootElement.getElement('w:docDefaults');
+      final styles = doc.rootElement.findElements('w:style').toList();
+      final bodyStyles = styles.where((style) =>
+          style.getAttribute('w:type') == 'paragraph' &&
+          const ['1', 'true', 'on'].contains(style.getAttribute('w:default')));
+      final chain = <XmlElement>[];
+      final seen = <String>{};
+      XmlElement? current = bodyStyles.length == 1 ? bodyStyles.single : null;
+      while (current != null) {
+        final id = current.getAttribute('w:styleId') ?? '';
+        if (id.isEmpty || !seen.add(id)) {
+          chain.clear();
+          break;
+        }
+        chain.insert(0, current);
+        final parent = current.getElement('w:basedOn')?.getAttribute('w:val');
+        final matches = styles.where((style) =>
+            style.getAttribute('w:type') == 'paragraph' &&
+            style.getAttribute('w:styleId') == parent).toList();
+        current = matches.length == 1 ? matches.single : null;
+      }
+      final runProperties = <XmlElement>[];
+      final defaultRun = defaults?.getElement('w:rPrDefault')?.getElement('w:rPr');
+      if (defaultRun != null) runProperties.add(defaultRun);
+      for (final style in chain) {
+        final run = style.getElement('w:rPr');
+        if (run != null) runProperties.add(run);
+      }
+      for (final rPr in runProperties) {
+        final font = rPr.getElement('w:rFonts');
+        final name = font?.getAttribute('w:ascii') ??
+            font?.getAttribute('w:hAnsi');
+        if (name != null && name.trim().isNotEmpty) {
+          out['fontFamily'] = name.trim();
+        }
+        final half = int.tryParse(
+          rPr.getElement('w:sz')?.getAttribute('w:val') ?? '',
+        );
         if (half != null && half >= 16 && half <= 72) {
           out['bodyFontSizePt'] = half / 2.0;
         }
       }
-      for (final spacing in doc.findAllElements('w:spacing')) {
-        final line = int.tryParse(spacing.getAttribute('w:line') ?? '');
-        if (line == null) continue;
-        if (line >= 450) {
-          out['lineSpacing'] = 2.0;
-          out['lineSpacingLabel'] = 'double';
-          break;
+      // Merge spacing attributes before interpreting them. In Word, omitted
+      // lineRule means auto; exact/atLeast values are twips, not multiples.
+      final spacingAttributes = <String, String>{};
+      final paragraphProperties = <XmlElement>[];
+      final defaultParagraph =
+          defaults?.getElement('w:pPrDefault')?.getElement('w:pPr');
+      if (defaultParagraph != null) paragraphProperties.add(defaultParagraph);
+      for (final style in chain) {
+        final paragraph = style.getElement('w:pPr');
+        if (paragraph != null) paragraphProperties.add(paragraph);
+      }
+      for (final pPr in paragraphProperties) {
+        final spacing = pPr.getElement('w:spacing');
+        for (final key in ['w:line', 'w:lineRule']) {
+          final value = spacing?.getAttribute(key);
+          if (value != null) spacingAttributes[key] = value;
         }
-        if (line >= 330 && line < 450) {
-          out['lineSpacing'] = 1.5;
-          out['lineSpacingLabel'] = '1.5';
-          break;
-        }
-        if (line >= 200 && line <= 280) {
-          out['lineSpacing'] = 1.0;
-          out['lineSpacingLabel'] = 'single';
-          break;
-        }
+      }
+      final line = int.tryParse(spacingAttributes['w:line'] ?? '');
+      final lineRule = spacingAttributes['w:lineRule'] ?? 'auto';
+      if (lineRule == 'auto' && const [240, 360, 480].contains(line)) {
+        out['lineSpacing'] = line! / 240.0;
+        out['lineSpacingLabel'] = switch (line) {
+          240 => 'single',
+          360 => '1.5',
+          _ => 'double',
+        };
       }
     } catch (_) {}
   }
