@@ -9,6 +9,19 @@ import 'advisor_intent.dart';
 import 'grounded_work.dart';
 import 'literature_relevance.dart';
 
+/// Outcome of checking one DOI against the scholarly indexes.
+/// [answered] is false when every index request failed (network, timeout),
+/// which is different from "the DOI does not exist".
+class DoiCheckResult {
+  final GroundedWork? work;
+  final bool answered;
+
+  const DoiCheckResult(this.work, {this.answered = true});
+}
+
+/// Injectable DOI check for offline tests and alternate data sources.
+typedef DoiStatusLookup = Future<DoiCheckResult> Function(String doi);
+
 /// Live bibliography from OpenAlex, Crossref, Semantic Scholar, Europe PMC,
 /// Google Scholar, and Consensus. Never invent a DOI.
 class GroundedReferenceService {
@@ -474,17 +487,31 @@ class GroundedReferenceService {
     String text, {
     GroundedReferenceBundle? known,
     Future<GroundedWork?> Function(String doi)? lookup,
+    DoiStatusLookup? statusLookup,
   }) async {
     final dois = extractDois(text);
     if (dois.isEmpty) return text;
 
     final allowed = {...?known?.doiSet};
     final dropped = <String>[];
-    final resolve = lookup ?? _lookup;
+    final uncertain = <String>[];
 
     for (final doi in dois) {
       if (allowed.contains(doi)) continue;
-      final verified = await resolve(doi);
+      if (statusLookup != null || lookup == null) {
+        final resolve = statusLookup ?? _lookupDetailed;
+        final result = await resolve(doi);
+        if (result.work != null) {
+          allowed.add(normalizeDoi(result.work!.doi));
+        } else if (result.answered) {
+          dropped.add(doi);
+        } else {
+          // Indexes unreachable: keep the DOI and say we could not check it.
+          uncertain.add(doi);
+        }
+        continue;
+      }
+      final verified = await lookup(doi);
       if (verified != null) {
         allowed.add(normalizeDoi(verified.doi));
       } else {
@@ -508,13 +535,21 @@ class GroundedReferenceService {
     }
     cleaned = cleaned.replaceAll(RegExp(r'[ \t]{2,}'), ' ').trim();
 
-    if (dropped.isEmpty) return cleaned;
+    if (dropped.isEmpty && uncertain.isEmpty) return cleaned;
 
-    final note = appTr(
-      '\n\n_حُذف ${dropped.length} معرّف DOI غير موجود في OpenAlex أو Crossref._',
-      '\n\n_${dropped.length} DOI(s) not found in OpenAlex or Crossref were removed._',
-    );
-    return '$cleaned$note';
+    final notes = <String>[
+      if (dropped.isNotEmpty)
+        appTr(
+          '_حُذف ${dropped.length} معرّف DOI غير موجود في OpenAlex أو Crossref._',
+          '_${dropped.length} DOI(s) not found in OpenAlex or Crossref were removed._',
+        ),
+      if (uncertain.isNotEmpty)
+        appTr(
+          '_تعذر التحقق من ${uncertain.length} معرّف DOI بسبب مشكلة اتصال — تُركت كما هي دون حذف._',
+          '_${uncertain.length} DOI(s) could not be checked due to a connection problem and were left unchanged._',
+        ),
+    ];
+    return '$cleaned\n\n${notes.join('\n\n')}';
   }
 
   String promptBlock(GroundedReferenceBundle bundle) {
@@ -565,7 +600,10 @@ class GroundedReferenceService {
     return buffer.toString();
   }
 
-  Future<String> verifyPastedBibliography(String message) async {
+  Future<String> verifyPastedBibliography(
+    String message, {
+    DoiStatusLookup? statusLookup,
+  }) async {
     final dois = extractDois(message);
     if (dois.isEmpty) {
       return appTr(
@@ -573,14 +611,18 @@ class GroundedReferenceService {
         'No DOI was found in the text. Add DOI identifiers or ask for sources on a topic — I will not format unverified sources.',
       );
     }
+    final resolve = statusLookup ?? _lookupDetailed;
     final verified = <GroundedWork>[];
     final rejected = <String>[];
+    final uncertain = <String>[];
     for (final doi in dois.take(20)) {
-      final work = await _lookup(doi);
-      if (work == null) {
+      final result = await resolve(doi);
+      if (result.work != null) {
+        verified.add(result.work!);
+      } else if (result.answered) {
         rejected.add(doi);
       } else {
-        verified.add(work);
+        uncertain.add(doi);
       }
     }
     final buffer = StringBuffer(
@@ -600,6 +642,14 @@ class GroundedReferenceService {
         appTr(
           '\nغير موجود (حُذف ولن يُستخدم):\n${rejected.map((d) => '• $d').join('\n')}',
           '\nNot found (removed, will not be used):\n${rejected.map((d) => '• $d').join('\n')}',
+        ),
+      );
+    }
+    if (uncertain.isNotEmpty) {
+      buffer.writeln(
+        appTr(
+          '\nتعذر التحقق بسبب مشكلة اتصال (لم يُحذف — أعد المحاولة):\n${uncertain.map((d) => '• $d').join('\n')}',
+          '\nCould not be checked due to a connection problem (not removed — try again):\n${uncertain.map((d) => '• $d').join('\n')}',
         ),
       );
     }
@@ -688,10 +738,18 @@ class GroundedReferenceService {
   }
 
   Future<GroundedWork?> _lookup(String doi) async {
+    return (await _lookupDetailed(doi)).work;
+  }
+
+  /// Like [_lookup] but reports whether any index answered at all, so callers
+  /// can tell "not found" apart from "could not check".
+  Future<DoiCheckResult> _lookupDetailed(String doi) async {
     final key = normalizeDoi(doi);
+    var answered = false;
     GroundedWork? best;
     try {
       final openAlex = await OpenAlexWorksClient.instance.lookupDoi(key);
+      answered = true;
       if (openAlex != null && openAlex.title.trim().isNotEmpty) {
         best = GroundedWork(
           title: openAlex.title,
@@ -706,6 +764,7 @@ class GroundedReferenceService {
     } catch (_) {}
     try {
       final semantic = await SemanticScholarClient.instance.lookupDoi(key);
+      answered = true;
       if (semantic != null && semantic.title.trim().isNotEmpty) {
         final next = GroundedWork(
           title: semantic.title,
@@ -721,6 +780,7 @@ class GroundedReferenceService {
     } catch (_) {}
     try {
       final crossref = await CrossrefClient.instance.lookupDoi(key);
+      answered = true;
       if (crossref != null && crossref.title.trim().isNotEmpty) {
         final next = GroundedWork(
           title: crossref.title,
@@ -749,7 +809,7 @@ class GroundedReferenceService {
         }
       } catch (_) {}
     }
-    return best;
+    return DoiCheckResult(best, answered: answered);
   }
 
   GroundedWork _preferRicher(GroundedWork a, GroundedWork b) {

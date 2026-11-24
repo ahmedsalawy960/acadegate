@@ -88,7 +88,7 @@ void main() {
         message: 'أعطني مراجع',
       );
       expect(reply.toLowerCase(), isNot(contains('smith')));
-      expect(reply, contains('OpenAlex'));
+      expect(reply, contains('AcadeGate'));
     });
 
     test('empty search does not invent a DOI', () {
@@ -257,5 +257,84 @@ void main() {
       ),
       isTrue,
     );
+  });
+
+  group('DOI checks never blame the network on the researcher', () {
+    test('unreachable indexes keep the DOI and say so, not "not found"', () async {
+      const text = 'See 10.1038/nature99999 for details.';
+      final cleaned = await GroundedReferenceService.instance.enforceVerifiedDois(
+        text,
+        statusLookup: (_) async => const DoiCheckResult(null, answered: false),
+      );
+      expect(cleaned, contains('10.1038/nature99999'));
+      expect(cleaned, contains('تعذر التحقق'));
+      expect(cleaned, isNot(contains('غير موجود')));
+    });
+
+    test('a real "not found" still strips the DOI', () async {
+      const text = 'See 10.1038/nature99999 for details.';
+      final cleaned = await GroundedReferenceService.instance.enforceVerifiedDois(
+        text,
+        statusLookup: (_) async => const DoiCheckResult(null, answered: true),
+      );
+      expect(cleaned, isNot(contains('10.1038/nature99999')));
+      expect(cleaned, contains('غير موجود'));
+    });
+
+    test('known DOIs skip the lookup entirely', () async {
+      const known = GroundedReferenceBundle(
+        topic: 'nature',
+        works: [
+          GroundedWork(
+            title: 'A real paper',
+            doi: '10.1038/nature12373',
+            source: 'OpenAlex',
+            year: 2012,
+            authors: 'X',
+          ),
+        ],
+      );
+      var calls = 0;
+      final cleaned = await GroundedReferenceService.instance.enforceVerifiedDois(
+        'Real: 10.1038/nature12373.',
+        known: known,
+        statusLookup: (_) async {
+          calls++;
+          return const DoiCheckResult(null, answered: false);
+        },
+      );
+      expect(calls, 0);
+      expect(cleaned.trim(), 'Real: 10.1038/nature12373.');
+    });
+
+    test('pasted bibliography splits verified, not-found and unchecked', () async {
+      const real = GroundedWork(
+        title: 'A real paper',
+        doi: '10.1038/nature12373',
+        source: 'OpenAlex',
+        year: 2012,
+        authors: 'X',
+      );
+      final report = await GroundedReferenceService.instance.verifyPastedBibliography(
+        '1) 10.1038/nature12373\n2) 10.9999/fake.doi\n3) 10.5555/flaky.net',
+        statusLookup: (doi) async {
+          if (doi.contains('nature12373')) {
+            return const DoiCheckResult(real);
+          }
+          if (doi.contains('fake')) {
+            return const DoiCheckResult(null, answered: true);
+          }
+          return const DoiCheckResult(null, answered: false);
+        },
+      );
+      expect(report, contains('A real paper'));
+      expect(report, contains('غير موجود'));
+      expect(report, contains('10.9999/fake.doi'));
+      expect(report, contains('تعذر التحقق'));
+      expect(report, contains('10.5555/flaky.net'));
+      // The unchecked DOI must not be reported as missing.
+      final missingSection = report.split('تعذر التحقق').first;
+      expect(missingSection, isNot(contains('10.5555/flaky.net')));
+    });
   });
 }
