@@ -70,6 +70,13 @@ class CitationFormatter {
     required int index,
     bool plainNumberList = false,
   }) {
+    // Harvard single-quoted titles and abbreviated author lists cannot yet be
+    // safely rebuilt. Preserve the source entry rather than inventing metadata.
+    if (RegExp(r"\((?:(?:19|20)\d{2}[a-z]?|no date)\)\s*['‘]", caseSensitive: false).hasMatch(reference.rawText) ||
+        RegExp(r'^.{1,160}\bet al\.\s*\((?:(?:19|20)\d{2}[a-z]?|no date)\)', caseSensitive: false).hasMatch(reference.rawText)) {
+      return _rawBibliographyEntry(reference.rawText, style: style, index: index,
+          plainNumberList: plainNumberList || style == PublishCitationStyle.acs);
+    }
     final prepared = _prepareForStyle(reference);
     final plain = plainNumberList || style == PublishCitationStyle.acs;
     final fromOriginal = _authorDateEntryFromOriginal(reference, style);

@@ -323,6 +323,12 @@ class ManuscriptDocumentParser {
 
     void writeParagraphs(Iterable<XmlElement> paragraphs) {
       for (final paragraph in paragraphs) {
+        // Reference-manager fields can identify a bibliography with no printed
+        // heading. Keep its first visible entry instead of guessing a later run.
+        final bibliographyField = paragraph.descendants.whereType<XmlElement>().any((e) =>
+          e.localName == 'instrText' &&
+          RegExp(r'CSL_BIBLIOGRAPHY|ADDIN\s+(?:ZOTERO|MENDELEY)[_\s]+BIBL', caseSensitive: false).hasMatch(e.innerText));
+        if (bibliographyField) buffer.writeln('References');
         _appendParagraphText(paragraph, buffer, numbering: numbering);
         buffer.writeln();
       }
@@ -2642,7 +2648,45 @@ class ManuscriptDocumentParser {
       );
 
       var region = _CiteImportRegion.frontMatter;
-      for (final child in body.children.whereType<XmlElement>()) {
+      var fieldDepth = 0;
+      int? bibliographyFieldDepth;
+      XmlElement outsideBibliographyField(XmlElement paragraph) {
+        XmlNode? keep(XmlNode node) {
+          if (node is! XmlElement) return bibliographyFieldDepth == null ? node.copy() : null;
+          final tag = node.localName;
+          if (tag == 'fldChar') {
+            final kind = node.attributes.where((a) => a.name.local == 'fldCharType').firstOrNull?.value;
+            if (kind == 'begin') fieldDepth++;
+            if (kind == 'end') {
+              if (bibliographyFieldDepth == fieldDepth) bibliographyFieldDepth = null;
+              if (fieldDepth > 0) fieldDepth--;
+            }
+            return null;
+          }
+          if (tag == 'instrText') {
+            if (RegExp(r'CSL_BIBLIOGRAPHY|ADDIN\s+(?:ZOTERO|MENDELEY)[_\s]+BIBL', caseSensitive: false).hasMatch(node.innerText)) {
+              bibliographyFieldDepth = fieldDepth;
+            }
+            return null;
+          }
+          // Scientific media remains available, even inside bibliography fields.
+          if (tag == 'oMath' || tag == 'oMathPara' || tag == 'drawing' || tag == 'pict' || tag == 'object') return node.copy();
+          if (tag == 't') return bibliographyFieldDepth == null ? node.copy() : null;
+          final copy = node.copy();
+          copy.children.clear();
+          for (final child in node.children) {
+            final kept = keep(child);
+            if (kept != null) copy.children.add(kept);
+          }
+          return copy;
+        }
+        return keep(paragraph)! as XmlElement;
+      }
+      for (final sourceChild in body.children.whereType<XmlElement>()) {
+        final hasBibliographyField = sourceChild.descendants.whereType<XmlElement>().any((e) =>
+            e.localName == 'instrText' && RegExp(r'CSL_BIBLIOGRAPHY|ADDIN\s+(?:ZOTERO|MENDELEY)[_\s]+BIBL', caseSensitive: false).hasMatch(e.innerText));
+        final child = sourceChild.localName == 'p' && (bibliographyFieldDepth != null || hasBibliographyField)
+            ? outsideBibliographyField(sourceChild) : sourceChild;
         final tag = child.localName;
 
         if (tag == 'p') {
