@@ -4308,7 +4308,14 @@ class ManuscriptDocumentParser {
     final source = section.isEmpty ? fullText : section;
     final body = _bodyWithoutBibliography(fullText);
     final cites = InTextCiteKeys.fromBody(body);
-    final numbered = _parseNumbered(source, cites);
+    // Without a located bibliography, an ordinary sentence such as a
+    // comma-separated phrase can resemble an author lead. Do not turn the
+    // rest of the manuscript into a reference without bibliographic evidence.
+    final numbered = _parseNumbered(source, cites)
+        .where((ref) => section.isNotEmpty ||
+            _isBibliographicNumberedLine(ref.rawText) ||
+            _looksLikeReference(ref.rawText))
+        .toList();
     final harvested = _harvestNumberedBibliographyLines(fullText);
     final mixed = section.isEmpty
         ? const <PublishReference>[]
