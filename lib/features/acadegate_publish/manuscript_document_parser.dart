@@ -611,6 +611,9 @@ class ManuscriptDocumentParser {
     final wrapCites = region != _CiteImportRegion.bibliography;
     final citeDigitBuf = StringBuffer();
     var collectingBracket = false;
+    var fieldInstruction = '';
+    var inField = false;
+    var pendingOmmlPreview = false;
     final bracketInner = StringBuffer();
 
     void flushCiteDigits() {
@@ -685,6 +688,7 @@ class ManuscriptDocumentParser {
 
     void appendFormattedRun(String raw, XmlElement run) {
       if (raw.isEmpty) return;
+      pendingOmmlPreview = false;
       final ascii = CitationLinker.asciiDigits(raw);
       final isCiteDigitRun = wrapCites &&
           inBody &&
@@ -814,6 +818,7 @@ class ManuscriptDocumentParser {
         final tag = child.localName;
         if (tag == 'oMath' || tag == 'oMathPara') {
           flushText();
+          pendingOmmlPreview = true;
           final eqText = _ommlPlainText(child);
           if (eqText.isNotEmpty) {
             blocks.add(_equationBlock(nextId: nextId, math: child));
@@ -821,6 +826,14 @@ class ManuscriptDocumentParser {
           continue;
         }
         if (tag == 'r') {
+          for (final marker in child.findAllElements('w:fldChar')) {
+            final kind = marker.getAttribute('w:fldCharType');
+            if (kind == 'begin') { inField = true; fieldInstruction = ''; }
+            if (kind == 'end') { inField = false; fieldInstruction = ''; }
+          }
+          if (inField) {
+            fieldInstruction += child.findAllElements('w:instrText').map((e) => e.innerText).join();
+          }
           appendBodyRun(child);
           walkNonMath(child);
           continue;
@@ -845,6 +858,16 @@ class ManuscriptDocumentParser {
           continue;
         }
         if (tag == 'drawing' || tag == 'pict' || tag == 'object') {
+          // Word may store an OMML equation plus a hidden QUOTE-field raster.
+          // Keep unrelated drawings and fields; omit only this explicit preview.
+          final isEquationPreview = tag == 'pict' && child.descendants.whereType<XmlElement>().any((e) => e.localName == 'shape' && e.getAttribute('equationxml') != null);
+          if (pendingOmmlPreview && inField && RegExp(r'^\s*QUOTE\b', caseSensitive: false).hasMatch(fieldInstruction) && isEquationPreview) {
+            for (final url in _extractAllEmbeddedImages(child, archive, rels)) {
+              onVisualUsed(url);
+            }
+            pendingOmmlPreview = false;
+            continue;
+          }
           flushText();
           addVisualBlocks(
             child,
