@@ -19,6 +19,10 @@ class JournalFormatRules {
   final String journalName;
   final String publisher;
   final PublishCitationStyle citationStyle;
+  /// False for a partial guide with no supported, unambiguous style evidence.
+  /// citationStyle remains an internal placeholder until explicitly selected.
+  final bool citationStyleResolved;
+  final bool citationStyleChosenByUser;
   final String fontFamily;
   final int bodyFontHalfPoints;
   final int titleFontHalfPoints;
@@ -69,6 +73,8 @@ class JournalFormatRules {
     required this.journalName,
     this.publisher = '',
     required this.citationStyle,
+    this.citationStyleResolved = true,
+    this.citationStyleChosenByUser = false,
     this.fontFamily = 'Times New Roman',
     this.bodyFontHalfPoints = 24,
     this.titleFontHalfPoints = 32,
@@ -151,6 +157,16 @@ class JournalFormatRules {
   bool get usesPlainNumberBibliography => referenceListPlainNumber;
 
   String confidenceLabel({required bool isEnglish}) {
+    if (!citationStyleResolved) {
+      return isEnglish
+          ? 'Partial guide rules - reference style unresolved'
+          : 'قواعد جزئية من الدليل - نمط المراجع غير محدد';
+    }
+    if (extractedFromGuide && citationStyleChosenByUser) {
+      return isEnglish
+          ? 'Guide layout - reference style selected by you'
+          : 'تنسيق من الدليل - نمط المراجع من اختيارك';
+    }
     if (extractedFromGuide && (sourceUrl ?? '').startsWith('template:')) {
       return appTr(
         'مستخرج من قالب المجلة المرفوع',
@@ -185,10 +201,11 @@ class JournalFormatRules {
       arabic: !isEnglish,
     );
     return [
-      appTr(
-        'نمط المراجع: $styleName',
-        'Reference style: $styleName',
-      ),
+      !citationStyleResolved
+          ? appTr('نمط المراجع: غير محدد - اختره بعد مراجعة الدليل',
+              'Reference style: unresolved - select after checking the guide')
+          : appTr('نمط المراجع: $styleName${citationStyleChosenByUser ? ' (اختيارك)' : ''}',
+              'Reference style: $styleName${citationStyleChosenByUser ? ' (your selection)' : ''}'),
       if (referenceListPlainNumber)
         appTr(
           'قائمة المراجع: 1. 2. 3. بدون أقواس مربعة',
@@ -329,6 +346,8 @@ class JournalFormatRules {
 
   JournalFormatRules copyWith({
     PublishCitationStyle? citationStyle,
+    bool? citationStyleResolved,
+    bool? citationStyleChosenByUser,
     String? fontFamily,
     int? bodyFontHalfPoints,
     int? titleFontHalfPoints,
@@ -367,6 +386,8 @@ class JournalFormatRules {
       journalName: journalName,
       publisher: publisher,
       citationStyle: citationStyle ?? this.citationStyle,
+      citationStyleResolved: citationStyleResolved ?? this.citationStyleResolved,
+      citationStyleChosenByUser: citationStyleChosenByUser ?? this.citationStyleChosenByUser,
       fontFamily: fontFamily ?? this.fontFamily,
       bodyFontHalfPoints: bodyFontHalfPoints ?? this.bodyFontHalfPoints,
       titleFontHalfPoints: titleFontHalfPoints ?? this.titleFontHalfPoints,
@@ -414,6 +435,8 @@ class JournalFormatRules {
   JournalFormatRules withCitationStyle(PublishCitationStyle style) {
     return copyWith(
       citationStyle: style,
+      citationStyleResolved: true,
+      citationStyleChosenByUser: true,
       profileLabel: referenceListPlainNumber
           ? profileLabel
           : CitationFormatter.styleLabel(style),
@@ -435,17 +458,14 @@ class JournalFormatRules {
       referenceExample: refExample,
       inTextExample: inTextExample,
     );
-    var citation = citationRaw != null &&
-            citationRaw.isNotEmpty &&
-            citationRaw.toLowerCase() != 'other'
+    const supported = {'apa', 'ieee', 'numbered', 'vancouver', 'acs', 'harvard', 'chicago'};
+    final explicitlyUnresolved = extracted['citationStyleUnresolved'] == true;
+    final namedStyle = supported.contains(citationRaw?.toLowerCase());
+    final resolved = !explicitlyUnresolved && (namedStyle || inferred != null);
+    final citation = namedStyle && !explicitlyUnresolved
         ? _mapExtractedCitation(citationRaw)
-        : (inferred?.style ?? fallback?.citationStyle ?? PublishCitationStyle.apa);
-    if ((citationRaw == null ||
-            citationRaw.isEmpty ||
-            citationRaw.toLowerCase() == 'other') &&
-        inferred != null) {
-      citation = inferred.style;
-    }
+        : (!explicitlyUnresolved ? inferred?.style : null) ??
+            fallback?.citationStyle ?? PublishCitationStyle.apa;
     final font = extracted['fontFamily']?.toString().trim();
     final bodyPt = _asExtractedDouble(extracted['bodyFontSizePt']);
     var lineSpacing = _asExtractedDouble(extracted['lineSpacing']);
@@ -487,6 +507,7 @@ class JournalFormatRules {
       journalName: journalName,
       publisher: publisher,
       citationStyle: citation,
+      citationStyleResolved: resolved,
       fontFamily: font?.isNotEmpty == true
           ? font!
           : (fallback?.fontFamily ?? 'Times New Roman'),

@@ -62,6 +62,13 @@ class ManuscriptDocxExportService {
     required JournalFormatRules rules,
     Uint8List? sourceDocxBytes,
   }) async {
+    // Fail before conversion, citation reading, file fetching or output writes.
+    if (!rules.citationStyleResolved) {
+      throw StateError(appTr(
+        'دليل المجلة لم يحدد نمط المراجع. اختر النمط صراحة قبل التصدير.',
+        'The journal guide did not resolve the reference style. Select a style explicitly before export.',
+      ));
+    }
     final embeddedImages = <_DocxEmbeddedImage>[];
     final bodyXml = StringBuffer();
     final style = rules.citationStyle;

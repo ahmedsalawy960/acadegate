@@ -227,7 +227,7 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
           _rules = result.rules!;
           _userChangedStyleAfterExtract = false;
           _manuscript =
-              _manuscript?.copyWith(citationStyle: _rules.citationStyle);
+              _manuscript?.copyWith(citationStyle: _rules.citationStyleResolved ? _rules.citationStyle : _manuscript!.effectiveStyle);
           if (_keyRequirements.isEmpty && _rules.keyRequirements.isNotEmpty) {
             _keyRequirements = _rules.keyRequirements;
           }
@@ -274,7 +274,7 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
           _rules = result.rules!;
           _userChangedStyleAfterExtract = false;
           _manuscript = _manuscript?.copyWith(
-            citationStyle: result.rules!.citationStyle,
+            citationStyle: result.rules!.citationStyleResolved ? result.rules!.citationStyle : _manuscript!.effectiveStyle,
           );
         }
       });
@@ -329,7 +329,7 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
           _rules = result.rules!;
           _userChangedStyleAfterExtract = false;
           _manuscript =
-              _manuscript?.copyWith(citationStyle: _rules.citationStyle);
+              _manuscript?.copyWith(citationStyle: _rules.citationStyleResolved ? _rules.citationStyle : _manuscript!.effectiveStyle);
           if (_keyRequirements.isEmpty && _rules.keyRequirements.isNotEmpty) {
             _keyRequirements = _rules.keyRequirements;
           }
@@ -440,7 +440,7 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
         ];
         _extractedExcerpt = refined.excerpt ??
             (local.text.length > 400 ? local.text.substring(0, 400) : local.text);
-        _manuscript = _manuscript?.copyWith(citationStyle: rules.citationStyle);
+        _manuscript = _manuscript?.copyWith(citationStyle: rules.citationStyleResolved ? rules.citationStyle : _manuscript!.effectiveStyle);
       });
     } catch (e) {
       if (!mounted) return;
@@ -517,9 +517,37 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
 
     setState(() => _processing = true);
     try {
+      // Re-reading pasted text may replace _rules. Keep the user's explicit
+      // selection before resolving again, rather than adopting a placeholder.
+      final selectedStyle = _userChangedStyleAfterExtract ? _rules.citationStyle : null;
       var exportRules = await _resolveExportRules();
-      if (_userChangedStyleAfterExtract) {
-        exportRules = exportRules.withCitationStyle(_rules.citationStyle);
+      if (selectedStyle != null) {
+        exportRules = exportRules.withCitationStyle(selectedStyle);
+      }
+
+      if (!exportRules.citationStyleResolved) {
+        if (!mounted) return;
+        final selected = await showDialog<PublishCitationStyle>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text(context.t('نمط المراجع غير محدد', 'Reference style unresolved')),
+            content: CitationStylePicker(
+              value: null,
+              onChanged: (style) => Navigator.pop(ctx, style),
+            ),
+            actions: [TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(context.t('إلغاء', 'Cancel')),
+            )],
+          ),
+        );
+        if (selected == null) return;
+        exportRules = exportRules.withCitationStyle(selected);
+        if (!mounted) return;
+        setState(() {
+          _rules = exportRules;
+          _userChangedStyleAfterExtract = true;
+        });
       }
 
       if (!exportRules.extractedFromGuide) {
@@ -625,10 +653,10 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
         SnackBar(
           content: Text(context.t(
             exportRules.extractedFromGuide
-                ? 'تم التصدير بقواعد «${widget.journal.name}» من الدليل — تباعد ${exportRules.lineSpacing}، مراجع: ${CitationFormatter.detectedStyleLabel(exportRules.citationStyle, plainNumberList: exportRules.referenceListPlainNumber)}$readingNote$imageNote'
+                ? 'تم التصدير بتنسيق جزئي من دليل «${widget.journal.name}»${exportRules.citationStyleChosenByUser ? '؛ نمط المراجع من اختيارك' : ''} — تباعد ${exportRules.lineSpacing}، مراجع: ${CitationFormatter.detectedStyleLabel(exportRules.citationStyle, plainNumberList: exportRules.referenceListPlainNumber)}$readingNote$imageNote'
                 : 'تم التصدير بقالب احتياطي (ليس من دليل المجلة) — تباعد ${exportRules.lineSpacing}$readingNote$imageNote',
             exportRules.extractedFromGuide
-                ? 'Exported with «${widget.journal.name}» guide rules — spacing ${exportRules.lineSpacing}, refs: ${CitationFormatter.detectedStyleLabel(exportRules.citationStyle, plainNumberList: exportRules.referenceListPlainNumber)}$readingNote$imageNote'
+                ? 'Exported with partial «${widget.journal.name}» guide rules${exportRules.citationStyleChosenByUser ? '; reference style selected by you' : ''} — spacing ${exportRules.lineSpacing}, refs: ${CitationFormatter.detectedStyleLabel(exportRules.citationStyle, plainNumberList: exportRules.referenceListPlainNumber)}$readingNote$imageNote'
                 : 'Exported with fallback template (not from journal guide) — spacing ${exportRules.lineSpacing}$readingNote$imageNote',
           )),
           duration: const Duration(seconds: 8),
@@ -652,6 +680,7 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
   }
 
   Color _confidenceColor() {
+    if (!_rules.citationStyleResolved) return AcadeGateColors.gold;
     if (_rules.extractedFromGuide) return const Color(0xFF86EFAC);
     return switch (_rules.confidence) {
       FormatRuleConfidence.partnerOfficial => const Color(0xFF86EFAC),
@@ -1352,7 +1381,7 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
                       ),
                     const SizedBox(height: 16),
                     CitationStylePicker(
-                      value: _rules.citationStyle,
+                      value: _rules.citationStyleResolved ? _rules.citationStyle : null,
                       onChanged: (style) {
                         setState(() {
                           _userChangedStyleAfterExtract = true;

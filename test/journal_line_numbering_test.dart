@@ -10,7 +10,7 @@ void main(){
  final extracted=JournalGuidelinesHeuristic.extract('''Author guidelines. The manuscript should be double-spaced.
 Include page numbers and line numbers in the manuscript file. Use continuous line numbers (do not restart the numbering on each page).''',requireDistinctive:false)!;
  expect(extracted['continuousLineNumbers'],true);
- final rules=JournalFormatRules.fromExtracted(journalName:'QA',sourceUrl:'qa',extracted:extracted).copyWith(columnCount:2);
+ final rules=JournalFormatRules.fromExtracted(journalName:'QA',sourceUrl:'qa',extracted:extracted).copyWith(columnCount:2).withCitationStyle(PublishCitationStyle.apa);
  final bytes=await ManuscriptDocxExportService.instance.buildDocx(manuscript:PublishManuscript(userId:'qa',title:'Line number test',bodyBlocks:[ManuscriptBlock(id:'a',type:ManuscriptBlockType.heading,text:'Introduction'),ManuscriptBlock(id:'b',type:ManuscriptBlockType.paragraph,text:'A scientific paragraph for line numbering.')]),rules:rules);
  final archive=ZipDecoder().decodeBytes(bytes);final xml=utf8.decode(archive.findFile('word/document.xml')!.content as List<int>);
  expect(RegExp(r'<w:lnNumType\b').allMatches(xml).length,RegExp(r'<w:sectPr>').allMatches(xml).length);
