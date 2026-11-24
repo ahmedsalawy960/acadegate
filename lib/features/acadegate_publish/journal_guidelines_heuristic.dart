@@ -204,6 +204,13 @@ class JournalGuidelinesHeuristic {
       rules['found'] = true;
     }
 
+    if (RegExp(r'(?:one of|either)[^.]{0,140}harvard[^.]{0,100}(?:or|and)[^.]{0,50}vancouver|(?:one of|either)[^.]{0,140}vancouver[^.]{0,100}(?:or|and)[^.]{0,50}harvard', caseSensitive: false).hasMatch(text)) {
+      rules.remove('citationStyle');
+      rules.remove('referenceListPlainNumber');
+      (rules['keyRequirements'] as List).removeWhere((item) => item == 'ACS citation style' || item == 'IEEE citation style' || item == 'APA citation style' || item == 'Numbered references (Vancouver/IEEE)' || item == 'References as 1., 2., 3. without brackets in list');
+      rules['citationStyleUnresolved'] = true;
+    }
+
     final refExample = _extractReferenceExample(text);
     if (refExample != null) {
       rules['referenceExample'] = refExample;
@@ -219,11 +226,30 @@ class JournalGuidelinesHeuristic {
       rules['found'] = true;
     }
 
-    if (_has(text, r'two[\s-]?column|double[\s-]?column|2[\s-]?column|عمودين')) {
+    // Figure widths, LaTeX resources and revised-stage rules do not establish
+    // an unqualified manuscript column requirement.
+    final columnLines = <String>[];
+    final columnScopes = <int, bool>{};
+    for (final raw in text.split('\n')) {
+      final heading = RegExp(r'^\s*(#{1,6})\s+(.+)$').firstMatch(raw);
+      if (heading != null) {
+        final level = heading.group(1)!.length;
+        columnScopes.removeWhere((key, _) => key >= level);
+        columnScopes[level] = RegExp(r'revised|revision|latex|tex|figures?|artwork|tables?', caseSensitive: false).hasMatch(heading.group(2)!);
+        continue;
+      }
+      if (columnScopes.values.any((excluded) => excluded)) continue;
+      for (final sentence in raw.split(RegExp(r'(?<=[.!?])\s+'))) {
+        if (RegExp(r'figures?|images?|artwork|width|equations?|latex|template|revised', caseSensitive: false).hasMatch(sentence)) continue;
+        if (RegExp(r'manuscript|article|main text|body text|submission|paper|عمود', caseSensitive: false).hasMatch(sentence)) columnLines.add(sentence);
+      }
+    }
+    final columnText = columnLines.join('\n');
+    if (_has(columnText, r'two[\s-]?column|double[\s-]?column|2[\s-]?column|عمودين')) {
       rules['columns'] = 2;
       (rules['keyRequirements'] as List).add('Two-column layout');
       rules['found'] = true;
-    } else if (_has(text, r'single[\s-]?column|one[\s-]?column|عمود واحد')) {
+    } else if (_has(columnText, r'single[\s-]?column|one[\s-]?column|عمود واحد')) {
       rules['columns'] = 1;
       rules['found'] = true;
     }
