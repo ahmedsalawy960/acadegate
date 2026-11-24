@@ -371,3 +371,54 @@ test("generation config uses thinking levels, never legacy thinking budgets", ()
   const media = generationConfigFor(FAST_MODELS[0], { deep: false, hasMedia: true });
   assert.ok(!media.thinkingConfig, "media turns skip thinking config");
 });
+
+const { buildModelTools } = require("../academic_assistant")._test;
+
+test("code execution is added only when the turn asks for it", () => {
+  const fns = [{ name: "search_scientific_literature" }];
+  assert.deepStrictEqual(buildModelTools(fns, { codeExecution: true }), [
+    { functionDeclarations: fns },
+    { codeExecution: {} },
+  ]);
+  assert.deepStrictEqual(buildModelTools(fns, { codeExecution: false }), [
+    { functionDeclarations: fns },
+  ]);
+  assert.deepStrictEqual(buildModelTools([], { codeExecution: true }), [
+    { codeExecution: {} },
+  ]);
+  assert.deepStrictEqual(buildModelTools([], { codeExecution: false }), []);
+});
+
+test("code execution parts are kept verbatim so they round-trip next turn", () => {
+  const out = [];
+  appendPart(out, { executableCode: { language: "PYTHON", code: "print(1)" } });
+  appendPart(out, { codeExecutionResult: { outcome: "OUTCOME_OK", output: "1" } });
+  appendPart(out, { text: "النتيجة: " });
+  appendPart(out, { text: "1" });
+  assert.deepStrictEqual(out, [
+    { executableCode: { language: "PYTHON", code: "print(1)" } },
+    { codeExecutionResult: { outcome: "OUTCOME_OK", output: "1" } },
+    { text: "النتيجة: 1" },
+  ]);
+});
+
+test("sanitizeContents keeps code execution parts from earlier rounds", () => {
+  const out = sanitizeContents([
+    {
+      role: "model",
+      parts: [
+        { executableCode: { language: "PYTHON", code: "x=1" }, junk: true },
+        { codeExecutionResult: { outcome: "OUTCOME_OK", output: "" } },
+      ],
+    },
+  ]);
+  assert.deepStrictEqual(out, [
+    {
+      role: "model",
+      parts: [
+        { executableCode: { language: "PYTHON", code: "x=1" } },
+        { codeExecutionResult: { outcome: "OUTCOME_OK", output: "" } },
+      ],
+    },
+  ]);
+});

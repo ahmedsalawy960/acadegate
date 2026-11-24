@@ -221,6 +221,8 @@ class AdvisorAgentRegistry {
         'تحليل بيانات',
         'إحصاء',
         'احصاء',
+        'إحصائ',
+        'احصائ',
         'regression',
         'انحدار',
         't-test',

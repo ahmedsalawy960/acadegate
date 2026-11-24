@@ -34,7 +34,7 @@ const TURN_TTL_MS = 15 * 60 * 1000;
 const MAX_CONTENTS = 80;
 const MAX_PAYLOAD_CHARS = 900000;
 const MAX_TOOLS = 16;
-const ALLOWED_PART_KEYS = ["text", "functionCall", "functionResponse", "thoughtSignature"];
+const ALLOWED_PART_KEYS = ["text", "functionCall", "functionResponse", "thoughtSignature", "executableCode", "codeExecutionResult"];
 
 function db() {
   return getFirestore();
@@ -251,6 +251,14 @@ async function admitRound(uid, turnId) {
   });
 }
 
+/** Tools for one model call: app functions, plus optional code execution. */
+function buildModelTools(functionDeclarations, { codeExecution = false } = {}) {
+  const out = [];
+  if (functionDeclarations.length > 0) out.push({ functionDeclarations });
+  if (codeExecution) out.push({ codeExecution: {} });
+  return out;
+}
+
 function generationConfigFor(model, { deep, hasMedia }) {
   const config = { maxOutputTokens: deep ? 16384 : 8192 };
   const name = String(model);
@@ -280,6 +288,19 @@ function apiErrorText(status, body) {
 function appendPart(out, part) {
   if (!part || part.thought === true) return;
   const sig = part.thoughtSignature;
+  // Code-execution parts round-trip verbatim so the next turn's contents
+  // keep the code and its result attached to the model's answer.
+  const codeKind = part.executableCode
+    ? "executableCode"
+    : part.codeExecutionResult
+      ? "codeExecutionResult"
+      : null;
+  if (codeKind) {
+    const clean = { [codeKind]: part[codeKind] };
+    if (sig) clean.thoughtSignature = sig;
+    out.push(clean);
+    return;
+  }
   if (part.functionCall) {
     out.push(sig ? { functionCall: part.functionCall, thoughtSignature: sig } : { functionCall: part.functionCall });
     return;
@@ -403,6 +424,7 @@ exports._test = {
   primaryModelFor,
   DEEP_MODELS,
   FAST_MODELS,
+  buildModelTools,
 };
 
 exports.academicAssistant = onCall(
@@ -442,6 +464,9 @@ exports.academicAssistant = onCall(
       }
       return tool;
     });
+    // The client asks for code execution on data-analysis and simulation
+    // turns; it is a server-side Gemini tool billed as ordinary tokens.
+    const wantsCodeExecution = data.codeExecution === true;
     const streaming = request.acceptsStreaming === true;
     if (streaming && response && typeof response.sendChunk === "function") {
       response.sendChunk({ t: "" });
@@ -476,9 +501,12 @@ exports.academicAssistant = onCall(
         generationConfig: generationConfigFor(model, { deep, hasMedia }),
       };
       if (systemPrompt) body.systemInstruction = { parts: [{ text: systemPrompt }] };
-      if (tools.length > 0) {
-        body.tools = [{ functionDeclarations: tools }];
-        body.toolConfig = { functionCallingConfig: { mode: toolMode } };
+      const modelTools = buildModelTools(tools, { codeExecution: wantsCodeExecution });
+      if (modelTools.length > 0) {
+        body.tools = modelTools;
+        if (tools.length > 0) {
+          body.toolConfig = { functionCallingConfig: { mode: toolMode } };
+        }
       }
 
       let result;

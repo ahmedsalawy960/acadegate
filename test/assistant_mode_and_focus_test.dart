@@ -59,4 +59,31 @@ void main() {
       }
     });
   });
+
+  group('wantsCodeExecution', () {
+    test('statistics and simulation turns enable it', () {
+      expect(
+        AcademicAssistantClient.wantsCodeExecution(
+          'حلل هذه البيانات إحصائياً واذكر الاختبار المناسب',
+        ),
+        isTrue,
+      );
+      expect(
+        AcademicAssistantClient.wantsCodeExecution(
+          'محاكاة نتائج دراسة كمية عن رضا الطلاب',
+        ),
+        isTrue,
+      );
+    });
+
+    test('ordinary questions do not enable it', () {
+      expect(AcademicAssistantClient.wantsCodeExecution('شكرا لك'), isFalse);
+      expect(
+        AcademicAssistantClient.wantsCodeExecution(
+          'رتب هذه المراجع بأسلوب APA لو سمحت',
+        ),
+        isFalse,
+      );
+    });
+  });
 }

@@ -133,6 +133,15 @@ class AcademicAssistantClient {
     return buffer.toString();
   }
 
+  /// Data-analysis and simulation turns enable server-side code execution
+  /// so computed statistics come from a real run, not from prose. It is
+  /// billed as ordinary model tokens and never named to the user.
+  static bool wantsCodeExecution(String routeText) {
+    final plan = AdvisorRouter.instance.route(routeText);
+    return plan.primary == AdvisorAgentId.dataAnalysis ||
+        plan.primary == AdvisorAgentId.researchSimulation;
+  }
+
   String _newTurnId() {
     final r = Random.secure();
     return '${DateTime.now().millisecondsSinceEpoch}_${List.generate(10, (_) => r.nextInt(36).toRadixString(36)).join()}';
@@ -220,6 +229,7 @@ class AcademicAssistantClient {
             'functionDeclarations': AssistantToolbox.declarations,
             'toolMode': lastRound ? 'NONE' : 'AUTO',
             'mode': deep ? 'deep' : 'fast',
+            if (wantsCodeExecution(routeText)) 'codeExecution': true,
             if (attachmentPayload.isNotEmpty) 'attachments': attachmentPayload,
           },
           onDelta: (delta) {
