@@ -599,7 +599,11 @@ class CitationLinker {
           i = paren.end;
           continue;
         }
-        // Unresolved group: keep scanning inside instead of skipping it.
+        // Preserve the entire unresolved group. Scanning inside could replace
+        // only its last work and silently erase sibling attribution.
+        out.write(paren.raw);
+        i = paren.end;
+        continue;
       }
 
       final orphan = _matchOrphanAuthorYear(text, i);
@@ -795,6 +799,11 @@ class CitationLinker {
     if (RegExp(r'^(?:19|20)\d{2}[a-z]?$').hasMatch(inner)) return null;
     if (RegExp(r'^[\d\s.<>=%,;+×xX/−-]+$').hasMatch(inner)) return null;
 
+    // A comma following a year separates works, unlike author-list commas.
+    inner = inner.replaceAllMapped(
+      RegExp(r'((?:19|20)\d{2}[a-z]?)\s*,\s*(?=[\p{Lu}])', unicode: true),
+      (match) => '${match.group(1)}; ',
+    );
     final parts = inner
         .split(';')
         .map((p) => p.trim().replaceAll(RegExp(r'[.]+$'), ''))
@@ -956,7 +965,7 @@ class CitationLinker {
     final ids = <String>[];
     for (final part in parts) {
       final parsed = _splitAuthorYear(part);
-      if (parsed == null || _isBlocked(parsed.$1)) continue;
+      if (parsed == null || _isBlocked(parsed.$1)) return null;
       final ref = index.byAuthorYear(parsed.$1, parsed.$2) ??
           index.byLastNames(
             CitationStyleShapes.lastNamesFromCitation(parsed.$1),
