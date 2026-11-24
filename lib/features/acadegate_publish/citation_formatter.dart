@@ -201,6 +201,8 @@ class CitationFormatter {
       final ieee = _parseIeeeLikeLine(s);
       if (ieee != null) return ieee;
     }
+    final vancouver = _parseVancouverJournalLine(s);
+    if (vancouver != null) return vancouver;
     final acs = _parseAcsLikeLine(s);
     if (acs != null) return acs;
     final ieee = _parseIeeeLikeLine(s);
@@ -700,7 +702,7 @@ class CitationFormatter {
       if (surname.length < 2 || _looksLikeInitialsNotSurname(surname)) {
         return const [];
       }
-      if (!RegExp(r"^[A-Z][a-zA-Z'\-]+$").hasMatch(surname)) return const [];
+      if (!RegExp(r"^[\p{Lu}][\p{L}'’\-]+$", unicode: true).hasMatch(surname)) return const [];
       final rest = words.sublist(1);
       if (rest.isEmpty || !rest.every(_isInitialsToken)) return const [];
       out.add('$surname ${rest.join(' ')}');
@@ -828,6 +830,41 @@ class CitationFormatter {
       return _authorLastName(parsed.authors.first).toLowerCase();
     }
     return _cleanRawCitation(ref.rawText).toLowerCase();
+  }
+
+  /// Vancouver compact authors, prose title, journal, year;volume:pages.
+  /// Parse the publication delimiter, not the first year mentioned in a title.
+  static PublishReference? _parseVancouverJournalLine(String s) {
+    // Compact authors normally have no periods, except the final full stop.
+    final authorEnd = s.indexOf('. ');
+    if (authorEnd < 0) return null;
+    final head = s.substring(0, authorEnd).replaceFirst(
+      RegExp(r',?\s+et\s+al$', caseSensitive: false), '',
+    );
+    final authors = parseVancouverCompactAuthors(head);
+    if (authors.isEmpty) return null;
+    final rest = s.substring(authorEnd + 2).trim();
+    final publication = RegExp(
+      r'\b((?:19|20)\d{2})\s*;\s*(\d*)(?:\(([^)]+)\))?\s*:\s*([A-Za-z]?\d+(?:[-–][A-Za-z]?\d+)?)',
+    ).firstMatch(rest);
+    if (publication == null) return null;
+    final before = rest.substring(0, publication.start).trim();
+    final boundary = RegExp(r'[.?!]\s+').firstMatch(before);
+    final titleEnd = boundary?.start ?? -1;
+    if (titleEnd < 8) return null;
+    final title = before.substring(0, titleEnd + (before[titleEnd] == '.' ? 0 : 1)).trim();
+    final container = before.substring(boundary!.end).trim()
+        .replaceFirst(RegExp(r'\.$'), '');
+    if (container.isEmpty) return null;
+    final doi = RegExp(r'(?:doi[:\s]*|https?://doi\.org/)([^\s,]+)',
+      caseSensitive: false).firstMatch(rest)?.group(1)
+      ?.replaceFirst(RegExp(r'[.)]+$'), '') ?? '';
+    return PublishReference(
+      id: '', type: ReferenceType.journal, authors: authors,
+      title: title, container: container, year: publication.group(1)!,
+      volume: publication.group(2)!, issue: publication.group(3) ?? '',
+      pages: publication.group(4)!, doi: doi,
+    );
   }
 
   /// ACS / many chemistry journals: Last, F.; Last, F. Title. J. Name Year, vol, pages.
