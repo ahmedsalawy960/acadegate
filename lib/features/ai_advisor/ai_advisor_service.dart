@@ -100,6 +100,9 @@ class AiAdvisorService {
     AdvisorAgentId.dataAnalysis,
     AdvisorAgentId.researchSimulation,
     AdvisorAgentId.researchIdea,
+    AdvisorAgentId.academicEditing,
+    AdvisorAgentId.citations,
+    AdvisorAgentId.presentations,
   };
 
   /// Deep reasoning for substantial requests; the server only grants it to Pro/admin.
@@ -176,6 +179,11 @@ class AiAdvisorService {
       usedCloudAi: true,
       agentLabels: [
         if (result.deep) appTr('تفكير عميق', 'Deep thinking'),
+        if (result.downgraded)
+          appTr(
+            'إجابة أخف بسبب ضغط مؤقت — أعد السؤال إن أردت تعمقاً أكبر',
+            'A lighter answer under temporary load — ask again for more depth',
+          ),
         ...result.toolLabels,
       ],
       catalog: catalog.isEmpty

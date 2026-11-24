@@ -8,8 +8,11 @@ import 'package:http/http.dart' as http;
 
 import '../../../core/firebase/callable_http_client.dart';
 import '../../../core/locale/app_translate.dart';
+import '../advisor_agent.dart';
+import '../advisor_agent_registry.dart';
 import '../advisor_attachment.dart';
 import '../advisor_branding.dart';
+import '../advisor_router.dart';
 import '../grounded_reference_service.dart';
 import 'assistant_attachment_payload.dart';
 import 'assistant_prompt.dart';
@@ -21,6 +24,13 @@ class AssistantRunResult {
   final String text;
   final String? error;
   final bool deep;
+
+  /// The user asked for deep reasoning (the server may still answer fast).
+  final bool requestedDeep;
+
+  /// At least one round was not served by the primary model of its class.
+  /// Surfaced as a brand-neutral note; never shows a model or vendor name.
+  final bool downgraded;
   final List<String> toolLabels;
   final AssistantToolbox toolbox;
 
@@ -32,6 +42,8 @@ class AssistantRunResult {
     required this.toolbox,
     this.error,
     this.deep = false,
+    this.requestedDeep = false,
+    this.downgraded = false,
     this.toolLabels = const [],
     this.backendUnavailable = false,
   });
@@ -44,12 +56,16 @@ class _RoundResult {
   final String text;
   final List<Map<String, dynamic>> calls;
   final bool deep;
+  final bool requestedDeep;
+  final bool downgraded;
 
   const _RoundResult({
     required this.parts,
     required this.text,
     required this.calls,
     required this.deep,
+    this.requestedDeep = false,
+    this.downgraded = false,
   });
 }
 
@@ -76,6 +92,47 @@ class AcademicAssistantClient {
 
   static bool get isAvailable => FirebaseAuth.instance.currentUser != null;
 
+  /// The routed specialist's persona, appended to the streaming system
+  /// prompt so the agent's expertise reaches the model on this path too
+  /// (previously only the fallback orchestrator sent it). Empty for general
+  /// chat and catalog requests, which need no specialist framing.
+  static String specialistFocusBlock(String routeText) {
+    final plan = AdvisorRouter.instance.route(routeText);
+    if (plan.primary == AdvisorAgentId.general ||
+        plan.primary == AdvisorAgentId.catalogExecute) {
+      return '';
+    }
+    final registry = AdvisorAgentRegistry.instance;
+    final primary = registry.byId(plan.primary);
+    final buffer = StringBuffer()
+      ..writeln(
+        appTr(
+          '\n## التخصص النشط: ${primary.displayShortLabel}',
+          '\n## Active specialty: ${primary.displayShortLabel}',
+        ),
+      )
+      ..writeln(primary.systemPrompt.trim());
+    final supporting = plan.supporting
+        .where(
+          (id) =>
+              id != AdvisorAgentId.general &&
+              id != AdvisorAgentId.catalogExecute,
+        )
+        .toList();
+    if (supporting.isNotEmpty) {
+      final joined = supporting
+          .map((id) => registry.byId(id).displayShortLabel)
+          .join(appTr('، ', ', '));
+      buffer.writeln(
+        appTr(
+          '\nالطلب يحتاج أيضاً خبرة: $joined — ادمجها في رد واحد متماسك.',
+          '\nThe request also needs expertise from: $joined — merge into one cohesive answer.',
+        ),
+      );
+    }
+    return buffer.toString();
+  }
+
   String _newTurnId() {
     final r = Random.secure();
     return '${DateTime.now().millisecondsSinceEpoch}_${List.generate(10, (_) => r.nextInt(36).toRadixString(36)).join()}';
@@ -101,7 +158,12 @@ class AcademicAssistantClient {
       await AssistantReplyLanguagePrefs.load(),
       languageSample,
     );
-    final systemPrompt = await AssistantPrompt.build(language: language);
+    var systemPrompt = await AssistantPrompt.build(language: language);
+    final routeText = message.trim().isNotEmpty
+        ? message.trim()
+        : appTr('حلّل الملفات المرفقة.', 'Analyze the attached files.');
+    final focus = specialistFocusBlock(routeText);
+    if (focus.isNotEmpty) systemPrompt = '$systemPrompt\n$focus';
     final turnId = _newTurnId();
 
     final contents = <Map<String, dynamic>>[
@@ -140,6 +202,8 @@ class AcademicAssistantClient {
 
     final visible = StringBuffer();
     var usedDeep = false;
+    var wasDowngraded = false;
+    var wasRequestedDeep = deep;
 
     for (var round = 0; round < _maxRounds; round++) {
       final lastRound = round == _maxRounds - 1;
@@ -184,6 +248,8 @@ class AcademicAssistantClient {
       }
 
       usedDeep = usedDeep || res.deep;
+      wasDowngraded = wasDowngraded || res.downgraded;
+      wasRequestedDeep = wasRequestedDeep || res.requestedDeep;
       // The final result is authoritative, even when some deltas were lost,
       // normalized by the backend, or already displayed. Never append it twice.
       final finalVisible = '$prefix${res.text}';
@@ -231,6 +297,8 @@ class AcademicAssistantClient {
     return AssistantRunResult(
       text: text,
       deep: usedDeep,
+      requestedDeep: wasRequestedDeep,
+      downgraded: wasDowngraded,
       toolLabels: toolbox.usedLabels,
       toolbox: toolbox,
       error: text.isEmpty
@@ -324,6 +392,8 @@ class AcademicAssistantClient {
         text: result['text']?.toString() ?? '',
         calls: calls,
         deep: result['deep'] == true,
+        requestedDeep: result['requestedDeep'] == true,
+        downgraded: result['downgraded'] == true,
       );
     } on TimeoutException {
       throw AssistantBackendException(
