@@ -36,6 +36,7 @@ class JournalGuidelinesHeuristic {
     if (text.length < 15) return null;
 
     final lower = text.toLowerCase();
+    final excerpt = text.replaceAll(RegExp(r'\s+'), ' ');
 
     final rules = <String, dynamic>{
       'found': false,
@@ -43,10 +44,10 @@ class JournalGuidelinesHeuristic {
       'keyRequirements': <String>[],
       'sectionOrder': <String>[],
       'acceptedFileFormats': <String>[],
-      'excerpt': text.replaceAll(RegExp(r'\s+'), ' ').substring(
-            0,
-            text.length > 350 ? 350 : text.length,
-          ),
+      'excerpt': excerpt.substring(
+        0,
+        excerpt.length > 350 ? 350 : excerpt.length,
+      ),
     };
 
     if (_has(
