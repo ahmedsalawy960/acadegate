@@ -616,16 +616,16 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(context.t(
-              'أُلغي حفظ ملف Word — لم تُحدَّث حالة الجاهزية.',
-              'Word save was cancelled — readiness status was not updated.',
+              'أُلغي حفظ ملف Word — لم تُحدَّث حالة التنسيق.',
+              'Word save was cancelled — formatting status was not updated.',
             )),
           ),
         );
         return;
       }
 
-      // A saved Word file is ready for manual submission, not submitted.
-      await ManuscriptService.instance.markReadyToSubmit(
+      // Saving a file does not verify journal requirements or scientific content.
+      await ManuscriptService.instance.recordJournalWordExport(
         manuscriptId: widget.manuscriptId,
         journalId: widget.journal.id,
         journalName: widget.journal.name,
@@ -634,6 +634,10 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
       if (!mounted) return;
       final imageCount = export.imageCount;
       final marked = CitationReadingAdvisor.lastMarkedCount;
+      final reviewNote = context.t(
+        ' — الملف يحتاج مراجعتك؛ لم يتم التحقق من جاهزيته للتقديم',
+        ' — Review required; submission readiness has not been verified',
+      );
       final readingNote = marked > 0
           ? context.t(
               ' — ميّز AcadeGate $marked استشهاداً قبل الترقيم',
@@ -653,11 +657,11 @@ class _JournalFormatApplyScreenState extends State<JournalFormatApplyScreen> {
         SnackBar(
           content: Text(context.t(
             exportRules.extractedFromGuide
-                ? 'تم التصدير بتنسيق جزئي من دليل «${widget.journal.name}»${exportRules.citationStyleChosenByUser ? '؛ نمط المراجع من اختيارك' : ''} — تباعد ${exportRules.lineSpacing}، مراجع: ${CitationFormatter.detectedStyleLabel(exportRules.citationStyle, plainNumberList: exportRules.referenceListPlainNumber)}$readingNote$imageNote'
-                : 'تم التصدير بقالب احتياطي (ليس من دليل المجلة) — تباعد ${exportRules.lineSpacing}$readingNote$imageNote',
+                ? 'تم التصدير بتنسيق جزئي من دليل «${widget.journal.name}»${exportRules.citationStyleChosenByUser ? '؛ نمط المراجع من اختيارك' : ''} — تباعد ${exportRules.lineSpacing}، مراجع: ${CitationFormatter.detectedStyleLabel(exportRules.citationStyle, plainNumberList: exportRules.referenceListPlainNumber)}$readingNote$imageNote$reviewNote'
+                : 'تم التصدير بقالب احتياطي (ليس من دليل المجلة) — تباعد ${exportRules.lineSpacing}$readingNote$imageNote$reviewNote',
             exportRules.extractedFromGuide
-                ? 'Exported with partial «${widget.journal.name}» guide rules${exportRules.citationStyleChosenByUser ? '; reference style selected by you' : ''} — spacing ${exportRules.lineSpacing}, refs: ${CitationFormatter.detectedStyleLabel(exportRules.citationStyle, plainNumberList: exportRules.referenceListPlainNumber)}$readingNote$imageNote'
-                : 'Exported with fallback template (not from journal guide) — spacing ${exportRules.lineSpacing}$readingNote$imageNote',
+                ? 'Exported with partial «${widget.journal.name}» guide rules${exportRules.citationStyleChosenByUser ? '; reference style selected by you' : ''} — spacing ${exportRules.lineSpacing}, refs: ${CitationFormatter.detectedStyleLabel(exportRules.citationStyle, plainNumberList: exportRules.referenceListPlainNumber)}$readingNote$imageNote$reviewNote'
+                : 'Exported with fallback template (not from journal guide) — spacing ${exportRules.lineSpacing}$readingNote$imageNote$reviewNote',
           )),
           duration: const Duration(seconds: 8),
         ),

@@ -23,18 +23,26 @@ enum InTextCitationForm {
 enum ManuscriptStatus {
   draft,
   formatted,
+  // Legacy export-only values. Retained for compatibility, never newly written.
   readyToSubmit,
-  // Legacy export-only value. Never write it for a Word download.
   submitted,
 }
 
 ManuscriptStatus manuscriptStatusFromStored(Object? value) {
-  // Older versions wrote submitted after exporting, without journal submission.
-  if (value == 'submitted') return ManuscriptStatus.readyToSubmit;
+  // Both values were written solely after Word export, without readiness checks.
+  if (value == 'submitted' || value == 'readyToSubmit') {
+    return ManuscriptStatus.formatted;
+  }
   return ManuscriptStatus.values.firstWhere(
     (status) => status.name == value,
     orElse: () => ManuscriptStatus.draft,
   );
+}
+
+/// Formatting is a recorded action, not a journal-compliance assessment.
+String manuscriptStatusLabel(ManuscriptStatus status, {required bool isEnglish}) {
+  if (status == ManuscriptStatus.draft) return isEnglish ? 'Draft' : 'مسودة';
+  return isEnglish ? 'Formatted - review required' : 'منسّق - يحتاج مراجعة';
 }
 
 enum ReferenceType { journal, book, web, conference }
@@ -587,7 +595,7 @@ class PublishManuscript {
       if (citationStyle != null) 'citationStyle': citationStyle!.name,
       if (journalId != null) 'journalId': journalId,
       if (journalName != null) 'journalName': journalName,
-      'status': status.name,
+      'status': manuscriptStatusFromStored(status.name).name,
       'updatedAt': FieldValue.serverTimestamp(),
     };
   }
