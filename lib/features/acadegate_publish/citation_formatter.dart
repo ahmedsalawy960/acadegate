@@ -201,6 +201,8 @@ class CitationFormatter {
       final ieee = _parseIeeeLikeLine(s);
       if (ieee != null) return ieee;
     }
+    final initialFirst = _parseInitialFirstJournalLine(s);
+    if (initialFirst != null) return initialFirst;
     final vancouver = _parseVancouverJournalLine(s);
     if (vancouver != null) return vancouver;
     final acs = _parseAcsLikeLine(s);
@@ -641,6 +643,8 @@ class CitationFormatter {
     if (isNumberedStyle(style)) return null;
     var raw = _cleanRawCitation(AcademicText.sanitize(reference.rawText));
     if (raw.length < 20) return null;
+    // A publication-tail year followed by a DOI is not an author-year lead.
+    if (_parseInitialFirstJournalLine(raw) != null) return null;
     final year = BibliographyMatch.yearOf(reference);
     if (year.length < 4) return null;
     if (!_yearLeadsTitle(raw, year)) return null;
@@ -834,6 +838,43 @@ class CitationFormatter {
 
   /// Vancouver compact authors, prose title, journal, year;volume:pages.
   /// Parse the publication delimiter, not the first year mentioned in a title.
+  /// Unquoted initial-first references with a volume (publication year) tail.
+  static PublishReference? _parseInitialFirstJournalLine(String s) {
+    final author = RegExp(
+      r"^((?:[A-Z]\.\s*)+)([\p{Lu}][\p{L}\p{M}'’\-]*"
+      r"(?:\s+[\p{L}\p{M}'’\-]+){0,3}),\s*",
+      unicode: true,
+    );
+    final authors = <String>[];
+    var rest = s;
+    while (true) {
+      final match = author.firstMatch(rest);
+      if (match == null) break;
+      final initials = RegExp(r'[A-Z]\.').allMatches(match.group(1)!)
+          .map((m) => m.group(0)!).join(' ');
+      authors.add('${match.group(2)!}, $initials');
+      rest = rest.substring(match.end);
+    }
+    if (authors.isEmpty) return null;
+    final publication = RegExp(
+      r',\s*([^,]+?)\s+(\d+)(?:\s*\(([^)]+)\))?\s*'
+      r'\(((?:19|20)\d{2})\)(?:\s+([A-Za-z]?\d+(?:[-–][A-Za-z]?\d+)?))?'
+      r'\s*\.?(?:\s+(?:https?://|doi\b)|$)',
+      caseSensitive: false,
+    ).firstMatch(rest);
+    if (publication == null || publication.start < 8) return null;
+    final doi = RegExp(r'(?:doi[:\s]*|https?://doi\.org/)([^\s,]+)',
+        caseSensitive: false).firstMatch(rest)?.group(1)
+        ?.replaceFirst(RegExp(r'[.)]+$'), '') ?? '';
+    return PublishReference(
+      id: '', type: ReferenceType.journal, authors: authors,
+      title: rest.substring(0, publication.start).trim(),
+      container: publication.group(1)!.trim(), volume: publication.group(2)!,
+      issue: publication.group(3) ?? '', year: publication.group(4)!,
+      pages: publication.group(5) ?? '', doi: doi,
+    );
+  }
+
   static PublishReference? _parseVancouverJournalLine(String s) {
     // Compact authors normally have no periods, except the final full stop.
     final authorEnd = s.indexOf('. ');
