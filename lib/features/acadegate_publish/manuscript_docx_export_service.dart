@@ -414,8 +414,9 @@ class ManuscriptDocxExportService {
           spacingAfter: 80,
         ),
       ManuscriptBlockType.paragraph => () {
-          final front = DocxScientificExtractor.isFrontMatterAuthorText(block.text);
-          final raw = front
+          final front = !block.preserveCitationText &&
+              DocxScientificExtractor.isFrontMatterAuthorText(block.text);
+          final raw = front || block.preserveCitationText
               ? AcademicText.sanitize(CitationLinker.stripHints(block.text))
               : _resolveBodyText(
                   text: block.text,

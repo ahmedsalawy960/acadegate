@@ -1287,6 +1287,7 @@ class ManuscriptDocumentParser {
         continue;
       }
       final t = block.text.trim();
+      if (block.preserveCitationText) { cleaned.add(block); continue; }
       if (t.isEmpty) continue;
       if (_isJunkTextFragment(t)) continue;
 
@@ -1327,6 +1328,7 @@ class ManuscriptDocumentParser {
     }
 
     bool isMergeable(ManuscriptBlock b) {
+      if (b.preserveCitationText) return false;
       if (b.type != ManuscriptBlockType.paragraph) return false;
       final t = b.text.trim();
       if (t.isEmpty || _isJunkTextFragment(t)) return false;
@@ -2085,7 +2087,7 @@ class ManuscriptDocumentParser {
   static int? _bibliographyHeadingIndex(List<ManuscriptBlock> blocks) {
     int? headingAt;
     for (var i = 0; i < blocks.length; i++) {
-      if (_isBibliographyBlock(blocks[i])) headingAt = i;
+      if (_isBibliographyBlock(blocks[i]) && !blocks[i].preserveCitationText) headingAt = i;
     }
     return headingAt;
   }
@@ -2109,7 +2111,7 @@ class ManuscriptDocumentParser {
   static int _findBibliographyIndex(List<ManuscriptBlock> blocks) {
     int? headingAt;
     for (var i = 0; i < blocks.length; i++) {
-      if (_isBibliographyBlock(blocks[i])) headingAt = i;
+      if (_isBibliographyBlock(blocks[i]) && !blocks[i].preserveCitationText) headingAt = i;
     }
     if (headingAt != null) return headingAt;
     return _lastBibliographyRunIndex(blocks) ?? blocks.length;
@@ -2400,6 +2402,7 @@ class ManuscriptDocumentParser {
     final out = <ManuscriptBlock>[];
     var afterMainBibliography = false;
     for (final block in blocks) {
+      if (block.preserveCitationText) { out.add(block); continue; }
       if (_isPostBibliographyBoundary(block.text)) afterMainBibliography = true;
       if (afterMainBibliography) {
         out.add(block);
@@ -2457,7 +2460,7 @@ class ManuscriptDocumentParser {
       r'^(?:(?:\d+[.)]?\s*)?(?:appendices|appendix(?:\s+[A-Z0-9]+)?|'
       r'supplementary(?:\s+(?:materials?|information|files?))?|'
       r'supporting information|tables?|figures?|figure legends?|table legends?)'
-      r'\s*[:.]?|(?:table|figure)\s+\d+[.:]\s+[^\n]+)$',
+      r'\s*[:.]?|(?:table|figure)\s+\d+(?:[.:]\s+[^\n]+)?)$',
       caseSensitive: false,
     ).hasMatch(t);
   }
@@ -2706,6 +2709,9 @@ class ManuscriptDocumentParser {
       );
 
       var region = _CiteImportRegion.frontMatter;
+      var mainBibliographySeen = false;
+      var pastMainBibliography = false;
+      var inSupplementBibliography = false;
       var fieldDepth = 0;
       int? bibliographyFieldDepth;
       XmlElement outsideBibliographyField(XmlElement paragraph) {
@@ -2740,7 +2746,9 @@ class ManuscriptDocumentParser {
         }
         return keep(paragraph)! as XmlElement;
       }
-      for (final sourceChild in body.children.whereType<XmlElement>()) {
+      final sourceChildren = body.children.whereType<XmlElement>().toList();
+      for (var sourceIndex = 0; sourceIndex < sourceChildren.length; sourceIndex++) {
+        final sourceChild = sourceChildren[sourceIndex];
         final hasBibliographyField = sourceChild.descendants.whereType<XmlElement>().any((e) =>
             e.localName == 'instrText' && RegExp(r'CSL_BIBLIOGRAPHY|ADDIN\s+(?:ZOTERO|MENDELEY)[_\s]+BIBL', caseSensitive: false).hasMatch(e.innerText));
         final child = sourceChild.localName == 'p' && (bibliographyFieldDepth != null || hasBibliographyField)
@@ -2749,9 +2757,22 @@ class ManuscriptDocumentParser {
 
         if (tag == 'p') {
           final plain = _paragraphPlainText(child).trim();
+          final isHeading = _isBibliographyHeadingLine(plain);
+          final following = isHeading ? sourceChildren.skip(sourceIndex + 1)
+              .where((e) => e.localName == 'p')
+              .map((e) => _paragraphPlainText(e).trim())
+              .firstWhere((s) => s.isNotEmpty, orElse: () => '') : '';
           if (_isBibliographyParagraph(child) ||
-              _isBibliographyHeadingLine(plain)) {
-            region = _CiteImportRegion.bibliography;
+              (isHeading &&
+                (mainBibliographySeen || _looksLikeBibliographyStartLine(following)))) {
+            if (pastMainBibliography && mainBibliographySeen) {
+              inSupplementBibliography = true;
+              blocks.add(ManuscriptBlock(id: nextId(), type: ManuscriptBlockType.heading,
+                text: plain, preserveCitationText: true));
+            } else {
+              mainBibliographySeen = true;
+              region = _CiteImportRegion.bibliography;
+            }
             continue;
           }
           if (region == _CiteImportRegion.frontMatter &&
@@ -2764,6 +2785,7 @@ class ManuscriptDocumentParser {
           final plain = _paragraphPlainText(child).trim();
           if (_isPostBibliographyBoundary(plain)) {
             region = _CiteImportRegion.body;
+            pastMainBibliography = true;
           } else {
             final paraBlocks = _blocksFromDocxParagraph(
               child,
@@ -2789,6 +2811,22 @@ class ManuscriptDocumentParser {
                 text: plain,
               ));
             }
+            continue;
+          }
+        }
+
+        if (inSupplementBibliography && tag == 'p') {
+          final plain = _paragraphPlainText(child).trim();
+          if (_isPostBibliographyBoundary(plain) || _isAppendixHeading(plain)) {
+            inSupplementBibliography = false;
+          } else {
+            // Keep scientific media even when it sits in a reference paragraph.
+            blocks.addAll(_blocksFromDocxParagraph(child, archive: archive,
+              rels: rels, nextId: nextId, onVisualUsed: onVisualUsed,
+              imageCount: () => imageCount, maxLocalImages: maxLocalImages,
+              region: _CiteImportRegion.bibliography).where(_isMediaBlock));
+            blocks.add(ManuscriptBlock(id: nextId(), type: ManuscriptBlockType.paragraph,
+              text: plain, preserveCitationText: true));
             continue;
           }
         }
@@ -4218,10 +4256,19 @@ class ManuscriptDocumentParser {
     );
     int? lastInBody;
     for (final m in heading.allMatches(text)) {
-      if (m.start >= text.length * 0.28) lastInBody = m.start;
+      // Main bibliography precedes supplementary lists. Table column labels
+      // do not qualify: the next nonempty line must start a real reference.
+      final following=text.substring(m.end).split('\n').map((l)=>l.trim()).firstWhere((l)=>l.isNotEmpty,orElse:()=>'');
+      if (!_looksLikeBibliographyStartLine(following)) {
+        continue;
+      }
       lastInBody ??= m.start;
     }
     if (lastInBody != null) return lastInBody;
+    final printed=heading.allMatches(text).toList();
+    if (printed.isNotEmpty) {
+      return printed.last.start;
+    }
     final runAt = _bibliographyRunStartInText(text);
     if (runAt != null) return runAt;
 
@@ -4236,6 +4283,11 @@ class ManuscriptDocumentParser {
     }
     return null;
   }
+
+  static bool _looksLikeBibliographyStartLine(String line) =>
+      RegExp(r'^\[\d{1,3}\]\s*\S').hasMatch(line) ||
+      _isBibliographicNumberedLine(line) ||
+      (_hasBibYear(line) && _hasBibliographyAuthorLead(line));
 
   /// Last run of bibliographic lines in the file (the printed list, not Methods).
   static int? _bibliographyRunStartInText(String text) {
@@ -5030,6 +5082,7 @@ class ManuscriptDocumentParser {
     var afterMainBibliography = false;
     for (var i = 0; i < blocks.length; i++) {
       final block = blocks[i];
+      if (block.preserveCitationText) { out.add(block); continue; }
       final afterBib = harvestFrom != null && i >= harvestFrom;
       if (afterBib && _isPostBibliographyBoundary(block.text)) {
         afterMainBibliography = true;

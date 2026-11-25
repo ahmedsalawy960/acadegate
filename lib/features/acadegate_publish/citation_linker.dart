@@ -423,6 +423,7 @@ class CitationLinker {
     _RefIndex index, {
     bool numbersOnly = false,
   }) {
+    if (block.preserveCitationText) return block;
     if (block.type == ManuscriptBlockType.heading ||
         CitationStyleShapes.looksLikeSectionHeading(block.text)) {
       return block.copyWith(text: stripHints(block.text));

@@ -894,7 +894,7 @@ class JournalSectionLayout {
     _SectionGroup? current;
 
     for (final block in blocks) {
-      if (block.type == ManuscriptBlockType.heading &&
+      if (!block.preserveCitationText && block.type == ManuscriptBlockType.heading &&
           isReferencesHeading(block.text)) {
         current = _SectionGroup(block, const [], skip: true);
         sections.add(current);

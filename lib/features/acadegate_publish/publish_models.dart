@@ -198,6 +198,8 @@ class PublishReference {
 }
 
 class ManuscriptBlock {
+  /// Supplementary bibliography text belongs to its own printed scope.
+  final bool preserveCitationText;
   final String id;
   final ManuscriptBlockType type;
   final String text;
@@ -219,6 +221,7 @@ class ManuscriptBlock {
   final String? ommlXml;
 
   const ManuscriptBlock({
+    this.preserveCitationText = false,
     required this.id,
     required this.type,
     this.text = '',
@@ -238,6 +241,7 @@ class ManuscriptBlock {
         'id': id,
         'type': type.name,
         'text': text,
+        if (preserveCitationText) 'preserveCitationText': true,
         if (imageUrl != null) 'imageUrl': imageUrl,
         if (caption != null && caption!.isNotEmpty) 'caption': caption,
         if (ommlXml != null && ommlXml!.isNotEmpty) 'ommlXml': ommlXml,
@@ -413,6 +417,7 @@ class ManuscriptBlock {
       id: map['id']?.toString() ?? '',
       type: type,
       text: map['text']?.toString() ?? '',
+      preserveCitationText: map['preserveCitationText'] == true,
       imageUrl: map['imageUrl']?.toString(),
       caption: map['caption']?.toString(),
       rows: rows,
@@ -438,6 +443,7 @@ class ManuscriptBlock {
   }
 
   ManuscriptBlock copyWith({
+    bool? preserveCitationText,
     ManuscriptBlockType? type,
     String? text,
     String? imageUrl,
@@ -454,6 +460,7 @@ class ManuscriptBlock {
     return ManuscriptBlock(
       id: id,
       type: type ?? this.type,
+      preserveCitationText: preserveCitationText ?? this.preserveCitationText,
       text: text ?? this.text,
       imageUrl: imageUrl ?? this.imageUrl,
       caption: caption ?? this.caption,

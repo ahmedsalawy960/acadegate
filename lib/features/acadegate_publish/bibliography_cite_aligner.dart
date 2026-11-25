@@ -280,7 +280,10 @@ class BibliographyCiteAligner {
             caseSensitive: false,
           ).hasMatch(before) ||
           RegExp(r'\.\s+$').hasMatch(before);
-      if (ended) return m.start;
+      // A matching organization word may also be in a title or place name.
+      // The proposed new work needs its own date after its author lead.
+      final suffix = blob.substring(m.start);
+      if (ended && RegExp(r'\b(?:19|20)\d{2}[a-z]?\b').hasMatch(suffix)) return m.start;
     }
     return null;
   }

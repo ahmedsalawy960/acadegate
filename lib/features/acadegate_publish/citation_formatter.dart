@@ -246,6 +246,8 @@ class CitationFormatter {
     if (initialFirst != null) return initialFirst;
     final vancouver = _parseVancouverJournalLine(s);
     if (vancouver != null) return vancouver;
+    final yearEnd = _parseCompactYearEndLine(s);
+    if (yearEnd != null) return yearEnd;
     final acs = _parseAcsLikeLine(s);
     if (acs != null) return acs;
     final ieee = _parseIeeeLikeLine(s);
@@ -743,12 +745,15 @@ class CitationFormatter {
     for (final p in parts) {
       final words = p.trim().split(RegExp(r'\s+'));
       if (words.length < 2) return const [];
-      final surname = words.first.replaceAll(',', '');
+      final particles = {'van', 'von', 'de', 'del', 'da', 'di', 'der', 'den'};
+      var surnameWords = 1;
+      while (surnameWords < words.length - 1 && particles.contains(words[surnameWords - 1].toLowerCase())) { surnameWords++; }
+      final surname = words.take(surnameWords).join(' ').replaceAll(',', '');
       if (surname.length < 2 || _looksLikeInitialsNotSurname(surname)) {
         return const [];
       }
-      if (!RegExp(r"^[\p{Lu}][\p{L}'’\-]+$", unicode: true).hasMatch(surname)) return const [];
-      final rest = words.sublist(1);
+      if (!RegExp(r"^[\p{L}][\p{L}'’\- ]+$", unicode: true).hasMatch(surname)) return const [];
+      final rest = words.sublist(surnameWords);
       if (rest.isEmpty || !rest.every(_isInitialsToken)) return const [];
       out.add('$surname ${rest.join(' ')}');
     }
@@ -947,6 +952,32 @@ class CitationFormatter {
       volume: publication.group(2)!, issue: publication.group(3) ?? '',
       pages: publication.group(4)!, doi: doi,
     );
+  }
+
+  /// Compact surname-initials authors with the year after volume/pages.
+  static PublishReference? _parseCompactYearEndLine(String s) {
+    final authorEnd = s.indexOf('. ');
+    if (authorEnd < 0) return null;
+    final head = s.substring(0, authorEnd);
+    final authors = parseVancouverCompactAuthors(head);
+    if (authors.isEmpty) return null;
+    final rest = s.substring(authorEnd + 2).trim();
+    final year = RegExp(r',\s*((?:19|20)\d{2})\.?(?:\s+doi:.*)?$',
+      caseSensitive: false).firstMatch(rest);
+    if (year == null) return null;
+    final before = rest.substring(0, year.start).trim();
+    final boundary = RegExp(r'[.?!]\s+').firstMatch(before);
+    if (boundary == null || boundary.start < 8) return null;
+    final title = before.substring(0, boundary.start);
+    final publication = before.substring(boundary.end);
+    final journal = RegExp(r'^(.+?)\s+(\d+):\s*([A-Za-z]?\d+(?:[–-][A-Za-z]?\d+)?)$')
+      .firstMatch(publication);
+    final doi = RegExp(r'doi:\s*(\S+)',caseSensitive:false).firstMatch(rest)
+      ?.group(1)?.replaceFirst(RegExp(r'[.)]+$'), '') ?? '';
+    return PublishReference(id: '', type: journal == null ? ReferenceType.book : ReferenceType.journal,
+      authors: authors, title: title, year: year.group(1)!,
+      container: journal?.group(1) ?? '', volume: journal?.group(2) ?? '',
+      pages: journal?.group(3) ?? '', publisher: journal == null ? publication : '', doi: doi);
   }
 
   /// ACS / many chemistry journals: Last, F.; Last, F. Title. J. Name Year, vol, pages.
