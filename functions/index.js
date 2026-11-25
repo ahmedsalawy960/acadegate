@@ -8,6 +8,7 @@ const { createOriginalityHandlers } = require("./originality");
 const { createPublishExtractHandler } = require("./publish_extract");
 const { createScienceNewsRssHandler } = require("./science_news_rss");
 const { createCitationProxyHandler } = require("./citation_proxy");
+const { createFormatCitationsHandler } = require("./csl_format");
 const { createResearchRoomHandlers } = require("./research_rooms");
 const { createJournalGuidelinesHandlers } = require("./journal_guidelines");
 const { createStoreSuppliersSyncHandlers } = require("./store_suppliers_sync");
@@ -22,6 +23,7 @@ exports.copyleaksWebhook = copyleaksWebhook;
 exports.publishExtractReferencesHttp = createPublishExtractHandler();
 exports.scienceNewsRssHttp = createScienceNewsRssHandler();
 exports.citationLookupHttp = createCitationProxyHandler();
+exports.formatCitations = createFormatCitationsHandler();
 
 // Google Scholar via SerpAPI (secret: SERPAPI_API_KEY).
 const serpapiKey = defineSecret("SERPAPI_API_KEY");

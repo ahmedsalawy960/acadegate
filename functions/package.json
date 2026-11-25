@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "cfb": "1.2.2",
+    "citeproc": "^2.4.63",
     "firebase-admin": "^14.5.1",
     "firebase-functions": "^7.4.0",
     "google-auth-library": "^10.7.0",
