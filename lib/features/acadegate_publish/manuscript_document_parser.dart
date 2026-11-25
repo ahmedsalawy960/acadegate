@@ -3773,6 +3773,7 @@ class ManuscriptDocumentParser {
       final nextImages = [for (final row in images) List<String>.from(row)];
       for (var r = 1; r < rows.length && poolIdx < unused.length; r++) {
         for (final c in drawingCols) {
+          if (poolIdx >= unused.length) break;
           if (c >= rows[r].length || c >= nextImages[r].length) continue;
           if (nextImages[r][c].isNotEmpty) continue;
           if (rows[r][c].trim().isNotEmpty) continue;
