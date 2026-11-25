@@ -1,6 +1,7 @@
 import '../../core/locale/app_translate.dart';
 import '../academic_integrity/consensus_client.dart';
 import '../academic_integrity/crossref_client.dart';
+import '../academic_integrity/datacite_client.dart';
 import '../academic_integrity/europe_pmc_client.dart';
 import '../academic_integrity/google_scholar_client.dart';
 import '../academic_integrity/openaire_client.dart';
@@ -9,6 +10,7 @@ import '../academic_integrity/openalex_works_client.dart';
 import '../academic_integrity/semantic_scholar_client.dart';
 import '../academic_integrity/zotero_client.dart';
 import '../academic_integrity/zotero_connection_store.dart';
+import '../academic_integrity/zenodo_client.dart';
 import 'advisor_intent.dart';
 import 'grounded_work.dart';
 import 'literature_relevance.dart';
@@ -257,6 +259,48 @@ class GroundedReferenceService {
           journal: work.journal,
           abstractText: work.groundedAbstract,
           externalUrl: work.url,
+        );
+      }
+    } catch (_) {}
+
+    // Research datasets (DataCite index + Zenodo repository) join the
+    // general topic search; DOI dedup keeps one record per dataset.
+    try {
+      final datasets = await DataCiteClient.instance.searchDatasets(
+        topic,
+        limit: 5,
+      );
+      for (final ds in datasets) {
+        _offer(
+          byDoi,
+          ds.doi,
+          ds.title,
+          ds.year,
+          ds.authors,
+          'DataCite',
+          journal: ds.publisher,
+          abstractText: ds.abstractText,
+          citationCount: ds.citationCount,
+          externalUrl: ds.url,
+        );
+      }
+    } catch (_) {}
+
+    try {
+      final zenodo = await ZenodoClient.instance.searchDatasets(
+        topic,
+        limit: 5,
+      );
+      for (final ds in zenodo) {
+        _offer(
+          byDoi,
+          ds.doi,
+          ds.title,
+          ds.year,
+          ds.authors,
+          'Zenodo',
+          abstractText: ds.abstractText,
+          externalUrl: ds.url,
         );
       }
     } catch (_) {}

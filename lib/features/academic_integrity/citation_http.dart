@@ -15,6 +15,8 @@ class CitationHttp {
     'api.unpaywall.org',
     'api.openaire.eu',
     'opencitations.net',
+    'api.datacite.org',
+    'zenodo.org',
     'www.ebi.ac.uk',
     'pub.orcid.org',
     'query.wikidata.org',
