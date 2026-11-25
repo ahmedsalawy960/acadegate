@@ -32,6 +32,11 @@ class JournalGuidelinesHeuristic {
       out['citationStyleUncertainty'] = heuristic['citationStyleUncertainty'];
       _removeCitationClaims(out);
     }
+    // Explicit sizes read directly from source wording outrank model guesses.
+    for (final key in ['bodyFontSizePt', 'titleFontSizePt',
+      'headingFontSizePt', 'referenceFontSizePt']) {
+      if (heuristic[key] != null) out[key] = heuristic[key];
+    }
     out['found'] = true;
     return out;
   }
@@ -108,6 +113,12 @@ class JournalGuidelinesHeuristic {
           r'(?:font|typeface)[^.]{0,60}dropdown menu',
           caseSensitive: false,
         ).hasMatch(line)) {
+          continue;
+        }
+        if (RegExp(r'\b(?:title|headings?|references?|captions?|footnotes?)\b',
+            caseSensitive: false).hasMatch(line) &&
+            !RegExp(r'\b(?:body|main text|manuscript text)\b',
+              caseSensitive: false).hasMatch(line)) {
           continue;
         }
         fontLines.add(line);
@@ -449,6 +460,15 @@ class JournalGuidelinesHeuristic {
       rules['found'] = true;
     }
 
+    for (final role in {'heading': r'headings?', 'reference': r'references?'}.entries) {
+      final size = RegExp('${role.value}[^.]{0,40}?(\\d{1,2})\\s*(?:point|pt|نقطة)',
+        caseSensitive: false).firstMatch(text);
+      if (size != null) {
+        rules['${role.key}FontSizePt'] = int.parse(size.group(1)!);
+        rules['found'] = true;
+      }
+    }
+
     final formats = <String>[];
     if (_has(text, r'microsoft word|\.docx?|وورد')) {
       formats.add('Microsoft Word');
@@ -614,6 +634,9 @@ class JournalGuidelinesHeuristic {
     if (rules['citationStyle'] != null) n++;
     if (rules['lineSpacing'] != null) n++;
     if (rules['bodyFontSizePt'] != null) n++;
+    if (rules['titleFontSizePt'] != null) n++;
+    if (rules['headingFontSizePt'] != null) n++;
+    if (rules['referenceFontSizePt'] != null) n++;
     if (rules['columns'] != null) n++;
     if (rules['firstLineIndentCm'] != null) n++;
     if (rules['abstractMaxWords'] != null) n++;

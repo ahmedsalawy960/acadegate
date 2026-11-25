@@ -205,7 +205,11 @@ class ManuscriptDocxExportService {
       final desired = rules.columnCount > 1 && !wide ? 2 : 1;
       closeAndSwitch(desired);
 
-      final exportBlock = block.type == ManuscriptBlockType.heading
+      final authorLine = block.type == ManuscriptBlockType.heading &&
+          DocxScientificExtractor.isFrontMatterAuthorText(block.text);
+      final normalizedBlock = authorLine
+          ? block.copyWith(type: ManuscriptBlockType.paragraph) : block;
+      final exportBlock = normalizedBlock.type == ManuscriptBlockType.heading
           ? block.copyWith(
               text: _formatHeadingText(
                 blockText,
@@ -213,7 +217,7 @@ class ManuscriptDocxExportService {
                 number: ++headingNumber,
               ),
             )
-          : block;
+          : normalizedBlock;
       if (block.type == ManuscriptBlockType.heading &&
           (JournalSectionLayout.isAbstractHeading(block.text) ||
               JournalSectionLayout.isReferencesHeading(block.text) ||
@@ -960,7 +964,7 @@ class ManuscriptDocxExportService {
         span.text,
         rules: rules,
         italic: span.italic,
-        fontHalfPoints: rules.bodyFontHalfPoints - 2,
+        fontHalfPoints: rules.effectiveReferenceFontHalfPoints,
       ));
     }
     final hanging = CitationFormatter.isNumberedStyle(rules.citationStyle)

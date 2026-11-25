@@ -16,6 +16,10 @@ class JournalCitationInference {
 }
 
 class JournalFormatRules {
+  static const defaultBodyFontHalfPoints = 22; // 11 pt, one fallback source.
+  static const defaultTitleFontHalfPoints = 28; // 14 pt.
+  static const defaultHeadingFontHalfPoints = 24; // 12 pt.
+
   final String journalName;
   final String publisher;
   final PublishCitationStyle citationStyle;
@@ -27,6 +31,9 @@ class JournalFormatRules {
   final int bodyFontHalfPoints;
   final int titleFontHalfPoints;
   final int headingFontHalfPoints;
+  final int? referenceFontHalfPoints;
+  int get effectiveReferenceFontHalfPoints =>
+      referenceFontHalfPoints ?? bodyFontHalfPoints - 2;
   final double lineSpacing;
   final int marginTwips;
   final bool justifyBody;
@@ -76,9 +83,10 @@ class JournalFormatRules {
     this.citationStyleResolved = true,
     this.citationStyleChosenByUser = false,
     this.fontFamily = 'Times New Roman',
-    this.bodyFontHalfPoints = 24,
-    this.titleFontHalfPoints = 32,
-    this.headingFontHalfPoints = 28,
+    this.bodyFontHalfPoints = defaultBodyFontHalfPoints,
+    this.titleFontHalfPoints = defaultTitleFontHalfPoints,
+    this.headingFontHalfPoints = defaultHeadingFontHalfPoints,
+    this.referenceFontHalfPoints,
     this.lineSpacing = 2.0,
     this.marginTwips = 1440,
     this.justifyBody = true,
@@ -352,6 +360,7 @@ class JournalFormatRules {
     int? bodyFontHalfPoints,
     int? titleFontHalfPoints,
     int? headingFontHalfPoints,
+    int? referenceFontHalfPoints,
     double? lineSpacing,
     int? marginTwips,
     bool? justifyBody,
@@ -392,6 +401,7 @@ class JournalFormatRules {
       bodyFontHalfPoints: bodyFontHalfPoints ?? this.bodyFontHalfPoints,
       titleFontHalfPoints: titleFontHalfPoints ?? this.titleFontHalfPoints,
       headingFontHalfPoints: headingFontHalfPoints ?? this.headingFontHalfPoints,
+      referenceFontHalfPoints: referenceFontHalfPoints ?? this.referenceFontHalfPoints,
       lineSpacing: lineSpacing ?? this.lineSpacing,
       marginTwips: marginTwips ?? this.marginTwips,
       justifyBody: justifyBody ?? this.justifyBody,
@@ -513,17 +523,20 @@ class JournalFormatRules {
           : (fallback?.fontFamily ?? 'Times New Roman'),
       bodyFontHalfPoints: bodyPt != null
           ? (bodyPt * 2).round()
-          : (fallback?.bodyFontHalfPoints ?? 24),
+          : (fallback?.extractedFromGuide == true
+              ? fallback!.bodyFontHalfPoints : defaultBodyFontHalfPoints),
       titleFontHalfPoints: titleFontPt != null
           ? (titleFontPt * 2).round()
-          : bodyPt != null
-              ? (bodyPt * 2 + 8).round()
-              : (fallback?.titleFontHalfPoints ?? 32),
+          : (fallback?.extractedFromGuide == true
+              ? fallback!.titleFontHalfPoints : defaultTitleFontHalfPoints),
       headingFontHalfPoints: headingFontPt != null
           ? (headingFontPt * 2).round()
-          : bodyPt != null
-              ? (bodyPt * 2 + 4).round()
-              : (fallback?.headingFontHalfPoints ?? 28),
+          : (fallback?.extractedFromGuide == true
+              ? fallback!.headingFontHalfPoints : defaultHeadingFontHalfPoints),
+      referenceFontHalfPoints: _asExtractedDouble(extracted['referenceFontSizePt']) != null
+          ? (_asExtractedDouble(extracted['referenceFontSizePt'])! * 2).round()
+          : (fallback?.extractedFromGuide == true
+              ? fallback!.referenceFontHalfPoints : null),
       lineSpacing: lineSpacing ?? fallback?.lineSpacing ?? 2.0,
       marginTwips: marginCm != null
           ? (marginCm * 567).round()
@@ -634,6 +647,9 @@ class JournalFormatRules {
       n++;
     }
     if (extracted['bodyFontSizePt'] != null) n++;
+    if (extracted['titleFontSizePt'] != null) n++;
+    if (extracted['headingFontSizePt'] != null) n++;
+    if (extracted['referenceFontSizePt'] != null) n++;
     if (extracted['columns'] != null) n++;
     if (extracted['firstLineIndentCm'] != null) n++;
     if (extracted['abstractMaxWords'] != null) n++;
@@ -1133,9 +1149,6 @@ class JournalFormatRulesService {
           publisher: publisher,
           citationStyle: profile.citationStyle,
           fontFamily: profile.fontFamily,
-          bodyFontHalfPoints: profile.bodyFontHalfPoints,
-          titleFontHalfPoints: profile.titleFontHalfPoints,
-          headingFontHalfPoints: profile.headingFontHalfPoints,
           lineSpacing: profile.lineSpacing,
           marginTwips: profile.marginTwips,
           justifyBody: profile.justifyBody,

@@ -120,7 +120,8 @@ void main() {
         a.findFile('word/styles.xml')!.content as List<int>,
       );
       expect(xml, contains('w:ascii="Arial"'));
-      expect(xml, contains('w:line="360"'));
+      // 11pt fallback at1.5 spacing is330 twips, not the old12pt360.
+      expect(xml, contains('w:line="330"'));
       if (Platform.environment['QA_BODY_STYLE_DOCX'] != null) {
         File(
           Platform.environment['QA_BODY_STYLE_DOCX']!,

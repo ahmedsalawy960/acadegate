@@ -66,6 +66,9 @@ class JournalTemplateReader {
         'confidence': 'high',
         ...heuristic,
         ...layout,
+        for (final key in ['bodyFontSizePt', 'titleFontSizePt',
+          'headingFontSizePt', 'referenceFontSizePt'])
+          if (heuristic[key] != null) key: heuristic[key],
       };
       if ((merged['excerpt']?.toString() ?? '').trim().isEmpty) {
         merged['excerpt'] = text.length > 400 ? text.substring(0, 400) : text;
