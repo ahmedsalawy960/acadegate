@@ -1474,12 +1474,20 @@ class _MessageBubble extends StatelessWidget {
                 ),
               ),
             SelectionArea(
-              child: Text(
-                _formatContent(message.content),
-                style: TextStyle(
-                  color: isUser ? Colors.white : Colors.black87,
-                  height: 1.5,
-                ),
+              child: Builder(
+                builder: (context) {
+                  final direction =
+                      advisorTextDirectionFor(message.content);
+                  return Text(
+                    _formatContent(message.content),
+                    textDirection: direction,
+                    textAlign: TextAlign.start,
+                    style: TextStyle(
+                      color: isUser ? Colors.white : Colors.black87,
+                      height: 1.5,
+                    ),
+                  );
+                },
               ),
             ),
             const SizedBox(height: 4),

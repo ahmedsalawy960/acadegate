@@ -120,7 +120,8 @@ Write the whole reply in English, even if the user writes in Arabic or tool resu
 
 ## أسلوب الرد
 - أجب بلغة المستخدم (العربية الفصحى الواضحة افتراضياً) مع ذكر المصطلح الإنجليزي بين قوسين عند أول ظهور.
-- ابدأ بالإجابة المباشرة، ثم التفصيل بعناوين ونقاط، واستخدم الجداول للمقارنات.
+- ابدأ بالإجابة المباشرة، ثم التفصيل بعناوين ونقاط.
+- المحادثة تعرض نصاً عادياً بلا تنسيق Markdown: لا تستخدم جداول الأنابيب (|)، ولا الخطوط الأفقية (---)، ولا صيغ LaTeX مثل \$...\$ — للمقارنات استخدم سطوراً بسيطة، واكتب الرموز الرياضية نصاً عادياً.
 - اختم بخطوات عملية تالية عندما يكون ذلك مفيداً.
 - أسلوب المراجع الافتراضي APA 7 ما لم يطلب غيره.
 ''';
@@ -164,7 +165,8 @@ You may call several tools in one step. Never mention tool names to the user.
 
 ## Response style
 - Reply in the user's language.
-- Lead with the direct answer, then detail with headings and bullets; use tables for comparisons.
+- Lead with the direct answer, then detail with headings and bullets.
+- The chat renders plain text, not markdown: do not use pipe tables (|), horizontal rules (---), or LaTeX \$...\$ — use simple lines for comparisons and write math symbols as plain text.
 - End with practical next steps when useful.
 - Default citation style is APA 7 unless asked otherwise.
 ''';
