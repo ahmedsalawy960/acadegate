@@ -1,4 +1,5 @@
 import '../../../core/locale/app_translate.dart';
+import '../../academic_integrity/consensus_client.dart';
 import '../../acadegate_publish/manuscript_draft_chat_service.dart';
 import '../../acadegate_publish/publish_services.dart';
 import '../../research_journey/research_file.dart';
@@ -13,6 +14,17 @@ import '../grounded_work.dart';
 /// One instance per user turn: it accumulates what the tools found so the
 /// final answer can be checked (DOIs) and decorated (lab/supervisor cards).
 class AssistantToolbox {
+  /// Injectable for tests; defaults to the live evidence-answer index.
+  final Future<List<ConsensusPaper>> Function(String query, {int? limit})
+      _consensusSearch;
+
+  AssistantToolbox({
+    Future<List<ConsensusPaper>> Function(String query, {int? limit})?
+        consensusSearch,
+  }) : _consensusSearch = consensusSearch ??
+            ((query, {limit}) =>
+                ConsensusClient.instance.search(query, limit: limit ?? 8));
+
   final List<GroundedWork> _works = [];
   final List<CatalogHit> _labs = [];
   final List<CatalogHit> _supervisors = [];
@@ -36,6 +48,27 @@ class AssistantToolbox {
               'query': {
                 'type': 'string',
                 'description': 'Precise English search query (key concepts, no filler words).',
+              },
+              'limit': {
+                'type': 'integer',
+                'description': 'Max results, 3-12. Default 8.',
+              },
+            },
+            'required': ['query'],
+          },
+        },
+        {
+          'name': 'check_research_evidence',
+          'description':
+              'Check what published research concludes about a specific effect or yes/no question '
+                  '(e.g. "does X improve Y"). Returns short evidence statements with citations. '
+                  'Use for evidence-direction questions; if it returns nothing, answer from verified literature.',
+          'parameters': {
+            'type': 'object',
+            'properties': {
+              'query': {
+                'type': 'string',
+                'description': 'Precise English research question.',
               },
               'limit': {
                 'type': 'integer',
@@ -127,6 +160,7 @@ class AssistantToolbox {
 
   static String statusLabel(String toolName) => switch (toolName) {
         'search_scientific_literature' => appTr('يبحث في المراجع العلمية…', 'Searching scholarly literature…'),
+        'check_research_evidence' => appTr('يفحص الأدلة البحثية…', 'Checking research evidence…'),
         'verify_references' => appTr('يتحقق من المراجع…', 'Verifying references…'),
         'search_labs_and_equipment' => appTr('يبحث في المختبرات والأجهزة…', 'Searching labs and equipment…'),
         'find_supervisors' => appTr('يبحث عن مشرفين…', 'Finding supervisors…'),
@@ -138,6 +172,7 @@ class AssistantToolbox {
 
   static String _chipLabel(String toolName) => switch (toolName) {
         'search_scientific_literature' => appTr('مراجع موثّقة', 'Verified references'),
+        'check_research_evidence' => appTr('أدلة بحثية', 'Research evidence'),
         'verify_references' => appTr('تحقق المراجع', 'Reference check'),
         'search_labs_and_equipment' => appTr('المختبرات', 'Labs'),
         'find_supervisors' => appTr('المشرفون', 'Supervisors'),
@@ -171,6 +206,7 @@ class AssistantToolbox {
     try {
       return switch (name) {
         'search_scientific_literature' => await _literature(args),
+        'check_research_evidence' => await _evidence(args),
         'verify_references' => await _verify(args),
         'search_labs_and_equipment' => await _labsSearch(args),
         'find_supervisors' => await _supervisorsSearch(args),
@@ -222,6 +258,51 @@ class AssistantToolbox {
           },
       ],
     };
+  }
+
+  Future<Map<String, dynamic>> _evidence(Map<String, dynamic> args) async {
+    final query = _str(args, 'query');
+    if (query.length < 3) return {'error': 'query too short'};
+    final limit = (int.tryParse('${args['limit'] ?? ''}') ?? 8).clamp(3, 12);
+    final papers = await _consensusSearch(query, limit: limit);
+    if (papers.isEmpty) {
+      return {
+        'results': <Object>[],
+        'note': 'No direct evidence statements available for this question. '
+            'Answer from verified literature instead and say the evidence could not be checked directly.',
+      };
+    }
+    final known = {for (final w in _works) w.mergeKey};
+    final results = <Map<String, dynamic>>[];
+    for (final p in papers) {
+      final work = GroundedWork(
+        title: p.title,
+        source: 'Consensus',
+        doi: p.doi,
+        year: p.year,
+        authors: p.authors,
+        journal: p.journal.isEmpty ? null : p.journal,
+        abstractText: p.groundedAbstract,
+        externalUrl: p.url,
+      );
+      if (!known.contains(work.mergeKey)) {
+        known.add(work.mergeKey);
+        _works.add(work);
+      }
+      final abstract = p.abstractText.trim();
+      final takeaway = p.takeaway.trim();
+      results.add({
+        'citation_apa': work.apaLine,
+        if (work.hasDoi) 'doi': work.doi,
+        if (p.year != null) 'year': p.year,
+        if (takeaway.isNotEmpty) 'evidence': takeaway,
+        if (abstract.isNotEmpty)
+          'abstract': abstract.length > _maxAbstract
+              ? '${abstract.substring(0, _maxAbstract)}…'
+              : abstract,
+      });
+    }
+    return {'results': results};
   }
 
   Future<Map<String, dynamic>> _verify(Map<String, dynamic> args) async {
