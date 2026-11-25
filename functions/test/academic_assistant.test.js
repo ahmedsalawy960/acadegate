@@ -53,6 +53,7 @@ test("attachments go to the latest user text message, not functionResponse turns
 const {
   admitTurnOrFailOpen,
   shouldFailOpenOnAdmissionError,
+  admitRound,
 } = require("../academic_assistant")._test;
 const { HttpsError } = require("firebase-functions/v2/https");
 
@@ -106,6 +107,28 @@ test("the admitted tier is returned to the caller", async () => {
     admit: async () => ({ tier: "pro" }),
   });
   assert.strictEqual(tier, "pro");
+});
+
+test("a failed turn read does not fall through to charging", async () => {
+  // admitRound must throw a plain (non-Https) error so admission fails open
+  // instead of billing a possibly-existing turn a second time.
+  await assert.rejects(
+    admitRound("u1", "turn-123456", {
+      getTurn: () => Promise.reject(new Error("flaky firestore")),
+    }),
+    (err) => {
+      assert.strictEqual(err.name, "Error");
+      assert.match(err.message, /assistant turn read failed/);
+      return true;
+    },
+  );
+  const tier = await admitTurnOrFailOpen("u1", "turn-123456", {
+    admit: (uid, turnId) =>
+      admitRound(uid, turnId, {
+        getTurn: () => Promise.reject(new Error("flaky firestore")),
+      }),
+  });
+  assert.strictEqual(tier, "free");
 });
 
 test("classifier: HttpsError is a decision, anything else is transient", () => {

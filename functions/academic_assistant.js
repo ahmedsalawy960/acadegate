@@ -205,15 +205,20 @@ async function admitTurnOrFailOpen(
  * Charges quota on the first call of a turn; later calls must reuse the same
  * turnId within TURN_TTL_MS and MAX_ROUNDS.
  */
-async function admitRound(uid, turnId) {
-  const ref = db().collection("assistant_turns").doc(`${uid}_${turnId}`);
-  let snap = null;
+async function admitRound(uid, turnId, { getTurn } = {}) {
+  // Injectable in tests. A failed turn read can hide an existing turn, and
+  // falling through to charging would bill one question twice — so surface
+  // the error and let admission fail open (no charge) instead.
+  const read = getTurn ??
+    (() => db().collection("assistant_turns").doc(`${uid}_${turnId}`).get());
+  let snap;
   try {
-    snap = await ref.get();
+    snap = await read();
   } catch (e) {
-    console.error("assistant turn read failed", e.message || e);
+    throw new Error(`assistant turn read failed: ${(e && e.message) || e}`);
   }
-  if (!snap || !snap.exists) {
+  const ref = db().collection("assistant_turns").doc(`${uid}_${turnId}`);
+  if (!snap.exists) {
     const quota = await consumeQuota({ uid, kind: "gemini" });
     if (!quota.ok) {
       if (quota.code === "resource-exhausted") throw quotaExceededHttpsError(quota, "gemini");
@@ -421,6 +426,7 @@ exports._test = {
   generationConfigFor,
   admitTurnOrFailOpen,
   shouldFailOpenOnAdmissionError,
+  admitRound,
   primaryModelFor,
   DEEP_MODELS,
   FAST_MODELS,
