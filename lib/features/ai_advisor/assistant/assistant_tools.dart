@@ -42,6 +42,11 @@ class AssistantToolbox {
   final Future<String> Function(String text, {required String targetLang})
       _translate;
 
+  /// When a specialist chip is selected, the tool names that specialty may
+  /// use (advisorAgentAllowedTools). Null in auto mode: every tool is
+  /// available and routing follows the message text.
+  final Set<String>? allowedTools;
+
   AssistantToolbox({
     Future<List<ConsensusPaper>> Function(String query, {int? limit})?
         consensusSearch,
@@ -52,6 +57,7 @@ class AssistantToolbox {
     Future<CitationHealth> Function(String doi)? healthForDoi,
     Future<String> Function(String text, {required String targetLang})?
         translate,
+    this.allowedTools,
   })  : _consensusSearch = consensusSearch ??
             ((query, {limit}) =>
                 ConsensusClient.instance.search(query, limit: limit ?? 8)),
@@ -81,7 +87,21 @@ class AssistantToolbox {
 
   static const _maxAbstract = 500;
 
-  static List<Map<String, dynamic>> get declarations => [
+  static List<Map<String, dynamic>> get declarations =>
+      declarationsFor(null);
+
+  /// The declarations the model may see. When [allowedTools] is set (a
+  /// specialist chip is active), only that specialty's tools are offered, so
+  /// the answer cannot claim capabilities outside it.
+  static List<Map<String, dynamic>> declarationsFor(Set<String>? allowedTools) {
+    final all = _allDeclarations;
+    if (allowedTools == null) return all;
+    return all
+        .where((d) => allowedTools.contains(d['name']))
+        .toList(growable: false);
+  }
+
+  static List<Map<String, dynamic>> get _allDeclarations => [
         {
           'name': 'search_scientific_literature',
           'description':
@@ -295,6 +315,9 @@ class AssistantToolbox {
 
   /// Never throws: failures are reported to the model as `{error: ...}`.
   Future<Map<String, dynamic>> execute(String name, Map<String, dynamic> args) async {
+    if (allowedTools != null && !allowedTools!.contains(name)) {
+      return {'error': 'tool $name is not available in this specialty'};
+    }
     final label = _chipLabel(name);
     if (!_usedLabels.contains(label)) _usedLabels.add(label);
     try {

@@ -10,6 +10,7 @@ import '../../../core/firebase/callable_http_client.dart';
 import '../../../core/locale/app_translate.dart';
 import '../advisor_agent.dart';
 import '../advisor_agent_registry.dart';
+import '../advisor_agent_tools.dart';
 import '../advisor_attachment.dart';
 import '../advisor_branding.dart';
 import '../advisor_router.dart';
@@ -97,8 +98,10 @@ class AcademicAssistantClient {
   /// (previously only the fallback orchestrator sent it). Empty for general
   /// chat and catalog requests, which need no specialist framing.
   ///
-  /// When [forcedAgentId] is set (the user tapped a specialist chip), that
-  /// agent's persona is used directly instead of routing by message text.
+  /// When [forcedAgentId] is set (the user tapped a specialist chip), the
+  /// specialty is BINDING: the reply must follow that specialty's output
+  /// type, treating the input as material for it, instead of routing by
+  /// message text or choosing an output form freely.
   static String specialistFocusBlock(
     String routeText, {
     AdvisorAgentId? forcedAgentId,
@@ -111,15 +114,24 @@ class AcademicAssistantClient {
     }
     final registry = AdvisorAgentRegistry.instance;
     final primary = registry.byId(primaryId);
-    final supporting = forcedAgentId != null
-        ? const <AdvisorAgentId>[]
-        : plan.supporting
-            .where(
-              (id) =>
-                  id != AdvisorAgentId.general &&
-                  id != AdvisorAgentId.catalogExecute,
-            )
-            .toList();
+    if (forcedAgentId != null) {
+      final header = appTr(
+        '\n## التخصص المختار (ملزم): ${primary.displayShortLabel}',
+        '\n## Selected specialty (binding): ${primary.displayShortLabel}',
+      );
+      final binding = appTr(
+        'اختار الباحث هذا التخصص بنفسه. التزم به تماماً: نوع المخرجات يتبع هذا التخصص لا اختيارك. تعامل مع مدخلاته كمادة لهذا التخصص (مثال: وكيل تخطيط البحث يستقبل جملة فيعالجها كمدخل لتخطيط البحث). إن كان جزء من الطلب خارج هذا التخصص فأجب عن الجزء الداخل ونبّه باختصار إلى ما يخرج عنه، من دون تبديل التخصص ومن دون استخدام أدوات خارج قائمته.',
+        'The user explicitly selected this specialty. Commit to it fully: the output type follows this specialty, not your choice. Treat the input as material for this specialty (e.g. the research-planning agent given a sentence treats it as research-planning input). If part of the request falls outside this specialty, answer the in-scope part and briefly note what falls outside, without switching specialties and without using tools outside its list.',
+      );
+      return '$header\n${primary.systemPrompt.trim()}\n$binding';
+    }
+    final supporting = plan.supporting
+        .where(
+          (id) =>
+              id != AdvisorAgentId.general &&
+              id != AdvisorAgentId.catalogExecute,
+        )
+        .toList();
     final buffer = StringBuffer()
       ..writeln(
         appTr(
@@ -171,7 +183,10 @@ class AcademicAssistantClient {
     void Function(String textSoFar)? onText,
     void Function(String? status)? onStatus,
   }) async {
-    final toolbox = AssistantToolbox();
+    final allowedTools = forcedAgent == null
+        ? null
+        : advisorAgentAllowedTools[forcedAgent.id];
+    final toolbox = AssistantToolbox(allowedTools: allowedTools);
     final languageSample = message.trim().isNotEmpty
         ? message
         : history.reversed
@@ -243,7 +258,8 @@ class AcademicAssistantClient {
             'turnId': turnId,
             'systemPrompt': systemPrompt,
             'contents': contents,
-            'functionDeclarations': AssistantToolbox.declarations,
+            'functionDeclarations':
+                AssistantToolbox.declarationsFor(allowedTools),
             'toolMode': lastRound ? 'NONE' : 'AUTO',
             'mode': deep ? 'deep' : 'fast',
             if (wantsCodeExecution(routeText,
