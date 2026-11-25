@@ -399,6 +399,17 @@ class ManuscriptDocxExportService {
     PublishCitationStyle style,
     List<_DocxEmbeddedImage> embeddedImages,
   ) async {
+    // Captions and table cells are emitted by media-specific paths below.
+    // Resolve their citation markers with the same reference map as prose.
+    // Do not touch literal template syntax or separately scoped references.
+    if (!block.preserveCitationText) {
+      String resolve(String text) => _resolveBodyText(
+        text: text, manuscript: manuscript, style: style, rules: rules);
+      block = block.copyWith(
+        caption: block.caption == null ? null : resolve(block.caption!),
+        rows: block.rows.map((row) => row.map(resolve).toList()).toList(),
+      );
+    }
     return switch (block.type) {
       ManuscriptBlockType.heading => _paragraph(
           _resolveBodyText(
