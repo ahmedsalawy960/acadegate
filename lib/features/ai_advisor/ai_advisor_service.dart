@@ -143,6 +143,7 @@ class AiAdvisorService {
     required String message,
     List<AdvisorMessage> history = const [],
     List<GeminiInlinePart> attachments = const [],
+    AdvisorAgent? forcedAgent,
     void Function(String textSoFar)? onText,
     void Function(String? status)? onStatus,
   }) async {
@@ -155,6 +156,7 @@ class AiAdvisorService {
       history: historyForModel(history),
       attachments: attachments,
       deep: wantsDeepThinking(message, hasAttachments: attachments.isNotEmpty),
+      forcedAgent: forcedAgent,
       onText: onText,
       onStatus: onStatus,
     );
@@ -178,6 +180,7 @@ class AiAdvisorService {
       createdAt: DateTime.now(),
       usedCloudAi: true,
       agentLabels: [
+        if (forcedAgent != null) forcedAgent.displayShortLabel,
         if (result.deep) appTr('تفكير عميق', 'Deep thinking'),
         if (result.downgraded)
           appTr(

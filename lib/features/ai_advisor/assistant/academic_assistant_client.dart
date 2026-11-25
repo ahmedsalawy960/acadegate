@@ -96,14 +96,30 @@ class AcademicAssistantClient {
   /// prompt so the agent's expertise reaches the model on this path too
   /// (previously only the fallback orchestrator sent it). Empty for general
   /// chat and catalog requests, which need no specialist framing.
-  static String specialistFocusBlock(String routeText) {
+  ///
+  /// When [forcedAgentId] is set (the user tapped a specialist chip), that
+  /// agent's persona is used directly instead of routing by message text.
+  static String specialistFocusBlock(
+    String routeText, {
+    AdvisorAgentId? forcedAgentId,
+  }) {
     final plan = AdvisorRouter.instance.route(routeText);
-    if (plan.primary == AdvisorAgentId.general ||
-        plan.primary == AdvisorAgentId.catalogExecute) {
+    final primaryId = forcedAgentId ?? plan.primary;
+    if (primaryId == AdvisorAgentId.general ||
+        primaryId == AdvisorAgentId.catalogExecute) {
       return '';
     }
     final registry = AdvisorAgentRegistry.instance;
-    final primary = registry.byId(plan.primary);
+    final primary = registry.byId(primaryId);
+    final supporting = forcedAgentId != null
+        ? const <AdvisorAgentId>[]
+        : plan.supporting
+            .where(
+              (id) =>
+                  id != AdvisorAgentId.general &&
+                  id != AdvisorAgentId.catalogExecute,
+            )
+            .toList();
     final buffer = StringBuffer()
       ..writeln(
         appTr(
@@ -112,13 +128,6 @@ class AcademicAssistantClient {
         ),
       )
       ..writeln(primary.systemPrompt.trim());
-    final supporting = plan.supporting
-        .where(
-          (id) =>
-              id != AdvisorAgentId.general &&
-              id != AdvisorAgentId.catalogExecute,
-        )
-        .toList();
     if (supporting.isNotEmpty) {
       final joined = supporting
           .map((id) => registry.byId(id).displayShortLabel)
@@ -136,10 +145,14 @@ class AcademicAssistantClient {
   /// Data-analysis and simulation turns enable server-side code execution
   /// so computed statistics come from a real run, not from prose. It is
   /// billed as ordinary model tokens and never named to the user.
-  static bool wantsCodeExecution(String routeText) {
-    final plan = AdvisorRouter.instance.route(routeText);
-    return plan.primary == AdvisorAgentId.dataAnalysis ||
-        plan.primary == AdvisorAgentId.researchSimulation;
+  static bool wantsCodeExecution(
+    String routeText, {
+    AdvisorAgentId? forcedAgentId,
+  }) {
+    final primary =
+        forcedAgentId ?? AdvisorRouter.instance.route(routeText).primary;
+    return primary == AdvisorAgentId.dataAnalysis ||
+        primary == AdvisorAgentId.researchSimulation;
   }
 
   String _newTurnId() {
@@ -154,6 +167,7 @@ class AcademicAssistantClient {
     required List<Map<String, String>> history,
     List<GeminiInlinePart> attachments = const [],
     bool deep = false,
+    AdvisorAgent? forcedAgent,
     void Function(String textSoFar)? onText,
     void Function(String? status)? onStatus,
   }) async {
@@ -171,7 +185,10 @@ class AcademicAssistantClient {
     final routeText = message.trim().isNotEmpty
         ? message.trim()
         : appTr('حلّل الملفات المرفقة.', 'Analyze the attached files.');
-    final focus = specialistFocusBlock(routeText);
+    final focus = specialistFocusBlock(
+      routeText,
+      forcedAgentId: forcedAgent?.id,
+    );
     if (focus.isNotEmpty) systemPrompt = '$systemPrompt\n$focus';
     final turnId = _newTurnId();
 
@@ -229,7 +246,8 @@ class AcademicAssistantClient {
             'functionDeclarations': AssistantToolbox.declarations,
             'toolMode': lastRound ? 'NONE' : 'AUTO',
             'mode': deep ? 'deep' : 'fast',
-            if (wantsCodeExecution(routeText)) 'codeExecution': true,
+            if (wantsCodeExecution(routeText,
+                forcedAgentId: forcedAgent?.id)) 'codeExecution': true,
             if (attachmentPayload.isNotEmpty) 'attachments': attachmentPayload,
           },
           onDelta: (delta) {

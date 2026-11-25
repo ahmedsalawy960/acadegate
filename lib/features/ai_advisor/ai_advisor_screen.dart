@@ -18,6 +18,7 @@ import '../guides/section_guide_catalog.dart';
 import '../guides/section_guide_screen.dart';
 import '../viva_simulator/viva_screen.dart';
 import 'advisor_agent.dart';
+import 'advisor_message_format.dart';
 import 'advisor_attachment.dart';
 import 'advisor_attachment_service.dart';
 import 'advisor_branding.dart';
@@ -59,6 +60,13 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
   /// مخفي افتراضياً على الهاتف حتى لا يغطي حقل الكتابة.
   bool _showAgents = false;
   final _inputFocus = FocusNode();
+
+  /// The specialist the user tapped in the agents panel. Selection only
+  /// activates the agent's specialty for the next questions; it never sends
+  /// a message by itself (the panel previously auto-sent the agent's canned
+  /// samplePrompt, which users experienced as the app asking and answering
+  /// its own invented question).
+  AdvisorAgent? _selectedAgent;
   bool _isLoadingHistory = true;
   int _sidebarRevision = 0;
   bool _initialMessageQueued = false;
@@ -458,6 +466,7 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
         message: trimmed,
         history: historyForAi,
         attachments: geminiParts,
+        forcedAgent: _selectedAgent,
         onText: (textSoFar) {
           _streamText = textSoFar;
           final now = DateTime.now();
@@ -642,8 +651,11 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
             _AgentsPanel(
               enabled: !_isThinking,
               onAgentSelected: (agent) {
-                setState(() => _showAgents = false);
-                _sendMessage(agent.samplePrompt);
+                setState(() {
+                  _showAgents = false;
+                  _selectedAgent = agent;
+                });
+                _inputFocus.requestFocus();
               },
             ),
           ],
@@ -785,6 +797,32 @@ class _AiAdvisorScreenState extends State<AiAdvisorScreen> {
                   ),
                   const SizedBox(height: 8),
                 ],
+                if (_selectedAgent != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: InputChip(
+                        avatar: Icon(
+                          _selectedAgent!.icon,
+                          size: 16,
+                          color: _selectedAgent!.color,
+                        ),
+                        label: Text(
+                          context.t(
+                            'التخصص: ${_selectedAgent!.displayShortLabel}',
+                            'Specialty: ${_selectedAgent!.displayShortLabel}',
+                          ),
+                          style: const TextStyle(fontSize: 11.5),
+                        ),
+                        visualDensity: VisualDensity.compact,
+                        backgroundColor:
+                            _selectedAgent!.color.withValues(alpha: 0.10),
+                        onDeleted: () =>
+                            setState(() => _selectedAgent = null),
+                      ),
+                    ),
+                  ),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
@@ -1333,8 +1371,8 @@ class _AgentsPanel extends StatelessWidget {
         children: [
           Text(
             context.t(
-              'اضغط وكيلاً لبدء طلب جاهز',
-              'Tap an agent to start a ready prompt',
+              'اضغط وكيلاً لتفعيل تخصصه، ثم اكتب سؤالك',
+              'Tap an agent to activate its specialty, then ask your question',
             ),
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
           ),
@@ -1526,12 +1564,8 @@ class _MessageBubble extends StatelessWidget {
     );
   }
 
-  String _formatContent(String content) {
-    return content
-        .replaceAll(AdvisorBranding.planMarker, '')
-        .replaceAll('**', '')
-        .replaceAll('```', '');
-  }
+  String _formatContent(String content) =>
+      formatAdvisorMessageContent(content);
 
   String _when(DateTime time) {
     final t = time.toLocal();
@@ -1596,6 +1630,9 @@ class _CatalogHitCard extends StatelessWidget {
             style: const TextStyle(
               fontWeight: FontWeight.w700,
               fontSize: 13.5,
+              // Explicit dark text: the card is hardcoded light, and the
+              // inherited dark-theme color (white) was invisible on it.
+              color: Color(0xFF20243A),
             ),
           ),
           if (hit.subtitle.isNotEmpty)
@@ -1603,7 +1640,7 @@ class _CatalogHitCard extends StatelessWidget {
               padding: const EdgeInsets.only(top: 2),
               child: Text(
                 hit.subtitle,
-                style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
+                style: const TextStyle(fontSize: 12, color: Color(0xFF5A6B85)),
               ),
             ),
           if (hit.reason.isNotEmpty)
@@ -1611,7 +1648,7 @@ class _CatalogHitCard extends StatelessWidget {
               padding: const EdgeInsets.only(top: 2),
               child: Text(
                 hit.reason,
-                style: TextStyle(fontSize: 11.5, color: const Color(0xFFB7C3D6)),
+                style: const TextStyle(fontSize: 11.5, color: Color(0xFF5A6B85)),
               ),
             ),
           const SizedBox(height: 8),
