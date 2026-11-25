@@ -1965,6 +1965,18 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
               ),
               style: const TextStyle(height: 1.4, fontSize: 13),
             ),
+            if (report.retractedIndexes.isNotEmpty)
+              Text(
+                context.t(
+                  'مراجع مسحوبة: ${report.retractedIndexes.map((i) => '[$i]').join(', ')} — أزلها ولا تستشهد بها.',
+                  'Retracted references: ${report.retractedIndexes.map((i) => '[$i]').join(', ')} — remove them; never cite them.',
+                ),
+                style: TextStyle(
+                  color: Colors.red.shade800,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             if (report.unknownMarkers.isNotEmpty)
               Text(
                 context.t(

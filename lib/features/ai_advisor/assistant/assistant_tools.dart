@@ -1,4 +1,6 @@
 import '../../../core/locale/app_translate.dart';
+import '../../academic_integrity/citation_health.dart';
+import '../../academic_integrity/citation_health_service.dart';
 import '../../academic_integrity/consensus_client.dart';
 import '../../academic_integrity/europe_pmc_client.dart';
 import '../../academic_integrity/unpaywall_client.dart';
@@ -26,18 +28,35 @@ class AssistantToolbox {
   /// Injectable for tests; defaults to the open-access location index.
   final Future<OaLocation> Function(String doi) _oaLocationForDoi;
 
+  /// Injectable for tests; defaults to the verified-literature search.
+  final Future<GroundedReferenceBundle> Function(String query, {int? limit})
+      _literatureSearch;
+
+  /// Injectable for tests; defaults to the registry health check (retraction,
+  /// correction, expression of concern) for one DOI.
+  final Future<CitationHealth> Function(String doi) _healthForDoi;
+
   AssistantToolbox({
     Future<List<ConsensusPaper>> Function(String query, {int? limit})?
         consensusSearch,
     Future<String> Function(String doi)? fullTextForDoi,
     Future<OaLocation> Function(String doi)? oaLocationForDoi,
+    Future<GroundedReferenceBundle> Function(String query, {int? limit})?
+        literatureSearch,
+    Future<CitationHealth> Function(String doi)? healthForDoi,
   })  : _consensusSearch = consensusSearch ??
             ((query, {limit}) =>
                 ConsensusClient.instance.search(query, limit: limit ?? 8)),
         _fullTextForDoi =
             fullTextForDoi ?? EuropePmcClient.instance.fullTextForDoi,
         _oaLocationForDoi =
-            oaLocationForDoi ?? UnpaywallClient.instance.bestLocationForDoi;
+            oaLocationForDoi ?? UnpaywallClient.instance.bestLocationForDoi,
+        _literatureSearch = literatureSearch ??
+            ((query, {limit}) => GroundedReferenceService.instance.searchTopic(
+                query,
+                limit: limit ?? 8,
+                byRelevance: true)),
+        _healthForDoi = healthForDoi ?? CitationHealthService.instance.forDoi;
 
   final List<GroundedWork> _works = [];
   final List<CatalogHit> _labs = [];
@@ -55,7 +74,8 @@ class AssistantToolbox {
           'description':
               'Search real scholarly works (OpenAlex, Crossref, Semantic Scholar). '
                   'Use for references, literature reviews, research gaps, or evidence. '
-                  'Returns verified citations with DOI and abstract.',
+                  'Returns verified citations with DOI and abstract. '
+                  'Results may carry a retracted flag; never cite retracted works as support and warn the user.',
           'parameters': {
             'type': 'object',
             'properties': {
@@ -76,7 +96,8 @@ class AssistantToolbox {
           'description':
               'Check what published research concludes about a specific effect or yes/no question '
                   '(e.g. "does X improve Y"). Returns short evidence statements with citations. '
-                  'Use for evidence-direction questions; if it returns nothing, answer from verified literature.',
+                  'Use for evidence-direction questions; if it returns nothing, answer from verified literature. '
+                  'Results may carry a retracted flag; never cite retracted works as support and warn the user.',
           'parameters': {
             'type': 'object',
             'properties': {
@@ -264,11 +285,7 @@ class AssistantToolbox {
     final query = _str(args, 'query');
     if (query.length < 3) return {'error': 'query too short'};
     final limit = (int.tryParse('${args['limit'] ?? ''}') ?? 8).clamp(3, 12);
-    final bundle = await GroundedReferenceService.instance.searchTopic(
-      query,
-      limit: limit,
-      byRelevance: true,
-    );
+    final bundle = await _literatureSearch(query, limit: limit);
     final known = {for (final w in _works) w.doi.toLowerCase()};
     for (final w in bundle.works) {
       if (w.doi.isEmpty || !known.contains(w.doi.toLowerCase())) _works.add(w);
@@ -288,6 +305,7 @@ class AssistantToolbox {
             if (w.year != null) 'year': w.year,
             'source_index': w.source,
             if (w.citationCount != null) 'citation_count': w.citationCount,
+            if (w.isRetracted) 'retracted': true,
             if (w.tldr.trim().isNotEmpty) 'tldr': w.tldr,
             if (w.abstractText.trim().isNotEmpty)
               'abstract': w.abstractText.length > _maxAbstract
@@ -295,6 +313,9 @@ class AssistantToolbox {
                   : w.abstractText,
           },
       ],
+      if (bundle.works.any((w) => w.isRetracted))
+        'note': 'Results marked "retracted" were withdrawn by their journal. '
+            'Never cite them as support; tell the user they were retracted and suggest a sound alternative.',
     };
   }
 
@@ -311,8 +332,18 @@ class AssistantToolbox {
       };
     }
     final known = {for (final w in _works) w.mergeKey};
+    final healths = await Future.wait([
+      for (final p in papers)
+        p.doi.trim().isEmpty
+            ? Future<CitationHealth>.value(CitationHealth.empty)
+            : _healthForDoi(p.doi).catchError((_) => CitationHealth.empty),
+    ]);
+    var anyRetracted = false;
     final results = <Map<String, dynamic>>[];
-    for (final p in papers) {
+    for (var i = 0; i < papers.length; i++) {
+      final p = papers[i];
+      final retracted = healths[i].isRetracted;
+      if (retracted) anyRetracted = true;
       final work = GroundedWork(
         title: p.title,
         source: 'Consensus',
@@ -333,6 +364,7 @@ class AssistantToolbox {
         'citation_apa': work.apaLine,
         if (work.hasDoi) 'doi': work.doi,
         if (p.year != null) 'year': p.year,
+        if (retracted) 'retracted': true,
         if (takeaway.isNotEmpty) 'evidence': takeaway,
         if (abstract.isNotEmpty)
           'abstract': abstract.length > _maxAbstract
@@ -340,7 +372,12 @@ class AssistantToolbox {
               : abstract,
       });
     }
-    return {'results': results};
+    return {
+      'results': results,
+      if (anyRetracted)
+        'note': 'Results marked "retracted" were withdrawn by their journal. '
+            'Never cite them as support; tell the user they were retracted and suggest a sound alternative.',
+    };
   }
 
   Future<Map<String, dynamic>> _paperText(Map<String, dynamic> args) async {

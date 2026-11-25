@@ -13,6 +13,10 @@ class AcademicWorkHit {
   final String container;
   final String source;
 
+  /// True when the index reports this work was retracted/withdrawn.
+  /// The editor warns and refuses to insert retracted works as citations.
+  final bool isRetracted;
+
   const AcademicWorkHit({
     required this.title,
     this.authors = const [],
@@ -21,6 +25,7 @@ class AcademicWorkHit {
     this.url = '',
     this.container = '',
     required this.source,
+    this.isRetracted = false,
   });
 
   PublishReference toReference() {
@@ -87,6 +92,7 @@ class AcademicReferenceLookupService {
             doi: w.doi ?? '',
             url: w.url ?? '',
             source: 'Crossref',
+            isRetracted: w.retractedByRelation,
           ));
         }
       }
@@ -100,6 +106,7 @@ class AcademicReferenceLookupService {
           doi: w.doi ?? '',
           url: w.url ?? '',
           source: 'Crossref',
+          isRetracted: w.retractedByRelation,
         ));
       }
     } catch (_) {}
@@ -115,6 +122,7 @@ class AcademicReferenceLookupService {
             doi: w.doi ?? '',
             url: w.url ?? '',
             source: 'OpenAlex',
+            isRetracted: w.isRetracted,
           ));
         }
       } catch (_) {}
@@ -150,6 +158,7 @@ class AcademicReferenceLookupService {
           doi: w.doi ?? doi,
           url: w.url ?? 'https://doi.org/$doi',
           source: 'Crossref',
+          isRetracted: w.retractedByRelation,
         );
       }
     } catch (_) {}
@@ -164,6 +173,7 @@ class AcademicReferenceLookupService {
           doi: w.doi ?? doi,
           url: w.url ?? 'https://doi.org/$doi',
           source: 'OpenAlex',
+          isRetracted: w.isRetracted,
         );
       }
     } catch (_) {}

@@ -15,6 +15,10 @@ class GroundedWork {
   /// Landing page when DOI is missing (external academic indexes).
   final String externalUrl;
 
+  /// True when a free index reports this work was retracted or withdrawn.
+  /// Never cite retracted works as support; tell the user instead.
+  final bool isRetracted;
+
   /// اسم المصدر كما يظهر للمستخدم (AcadeGate وليس اسم الفهرس الخارجي).
   String get publicSource => AdvisorBranding.indexLabel;
 
@@ -29,6 +33,7 @@ class GroundedWork {
     this.tldr = '',
     this.citationCount,
     this.externalUrl = '',
+    this.isRetracted = false,
   });
 
   bool get hasDoi {

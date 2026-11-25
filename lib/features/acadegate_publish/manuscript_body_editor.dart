@@ -710,6 +710,19 @@ class _InsertCitationDialogState extends State<_InsertCitationDialog> {
   }
 
   void _pickPortal(AcademicWorkHit hit) {
+    if (hit.isRetracted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            context.t(
+              'هذه الورقة مسحوبة من مجلتها — لا تُضاف كمرجع. اختر بديلاً سلييماً.',
+              'This paper was retracted by its journal — it cannot be added as a reference. Choose a sound alternative.',
+            ),
+          ),
+        ),
+      );
+      return;
+    }
     PublishReference? existing;
     for (final r in widget.references) {
       final sameDoi = hit.doi.isNotEmpty &&
@@ -815,8 +828,8 @@ class _InsertCitationDialogState extends State<_InsertCitationDialog> {
             const SizedBox(height: 4),
             Text(
               context.t(
-                'ابحث محلياً أو اضغط أيقونة البوابة / Enter للبحث في Crossref وOpenAlex',
-                'Filter local refs, or tap portal / Enter to search Crossref & OpenAlex',
+                'ابحث محلياً أو اضغط أيقونة البوابة / Enter للبحث في الفهارس الأكاديمية',
+                'Filter local refs, or tap portal / Enter to search the academic indexes',
               ),
               style: TextStyle(fontSize: 11, color: const Color(0xFFB7C3D6)),
             ),
@@ -896,23 +909,37 @@ class _InsertCitationDialogState extends State<_InsertCitationDialog> {
                       ),
                       ..._portalHits.map((hit) {
                         final subtitle = [
+                          if (hit.isRetracted)
+                            context.t(
+                              'مسحوبة — لا تستشهد بها',
+                              'Retracted — do not cite',
+                            ),
                           if (hit.authors.isNotEmpty) hit.authors.first,
                           if (hit.year.isNotEmpty) hit.year,
-                          hit.source,
+                          context.t('فهرس أكاديمي', 'Academic index'),
                         ].join(' · ');
                         return ListTile(
                           dense: true,
                           leading: Icon(
-                            Icons.public,
+                            hit.isRetracted
+                                ? Icons.report_gmailerrorred
+                                : Icons.public,
                             size: 20,
-                            color: Colors.teal.shade700,
+                            color: hit.isRetracted
+                                ? Colors.red.shade700
+                                : Colors.teal.shade700,
                           ),
                           title: Text(
                             hit.title,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          subtitle: Text(subtitle),
+                          subtitle: Text(
+                            subtitle,
+                            style: hit.isRetracted
+                                ? TextStyle(color: Colors.red.shade700)
+                                : null,
+                          ),
                           trailing: Text(
                             CitationFormatter.formatInText(
                               reference: hit.toReference(),

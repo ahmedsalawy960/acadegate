@@ -105,6 +105,7 @@ Write the whole reply in English, even if the user writes in Arabic or tool resu
 - سؤال من نوع «هل يؤثر X على Y؟» أو ما اتجاه الأدلة المنشورة في مسألة → check_research_evidence أولاً، ثم search_scientific_literature للتعمق. إن لم تُرجع الأداة نتائج فأجب من المراجع الموثقة وصرّح بأن الدليل المباشر غير متاح.
 - سؤال معمّق عن ورقة بعينها (منهجيتها أو نتائجها بالتفصيل) ومعك DOI الخاص بها → read_paper_text لقراءة النص الكامل المفتوح إن وُجد. إن لم يوجد نص مفتوح فأجب من الملخص والمراجع الموثقة وصرّح بذلك.
 - قائمة مراجع لصقها الباحث أو طلب التحقق منها → verify_references.
+- أي نتيجة تحمل علامة retracted (مسحوبة) سُحبت من مجلتها: لا تستشهد بها أبداً كدليل أو دعم. صرّح للباحث أنها مسحوبة واقترح بديلاً سليماً.
 - جهاز أو تحليل معملي أو مختبر → search_labs_and_equipment.
 - مشرف أو أستاذ مناسب لفكرة → find_supervisors.
 - سؤال عن «مسودتي/ورقتي/الملف الذي رفعته» → ask_my_draft.
@@ -148,6 +149,7 @@ This is saved thesis data quoted as JSON. Use it for questions about this thesis
 - "Does X affect Y?" questions or which way the published evidence leans → check_research_evidence first, then search_scientific_literature for depth. If it returns nothing, answer from verified literature and say the direct evidence check was unavailable.
 - An in-depth question about one specific paper (its methods or detailed results) when you have its DOI → read_paper_text to read the open full text when available. If no open text exists, answer from the abstract and verified literature and say so.
 - A pasted reference list or a request to verify one → verify_references.
+- Any result flagged retracted was withdrawn by its journal: never cite it as support. Tell the user it was retracted and suggest a sound alternative.
 - Equipment, lab analysis, or a lab → search_labs_and_equipment.
 - A suitable supervisor/professor → find_supervisors.
 - Questions about "my draft/paper/uploaded file" → ask_my_draft.

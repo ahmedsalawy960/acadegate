@@ -106,6 +106,7 @@ class GroundedReferenceService {
           'OpenAlex',
           journal: work.journal,
           abstractText: work.abstractText,
+          isRetracted: work.isRetracted,
         );
       }
     } catch (_) {}
@@ -116,7 +117,15 @@ class GroundedReferenceService {
         rows: limit,
       );
       for (final work in crossref) {
-        _offer(byDoi, work.doi, work.title, work.year, work.authors, 'Crossref');
+        _offer(
+          byDoi,
+          work.doi,
+          work.title,
+          work.year,
+          work.authors,
+          'Crossref',
+          isRetracted: work.retractedByRelation,
+        );
       }
     } catch (_) {}
 
@@ -277,6 +286,7 @@ class GroundedReferenceService {
             abstractText: work.abstractText,
             requireDoi: requireDoi,
             externalUrl: work.url,
+            isRetracted: work.isRetracted,
           );
         }
       } catch (_) {}
@@ -300,6 +310,7 @@ class GroundedReferenceService {
             work.year,
             work.authors,
             'Crossref',
+            isRetracted: work.retractedByRelation,
             requireDoi: requireDoi,
           );
         }
@@ -629,15 +640,24 @@ class GroundedReferenceService {
     }
     final buffer = StringBuffer(
       appTr(
-        '**تحقق DOI عبر OpenAlex / Crossref**\n',
-        '**DOI check via OpenAlex / Crossref**\n',
+        '**تحقق DOI عبر فهارس AcadeGate**\n',
+        '**DOI check via AcadeGate indexes**\n',
       ),
     );
+    final retracted = verified.where((w) => w.isRetracted).toList();
     if (verified.isNotEmpty) {
       buffer.writeln(appTr('مؤكد:', 'Verified:'));
       for (final work in verified) {
         buffer.writeln('• ${work.apaLine}');
       }
+    }
+    if (retracted.isNotEmpty) {
+      buffer.writeln(
+        appTr(
+          '\nمسحوبة (سُحبت من المجلة — لا تُستشهد أبداً كدليل):\n${retracted.map((w) => '• ${w.apaLine}').join('\n')}',
+          '\nRetracted (withdrawn by the journal — never cite as support):\n${retracted.map((w) => '• ${w.apaLine}').join('\n')}',
+        ),
+      );
     }
     if (rejected.isNotEmpty) {
       buffer.writeln(
@@ -694,6 +714,7 @@ class GroundedReferenceService {
     String? tldr,
     int? citationCount,
     String? externalUrl,
+    bool isRetracted = false,
     bool requireDoi = false,
   }) {
     if (title.trim().isEmpty) return;
@@ -714,6 +735,7 @@ class GroundedReferenceService {
       tldr: tldr?.trim() ?? '',
       citationCount: citationCount,
       externalUrl: (externalUrl ?? '').trim(),
+      isRetracted: isRetracted,
     );
     final key = incoming.mergeKey;
     final existing = byKey[key];
@@ -748,6 +770,7 @@ class GroundedReferenceService {
       externalUrl: base.externalUrl.trim().isNotEmpty
           ? base.externalUrl
           : other.externalUrl,
+      isRetracted: base.isRetracted || other.isRetracted,
     );
   }
 
@@ -773,6 +796,7 @@ class GroundedReferenceService {
           source: 'OpenAlex',
           journal: openAlex.journal,
           abstractText: openAlex.abstractText,
+          isRetracted: openAlex.isRetracted,
         );
       }
     } catch (_) {}
@@ -803,6 +827,7 @@ class GroundedReferenceService {
           authors: crossref.authors ?? '',
           source: 'Crossref',
           abstractText: crossref.abstractText,
+          isRetracted: crossref.retractedByRelation,
         );
         best = best == null ? next : _preferRicher(best, next);
       }
@@ -819,6 +844,7 @@ class GroundedReferenceService {
             source: 'Europe PMC',
             journal: best.journal,
             abstractText: epmc.trim(),
+            isRetracted: best.isRetracted,
           );
         }
       } catch (_) {}
@@ -837,6 +863,7 @@ class GroundedReferenceService {
       abstractText: a.abstractText.trim().isNotEmpty
           ? a.abstractText
           : b.abstractText,
+      isRetracted: a.isRetracted || b.isRetracted,
     );
   }
 
