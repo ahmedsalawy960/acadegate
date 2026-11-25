@@ -121,7 +121,16 @@ class ThesisStudioPdfService {
           );
 
           heading(appTr('الملخص', 'Abstract'));
-          para(ThesisStudioCitations.styledProse(draft.abstractText, draft));
+          para(
+            ThesisStudioCitations.styledProse(
+              draft.abstractText,
+              draft,
+              works: ThesisStudioCitations.citationListFor(
+                draft,
+                isAbstract: true,
+              ),
+            ),
+          );
 
           if (draft.researchQuestions.isNotEmpty) {
             heading(appTr('أسئلة البحث', 'Research questions'));
@@ -137,7 +146,26 @@ class ThesisStudioPdfService {
 
           for (final ch in draft.chapters) {
             heading(ch.title(arabic));
-            para(ThesisStudioCitations.styledProse(ch.body, draft));
+            if (ch.paragraphs.isEmpty) {
+              para(ThesisStudioCitations.styledProse(ch.body, draft));
+            } else {
+              // Each AI-written paragraph numbered its own harvested
+              // references; convert [n] against that list so author–year
+              // styles name the work the paragraph actually cited.
+              for (final p in ch.paragraphs) {
+                if (p.body.trim().isEmpty) continue;
+                para(
+                  ThesisStudioCitations.styledProse(
+                    '${p.heading(arabic)}\n${p.body.trim()}',
+                    draft,
+                    works: ThesisStudioCitations.citationListFor(
+                      draft,
+                      paragraph: p,
+                    ),
+                  ),
+                );
+              }
+            }
           }
 
           heading(appTr('خريطة الأدبيات', 'Literature map'));

@@ -826,7 +826,16 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
     final buffer = StringBuffer()
       ..writeln(draft.proposedTitle)
       ..writeln()
-      ..writeln(ThesisStudioCitations.styledProse(draft.abstractText, draft))
+      ..writeln(
+        ThesisStudioCitations.styledProse(
+          draft.abstractText,
+          draft,
+          works: ThesisStudioCitations.citationListFor(
+            draft,
+            isAbstract: true,
+          ),
+        ),
+      )
       ..writeln();
     for (final q in draft.researchQuestions) {
       buffer.writeln('• $q');
@@ -834,7 +843,27 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
     buffer.writeln();
     for (final ch in draft.chapters) {
       buffer.writeln(ch.title(arabic));
-      buffer.writeln(ThesisStudioCitations.styledProse(ch.body, draft));
+      if (ch.paragraphs.isEmpty) {
+        buffer.writeln(ThesisStudioCitations.styledProse(ch.body, draft));
+      } else {
+        // Each AI-written paragraph numbered its own harvested references;
+        // convert [n] against that list so author–year styles name the
+        // work the paragraph actually cited.
+        for (final p in ch.paragraphs) {
+          if (p.body.trim().isEmpty) continue;
+          buffer.writeln(
+            ThesisStudioCitations.styledProse(
+              '${p.heading(arabic)}\n${p.body.trim()}',
+              draft,
+              works: ThesisStudioCitations.citationListFor(
+                draft,
+                paragraph: p,
+              ),
+            ),
+          );
+          buffer.writeln();
+        }
+      }
       buffer.writeln();
     }
     if (draft.literature.works.isNotEmpty) {

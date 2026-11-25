@@ -199,7 +199,13 @@ class ThesisStudioDocxExport {
       '${draft.goal.degreeLabel} · ${draft.plan.kindLabel} · ${draft.plan.shapeLabel}',
     );
     heading(arabic ? 'الملخص' : 'Abstract', size: 28);
-    para(ThesisStudioCitations.styledProse(draft.abstractText, draft));
+    para(
+      ThesisStudioCitations.styledProse(
+        draft.abstractText,
+        draft,
+        works: ThesisStudioCitations.citationListFor(draft, isAbstract: true),
+      ),
+    );
     if (draft.researchQuestions.isNotEmpty) {
       heading(arabic ? 'أسئلة البحث' : 'Research questions', size: 28);
       for (final q in draft.researchQuestions) {
@@ -208,7 +214,26 @@ class ThesisStudioDocxExport {
     }
     for (final ch in draft.chapters) {
       heading(ch.title(arabic), size: 32);
-      para(ThesisStudioCitations.styledProse(ch.body, draft));
+      if (ch.paragraphs.isEmpty) {
+        para(ThesisStudioCitations.styledProse(ch.body, draft));
+      } else {
+        // Each AI-written paragraph numbered its own harvested references;
+        // convert [n] against that list so author–year styles name the
+        // work the paragraph actually cited.
+        for (final p in ch.paragraphs) {
+          if (p.body.trim().isEmpty) continue;
+          para(
+            ThesisStudioCitations.styledProse(
+              '${p.heading(arabic)}\n${p.body.trim()}',
+              draft,
+              works: ThesisStudioCitations.citationListFor(
+                draft,
+                paragraph: p,
+              ),
+            ),
+          );
+        }
+      }
     }
     if (draft.literature.works.isNotEmpty) {
       heading(arabic ? 'المراجع' : 'References', size: 28);

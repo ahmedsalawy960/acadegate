@@ -72,6 +72,28 @@ class ThesisStudioCitations {
     );
   }
 
+  /// The numbered list a given draft text's `[n]` markers index into.
+  ///
+  /// AI paragraphs cite their own harvested references when they have any
+  /// (that is the list the model saw), the abstract cites its own reference
+  /// set, and anything else cites the global literature list, with the DOI
+  /// fallback kept for drafts whose global list was cleared.
+  static List<GroundedWork> citationListFor(
+    ThesisDraft draft, {
+    ThesisParagraph? paragraph,
+    bool isAbstract = false,
+  }) {
+    if (isAbstract) {
+      if (draft.abstractReferences.isNotEmpty) {
+        return draft.abstractReferences;
+      }
+    } else if (paragraph != null && paragraph.references.isNotEmpty) {
+      return paragraph.references;
+    }
+    if (draft.literature.works.isNotEmpty) return draft.literature.works;
+    return _fallbackWorks(draft);
+  }
+
   static List<GroundedWork> _fallbackWorks(ThesisDraft draft) {
     final byDoi = <String, GroundedWork>{};
     for (final w in draft.abstractReferences) {

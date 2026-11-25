@@ -1,4 +1,5 @@
 import '../ai_advisor/grounded_work.dart';
+import 'thesis_studio_citations.dart';
 import 'thesis_studio_kind.dart';
 import 'thesis_studio_models.dart';
 
@@ -66,36 +67,52 @@ class ThesisCitationReport {
   static ThesisCitationReport fromDraft(ThesisDraft draft) {
     final catalog = bibliographyCatalog(draft);
     final n = catalog.length;
+    final globalIndexByKey = <String, int>{
+      for (var i = 0; i < catalog.length; i++)
+        if (catalog[i].mergeKey.isNotEmpty) catalog[i].mergeKey: i + 1,
+    };
     final used = <int>{};
     final unknown = <String>{};
     var cited = 0;
     var uncited = 0;
     var scaffold = 0;
 
-    void collectMarkers(String text, {int? localMax}) {
-      final max = localMax ?? n;
+    /// [list] is the exact numbered list the text's markers were written
+    /// against (a paragraph cites its own harvested references when it has
+    /// any). A valid marker resolves through that list to the work's row in
+    /// the global catalog; a marker beyond the list is unknown.
+    void collectMarkers(String text, List<GroundedWork> list) {
       for (final m in _marker.allMatches(text)) {
         final i = int.tryParse(m.group(1) ?? '');
         if (i == null) continue;
-        if (max > 0 && i >= 1 && i <= max) {
-          used.add(i);
+        if (i >= 1 && i <= list.length) {
+          final global = globalIndexByKey[list[i - 1].mergeKey];
+          if (global != null) used.add(global);
+          // A marker that resolves to a real work pruned from the catalog is
+          // still supported; it simply has no row in this report.
         } else {
           unknown.add(m.group(0)!);
         }
       }
     }
 
-    collectMarkers(draft.abstractText, localMax: draft.abstractReferences.isNotEmpty
-        ? draft.abstractReferences.length
-        : n);
+    collectMarkers(
+      draft.abstractText,
+      ThesisStudioCitations.citationListFor(draft, isAbstract: true),
+    );
     for (final ch in draft.chapters) {
       if (ch.paragraphs.isEmpty) {
-        collectMarkers(ch.body);
+        collectMarkers(
+          ch.body,
+          ThesisStudioCitations.citationListFor(draft),
+        );
         continue;
       }
       for (final p in ch.paragraphs) {
-        final local = p.references.isNotEmpty ? p.references.length : n;
-        collectMarkers(p.body, localMax: local);
+        collectMarkers(
+          p.body,
+          ThesisStudioCitations.citationListFor(draft, paragraph: p),
+        );
       }
     }
 
