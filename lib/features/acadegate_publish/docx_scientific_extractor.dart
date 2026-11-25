@@ -33,10 +33,10 @@ class DocxScientificExtractor {
   static bool isEquationPlaceholder(String text) {
     final t = text.trim();
     if (t.isEmpty) return false;
-    if (RegExp(r'\.{4,}').hasMatch(t)) return true;
-    if (RegExp(r'=\s*[\.\u00B7·…_]{2,}').hasMatch(t)) return true;
-    if (RegExp(r'[\u00B7·…]{6,}').hasMatch(t)) return true;
-    if (RegExp(r'^%\s*\w+\s*=').hasMatch(t)) return true;
+    // Only an empty answer line is disposable, never a real expression,
+    // percent label, decimal, ellipsis in prose, or equation number leader.
+    if (RegExp(r'^[.\u00B7·…_\s]+$').hasMatch(t)) return true;
+    if (RegExp(r'^=\s*[.\u00B7·…_\s]+$').hasMatch(t)) return true;
     return false;
   }
 
@@ -238,8 +238,6 @@ class DocxScientificExtractor {
 
   static String cleanScientificText(String text) {
     var out = text
-        .replaceAll(RegExp(r'\.{4,}'), ' ')
-        .replaceAll(RegExp(r'[\u00B7·…_]{4,}'), ' ')
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
     out = formatChemicalFormula(out);

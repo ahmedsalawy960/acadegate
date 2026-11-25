@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 import 'package:flutter/foundation.dart';
+import 'package:xml/xml.dart';
 
 import '../../core/locale/app_translate.dart';
 import 'academic_text.dart';
@@ -892,6 +893,18 @@ class ManuscriptDocxExportService {
   }
 
   String _ommlParagraph(String ommlXml, JournalFormatRules rules) {
+    // A retained mixed paragraph includes ordinary runs around native math.
+    // Do not wrap it in oMathPara, which would detach or invalidate its text.
+    final trimmed = ommlXml.trim();
+    final root = trimmed.startsWith('<w:p ') || trimmed.startsWith('<w:p>')
+        ? XmlDocument.parse(trimmed).rootElement
+        : null;
+    if (root != null && root.localName == 'p') {
+      final content = root.children.map((e) => e.toXmlString()).join();
+      return '<w:p><w:pPr><w:spacing w:before="120" w:after="120" '
+          'w:line="${rules.lineSpacingExactTwips}" '
+          'w:lineRule="${rules.lineSpacingRule}"/></w:pPr>$content</w:p>';
+    }
     final inner = _normalizeOmmlXml(ommlXml);
     if (inner.isEmpty) return '';
     return '''

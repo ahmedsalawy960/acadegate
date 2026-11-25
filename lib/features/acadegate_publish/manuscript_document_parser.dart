@@ -621,6 +621,9 @@ class ManuscriptDocumentParser {
     var inField = false;
     var pendingOmmlPreview = false;
     final bracketInner = StringBuffer();
+    final inlineParts = <String>[];
+    var hasInlineMath = false;
+    var hasEquationText = false;
 
     void flushCiteDigits() {
       final n = citeDigitBuf.toString();
@@ -678,9 +681,15 @@ class ManuscriptDocumentParser {
         collectingBracket = false;
       }
       flushBoldHint();
-      var text = _cleanExtractedText(textBuffer.toString());
+      final rawText = textBuffer.toString();
+      var text = _cleanExtractedText(rawText);
       text = CitationLinker.normalizeNumberedCiteDigits(text);
       textBuffer.clear();
+      if (rawText.trim().isNotEmpty) hasEquationText = true;
+      final escaped = XmlText(CitationLinker.stripHints(rawText)).toXmlString()
+          .replaceAll('\t', '</w:t><w:tab/><w:t xml:space="preserve">')
+          .replaceAll('\n', '</w:t><w:br/><w:t xml:space="preserve">');
+      inlineParts.add('<w:r><w:t xml:space="preserve">$escaped</w:t></w:r>');
       if (text.isEmpty) return;
       if (DocxScientificExtractor.isEquationPlaceholder(text)) return;
       blocks.add(ManuscriptBlock(
@@ -827,6 +836,12 @@ class ManuscriptDocumentParser {
           pendingOmmlPreview = true;
           final eqText = _ommlPlainText(child);
           if (eqText.isNotEmpty) {
+            hasInlineMath = true;
+            inlineParts.add(child.localName == 'oMathPara'
+                ? child.children.whereType<XmlElement>()
+                    .where((e) => e.localName == 'oMath')
+                    .map((e) => e.toXmlString()).join()
+                : child.toXmlString());
             blocks.add(_equationBlock(nextId: nextId, math: child));
           }
           continue;
@@ -845,10 +860,12 @@ class ManuscriptDocumentParser {
           continue;
         }
         if (tag == 'tab') {
+          if (el.localName == 'r') continue;
           textBuffer.write('\t');
           continue;
         }
         if (tag == 'br' || tag == 'cr') {
+          if (el.localName == 'r') continue;
           textBuffer.write('\n');
           continue;
         }
@@ -923,6 +940,22 @@ class ManuscriptDocumentParser {
 
     walkNonMath(element);
     flushText();
+
+    // Keep text, inline math and its label in their original Word paragraph.
+    // Image-bearing paragraphs retain the existing visual extraction path.
+    if (hasInlineMath &&
+        hasEquationText &&
+        blocks.every((b) => (b.imageUrl ?? '').isEmpty)) {
+      final mixed = '<w:p xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" '
+          'xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math">'
+          '${inlineParts.join()}</w:p>';
+      return [ManuscriptBlock(
+        id: blocks.first.id,
+        type: ManuscriptBlockType.equation,
+        text: _ommlPlainText(XmlDocument.parse(mixed).rootElement),
+        ommlXml: mixed,
+      )];
+    }
 
     // Fallback: OMML present but walker missed it (nested wrappers).
     if (!blocks.any((b) => b.type == ManuscriptBlockType.equation)) {
