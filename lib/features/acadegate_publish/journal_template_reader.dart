@@ -116,42 +116,73 @@ class JournalTemplateReader {
     if (entry == null) return;
     try {
       final doc = XmlDocument.parse(utf8.decode(entry.content as List<int>));
-      final sects = doc.findAllElements('w:sectPr').toList();
+      final sects = doc.findAllElements('w:sectPr').where((section) =>
+          !section.ancestors.whereType<XmlElement>().any((parent) =>
+              parent.name.local == 'sectPrChange')).toList();
       if (sects.isEmpty) return;
-      final sect = sects.last;
-      final pgSz = sect.findElements('w:pgSz').toList();
-      if (pgSz.isNotEmpty) {
-        final w = int.tryParse(pgSz.first.getAttribute('w:w') ?? '');
-        final h = int.tryParse(pgSz.first.getAttribute('w:h') ?? '');
-        final orientation = pgSz.first.getAttribute('w:orient') ?? 'portrait';
-        // Width alone cannot distinguish Letter from Legal or a custom page.
-        // The exporter supports portrait A4/Letter, not landscape conversion.
-        if (w != null && h != null && orientation == 'portrait') {
-          if ((w - 12240).abs() <= 20 && (h - 15840).abs() <= 20) {
-            out['paperSize'] = 'letter';
-          } else if ((w - 11906).abs() <= 20 && (h - 16838).abs() <= 20) {
-            out['paperSize'] = 'a4';
-          }
+      final sections = <Map<String, dynamic>>[];
+      for (final sect in sects) {
+        final section = <String, dynamic>{};
+        _readSectionLayout(sect, section);
+        sections.add(section);
+      }
+      // One global field cannot represent conflicting or missing section rules.
+      for (final key in ['paperSize', 'marginCm', 'columns']) {
+        if (sections.every((section) => section.containsKey(key)) &&
+            sections.map((section) => section[key]).toSet().length == 1) {
+          out[key] = sections.first[key];
         }
       }
-      final pgMar = sect.findElements('w:pgMar').toList();
-      if (pgMar.isNotEmpty) {
-        final margins = ['top', 'right', 'bottom', 'left'].map((side) =>
-            int.tryParse(pgMar.first.getAttribute('w:$side') ?? '')).toList();
-        // The exporter has one uniform margin field. A top margin alone or
-        // asymmetric margins cannot establish the other three sides.
-        if (margins.every((value) => value != null && value >= 567 && value <= 2268) &&
-            margins.toSet().length == 1 &&
-            (int.tryParse(pgMar.first.getAttribute('w:gutter') ?? '0') ?? -1) == 0) {
-          out['marginCm'] = margins.first! / 567;
-        }
-      }
-      final cols = sect.findElements('w:cols').toList();
-      final num = int.tryParse(
-        cols.isEmpty ? '' : (cols.first.getAttribute('w:num') ?? ''),
-      );
-      if (num != null && num >= 1) out['columns'] = num >= 2 ? 2 : 1;
     } catch (_) {}
+  }
+
+  static void _readSectionLayout(XmlElement sect, Map<String, dynamic> out) {
+    final pgSz = sect.findElements('w:pgSz').toList();
+    if (pgSz.isNotEmpty) {
+      final w = int.tryParse(pgSz.first.getAttribute('w:w') ?? '');
+      final h = int.tryParse(pgSz.first.getAttribute('w:h') ?? '');
+      final orientation = pgSz.first.getAttribute('w:orient') ?? 'portrait';
+      // Width alone cannot distinguish Letter from Legal or a custom page.
+      // The exporter supports portrait A4/Letter, not landscape conversion.
+      if (w != null && h != null && orientation == 'portrait') {
+        if ((w - 12240).abs() <= 20 && (h - 15840).abs() <= 20) {
+          out['paperSize'] = 'letter';
+        } else if ((w - 11906).abs() <= 20 && (h - 16838).abs() <= 20) {
+          out['paperSize'] = 'a4';
+        }
+      }
+    }
+    final pgMar = sect.findElements('w:pgMar').toList();
+    if (pgMar.isNotEmpty) {
+      final margins = ['top', 'right', 'bottom', 'left']
+          .map(
+            (side) => int.tryParse(pgMar.first.getAttribute('w:$side') ?? ''),
+          )
+          .toList();
+      // The exporter has one uniform margin field. A top margin alone or
+      // asymmetric margins cannot establish the other three sides.
+      if (margins.every(
+            (value) => value != null && value >= 567 && value <= 2268,
+          ) &&
+          margins.toSet().length == 1 &&
+          (int.tryParse(pgMar.first.getAttribute('w:gutter') ?? '0') ?? -1) ==
+              0) {
+        out['marginCm'] = margins.first! / 567;
+      }
+    }
+    final cols = sect.findElements('w:cols').toList();
+    final num = int.tryParse(
+      cols.isEmpty ? '' : (cols.first.getAttribute('w:num') ?? ''),
+    );
+    if ((num == 1 || num == 2) &&
+        !const [
+          '0',
+          'false',
+          'off',
+        ].contains(cols.first.getAttribute('w:equalWidth')) &&
+        cols.first.findElements('w:col').isEmpty) {
+      out['columns'] = num;
+    }
   }
 
   static void _readStyles(Archive archive, Map<String, dynamic> out) {
