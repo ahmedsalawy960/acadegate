@@ -121,9 +121,18 @@ class JournalTemplateReader {
       final sect = sects.last;
       final pgSz = sect.findElements('w:pgSz').toList();
       if (pgSz.isNotEmpty) {
-        final w = int.tryParse(pgSz.first.getAttribute('w:w') ?? '') ?? 0;
-        if (w >= 12000 && w <= 12500) out['paperSize'] = 'letter';
-        if (w >= 11800 && w <= 12050) out['paperSize'] = 'a4';
+        final w = int.tryParse(pgSz.first.getAttribute('w:w') ?? '');
+        final h = int.tryParse(pgSz.first.getAttribute('w:h') ?? '');
+        final orientation = pgSz.first.getAttribute('w:orient') ?? 'portrait';
+        // Width alone cannot distinguish Letter from Legal or a custom page.
+        // The exporter supports portrait A4/Letter, not landscape conversion.
+        if (w != null && h != null && orientation == 'portrait') {
+          if ((w - 12240).abs() <= 20 && (h - 15840).abs() <= 20) {
+            out['paperSize'] = 'letter';
+          } else if ((w - 11906).abs() <= 20 && (h - 16838).abs() <= 20) {
+            out['paperSize'] = 'a4';
+          }
+        }
       }
       final pgMar = sect.findElements('w:pgMar').toList();
       if (pgMar.isNotEmpty) {
