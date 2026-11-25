@@ -2125,7 +2125,7 @@ Wanasundara, Janitha P.D., McIntosh, T., and Perera, S. (2016). Canola/rapeseed 
     expect(linked, isNot(contains('Wanasundara, Janitha')));
   });
 
-  test('same author and year keeps both works and still links each cite', () {
+  test('same author and year preserves ambiguity until coauthors identify a work', () {
     final refs = [
       const PublishReference(
         id: 'wana_a',
@@ -2153,9 +2153,9 @@ Wanasundara, Janitha P.D., McIntosh, T., and Perera, S. (2016). Canola/rapeseed 
       '(Wanasundara, Janitha PD, McIntosh, T. 2016).',
       refs,
     );
-    expect(linked, contains('{{cite:wana_a}}'));
+    expect(linked, contains('(Wanasundara et al. 2016)'));
     expect(linked, contains('{{cite:wana_b}}'));
-    expect(linked, isNot(contains('Wanasundara et al')));
+    expect(linked, isNot(contains('{{cite:wana_a}}')));
 
     final samePaperTwice = CitationLinker.dedupe([
       refs[0],

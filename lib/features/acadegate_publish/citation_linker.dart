@@ -799,9 +799,9 @@ class CitationLinker {
     if (RegExp(r'^(?:19|20)\d{2}[a-z]?$').hasMatch(inner)) return null;
     if (RegExp(r'^[\d\s.<>=%,;+×xX/−-]+$').hasMatch(inner)) return null;
 
-    // A comma following a year separates works, unlike author-list commas.
+    // A comma or conjunction after a year separates works, not coauthors.
     inner = inner.replaceAllMapped(
-      RegExp(r'((?:19|20)\d{2}[a-z]?)\s*,\s*(?=[\p{Lu}])', unicode: true),
+      RegExp(r'((?:19|20)\d{2}[a-z]?)\s*(?:,|\band\b)\s*(?=[\p{Lu}])', unicode: true),
       (match) => '${match.group(1)}; ',
     );
     final parts = inner
@@ -966,11 +966,7 @@ class CitationLinker {
     for (final part in parts) {
       final parsed = _splitAuthorYear(part);
       if (parsed == null || _isBlocked(parsed.$1)) return null;
-      final ref = index.byAuthorYear(parsed.$1, parsed.$2) ??
-          index.byLastNames(
-            CitationStyleShapes.lastNamesFromCitation(parsed.$1),
-            year: parsed.$2,
-          );
+      final ref = index.byAuthorYear(parsed.$1, parsed.$2);
       // Do not drop a sibling cite in `(A, 2025; B, 2024)` if B is missing.
       if (ref == null) return null;
       ids.add(ref.id);
@@ -1016,6 +1012,9 @@ class CitationLinker {
     s = s.replaceAll(RegExp(r'\b[Ee]ds?\.?\b'), ' ');
     s = s.replaceAll(RegExp(r'\s+'), ' ').trim();
     s = s.replaceAll(RegExp(r'^\(+|\)+$'), '');
+    if (RegExp(r'\b(?:19|20)\d{2}[a-z]?\b').allMatches(s).length != 1) {
+      return null;
+    }
     final strict = _authorDatePart.firstMatch(s);
     if (strict != null) return (strict.group(1)!, strict.group(2)!);
 

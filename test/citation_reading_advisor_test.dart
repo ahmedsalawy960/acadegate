@@ -76,7 +76,7 @@ void main() {
     ]);
   });
 
-  test('a gemini phrase is numbered when the local spelling does not match', () {
+  test('a model cannot silently repair unmatched author spelling', () {
     const manuscript = PublishManuscript(
       userId: 'u',
       title: 'Volatiles',
@@ -123,16 +123,16 @@ void main() {
         ),
       ],
     );
-    expect(marked.marked, 1);
-    expect(marked.manuscript.bodyBlocks.first.text, contains('{{cite:arueya}}'));
+    expect(marked.marked, 0);
+    expect(marked.manuscript.bodyBlocks.first.text, contains('(Olabode and Arueva, 2016)'));
     expect(marked.manuscript.bodyBlocks[1].text, '..........(12)');
 
     final ieee = CitationStyleConverter.apply(
       manuscript: marked.manuscript,
       style: PublishCitationStyle.ieee,
     );
-    expect(ieee.bodyBlocks.first.text, contains('[1]'));
-    expect(ieee.bodyBlocks.first.text, isNot(contains('Arueva')));
+    expect(ieee.bodyBlocks.first.text, contains('(Olabode and Arueva, 2016)'));
+    expect(ieee.bodyBlocks.first.text, isNot(contains('[1]')));
     expect(ieee.bodyBlocks[1].text, '..........(12)');
     expect(ieee.references.first.id, 'arueya');
   });

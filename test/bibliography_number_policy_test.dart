@@ -179,11 +179,14 @@ void main() {
           doc.findAllElements('m:t').map((e) => e.innerText).join(),
           contains('z = a + b'),
         );
-        if (variant == 'engineering')
+        if (variant == 'engineering') {
           expect(bodyText, contains('Equation (7)'));
+        }
         expect(doc.findAllElements('w:tbl').length, 1);
         expect(doc.findAllElements('m:oMath').length, 1);
-        if (variant == 'bilingual') expect(all, contains('النص العلمي'));
+        if (variant == 'bilingual') {
+          expect(all, contains('النص العلمي'));
+        }
       });
     }
   }

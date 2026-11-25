@@ -52,6 +52,50 @@ class InTextCitationConverter {
     unicode: true,
   );
 
+  /// A group is resolved as a whole; an unknown member never erases siblings.
+  static List<PublishReference>? referencesForCitationGroup(
+    String text,
+    List<PublishReference> references,
+  ) {
+    var inner = text
+        .trim()
+        .replaceFirst(RegExp(r'^\('), '')
+        .replaceFirst(RegExp(r'\)$'), '');
+    inner = inner.replaceAllMapped(
+      RegExp(
+        r'((?:19|20)\d{2}[a-z]?)\s*(?:,|\band\b)\s*(?=[\p{Lu}])',
+        unicode: true,
+      ),
+      (m) => '${m[1]}; ',
+    );
+    final match = BibliographyMatch(references);
+    final resolved = <PublishReference>[];
+    for (final part in inner.split(';')) {
+      final years = RegExp(
+        r'\b(?:19|20)\d{2}[a-z]?\b',
+      ).allMatches(part).toList();
+      if (years.length != 1) return null;
+      final year = years.single.group(0)!;
+      final author = part.substring(0, years.single.start).trim();
+      if (author.isEmpty ||
+          !RegExp(r'^[\p{Lu}]', unicode: true).hasMatch(author) ||
+          RegExp(
+            r'\b(?:the|this|these|those|using|used|reported|measured|samples|between|from)\b',
+            caseSensitive: false,
+          ).hasMatch(author) ||
+          !RegExp(r'^[\s,.]*$').hasMatch(part.substring(years.single.end))) {
+        return null;
+      }
+      final ref = match.byAuthorYear(
+        author.replaceAll(RegExp(r'[,;:]+$'), ''),
+        year,
+      );
+      if (ref == null) return null;
+      resolved.add(ref);
+    }
+    return resolved.isEmpty ? null : resolved;
+  }
+
   /// Walk one piece of text left to right. The first new work claims the next
   /// number in [order]; a later mention of the same work keeps that number.
   static String rewriteNumberedByAppearance({
@@ -86,6 +130,24 @@ class InTextCitationConverter {
     BibliographyMatch match,
   ) {
     final spans = <_AppearanceSpan>[];
+    final groups = RegExp(r'\(([^()]*\b(?:19|20)\d{2}[^()]*)\)')
+        .allMatches(source)
+        .where((m) => !RegExp(r'^\s*(?:19|20)\d{2}[a-z]?\s*$').hasMatch(m[1]!))
+        .toList();
+    final atomic = <_AppearanceSpan>[];
+    for (final group in groups) {
+      final refs = referencesForCitationGroup(group[0]!, match.references);
+      if (refs != null &&
+          !CitationLinker.isEquationLeader(source.substring(0, group.start))) {
+        atomic.add(
+          _AppearanceSpan(
+            group.start,
+            group.end,
+            (order) => '[${refs.map((r) => order.claim(r)).join(',')}]',
+          ),
+        );
+      }
+    }
 
     for (final m in RegExp(citeMarkerPattern).allMatches(source)) {
       final ref = match.byId(m.group(1) ?? '');
@@ -117,27 +179,6 @@ class InTextCitationConverter {
       }));
     }
 
-    for (final m in RegExp(r'\(([^()]{8,400})\)').allMatches(source)) {
-      final inner = m.group(1)!;
-      if (!inner.contains(';')) continue;
-      if (!RegExp(r'\b(?:19|20)\d{2}\b').hasMatch(inner)) continue;
-      if (CitationLinker.isEquationLeader(source.substring(0, m.start))) continue;
-      final refs = <PublishReference>[];
-      var ok = true;
-      for (final chunk in inner.split(';')) {
-        final ref = _referenceForAuthorYearChunk(chunk.trim(), match);
-        if (ref == null) {
-          ok = false;
-          break;
-        }
-        refs.add(ref);
-      }
-      if (!ok || refs.isEmpty) continue;
-      spans.add(_AppearanceSpan(m.start, m.end, (order) {
-        return '[${refs.map((ref) => order.claim(ref)).join(',')}]';
-      }));
-    }
-
     for (final m in _parentheticalCite.allMatches(source)) {
       if (CitationLinker.isEquationLeader(source.substring(0, m.start))) continue;
       final ref = _referenceForAuthorYear(m.group(1)!, m.group(2)!, match);
@@ -161,17 +202,6 @@ class InTextCitationConverter {
       if (ref == null) continue;
       spans.add(_AppearanceSpan(m.start, m.end, (order) => '[${order.claim(ref)}]'));
     }
-
-    for (final m in RegExp(r'\(([^()]{6,220})\)').allMatches(source)) {
-      final inner = m.group(1)!;
-      if (inner.contains(';')) continue;
-      if (!RegExp(r'\b(?:19|20)\d{2}[a-z]?\b').hasMatch(inner)) continue;
-      if (inner.split(RegExp(r'\s+')).length > 14) continue;
-      if (CitationLinker.isEquationLeader(source.substring(0, m.start))) continue;
-      final ref = _referenceForAuthorYearChunk(inner, match);
-      if (ref == null) continue;
-      spans.add(_AppearanceSpan(m.start, m.end, (order) => '[${order.claim(ref)}]'));
-    }
     for (final m in RegExp(
       r'\b([A-Z][\p{L}\-]{2,}(?:\s+[A-Z][\p{L}\-]{2,}){0,3}(?:\s+et\s+al\.?)?)\s*\(((?:19|20)\d{2}[a-z]?)\)',
       unicode: true,
@@ -181,7 +211,11 @@ class InTextCitationConverter {
       if (ref == null) continue;
       spans.add(_AppearanceSpan(m.start, m.end, (order) => '[${order.claim(ref)}]'));
     }
-    return spans;
+    return [
+      ...atomic,
+      for (final span in spans)
+        if (!groups.any((g) => span.start < g.end && span.end > g.start)) span,
+    ];
   }
 
   static String _compactAdjacentNumbers(String result) {
@@ -244,20 +278,20 @@ class InTextCitationConverter {
 
     final match = BibliographyMatch(references);
     var result = _resolveCiteMarkers(AcademicText.westernDigits(text), match);
-
+    final protected = <String>[];
     result = result.replaceAllMapped(
-      RegExp(r'\(([^()]{8,400})\)'),
+      RegExp(r'\(([^()]*\b(?:19|20)\d{2}[^()]*)\)'),
       (m) {
-        final inner = m.group(1)!;
-        if (!inner.contains(';')) return m.group(0)!;
-        if (!RegExp(r'\b(?:19|20)\d{2}\b').hasMatch(inner)) return m.group(0)!;
-        final nums = <int>[];
-        for (final chunk in inner.split(';')) {
-          final n = _numberForAuthorYearChunk(chunk.trim(), match);
-          if (n == null) return m.group(0)!;
-          nums.add(n);
+        if (RegExp(r'^\s*(?:19|20)\d{2}[a-z]?\s*$').hasMatch(m[1]!)) {
+          return m[0]!;
         }
-        return nums.isEmpty ? m.group(0)! : '[${nums.join(',')}]';
+        final refs = referencesForCitationGroup(m[0]!, references);
+        protected.add(
+          refs == null
+              ? m[0]!
+              : '[${refs.map((r) => match.numberOf(r)).join(',')}]',
+        );
+        return '\uE000${protected.length - 1}\uE001';
       },
     );
 
@@ -295,7 +329,10 @@ class InTextCitationConverter {
       if (next == compact) break;
       compact = next;
     }
-    return compact;
+    return compact.replaceAllMapped(
+      RegExp('\uE000(\\d+)\uE001'),
+      (m) => protected[int.parse(m[1]!)],
+    );
   }
 
   static String _replaceWithNumber(

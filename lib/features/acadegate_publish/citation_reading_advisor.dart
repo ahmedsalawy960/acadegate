@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import '../ai_advisor/gemini_advisor_client.dart';
 import 'bibliography_match.dart';
 import 'citation_linker.dart';
+import 'in_text_citation_converter.dart';
 import 'journal_format_rules.dart';
 import 'manuscript_structure_advisor.dart';
 import 'publish_models.dart';
@@ -103,6 +104,15 @@ class CitationReadingAdvisor {
       final phrase = reading.phrase.trim();
       if (phrase.length < 8) continue;
       if (!RegExp(r'(?:19|20)\d{2}').hasMatch(phrase)) continue;
+      final resolved = InTextCitationConverter.referencesForCitationGroup(
+        phrase,
+        manuscript.references,
+      );
+      if (resolved == null ||
+          resolved.length != 1 ||
+          resolved.single.id != reading.referenceId) {
+        continue;
+      }
       byBlock.putIfAbsent(reading.blockIndex, () => []).add(
             CitationReading(
               blockIndex: reading.blockIndex,
@@ -323,6 +333,30 @@ Return only JSON: {"cites":[{"p":0,"phrase":"(Daun et al., 2011)","id":"daun"}]}
         break;
       }
       final before = text.substring(0, at);
+      final end = at + phrase.length;
+      final word = RegExp(r'[\p{L}\p{M}]', unicode: true);
+      final fragment =
+          (at > 0 && word.hasMatch(text[at - 1]) && word.hasMatch(phrase[0])) ||
+              (end < text.length &&
+                  word.hasMatch(text[end]) &&
+                  word.hasMatch(phrase[phrase.length - 1]));
+      final open = text.lastIndexOf('(', at);
+      final close = text.indexOf(')', end);
+      final insideGroup = open >= 0 &&
+          close >= 0 &&
+          (open == at || !text.substring(open + 1, at).contains(')')) &&
+          (open < at || close + 1 > end);
+      // A model may copy only the final coauthor of a narrative citation.
+      final authorPrefix = RegExp(
+        r"[\p{Lu}][\p{L}\p{M}'-]*(?:\s*,?\s*(?:and|&)\s*|,\s*)$",
+        unicode: true,
+      ).hasMatch(before);
+      if (fragment || insideGroup || authorPrefix) {
+        buffer.write(text.substring(cursor, end));
+        cursor = end;
+        continue;
+      }
+
       if (CitationLinker.isEquationLeader(before) ||
           CitationLinker.isFloatNumberContext(before) ||
           CitationLinker.isEquationNumberContext(before)) {
