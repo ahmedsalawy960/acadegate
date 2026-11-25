@@ -598,9 +598,9 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
     });
   }
 
-  Future<void> _writePriorStudiesChapter() {
+  Future<void> _writePriorStudiesChapter() async {
     final draft = _draft;
-    if (draft == null) return Future.value();
+    if (draft == null) return;
     final hasWorks = draft.literature.works.isNotEmpty ||
         draft.chapters.any(
           (c) =>
@@ -618,7 +618,46 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
           ),
         ),
       );
-      return Future.value();
+      return;
+    }
+    // A re-run regenerates every study paragraph and discards manual edits
+    // and per-card refreshes — confirm before wiping them.
+    final hasWrittenStudies = draft.chapters.any(
+      (c) =>
+          c.id == 'literature' &&
+          c.paragraphs.any(
+            (p) =>
+                (p.id.startsWith('lit_study_') ||
+                    p.id == 'lit_abstracts_all') &&
+                p.body.trim().length >= 80,
+          ),
+    );
+    if (hasWrittenStudies) {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(
+            ctx.t('إعادة تلخيص كل الدراسات؟', 'Re-summarise every study?'),
+          ),
+          content: Text(
+            ctx.t(
+              'سيعاد توليد فقرات الدراسات السابقة كلها من الملخصات، وستفقد أي تعديل يدوي أو تلخيص لبطاقة واحدة. لتحديث دراسة واحدة استخدم زر التلخيص على بطاقتها.',
+              'All prior-study paragraphs will be regenerated from abstracts; manual edits and single-card summaries are lost. To refresh one study, use the summarise button on its card.',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(ctx.t('إلغاء', 'Cancel')),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(ctx.t('متابعة', 'Continue')),
+            ),
+          ],
+        ),
+      );
+      if (ok != true || !mounted) return;
     }
     return _runBusy('prior:write', () {
       return ThesisStudioEngine.instance.writePriorStudiesChapter(
