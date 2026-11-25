@@ -170,7 +170,7 @@ class ManuscriptDocxExportService {
     }
 
     final blocks = JournalSectionLayout.prepareExportBlocks(
-      blocks: rawBlocks,
+      blocks: _withoutRepeatedFrontTitle(rawBlocks, cleanTitle),
       sectionOrder: const [],
       dropAbstractSection: false,
     );
@@ -187,17 +187,25 @@ class ManuscriptDocxExportService {
       sectionHasContent = false;
     }
 
-    for (final block in blocks) {
-      final blockText = AcademicText.sanitize(block.text.trim());
-      if (block.type == ManuscriptBlockType.heading &&
-          (blockText == cleanTitle ||
-              (cleanTitle.length > 20 && blockText.startsWith(cleanTitle)))) {
-        continue;
+    var inTitleRegion = true;
+    for (var blockIndex = 0; blockIndex < blocks.length; blockIndex++) {
+      final originalBlock = blocks[blockIndex];
+      if (blockIndex >= 50 || _titleRegionBoundary(originalBlock)) {
+        inTitleRegion = false;
       }
-      if (block.type == ManuscriptBlockType.paragraph &&
+      var block = originalBlock;
+      var blockText = AcademicText.sanitize(block.text.trim());
+      if ((block.type == ManuscriptBlockType.heading ||
+              block.type == ManuscriptBlockType.paragraph) &&
+          inTitleRegion &&
           cleanTitle.length > 20 &&
           blockText.startsWith(cleanTitle)) {
-        continue;
+        // Title and byline can share one imported paragraph. Never discard
+        // the rest of that paragraph while suppressing the repeated title.
+        final rest = blockText.substring(cleanTitle.length).trimLeft();
+        if (rest.isEmpty) continue;
+        block = block.copyWith(text: rest, type: ManuscriptBlockType.paragraph);
+        blockText = rest;
       }
 
       final wide = block.type == ManuscriptBlockType.table ||
@@ -332,6 +340,56 @@ class ManuscriptDocxExportService {
     }
 
     return Uint8List.fromList(ZipEncoder().encode(archive));
+  }
+
+  static bool _titleRegionBoundary(ManuscriptBlock b) =>
+      b.type == ManuscriptBlockType.heading &&
+      RegExp(
+        r'^(?:\d+[.)]?\s+)?(?:Abstract|Summary|Introduction|Background|Methods|الملخص|المقدمة)\s*[:.]?$',
+        caseSensitive: false,
+      ).hasMatch(b.text.trim());
+
+  /// Remove only source title lines in front matter, retaining bylines and
+  /// affiliations that share their paragraph. Do not rewrite tables or body.
+  static List<ManuscriptBlock> _withoutRepeatedFrontTitle(
+    List<ManuscriptBlock> blocks,
+    String title,
+  ) {
+    String key(String t) =>
+        AcademicText.sanitize(t).replaceAll(RegExp(r'\s+'), ' ').trim();
+    final target = key(title);
+    if (target.length < 20) return blocks;
+    var front = true;
+    final out = <ManuscriptBlock>[];
+    for (var i = 0; i < blocks.length; i++) {
+      final b = blocks[i];
+      if (i >= 50 || _titleRegionBoundary(b)) {
+        front = false;
+      }
+      if (!front ||
+          (b.type != ManuscriptBlockType.heading &&
+              b.type != ManuscriptBlockType.paragraph)) {
+        out.add(b);
+        continue;
+      }
+      final kept = <String>[];
+      for (final line in b.text.split(RegExp(r'\n+'))) {
+        final t = key(line);
+        if (t == target) continue;
+        // Only whole lines, not arbitrary phrases within prose, can be title
+        // continuations. Bounds prevent deleting short common fragments.
+        if (t.length >= 24 &&
+            (target == t || target.startsWith('$t ') ||
+             target.endsWith(' $t') || target.contains(' $t '))) {
+          continue;
+        }
+        kept.add(line);
+      }
+      if (kept.any((t) => t.trim().isNotEmpty)) {
+        out.add(b.copyWith(text: kept.join('\n')));
+      }
+    }
+    return out;
   }
 
   Future<String> _blockXml(

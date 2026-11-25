@@ -13,6 +13,7 @@ import 'citation_formatter.dart';
 import 'citation_linker.dart';
 import 'citation_style_shapes.dart';
 import 'docx_list_numbering.dart';
+import 'docx_title_reader.dart';
 import 'docx_scientific_extractor.dart';
 import 'manuscript_image_session_cache.dart';
 import 'manuscript_structure_advisor.dart';
@@ -59,7 +60,7 @@ class ManuscriptDocumentParser {
       final blocks = _extractDocxBlocks(bytes);
       if (text.trim().length >= 40 || blocks.isNotEmpty) {
         final labeled = await ManuscriptStructureAdvisor.align(blocks);
-        return _resultFromText(text, blocks: labeled);
+        return _resultFromText(text, blocks: labeled).copyWith(sourceTitle: DocxTitleReader.read(bytes));
       }
     }
 
@@ -4178,7 +4179,7 @@ class ManuscriptDocumentParser {
         ),
       );
     } else {
-      final title = _extractTitleFromBlocks(next.bodyBlocks);
+      final title = parsed.sourceTitle ?? _extractTitleFromBlocks(next.bodyBlocks);
       if (title != null && title.length > 10) {
         next = next.copyWith(
           title: AcademicText.stripTrailingAuthorFromTitle(
@@ -5206,6 +5207,7 @@ class ManuscriptDocumentParser {
 }
 
 class ManuscriptParseResult {
+  final String? sourceTitle;
   final String fullText;
   final String bodyText;
   final List<PublishReference> references;
@@ -5213,6 +5215,7 @@ class ManuscriptParseResult {
   final List<ImportedDocumentImage> images;
 
   const ManuscriptParseResult({
+    this.sourceTitle,
     required this.fullText,
     required this.bodyText,
     required this.references,
@@ -5221,10 +5224,12 @@ class ManuscriptParseResult {
   });
 
   ManuscriptParseResult copyWith({
+    String? sourceTitle,
     List<PublishReference>? references,
     List<ManuscriptBlock>? bodyBlocks,
   }) {
     return ManuscriptParseResult(
+      sourceTitle: sourceTitle ?? this.sourceTitle,
       fullText: fullText,
       bodyText: bodyText,
       references: references ?? this.references,
