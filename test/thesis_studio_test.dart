@@ -294,6 +294,32 @@ void main() {
     expect(words['intro']!, greaterThanOrEqualTo(400));
   });
 
+  test('command topic drops instruction verbs in Arabic and English', () {
+    final arabic = ThesisCommandSpec.parse(
+      'اكتب ٥ صفحات عن تلوث المياه العادمة',
+      depth: ThesisChapterDepth.full,
+    );
+    expect(arabic.requestedPages, 5);
+    expect(arabic.topicText, isNot(contains('اكتب')));
+    expect(arabic.topicText, contains('تلوث المياه'));
+    expect(arabic.topicText, isNot(contains('صفحات')));
+
+    final generated = ThesisCommandSpec.parse(
+      'generate 3 pages on water scarcity',
+      depth: ThesisChapterDepth.full,
+    );
+    expect(generated.topicText, isNot(contains('generate')));
+    expect(generated.topicText, contains('water scarcity'));
+
+    // Words that merely contain a verb stem stay untouched.
+    final kept = ThesisCommandSpec.parse(
+      'writer identity in generated novels',
+      depth: ThesisChapterDepth.full,
+    );
+    expect(kept.topicText, contains('writer'));
+    expect(kept.topicText, contains('generated'));
+  });
+
   test('citation report flags unknown markers and unused sources', () {
     const allowed = '10.1000/ag.test.oil';
     final goal = ResearchGoalParser.parse(

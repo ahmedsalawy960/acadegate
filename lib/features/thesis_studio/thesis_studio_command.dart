@@ -36,7 +36,10 @@ class ThesisCommandSpec {
     );
     t = t.replaceAll(
       RegExp(
-        r'\b(?:لا تقل عن|at least|minimum of|write|generate|توليد|اكتب)\b',
+        // \b only sees ASCII word chars, so it never fires next to Arabic
+        // letters; use look-arounds that treat Arabic letters as word chars
+        // so "اكتب"/"توليد" are stripped from Arabic commands too.
+        r'(?<![A-Za-z0-9_\u0600-\u06FF])(?:لا تقل عن|at least|minimum of|write|generate|توليد|اكتب)(?![A-Za-z0-9_\u0600-\u06FF])',
         caseSensitive: false,
       ),
       ' ',
