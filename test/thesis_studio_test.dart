@@ -275,7 +275,8 @@ void main() {
   test('page budget scales sources and literature weight', () {
     expect(ThesisLengthBudget.defaultPages, 40);
     expect(ThesisLengthBudget.sourceLimit(24), greaterThanOrEqualTo(20));
-    expect(ThesisLengthBudget.sourceLimit(80), 64);
+    // (80 * 1.35).round() = 108, clamped to the 100-source ceiling.
+    expect(ThesisLengthBudget.sourceLimit(80), 100);
     expect(ThesisLengthBudget.clampPages(3), 12);
     expect(ThesisLengthBudget.harvestPool(40), greaterThan(ThesisLengthBudget.sourceLimit(40)));
     final goal = ResearchGoalParser.parse(

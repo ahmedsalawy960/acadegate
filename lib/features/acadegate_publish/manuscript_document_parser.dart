@@ -183,6 +183,13 @@ class ManuscriptDocumentParser {
     required String filename,
     String? manuscriptId,
   }) async {
+    // Cached local bytes need no storage round-trip (and no Firebase at all).
+    if (manuscriptId != null && manuscriptId.isNotEmpty) {
+      final cached = ManuscriptFileBytesCache.read(manuscriptId, filename);
+      if (cached != null && cached.isNotEmpty) {
+        return parseFile(bytes: cached, filename: filename, allowCloud: false);
+      }
+    }
     final bytes = await ManuscriptUploadService.instance.downloadDocumentBytes(
       url: url,
       manuscriptId: manuscriptId,
