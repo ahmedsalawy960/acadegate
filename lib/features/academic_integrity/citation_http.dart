@@ -13,6 +13,7 @@ class CitationHttp {
     'api.openalex.org',
     'api.semanticscholar.org',
     'api.unpaywall.org',
+    'api.openaire.eu',
     'www.ebi.ac.uk',
     'pub.orcid.org',
     'query.wikidata.org',

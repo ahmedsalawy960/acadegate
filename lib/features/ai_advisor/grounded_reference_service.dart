@@ -3,6 +3,7 @@ import '../academic_integrity/consensus_client.dart';
 import '../academic_integrity/crossref_client.dart';
 import '../academic_integrity/europe_pmc_client.dart';
 import '../academic_integrity/google_scholar_client.dart';
+import '../academic_integrity/openaire_client.dart';
 import '../academic_integrity/openalex_works_client.dart';
 import '../academic_integrity/semantic_scholar_client.dart';
 import 'advisor_intent.dart';
@@ -191,6 +192,27 @@ class GroundedReferenceService {
     } catch (_) {}
 
     try {
+      final openaire = await OpenAireClient.instance.search(
+        topic,
+        limit: limit,
+      );
+      for (final work in openaire) {
+        _offer(
+          byDoi,
+          work.doi,
+          work.title,
+          work.year,
+          work.authors,
+          'OpenAIRE',
+          journal: work.journal,
+          abstractText: work.abstractText,
+          citationCount: work.citationCount,
+          externalUrl: work.url,
+        );
+      }
+    } catch (_) {}
+
+    try {
       final consensus = await ConsensusClient.instance.search(
         topic,
         limit: limit,
@@ -352,6 +374,29 @@ class GroundedReferenceService {
             'Europe PMC',
             journal: work.journal,
             abstractText: work.abstractText,
+            requireDoi: requireDoi,
+            externalUrl: work.url,
+          );
+        }
+      } catch (_) {}
+
+      try {
+        final openaire = await OpenAireClient.instance.search(
+          query,
+          limit: perSource,
+          fromYear: minYear > 0 ? minYear : null,
+        );
+        for (final work in openaire) {
+          _offer(
+            byKey,
+            work.doi,
+            work.title,
+            work.year,
+            work.authors,
+            'OpenAIRE',
+            journal: work.journal,
+            abstractText: work.abstractText,
+            citationCount: work.citationCount,
             requireDoi: requireDoi,
             externalUrl: work.url,
           );
