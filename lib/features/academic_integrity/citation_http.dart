@@ -20,8 +20,11 @@ class CitationHttp {
     'query.wikidata.org',
   };
 
-  /// ORCID and Wikidata publish CORS headers; call them directly on Chrome.
+  /// ORCID, Wikidata and Zotero publish CORS headers; call them directly on
+  /// Chrome. Zotero must stay direct: its requests carry the user's personal
+  /// API key, which must not transit the proxy.
   static const _directOnWeb = {
+    'api.zotero.org',
     'pub.orcid.org',
     'query.wikidata.org',
   };

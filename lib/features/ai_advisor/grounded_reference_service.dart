@@ -7,6 +7,8 @@ import '../academic_integrity/openaire_client.dart';
 import '../academic_integrity/open_citations_client.dart';
 import '../academic_integrity/openalex_works_client.dart';
 import '../academic_integrity/semantic_scholar_client.dart';
+import '../academic_integrity/zotero_client.dart';
+import '../academic_integrity/zotero_connection_store.dart';
 import 'advisor_intent.dart';
 import 'grounded_work.dart';
 import 'literature_relevance.dart';
@@ -190,6 +192,32 @@ class GroundedReferenceService {
       }
     } on ScholarSearchException catch (e) {
       if (e.code != 'quota_exceeded') rethrow;
+    } catch (_) {}
+
+    // The user's own Zotero library, when connected on this device.
+    try {
+      final zotero = await ZoteroConnectionStore.instance.read();
+      if (zotero != null) {
+        final items = await ZoteroClient.instance.searchItems(
+          userId: zotero.userId,
+          apiKey: zotero.apiKey,
+          query: topic,
+          limit: limit,
+        );
+        for (final work in items) {
+          _offer(
+            byDoi,
+            work.doi,
+            work.title,
+            work.year,
+            work.authors,
+            'Zotero',
+            journal: work.journal,
+            abstractText: work.abstractText,
+            externalUrl: work.url,
+          );
+        }
+      }
     } catch (_) {}
 
     try {
@@ -401,6 +429,33 @@ class GroundedReferenceService {
             requireDoi: requireDoi,
             externalUrl: work.url,
           );
+        }
+      } catch (_) {}
+
+      // The user's own Zotero library, when connected on this device.
+      try {
+        final zotero = await ZoteroConnectionStore.instance.read();
+        if (zotero != null) {
+          final items = await ZoteroClient.instance.searchItems(
+            userId: zotero.userId,
+            apiKey: zotero.apiKey,
+            query: query,
+            limit: perSource,
+          );
+          for (final work in items) {
+            _offer(
+              byKey,
+              work.doi,
+              work.title,
+              work.year,
+              work.authors,
+              'Zotero',
+              journal: work.journal,
+              abstractText: work.abstractText,
+              requireDoi: requireDoi,
+              externalUrl: work.url,
+            );
+          }
         }
       } catch (_) {}
     }
