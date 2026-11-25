@@ -41,6 +41,23 @@ class GroundedWork {
     return d.startsWith('10.') && d.contains('/');
   }
 
+  /// Copy with [citationCount] set (enrichment from a second index).
+  GroundedWork withCitationCount(int count) {
+    return GroundedWork(
+      title: title,
+      source: source,
+      doi: doi,
+      year: year,
+      authors: authors,
+      journal: journal,
+      abstractText: abstractText,
+      tldr: tldr,
+      citationCount: count,
+      externalUrl: externalUrl,
+      isRetracted: isRetracted,
+    );
+  }
+
   String get doiUrl => hasDoi ? 'https://doi.org/${doi.trim()}' : '';
 
   String get primaryUrl {

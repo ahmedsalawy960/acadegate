@@ -4,6 +4,7 @@ import '../academic_integrity/crossref_client.dart';
 import '../academic_integrity/europe_pmc_client.dart';
 import '../academic_integrity/google_scholar_client.dart';
 import '../academic_integrity/openaire_client.dart';
+import '../academic_integrity/open_citations_client.dart';
 import '../academic_integrity/openalex_works_client.dart';
 import '../academic_integrity/semantic_scholar_client.dart';
 import 'advisor_intent.dart';
@@ -246,7 +247,7 @@ class GroundedReferenceService {
     }
     return GroundedReferenceBundle(
       topic: topic,
-      works: works.take(limit).toList(),
+      works: await _enrichCitationCounts(works.take(limit).toList()),
     );
   }
 
@@ -535,8 +536,39 @@ class GroundedReferenceService {
 
     return GroundedReferenceBundle(
       topic: cleaned.first,
-      works: ranked,
+      works: await _enrichCitationCounts(ranked),
     );
+  }
+
+  /// Fills missing citation counts on the final works from the
+  /// OpenCitations COCI index (free, DOI-based), so results do not depend
+  /// on Semantic Scholar's rate-limited counts alone. At most [maxLookups]
+  /// DOIs are checked, in parallel. Never throws.
+  Future<List<GroundedWork>> _enrichCitationCounts(
+    List<GroundedWork> works, {
+    int maxLookups = 8,
+  }) async {
+    final targets = <int>[];
+    for (var i = 0; i < works.length && targets.length < maxLookups; i++) {
+      final w = works[i];
+      if (w.hasDoi && w.citationCount == null) targets.add(i);
+    }
+    if (targets.isEmpty) return works;
+    final counts = await Future.wait(
+      targets.map(
+        (i) => OpenCitationsClient.instance.citationCount(works[i].doi),
+      ),
+    );
+    final out = List<GroundedWork>.of(works);
+    var changed = false;
+    for (var k = 0; k < targets.length; k++) {
+      final count = counts[k];
+      if (count != null) {
+        out[targets[k]] = out[targets[k]].withCitationCount(count);
+        changed = true;
+      }
+    }
+    return changed ? out : works;
   }
 
   /// Drop DOIs that OpenAlex/Crossref cannot confirm. Real DOIs in the text

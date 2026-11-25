@@ -14,6 +14,7 @@ class CitationHttp {
     'api.semanticscholar.org',
     'api.unpaywall.org',
     'api.openaire.eu',
+    'opencitations.net',
     'www.ebi.ac.uk',
     'pub.orcid.org',
     'query.wikidata.org',
