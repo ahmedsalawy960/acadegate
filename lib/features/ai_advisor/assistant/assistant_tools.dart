@@ -1,4 +1,5 @@
 import '../../../core/locale/app_translate.dart';
+import '../../academic_integrity/academic_translation_service.dart';
 import '../../academic_integrity/citation_health.dart';
 import '../../academic_integrity/citation_health_service.dart';
 import '../../academic_integrity/consensus_client.dart';
@@ -36,6 +37,11 @@ class AssistantToolbox {
   /// correction, expression of concern) for one DOI.
   final Future<CitationHealth> Function(String doi) _healthForDoi;
 
+  /// Injectable for tests; defaults to the server-side academic translation
+  /// function (enforced academic register, DOI/citation/number preservation).
+  final Future<String> Function(String text, {required String targetLang})
+      _translate;
+
   AssistantToolbox({
     Future<List<ConsensusPaper>> Function(String query, {int? limit})?
         consensusSearch,
@@ -44,6 +50,8 @@ class AssistantToolbox {
     Future<GroundedReferenceBundle> Function(String query, {int? limit})?
         literatureSearch,
     Future<CitationHealth> Function(String doi)? healthForDoi,
+    Future<String> Function(String text, {required String targetLang})?
+        translate,
   })  : _consensusSearch = consensusSearch ??
             ((query, {limit}) =>
                 ConsensusClient.instance.search(query, limit: limit ?? 8)),
@@ -56,7 +64,12 @@ class AssistantToolbox {
                 query,
                 limit: limit ?? 8,
                 byRelevance: true)),
-        _healthForDoi = healthForDoi ?? CitationHealthService.instance.forDoi;
+        _healthForDoi = healthForDoi ?? CitationHealthService.instance.forDoi,
+        _translate = translate ??
+            ((text, {required targetLang}) async => (await
+                        AcademicTranslationService.instance
+                    .translate(text: text, targetLang: targetLang))
+                .translation);
 
   final List<GroundedWork> _works = [];
   final List<CatalogHit> _labs = [];
@@ -212,6 +225,27 @@ class AssistantToolbox {
             'required': ['query'],
           },
         },
+        {
+          'name': 'translate_academic_text',
+          'description':
+              'Translate academic text between Arabic and English with a formal scholarly register. '
+                  'Use when the user asks to translate text. Keeps DOIs, citations, numbers and technical terms intact. '
+                  'For long text, send one coherent section at a time.',
+          'parameters': {
+            'type': 'object',
+            'properties': {
+              'text': {
+                'type': 'string',
+                'description': 'The exact text to translate (verbatim, not a summary).',
+              },
+              'target_language': {
+                'type': 'string',
+                'description': 'Target language: "ar" (Arabic) or "en" (English).',
+              },
+            },
+            'required': ['text', 'target_language'],
+          },
+        },
       ];
 
   static String statusLabel(String toolName) => switch (toolName) {
@@ -224,6 +258,7 @@ class AssistantToolbox {
         'read_my_research_file' => appTr('يقرأ ملف الرسالة…', 'Reading the thesis file…'),
         'ask_my_draft' => appTr('يقرأ مسودتك…', 'Reading your draft…'),
         'search_store_products' => appTr('يبحث في المتجر…', 'Searching the store…'),
+        'translate_academic_text' => appTr('يترجم أكاديمياً…', 'Translating academically…'),
         _ => appTr('يعمل…', 'Working…'),
       };
 
@@ -237,6 +272,7 @@ class AssistantToolbox {
         'read_my_research_file' => appTr('ملف الرسالة', 'Thesis file'),
         'ask_my_draft' => appTr('مسودتك', 'Your draft'),
         'search_store_products' => appTr('المتجر', 'Store'),
+        'translate_academic_text' => appTr('ترجمة أكاديمية', 'Academic translation'),
         _ => toolName,
       };
 
@@ -272,6 +308,7 @@ class AssistantToolbox {
         'read_my_research_file' => await _researchFile(),
         'ask_my_draft' => await _draft(args),
         'search_store_products' => await _store(args),
+        'translate_academic_text' => await _translateText(args),
         _ => {'error': 'unknown tool $name'},
       };
     } catch (e) {
@@ -280,6 +317,24 @@ class AssistantToolbox {
   }
 
   static String _str(Map<String, dynamic> args, String key) => (args[key] ?? '').toString().trim();
+
+  Future<Map<String, dynamic>> _translateText(
+      Map<String, dynamic> args) async {
+    final text = _str(args, 'text');
+    final targetLang = _str(args, 'target_language').toLowerCase();
+    if (text.length < 3) return {'error': 'text too short'};
+    if (text.length > 40000) return {'error': 'text too long (max 40000 chars)'};
+    final lang = (targetLang == 'ar' || targetLang == 'arabic')
+        ? 'ar'
+        : (targetLang == 'en' || targetLang == 'english')
+            ? 'en'
+            : '';
+    if (lang.isEmpty) {
+      return {'error': 'target_language must be ar or en'};
+    }
+    final translation = await _translate(text, targetLang: lang);
+    return {'translation': translation};
+  }
 
   Future<Map<String, dynamic>> _literature(Map<String, dynamic> args) async {
     final query = _str(args, 'query');
