@@ -23,6 +23,40 @@ class BibliographyEntry {
 class CitationFormatter {
   CitationFormatter._();
 
+  /// Numbering is an explicit list policy, independent of sample/model prose.
+  /// Keep span styling while replacing any stale or repeated leading markers.
+  static BibliographyEntry applyListNumberPolicy(
+    BibliographyEntry entry, {
+    required PublishCitationStyle style,
+    required int index,
+    bool plainNumberList = false,
+  }) {
+    final prefix = RegExp(
+      r'^\s*(?:(?:\[\d+\]|\d{1,3}\.)\s+)+',
+    ).firstMatch(entry.plain);
+    var remove = prefix?.end ?? 0;
+    final spans = <BibliographySpan>[];
+    if (isNumberedStyle(style)) {
+      spans.add(
+        BibliographySpan(
+          _listPrefix(
+            index,
+            plainNumberList || style == PublishCitationStyle.acs,
+          ),
+        ),
+      );
+    }
+    for (final span in entry.spans) {
+      final count = remove.clamp(0, span.text.length);
+      final text = span.text.substring(count);
+      remove -= count;
+      if (text.isNotEmpty) {
+        spans.add(BibliographySpan(text, italic: span.italic));
+      }
+    }
+    return BibliographyEntry(spans);
+  }
+
   static String formatBibliography({
     required List<PublishReference> references,
     required PublishCitationStyle style,

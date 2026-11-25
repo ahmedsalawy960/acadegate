@@ -274,7 +274,13 @@ class ManuscriptDocxExportService {
               for (final line in aiLines)
                 BibliographyEntry([BibliographySpan(line)]),
             ];
-      for (final entry in entries) {
+      for (var i = 0; i < entries.length; i++) {
+        final entry = CitationFormatter.applyListNumberPolicy(
+          entries[i],
+          style: style,
+          index: CitationFormatter.bibliographyIndex(bibRefs[i], i + 1),
+          plainNumberList: rules.referenceListPlainNumber,
+        );
         bodyXml.write(_bibliographyParagraph(entry, rules));
       }
     }
