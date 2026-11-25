@@ -18,6 +18,7 @@ import '../academic_integrity/academic_integrity_hub_screen.dart';
 import '../academic_integrity/citation_check_screen.dart';
 import '../ai_advisor/gemini_advisor_client.dart';
 import '../ai_advisor/grounded_work.dart';
+import '../ai_advisor/ris_export.dart';
 import '../auth/usage_quota_banner.dart';
 import '../profile/academic_profile.dart';
 import '../profile/academic_profile_screen.dart';
@@ -891,6 +892,11 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
               onTap: () => Navigator.pop(ctx, 'bib'),
             ),
             ListTile(
+              leading: const Icon(Icons.format_list_bulleted),
+              title: Text(ctx.t('RIS (Zotero / Mendeley)', 'RIS (Zotero / Mendeley)')),
+              onTap: () => Navigator.pop(ctx, 'ris'),
+            ),
+            ListTile(
               leading: const Icon(Icons.verified_outlined),
               title: Text(ctx.t('تقرير الاستشهادات', 'Citation report')),
               onTap: () => Navigator.pop(ctx, 'report'),
@@ -948,6 +954,13 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
             utf8.encode(ThesisStudioLatexExport.instance.bibtex(draft)),
           ),
           name: 'references.bib',
+        );
+      } else if (action == 'ris') {
+        await shareThesisFile(
+          bytes: Uint8List.fromList(
+            utf8.encode(RisExport.forWorks(draft.literature.works)),
+          ),
+          name: 'references.ris',
         );
       } else {
         await ThesisStudioPdfService.instance.shareDraft(
