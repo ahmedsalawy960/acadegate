@@ -75,7 +75,11 @@ class SemanticScholarClient {
         );
 
     if (response.statusCode == 404) return null;
-    if (response.statusCode != 200) return null;
+    // Throw (like Crossref) so callers can tell "DOI not found" apart from
+    // "index did not answer" (rate limit, outage) instead of misreporting.
+    if (response.statusCode != 200) {
+      throw Exception('Semantic Scholar: ${response.statusCode}');
+    }
 
     final data = jsonDecode(response.body) as Map<String, dynamic>;
     return paperFromMap(data);

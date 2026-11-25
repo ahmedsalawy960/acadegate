@@ -23,10 +23,16 @@ class CitationHttp {
     'query.wikidata.org',
   };
 
+  /// Injectable for tests.
+  static Future<http.Response> Function(Uri uri, {Map<String, String>? headers})?
+      debugGet;
+
   static Future<http.Response> get(
     Uri uri, {
     Map<String, String>? headers,
   }) async {
+    final override = debugGet;
+    if (override != null) return override(uri, headers: headers);
     if (kIsWeb) {
       if (_directOnWeb.contains(uri.host)) {
         return http
