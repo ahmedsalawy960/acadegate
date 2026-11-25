@@ -12,6 +12,7 @@ class CitationHttp {
     'api.crossref.org',
     'api.openalex.org',
     'api.semanticscholar.org',
+    'api.unpaywall.org',
     'www.ebi.ac.uk',
     'pub.orcid.org',
     'query.wikidata.org',

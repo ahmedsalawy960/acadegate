@@ -1,5 +1,7 @@
 import '../../../core/locale/app_translate.dart';
 import '../../academic_integrity/consensus_client.dart';
+import '../../academic_integrity/europe_pmc_client.dart';
+import '../../academic_integrity/unpaywall_client.dart';
 import '../../acadegate_publish/manuscript_draft_chat_service.dart';
 import '../../acadegate_publish/publish_services.dart';
 import '../../research_journey/research_file.dart';
@@ -18,12 +20,24 @@ class AssistantToolbox {
   final Future<List<ConsensusPaper>> Function(String query, {int? limit})
       _consensusSearch;
 
+  /// Injectable for tests; defaults to the open-access full-text index.
+  final Future<String> Function(String doi) _fullTextForDoi;
+
+  /// Injectable for tests; defaults to the open-access location index.
+  final Future<OaLocation> Function(String doi) _oaLocationForDoi;
+
   AssistantToolbox({
     Future<List<ConsensusPaper>> Function(String query, {int? limit})?
         consensusSearch,
-  }) : _consensusSearch = consensusSearch ??
+    Future<String> Function(String doi)? fullTextForDoi,
+    Future<OaLocation> Function(String doi)? oaLocationForDoi,
+  })  : _consensusSearch = consensusSearch ??
             ((query, {limit}) =>
-                ConsensusClient.instance.search(query, limit: limit ?? 8));
+                ConsensusClient.instance.search(query, limit: limit ?? 8)),
+        _fullTextForDoi =
+            fullTextForDoi ?? EuropePmcClient.instance.fullTextForDoi,
+        _oaLocationForDoi =
+            oaLocationForDoi ?? UnpaywallClient.instance.bestLocationForDoi;
 
   final List<GroundedWork> _works = [];
   final List<CatalogHit> _labs = [];
@@ -76,6 +90,27 @@ class AssistantToolbox {
               },
             },
             'required': ['query'],
+          },
+        },
+        {
+          'name': 'read_paper_text',
+          'description':
+              'Read the open-access full text of one paper by DOI (methods, results, details beyond the abstract). '
+                  'Use when the user asks about a specific paper in depth. Not every paper has a free full text; '
+                  'if unavailable you get an open-access link or a note instead.',
+          'parameters': {
+            'type': 'object',
+            'properties': {
+              'doi': {
+                'type': 'string',
+                'description': 'The paper DOI, e.g. "10.1000/xyz123".',
+              },
+              'max_chars': {
+                'type': 'integer',
+                'description': 'Max characters to return, 1000-12000. Default 6000.',
+              },
+            },
+            'required': ['doi'],
           },
         },
         {
@@ -161,6 +196,7 @@ class AssistantToolbox {
   static String statusLabel(String toolName) => switch (toolName) {
         'search_scientific_literature' => appTr('يبحث في المراجع العلمية…', 'Searching scholarly literature…'),
         'check_research_evidence' => appTr('يفحص الأدلة البحثية…', 'Checking research evidence…'),
+        'read_paper_text' => appTr('يقرأ نص الورقة…', 'Reading the paper text…'),
         'verify_references' => appTr('يتحقق من المراجع…', 'Verifying references…'),
         'search_labs_and_equipment' => appTr('يبحث في المختبرات والأجهزة…', 'Searching labs and equipment…'),
         'find_supervisors' => appTr('يبحث عن مشرفين…', 'Finding supervisors…'),
@@ -173,6 +209,7 @@ class AssistantToolbox {
   static String _chipLabel(String toolName) => switch (toolName) {
         'search_scientific_literature' => appTr('مراجع موثّقة', 'Verified references'),
         'check_research_evidence' => appTr('أدلة بحثية', 'Research evidence'),
+        'read_paper_text' => appTr('نص الورقة', 'Paper text'),
         'verify_references' => appTr('تحقق المراجع', 'Reference check'),
         'search_labs_and_equipment' => appTr('المختبرات', 'Labs'),
         'find_supervisors' => appTr('المشرفون', 'Supervisors'),
@@ -207,6 +244,7 @@ class AssistantToolbox {
       return switch (name) {
         'search_scientific_literature' => await _literature(args),
         'check_research_evidence' => await _evidence(args),
+        'read_paper_text' => await _paperText(args),
         'verify_references' => await _verify(args),
         'search_labs_and_equipment' => await _labsSearch(args),
         'find_supervisors' => await _supervisorsSearch(args),
@@ -303,6 +341,40 @@ class AssistantToolbox {
       });
     }
     return {'results': results};
+  }
+
+  Future<Map<String, dynamic>> _paperText(Map<String, dynamic> args) async {
+    final doi = _str(args, 'doi')
+        .replaceAll(RegExp(r'^https?://(dx\.)?doi\.org/', caseSensitive: false), '');
+    if (doi.length < 6) return {'error': 'doi too short'};
+    final maxChars =
+        (int.tryParse('${args['max_chars'] ?? ''}') ?? 6000).clamp(1000, 12000);
+    final text = await _fullTextForDoi(doi);
+    if (text.trim().isNotEmpty) {
+      final trimmed = text.trim();
+      return {
+        'doi': doi,
+        'full_text': trimmed.length > maxChars
+            ? '${trimmed.substring(0, maxChars)}…'
+            : trimmed,
+        'truncated': trimmed.length > maxChars,
+        'note': 'Open-access full text. Answer from it and cite the paper.',
+      };
+    }
+    final oa = await _oaLocationForDoi(doi);
+    if (oa.bestUrl.isNotEmpty) {
+      return {
+        'doi': doi,
+        'open_access_url': oa.bestUrl,
+        'note': 'No machine-readable full text, but a free open-access copy exists at this link. '
+            'Answer from the abstract and verified literature, and share the link.',
+      };
+    }
+    return {
+      'doi': doi,
+      'note': 'No open-access full text found for this DOI. '
+          'Answer from the abstract and verified literature, and say the full text is not freely available.',
+    };
   }
 
   Future<Map<String, dynamic>> _verify(Map<String, dynamic> args) async {
