@@ -975,7 +975,11 @@ class ManuscriptDocxExportService {
         : null;
     if (root != null && root.localName == 'p') {
       final content = root.children.map((e) => e.toXmlString()).join();
-      return '<w:p><w:pPr><w:spacing w:before="120" w:after="120" '
+      final namespaces = root.attributes
+          .where((a) => a.name.prefix == 'xmlns' || a.name.qualified == 'xmlns')
+          .map((a) => a.toXmlString())
+          .join(' ');
+      return '<w:p $namespaces><w:pPr><w:spacing w:before="120" w:after="120" '
           'w:line="${rules.lineSpacingExactTwips}" '
           'w:lineRule="${rules.lineSpacingRule}"/></w:pPr>$content</w:p>';
     }

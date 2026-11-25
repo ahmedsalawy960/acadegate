@@ -577,13 +577,51 @@ class ManuscriptDocumentParser {
     return input.split('').map((c) => map[c] ?? c).join();
   }
 
-  static String _serializeOmml(XmlElement math) {
-    if (math.localName == 'oMathPara') {
-      return math.toXmlString(pretty: false);
+  /// A copied Word subtree can depend on namespace declarations on ancestors.
+  /// Keep those bindings with the stored fragment, including unknown extensions.
+  static String _inheritedNamespaceAttributes(
+    XmlElement element, {
+    Set<String> excluding = const {},
+  }) {
+    final bindings = <String, String>{};
+    XmlNode? current = element;
+    while (current != null) {
+      if (current is XmlElement) {
+        for (final attribute in current.attributes) {
+          if (attribute.name.prefix == 'xmlns' ||
+              attribute.name.qualified == 'xmlns') {
+            bindings.putIfAbsent(
+              attribute.name.qualified,
+              () => attribute.value,
+            );
+          }
+        }
+      }
+      current = current.parent;
     }
+    return bindings.entries
+        .where((e) => !excluding.contains(e.key))
+        .map(
+          (e) => XmlAttribute(XmlName.fromString(e.key), e.value).toXmlString(),
+        )
+        .join(' ');
+  }
+
+  static String _serializeOmml(XmlElement math) {
+    final copy = math.copy();
+    final wrapper = XmlDocument.parse(
+      '<fragment ${_inheritedNamespaceAttributes(math)}/>',
+    ).rootElement;
+    for (final attribute in wrapper.attributes) {
+      if (!copy.attributes.any(
+        (a) => a.name.qualified == attribute.name.qualified,
+      )) {
+        copy.attributes.add(attribute.copy());
+      }
+    }
+    if (math.localName == 'oMathPara') return copy.toXmlString(pretty: false);
     return '<m:oMathPara xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math">'
-        '${math.toXmlString(pretty: false)}'
-        '</m:oMathPara>';
+        '${copy.toXmlString(pretty: false)}</m:oMathPara>';
   }
 
   static ManuscriptBlock _equationBlock({
@@ -947,8 +985,10 @@ class ManuscriptDocumentParser {
     if (hasInlineMath &&
         hasEquationText &&
         blocks.every((b) => (b.imageUrl ?? '').isEmpty)) {
-      final mixed = '<w:p xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" '
-          'xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math">'
+      final mixed =
+          '<w:p xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" '
+          'xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math" '
+          '${_inheritedNamespaceAttributes(element, excluding: {'xmlns:w', 'xmlns:m'})}>'
           '${inlineParts.join()}</w:p>';
       return [ManuscriptBlock(
         id: blocks.first.id,
