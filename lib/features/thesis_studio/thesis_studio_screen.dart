@@ -37,6 +37,7 @@ import 'thesis_studio_branding.dart';
 import 'thesis_studio_citation_report.dart';
 import 'thesis_studio_citations.dart';
 import 'thesis_studio_claims.dart';
+import 'thesis_studio_consistency.dart';
 import 'thesis_studio_docx_export.dart';
 import 'thesis_studio_engine.dart';
 import 'thesis_studio_file_share.dart';
@@ -1659,6 +1660,8 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
             const SizedBox(height: 12),
             _questionsCard(_draft!),
             const SizedBox(height: 12),
+            _consistencyMatrixCard(_draft!),
+            const SizedBox(height: 12),
             _literatureMapCard(_draft!),
             const SizedBox(height: 12),
             _citationReportCard(_draft!),
@@ -2338,6 +2341,172 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
                       ),
                     ),
                   ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  (String, Color) _verdictLabel(ConsistencyVerdict verdict) {
+    switch (verdict) {
+      case ConsistencyVerdict.aligned:
+        return (context.t('متسق', 'Aligned'), const Color(0xFF34D399));
+      case ConsistencyVerdict.noClearMethod:
+        return (
+          context.t('بلا طريقة واضحة', 'No clear method'),
+          const Color(0xFFFBBF24),
+        );
+      case ConsistencyVerdict.noAnsweringChapter:
+        return (
+          context.t('لا يجيب عنه فصل بعد', 'No answering chapter yet'),
+          const Color(0xFFFBBF24),
+        );
+      case ConsistencyVerdict.unanswered:
+        return (
+          context.t('سؤال بلا طريقة للإجابة', 'No way to answer'),
+          Colors.red.shade300,
+        );
+    }
+  }
+
+  Widget _consistencyMatrixCard(ThesisDraft draft) {
+    if (draft.researchQuestions.isEmpty) return const SizedBox.shrink();
+    final matrix = ThesisConsistency.analyze(draft);
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              context.t('مصفوفة اتساق الرسالة', 'Thesis consistency matrix'),
+              style: const TextStyle(
+                color: Color(0xFFFDE68A),
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              context.t(
+                'مشكلة ← سؤال ← منهج ← تحليل ← الفصل الذي يجيب. تطابق آلي بالكلمات: مرشد مراجعة وليس إثباتاً دلالياً.',
+                'Problem → question → method → analysis → answering chapter. Automatic word matching: a review guide, not semantic proof.',
+              ),
+              style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6), height: 1.35),
+            ),
+            if (matrix.problem.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                '${context.t('المشكلة/الهدف', 'Problem/aim')}: '
+                '${matrix.problem.length > 140 ? '${matrix.problem.substring(0, 140)}…' : matrix.problem}',
+                textDirection:
+                    draft.arabic ? TextDirection.rtl : TextDirection.ltr,
+                style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6), height: 1.35),
+              ),
+            ],
+            const SizedBox(height: 10),
+            if (!matrix.chaptersHaveProse)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  context.t(
+                    'الفصول فارغة بعد، فعمود «الفصل الذي يجيب» يكتمل مع كتابة الفقرات.',
+                    'Chapters are still empty, so the answering-chapter column fills in as paragraphs are written.',
+                  ),
+                  style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6), height: 1.35),
+                ),
+              ),
+            for (final row in matrix.rows) ...[
+              Builder(
+                builder: (context) {
+                  final (label, color) = _verdictLabel(row.verdict);
+                  return Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: color.withValues(alpha: 0.45)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          row.question,
+                          textDirection:
+                              draft.arabic ? TextDirection.rtl : TextDirection.ltr,
+                          style: const TextStyle(height: 1.4, fontSize: 13),
+                        ),
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: color.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                label,
+                                style: TextStyle(fontSize: 11, color: color),
+                              ),
+                            ),
+                            if (row.hasMethod)
+                              Text(
+                                '${context.t('المنهج', 'Method')}: ${row.methodEvidence}',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: const Color(0xFFB7C3D6),
+                                ),
+                              ),
+                            if (row.answeringChapterTitle.isNotEmpty)
+                              Text(
+                                '${context.t('يجيب في', 'Answered in')}: ${row.answeringChapterTitle}',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: const Color(0xFFB7C3D6),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ],
+            if (matrix.unansweredCount > 0)
+              Text(
+                context.t(
+                  '${matrix.unansweredCount} من ${matrix.rows.length} أسئلة بلا طريقة إجابة واضحة — عدّل المنهج أو السؤال قبل الاعتماد على المخطط.',
+                  '${matrix.unansweredCount} of ${matrix.rows.length} questions have no clear way to be answered — adjust the method or the question before relying on the outline.',
+                ),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.red.shade300,
+                  height: 1.35,
+                ),
+              )
+            else if (matrix.alignedCount == matrix.rows.length &&
+                matrix.chaptersHaveProse)
+              Text(
+                context.t(
+                  'كل سؤال له طريقة وفصل يجيب عنه، حسب التطابق الآلي.',
+                  'Every question has a method and an answering chapter, per the automatic match.',
+                ),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: const Color(0xFF34D399),
+                  height: 1.35,
                 ),
               ),
           ],
