@@ -4,6 +4,9 @@ import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 import '../../core/locale/l10n_lookup.dart';
 import '../../core/locale/locale_extensions.dart';
 import '../auth/auth_guard.dart';
+import '../community/community_data.dart';
+import '../community/community_post_detail_screen.dart';
+import '../community/community_service.dart';
 import '../messaging/chat_screen.dart';
 import '../messaging/conversations_screen.dart';
 import '../messaging/messaging_service.dart';
@@ -33,6 +36,11 @@ class NotificationsScreen extends StatelessWidget {
         n.type == 'message' || n.contextType == 'conversation';
     if (isMessage) {
       await _openMessageConversation(context, n.contextId);
+      return;
+    }
+
+    if (n.contextType == 'community_post') {
+      await _openCommunityPost(context, n.contextId);
       return;
     }
 
@@ -74,6 +82,23 @@ class NotificationsScreen extends StatelessWidget {
     } catch (_) {
       if (!context.mounted) return;
       Navigator.pop(context);
+    }
+  }
+
+  Future<void> _openCommunityPost(BuildContext context, String postId) async {
+    try {
+      final post = await CommunityService.instance.getPost(postId);
+      if (!context.mounted || post == null) return;
+      final room = communityRoomById(post.roomId) ?? communityRoomById('general');
+      if (room == null) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => CommunityPostDetailScreen(post: post, room: room),
+        ),
+      );
+    } catch (_) {
+      // The post may be hidden or deleted; nothing to open.
     }
   }
 

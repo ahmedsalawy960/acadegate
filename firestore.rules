@@ -1136,6 +1136,25 @@ service cloud.firestore {
       }
     }
 
+    // ─── متابعة منشورات المجتمع ───────────────────────────
+    // One document per member per post. mode 'on' follows, 'off' mutes
+    // (the post author is notified by default until they mute).
+    match /community_follows/{followId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn()
+                    && request.resource.data.keys().hasOnly(['userId', 'postId', 'mode', 'createdAt'])
+                    && request.resource.data.userId == request.auth.uid
+                    && request.resource.data.postId is string
+                    && request.resource.data.postId.size() > 0
+                    && followId == request.auth.uid + '_' + request.resource.data.postId
+                    && request.resource.data.mode in ['on', 'off'];
+      allow update: if isSignedIn()
+                    && resource.data.userId == request.auth.uid
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['mode'])
+                    && request.resource.data.mode in ['on', 'off'];
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
     // ─── بلاغات المجتمع ──────────────────────────────────
     // One report per member per post/reply (deterministic document id).
     match /community_reports/{reportId} {

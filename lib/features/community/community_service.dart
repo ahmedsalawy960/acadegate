@@ -487,4 +487,53 @@ class CommunityService {
     }
     return null;
   }
+
+  DocumentReference<Map<String, dynamic>>? _followRef(String postId) {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null || postId.isEmpty) return null;
+    return _db.collection('community_follows').doc('${uid}_$postId');
+  }
+
+  /// Whether the member gets reply notifications for this post. The author is
+  /// notified by default; everyone else once they follow.
+  Stream<bool> watchNotifyOn(String postId, {required bool isAuthor}) {
+    final ref = _followRef(postId);
+    if (ref == null) return Stream.value(false);
+    return ref.snapshots().map((doc) {
+      final mode = doc.data()?['mode'];
+      return isAuthor ? mode != 'off' : mode == 'on';
+    });
+  }
+
+  /// Turns reply notifications for a post on or off for the signed-in member.
+  Future<String?> setNotifyOn(String postId, bool on) async {
+    final ref = _followRef(postId);
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (ref == null || uid == null) {
+      return appTr('يجب تسجيل الدخول أولاً', 'You must sign in first');
+    }
+    try {
+      final snap = await ref.get();
+      if (snap.exists) {
+        await ref.update({'mode': on ? 'on' : 'off'});
+      } else {
+        await ref.set({
+          'userId': uid,
+          'postId': postId,
+          'mode': on ? 'on' : 'off',
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
+    } on FirebaseException catch (e) {
+      return e.message ?? e.code;
+    }
+    return null;
+  }
+
+  Future<CommunityPost?> getPost(String postId) async {
+    final doc = await _posts.doc(postId).get();
+    final data = doc.data();
+    if (!doc.exists || data == null) return null;
+    return CommunityPost.fromMap(data, id: doc.id);
+  }
 }

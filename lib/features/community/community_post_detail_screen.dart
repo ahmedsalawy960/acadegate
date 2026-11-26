@@ -150,6 +150,14 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
         foregroundColor: Colors.white,
         actions: [
           if (!isDemo &&
+              FirebaseAuth.instance.currentUser != null &&
+              widget.post.isPubliclyVisible)
+            _NotifyBell(
+              postId: postId,
+              isAuthor:
+                  FirebaseAuth.instance.currentUser?.uid == widget.post.authorId,
+            ),
+          if (!isDemo &&
               FirebaseAuth.instance.currentUser?.uid != widget.post.authorId)
             IconButton(
               tooltip: context.t('إبلاغ', 'Report'),
@@ -645,6 +653,42 @@ class _ReplyVoteButton extends StatelessWidget {
             size: 18,
           ),
           label: Text('${reply.upvotesCount}'),
+        );
+      },
+    );
+  }
+}
+
+
+/// Bell in the app bar: get a notification when someone replies to this post.
+class _NotifyBell extends StatelessWidget {
+  const _NotifyBell({required this.postId, required this.isAuthor});
+
+  final String postId;
+  final bool isAuthor;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<bool>(
+      stream: CommunityService.instance.watchNotifyOn(postId, isAuthor: isAuthor),
+      builder: (context, snapshot) {
+        final on = snapshot.data == true;
+        return IconButton(
+          tooltip: on
+              ? context.t('إيقاف إشعارات الردود', 'Turn off reply notifications')
+              : context.t('تنبيهي عند وجود رد', 'Notify me about replies'),
+          icon: Icon(on ? Icons.notifications_active : Icons.notifications_none),
+          onPressed: () async {
+            final messenger = ScaffoldMessenger.of(context);
+            final message = on
+                ? context.t('تم إيقاف الإشعارات لهذا المنشور.',
+                    'Notifications are off for this post.')
+                : context.t('سنخبرك عند وجود رد جديد.',
+                    'We will tell you about new replies.');
+            final error =
+                await CommunityService.instance.setNotifyOn(postId, !on);
+            messenger.showSnackBar(SnackBar(content: Text(error ?? message)));
+          },
         );
       },
     );
