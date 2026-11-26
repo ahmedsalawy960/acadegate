@@ -191,6 +191,7 @@ class PublishReference {
   static int? numberFromImportedLine(String raw) {
     final t = AcademicText.westernDigits(raw.trim());
     final m = RegExp(r'^\[(\d{1,3})\]').firstMatch(t) ??
+        RegExp(r'^\((\d{1,3})\)(?:\s|$)').firstMatch(t) ??
         RegExp(r'^(\d{1,3})[.)](?:\s|$)').firstMatch(t) ??
         RegExp(r'^(\d{1,3})[.)](?=[A-Z])').firstMatch(t);
     return m == null ? null : int.tryParse(m.group(1)!);

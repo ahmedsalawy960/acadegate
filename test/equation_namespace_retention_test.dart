@@ -95,6 +95,13 @@ void main() {
         if (mixed) {
           expect(xml.toXmlString(), contains('Value = '));
           expect(xml.toXmlString(), contains(' (3)'));
+          final paragraph = extension.ancestors.whereType<XmlElement>()
+              .firstWhere((e) => e.localName == 'p');
+          final spacing = paragraph.descendants.whereType<XmlElement>()
+              .firstWhere((e) => e.localName == 'spacing');
+          expect(spacing.getAttribute('lineRule', namespace:
+              'http://schemas.openxmlformats.org/wordprocessingml/2006/main'),
+              isNot('exact'));
         }
       });
     }

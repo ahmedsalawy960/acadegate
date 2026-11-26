@@ -386,9 +386,19 @@ class BibliographyCiteAligner {
         null;
   }
 
+  static String _identityDigits(String text) {
+    const sub = '₀₁₂₃₄₅₆₇₈₉';
+    const sup = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+    var result = text;
+    for (var i = 0; i < 10; i++) {
+      result = result.replaceAll(sub[i], '$i').replaceAll(sup[i], '$i');
+    }
+    return result;
+  }
+
   static bool _rawOverlap(String a, String b) {
     String compact(String s) =>
-        AcademicText.foldLatin(s).replaceAll(RegExp(r'[^a-z0-9]+'), '');
+        AcademicText.foldLatin(_identityDigits(s)).replaceAll(RegExp(r'[^a-z0-9]+'), '');
     final ka = compact(a);
     final kb = compact(b);
     if (ka.length < 24 || kb.length < 24) return ka == kb && ka.isNotEmpty;

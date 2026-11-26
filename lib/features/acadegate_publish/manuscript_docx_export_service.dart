@@ -83,9 +83,7 @@ class ManuscriptDocxExportService {
       ),
     );
     final cleanTitle = ManuscriptStructureAdvisor.readingTitle(
-      title: AcademicText.stripTrailingAuthorFromTitle(
-        AcademicText.sanitize(manuscript.title.trim()),
-      ),
+      title: AcademicText.sanitize(manuscript.title.trim()),
       blocks: manuscript.bodyBlocks,
     );
 
@@ -981,7 +979,8 @@ class ManuscriptDocxExportService {
           .join(' ');
       return '<w:p $namespaces><w:pPr><w:spacing w:before="120" w:after="120" '
           'w:line="${rules.lineSpacingExactTwips}" '
-          'w:lineRule="${rules.lineSpacingRule}"/></w:pPr>$content</w:p>';
+          // Tall native fractions need room beyond an exact text baseline.
+          'w:lineRule="${rules.lineSpacingRule == 'exact' ? 'atLeast' : rules.lineSpacingRule}"/></w:pPr>$content</w:p>';
     }
     final inner = _normalizeOmmlXml(ommlXml);
     if (inner.isEmpty) return '';

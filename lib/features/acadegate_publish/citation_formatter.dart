@@ -32,7 +32,7 @@ class CitationFormatter {
     bool plainNumberList = false,
   }) {
     final prefix = RegExp(
-      r'^\s*(?:(?:\[\d+\]|\d{1,3}\.)\s+)+',
+      r'^\s*(?:(?:\[\d+\]|\(\d{1,3}\)|\d{1,3}\.)\s+)+',
     ).firstMatch(entry.plain);
     var remove = prefix?.end ?? 0;
     final spans = <BibliographySpan>[];
@@ -866,6 +866,7 @@ class CitationFormatter {
 
   static String _cleanRawCitation(String raw) {
     return raw
+        .replaceFirst(RegExp(r'^\(\d{1,3}\)\s+'), '')
         .replaceAll(RegExp(r'^\[\d+\]\s*'), '')
         .replaceAll(RegExp(r'^\d+[.)]\s+'), '')
         .trim();

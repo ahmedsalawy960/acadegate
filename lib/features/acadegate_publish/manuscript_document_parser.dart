@@ -2500,7 +2500,7 @@ class ManuscriptDocumentParser {
       r'^(?:(?:\d+[.)]?\s*)?(?:appendices|appendix(?:\s+[A-Z0-9]+)?|'
       r'supplementary(?:\s+(?:materials?|information|files?))?|'
       r'supporting information|tables?|figures?|figure legends?|table legends?)'
-      r'\s*[:.]?|(?:table|figure)\s+\d+(?:[.:]\s+[^\n]+)?)$',
+      r'\s*[:.]?|(?:table|figure)\s+\d+(?:[.:]\s+[^\n]+)?|for table of contents only)$',
       caseSensitive: false,
     ).hasMatch(t);
   }
@@ -4261,9 +4261,13 @@ class ManuscriptDocumentParser {
       final title = parsed.sourceTitle ?? _extractTitleFromBlocks(next.bodyBlocks);
       if (title != null && title.length > 10) {
         next = next.copyWith(
-          title: AcademicText.stripTrailingAuthorFromTitle(
-            AcademicText.sanitize(title),
-          ),
+          // The source reader already separates title and byline. Capitalized
+          // final words are not evidence of an appended person's name.
+          title: parsed.sourceTitle != null
+              ? AcademicText.sanitize(title)
+              : AcademicText.stripTrailingAuthorFromTitle(
+                  AcademicText.sanitize(title),
+                ),
         );
       } else if (parsed.bodyText.length > 20) {
         final extracted =
@@ -4500,6 +4504,12 @@ class ManuscriptDocumentParser {
     final paragraphs = section.isEmpty
         ? const <PublishReference>[]
         : _parseParagraphBlocks(section);
+    // A located bibliography's coherent printed list defines work boundaries.
+    // Do not discard short supplier/web entries or split a row on a cited name.
+    final printedRows = section.isEmpty
+        ? const <PublishReference>[]
+        : _parsePrintedBibliography(section);
+    if (printedRows.isNotEmpty) return printedRows;
     final chosen = _chooseBibliographyParse(
       [numbered, harvested, mixed, apa, paragraphs, ieee],
       cites,
@@ -4510,6 +4520,35 @@ class ManuscriptDocumentParser {
       parsed: chosen,
       keys: cites,
     );
+  }
+
+  static List<PublishReference> _parsePrintedBibliography(String section) {
+    // Parenthesized lists are otherwise misread as unnumbered author-year rows.
+    if (!RegExp(r'^\s*\(1\)\s', multiLine: true).hasMatch(section)) {
+      return const [];
+    }
+    final rows = <({int number, StringBuffer text})>[];
+    for (final raw in section.split('\n')) {
+      final line = raw.trim();
+      if (line.isEmpty || CitationCues.isRunningMatterLine(line)) continue;
+      if (_isPostBibliographyBoundary(line)) break;
+      final number = PublishReference.numberFromImportedLine(line);
+      if (number != null) {
+        rows.add((number: number, text: StringBuffer(line)));
+      } else if (rows.isNotEmpty) {
+        rows.last.text.write(' $line');
+      }
+    }
+    if (rows.length < 3 || rows.first.number != 1) return const [];
+    for (var i = 1; i < rows.length; i++) {
+      if (rows[i].number != rows[i - 1].number + 1) return const [];
+    }
+    // Require bibliographic evidence across the list, not a numbered prose list.
+    final withYear = rows.where((r) => _hasBibYear(r.text.toString())).length;
+    if (withYear * 2 < rows.length) return const [];
+    return [for (final row in rows)
+      _blockToReference(row.text.toString(), id: 'ref_${row.number}',
+        rawText: row.text.toString(), importedNumber: row.number)];
   }
 
   /// Walk every line of the file. Keep `n. Author` / `[n] Author` only —
