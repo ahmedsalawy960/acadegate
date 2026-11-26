@@ -54,3 +54,22 @@ List<String> parseCommunityTags(String raw) {
   }
   return tags;
 }
+
+/// Reply order: the best answer first, then most helpful votes, then oldest.
+/// A [bestReplyId] that matches no reply (deleted) is ignored.
+List<CommunityReply> orderCommunityReplies(
+  List<CommunityReply> replies,
+  String bestReplyId,
+) {
+  final epoch = DateTime.fromMillisecondsSinceEpoch(0);
+  final sorted = [...replies];
+  sorted.sort((a, b) {
+    final aBest = bestReplyId.isNotEmpty && a.id == bestReplyId;
+    final bBest = bestReplyId.isNotEmpty && b.id == bestReplyId;
+    if (aBest != bBest) return aBest ? -1 : 1;
+    final byVotes = b.upvotesCount.compareTo(a.upvotesCount);
+    if (byVotes != 0) return byVotes;
+    return (a.createdAt ?? epoch).compareTo(b.createdAt ?? epoch);
+  });
+  return sorted;
+}

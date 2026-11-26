@@ -414,4 +414,77 @@ class CommunityService {
         await _posts.doc(postId).collection('upvotes').doc(user.uid).get();
     return doc.exists;
   }
+
+  DocumentReference<Map<String, dynamic>> _replyRef(
+    String postId,
+    String replyId,
+  ) =>
+      _posts.doc(postId).collection('replies').doc(replyId);
+
+  /// Live "did I vote on this reply" state for the signed-in member.
+  Stream<bool> watchReplyVote(String postId, String replyId) {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return Stream.value(false);
+    return _replyRef(postId, replyId)
+        .collection('votes')
+        .doc(uid)
+        .snapshots()
+        .map((doc) => doc.exists);
+  }
+
+  /// Adds or removes the member's "helpful" vote on a reply. Not on own replies.
+  Future<String?> toggleReplyVote(String postId, String replyId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return appTr('يجب تسجيل الدخول أولاً', 'You must sign in first');
+    }
+    final replyRef = _replyRef(postId, replyId);
+    final voteRef = replyRef.collection('votes').doc(user.uid);
+    try {
+      await _db.runTransaction((transaction) async {
+        final replySnap = await transaction.get(replyRef);
+        if (!replySnap.exists) return;
+        if (replySnap.data()?['authorId'] == user.uid) return;
+        final voteSnap = await transaction.get(voteRef);
+        final raw = replySnap.data()?['upvotesCount'];
+        final current = raw is num ? raw.toInt() : 0;
+        if (voteSnap.exists) {
+          transaction.delete(voteRef);
+          transaction.update(replyRef, {
+            'upvotesCount': current > 0 ? current - 1 : 0,
+          });
+        } else {
+          transaction.set(voteRef, {
+            'uid': user.uid,
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+          transaction.update(replyRef, {'upvotesCount': current + 1});
+        }
+      });
+    } on FirebaseException catch (e) {
+      return e.message ?? e.code;
+    }
+    return null;
+  }
+
+  /// The post author marks a reply as the best answer, or clears it with an
+  /// empty [replyId].
+  Future<String?> setBestReply({
+    required String postId,
+    required String replyId,
+  }) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return appTr('يجب تسجيل الدخول أولاً', 'You must sign in first');
+    }
+    try {
+      await _posts.doc(postId).update({
+        'bestReplyId':
+            replyId.isEmpty ? FieldValue.delete() : replyId,
+      });
+    } on FirebaseException catch (e) {
+      return e.message ?? e.code;
+    }
+    return null;
+  }
 }

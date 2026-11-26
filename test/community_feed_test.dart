@@ -58,4 +58,30 @@ void main() {
       expect(parseCommunityTags('  ، , '), isEmpty);
     });
   });
+
+  group('orderCommunityReplies', () {
+    CommunityReply r(String id, int votes, int day) => CommunityReply(
+          id: id,
+          postId: 'p',
+          authorId: 'u$id',
+          authorName: id,
+          body: 'b',
+          upvotesCount: votes,
+          createdAt: DateTime(2026, 1, day),
+        );
+    final replies = [r('a', 0, 1), r('b', 3, 2), r('c', 3, 3), r('d', 1, 4)];
+
+    test('best answer first, then votes, then oldest', () {
+      expect(orderCommunityReplies(replies, 'd').map((e) => e.id).toList(),
+          ['d', 'b', 'c', 'a']);
+    });
+    test('without a best answer it orders by votes then oldest', () {
+      expect(orderCommunityReplies(replies, '').map((e) => e.id).toList(),
+          ['b', 'c', 'd', 'a']);
+    });
+    test('a best id that matches no reply is ignored', () {
+      expect(orderCommunityReplies(replies, 'gone').map((e) => e.id).toList(),
+          ['b', 'c', 'd', 'a']);
+    });
+  });
 }

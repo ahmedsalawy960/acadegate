@@ -70,6 +70,16 @@ service cloud.firestore {
           );
     }
 
+    // Community: the post author marks (or clears) the best answer. The reply
+    // must exist under this post and must not be the author's own.
+    function isBestReplyChange(postId) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['bestReplyId'])
+          && (!('bestReplyId' in request.resource.data)
+              || (request.resource.data.bestReplyId is string
+                  && exists(/databases/$(database)/documents/community_posts/$(postId)/replies/$(request.resource.data.bestReplyId))
+                  && get(/databases/$(database)/documents/community_posts/$(postId)/replies/$(request.resource.data.bestReplyId)).data.authorId != request.auth.uid));
+    }
+
     // Research rooms: a counter touched by a member may only move by exactly 1.
     function roomCounterStep(field) {
       return !request.resource.data.diff(resource.data).affectedKeys().hasAny([field])
@@ -1050,19 +1060,23 @@ service cloud.firestore {
                     && request.resource.data.authorName.size() <= 100
                     && request.resource.data.get('upvotesCount', 0) == 0
                     && request.resource.data.get('repliesCount', 0) == 0
-                    && !request.resource.data.keys().hasAny(['authorBadge', 'hiddenByReports', 'hiddenAt'])
+                    && !request.resource.data.keys().hasAny(['authorBadge', 'bestReplyId', 'hiddenByReports', 'hiddenAt'])
                     && (!('tags' in request.resource.data)
                         || (request.resource.data.tags is list
                             && request.resource.data.tags.size() <= 10))
                     && isSafeOptionalLink(request.resource.data.get('academicLink', null));
 
       allow update: if isAdmin()
+                    || (isSignedIn()
+                        && resource.data.authorId == request.auth.uid
+                        && resource.data.get('approvalStatus', 'approved') == 'approved'
+                        && isBestReplyChange(postId))
                     || (isSignedIn() && (
                       isCounterBumpOnly()
                       || (resource.data.authorId == request.auth.uid
                           && approvalUnchanged()
                           && !request.resource.data.diff(resource.data).affectedKeys()
-                              .hasAny(['authorId', 'authorName', 'authorBadge', 'hiddenByReports', 'hiddenAt'])
+                              .hasAny(['authorId', 'authorName', 'authorBadge', 'bestReplyId', 'hiddenByReports', 'hiddenAt'])
                           && resource.data.approvalStatus in ['pending', 'rejected'])
                     ));
 
@@ -1087,10 +1101,31 @@ service cloud.firestore {
                           || request.resource.data.keys().hasAny(['attachmentUrl']))
                       && get(/databases/$(database)/documents/community_posts/$(postId)).data
                             .get('approvalStatus', 'approved') == 'approved';
-        allow update: if false;
+        // Only the helpful-vote counter, by exactly 1, together with the member's
+        // own vote document written in the same batch. Never on one's own reply.
+        allow update: if isSignedIn()
+                      && resource.data.authorId != request.auth.uid
+                      && isCounterBump('upvotesCount')
+                      && (
+                        (request.resource.data.upvotesCount == counterOf(resource.data, 'upvotesCount') + 1
+                          && !exists(/databases/$(database)/documents/community_posts/$(postId)/replies/$(replyId)/votes/$(request.auth.uid))
+                          && existsAfter(/databases/$(database)/documents/community_posts/$(postId)/replies/$(replyId)/votes/$(request.auth.uid)))
+                        || (request.resource.data.upvotesCount == counterOf(resource.data, 'upvotesCount') - 1
+                          && exists(/databases/$(database)/documents/community_posts/$(postId)/replies/$(replyId)/votes/$(request.auth.uid))
+                          && !existsAfter(/databases/$(database)/documents/community_posts/$(postId)/replies/$(replyId)/votes/$(request.auth.uid)))
+                      );
         // The reply author or an admin can remove a reply.
         allow delete: if isSignedIn()
                       && (resource.data.authorId == request.auth.uid || isAdmin());
+
+        match /votes/{voteId} {
+          allow read: if isSignedIn() && request.auth.uid == voteId;
+          allow create: if isSignedIn()
+                        && request.auth.uid == voteId
+                        && get(/databases/$(database)/documents/community_posts/$(postId)/replies/$(replyId)).data.authorId != request.auth.uid;
+          allow update: if false;
+          allow delete: if isSignedIn() && request.auth.uid == voteId;
+        }
       }
 
       match /upvotes/{voteId} {

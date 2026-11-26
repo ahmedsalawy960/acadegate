@@ -11,8 +11,9 @@ import '../messaging/chat_widgets.dart';
 import '../messaging/messaging_service.dart';
 import '../moderation/approval_status.dart';
 import '../moderation/delete_content_button.dart';
-import 'community_trust.dart';
 import 'community_data.dart';
+import 'community_feed.dart';
+import 'community_trust.dart';
 import 'community_models.dart';
 import 'community_report_dialog.dart';
 import 'community_service.dart';
@@ -386,7 +387,8 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
                   ),
                 )
               else
-                ...replies.map((r) => _replyTile(r, post)),
+                ...orderCommunityReplies(replies, post.bestReplyId)
+                    .map((r) => _replyTile(r, post)),
               ManageContentActions(
                 collection: 'community_posts',
                 documentId: post.id,
@@ -464,8 +466,29 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
         final canDelete = post.isFromFirebase &&
             (reply.id ?? '').isNotEmpty &&
             ((uid != null && uid == reply.authorId) || isAdmin);
+        final isBest = post.bestReplyId.isNotEmpty &&
+            post.bestReplyId == reply.id;
+        final canMarkBest = post.isFromFirebase &&
+            post.isPubliclyVisible &&
+            (reply.id ?? '').isNotEmpty &&
+            uid != null &&
+            uid == post.authorId &&
+            uid != reply.authorId &&
+            !reply.hiddenByReports;
+        final canVote = post.isFromFirebase &&
+            post.isPubliclyVisible &&
+            (reply.id ?? '').isNotEmpty &&
+            uid != null &&
+            uid != reply.authorId &&
+            !reply.hiddenByReports;
         return Card(
           margin: const EdgeInsets.only(bottom: 8),
+          shape: isBest
+              ? RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: const BorderSide(color: Color(0xFF2E7D32), width: 1.5),
+                )
+              : null,
           child: Padding(
             padding: const EdgeInsets.all(12),
             child: Row(
@@ -475,6 +498,26 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      if (isBest)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.check_circle,
+                                  size: 16, color: Color(0xFF2E7D32)),
+                              const SizedBox(width: 4),
+                              Text(
+                                context.t('أفضل إجابة', 'Best answer'),
+                                style: const TextStyle(
+                                  color: Color(0xFF2E7D32),
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       CommunityAuthorLine(
                         name: reply.authorName,
                         badge: reply.authorBadge,
@@ -508,6 +551,34 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
                     ],
                   ),
                 ),
+                if (canVote || reply.upvotesCount > 0)
+                  _ReplyVoteButton(
+                    postId: post.id ?? '',
+                    reply: reply,
+                    enabled: canVote,
+                  ),
+                if (canMarkBest)
+                  IconButton(
+                    tooltip: isBest
+                        ? context.t('إزالة أفضل إجابة', 'Remove best answer')
+                        : context.t('اختيار كأفضل إجابة', 'Mark as best answer'),
+                    icon: Icon(
+                      isBest ? Icons.check_circle : Icons.check_circle_outline,
+                      size: 20,
+                      color: const Color(0xFF2E7D32),
+                    ),
+                    onPressed: () async {
+                      final messenger = ScaffoldMessenger.of(context);
+                      final error = await CommunityService.instance.setBestReply(
+                        postId: post.id!,
+                        replyId: isBest ? '' : (reply.id ?? ''),
+                      );
+                      if (error != null) {
+                        messenger.showSnackBar(
+                            SnackBar(content: Text(error)));
+                      }
+                    },
+                  ),
                 if (canDelete)
                   IconButton(
                     tooltip: context.t('حذف الرد', 'Delete reply'),
@@ -531,6 +602,49 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
               ],
             ),
           ),
+        );
+      },
+    );
+  }
+}
+
+
+/// "Helpful" vote on a reply, with its count.
+class _ReplyVoteButton extends StatelessWidget {
+  const _ReplyVoteButton({
+    required this.postId,
+    required this.reply,
+    required this.enabled,
+  });
+
+  final String postId;
+  final CommunityReply reply;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<bool>(
+      stream: enabled
+          ? CommunityService.instance.watchReplyVote(postId, reply.id!)
+          : Stream.value(false),
+      builder: (context, snapshot) {
+        final voted = snapshot.data == true;
+        return TextButton.icon(
+          onPressed: !enabled
+              ? null
+              : () async {
+                  final error = await CommunityService.instance
+                      .toggleReplyVote(postId, reply.id!);
+                  if (error != null && context.mounted) {
+                    ScaffoldMessenger.of(context)
+                        .showSnackBar(SnackBar(content: Text(error)));
+                  }
+                },
+          icon: Icon(
+            voted ? Icons.thumb_up : Icons.thumb_up_outlined,
+            size: 18,
+          ),
+          label: Text('${reply.upvotesCount}'),
         );
       },
     );
