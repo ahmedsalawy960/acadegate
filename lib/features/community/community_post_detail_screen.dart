@@ -4,6 +4,7 @@ import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/locale/locale_extensions.dart';
+import '../auth/user_account_service.dart';
 import '../messaging/chat_screen.dart';
 import '../messaging/messaging_service.dart';
 import '../moderation/approval_status.dart';
@@ -124,8 +125,8 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
   }
 
   Future<void> _openAcademicLink(String url) async {
-    final uri = Uri.tryParse(url.trim());
-    if (uri == null) return;
+    if (!isSafeCommunityLink(url)) return;
+    final uri = Uri.parse(url.trim());
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
@@ -364,7 +365,7 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
                   ),
                 )
               else
-                ...replies.map(_replyTile),
+                ...replies.map((r) => _replyTile(r, post)),
               ManageContentActions(
                 collection: 'community_posts',
                 documentId: post.id,
@@ -374,6 +375,20 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
             ],
           ),
         ),
+        if (!post.isPubliclyVisible)
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              child: Text(
+                context.t(
+                  'الردود تُفتح بعد اعتماد المنشور.',
+                  'Replies open once the post is approved.',
+                ),
+                style: const TextStyle(color: Color(0xFFB7C3D6)),
+              ),
+            ),
+          )
+        else
         SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
@@ -384,11 +399,13 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
                     controller: _replyController,
                     decoration: InputDecoration(
                       hintText: context.t('اكتب رداً...', 'Write a reply...'),
+                      counterText: '',
                       border: const OutlineInputBorder(),
                       isDense: true,
                     ),
                     minLines: 1,
                     maxLines: 3,
+                    maxLength: kCommunityReplyMaxLength,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -413,23 +430,77 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
     );
   }
 
-  Widget _replyTile(CommunityReply reply) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              reply.authorName,
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 6),
-            Text(reply.body, style: const TextStyle(height: 1.4)),
-          ],
-        ),
+  Future<void> _confirmDeleteReply(CommunityReply reply) async {
+    final postId = widget.post.id;
+    final replyId = reply.id;
+    if (postId == null || replyId == null) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(context.t('حذف الرد', 'Delete reply')),
+        content: Text(context.t(
+          'هل تريد حذف هذا الرد نهائياً؟',
+          'Delete this reply permanently?',
+        )),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(context.t('إلغاء', 'Cancel')),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(context.t('حذف', 'Delete')),
+          ),
+        ],
       ),
+    );
+    if (ok != true || !mounted) return;
+    final error = await CommunityService.instance
+        .deleteReply(postId: postId, replyId: replyId);
+    if (!mounted || error == null) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+  }
+
+  Widget _replyTile(CommunityReply reply, CommunityPost post) {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    return StreamBuilder(
+      stream: UserAccountService.instance.watchCurrentAccount(),
+      builder: (context, snapshot) {
+        final isAdmin = snapshot.data?.isAdmin == true;
+        final canDelete = post.isFromFirebase &&
+            (reply.id ?? '').isNotEmpty &&
+            ((uid != null && uid == reply.authorId) || isAdmin);
+        return Card(
+          margin: const EdgeInsets.only(bottom: 8),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        reply.authorName,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(reply.body, style: const TextStyle(height: 1.4)),
+                    ],
+                  ),
+                ),
+                if (canDelete)
+                  IconButton(
+                    tooltip: context.t('حذف الرد', 'Delete reply'),
+                    icon: const Icon(Icons.delete_outline, size: 20),
+                    onPressed: () => _confirmDeleteReply(reply),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

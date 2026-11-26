@@ -8,6 +8,17 @@ import '../profile/academic_profile_service.dart';
 import 'community_data.dart';
 import 'community_models.dart';
 
+const int kCommunityTitleMaxLength = 200;
+const int kCommunityPostBodyMaxLength = 10000;
+const int kCommunityReplyMaxLength = 2000;
+
+/// Only http(s) links are accepted for community posts.
+bool isSafeCommunityLink(String value) {
+  final uri = Uri.tryParse(value.trim());
+  if (uri == null || !uri.hasAuthority || uri.host.isEmpty) return false;
+  return uri.scheme == 'http' || uri.scheme == 'https';
+}
+
 class CommunityService {
   CommunityService._();
 
@@ -191,6 +202,20 @@ class CommunityService {
     if (trimmedTitle.isEmpty || trimmedBody.isEmpty) {
       return appTr('العنوان والمحتوى مطلوبان', 'Title and content are required');
     }
+    if (trimmedTitle.length > kCommunityTitleMaxLength ||
+        trimmedBody.length > kCommunityPostBodyMaxLength) {
+      return appTr(
+        'العنوان أو المحتوى أطول من الحد المسموح',
+        'The title or content is longer than allowed',
+      );
+    }
+    final rawLink = academicLink?.trim() ?? '';
+    if (rawLink.isNotEmpty && !isSafeCommunityLink(rawLink)) {
+      return appTr(
+        'الرابط لازم يبدأ بـ http:// أو https://',
+        'The link must start with http:// or https://',
+      );
+    }
 
     final scope = PostAudienceScope.all.contains(audienceScope)
         ? audienceScope
@@ -259,6 +284,9 @@ class CommunityService {
     if (trimmedBody.isEmpty) {
       return appTr('اكتب رداً أولاً', 'Write a reply first');
     }
+    if (trimmedBody.length > kCommunityReplyMaxLength) {
+      return appTr('الرد أطول من الحد المسموح', 'The reply is too long');
+    }
 
     final authorName = await resolveAuthorName();
     final postRef = _posts.doc(postId);
@@ -277,6 +305,35 @@ class CommunityService {
       });
     });
 
+    return null;
+  }
+
+  /// Deletes a reply (its author or an admin) and lowers the post counter.
+  Future<String?> deleteReply({
+    required String postId,
+    required String replyId,
+  }) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return appTr('يجب تسجيل الدخول أولاً', 'You must sign in first');
+    }
+    final postRef = _posts.doc(postId);
+    final replyRef = postRef.collection('replies').doc(replyId);
+    try {
+      await _db.runTransaction((transaction) async {
+        final postSnap = await transaction.get(postRef);
+        final replySnap = await transaction.get(replyRef);
+        if (!replySnap.exists) return;
+        final raw = postSnap.data()?['repliesCount'];
+        final current = raw is num ? raw.toInt() : 0;
+        transaction.delete(replyRef);
+        if (postSnap.exists && current > 0) {
+          transaction.update(postRef, {'repliesCount': current - 1});
+        }
+      });
+    } on FirebaseException catch (e) {
+      return e.message ?? e.code;
+    }
     return null;
   }
 

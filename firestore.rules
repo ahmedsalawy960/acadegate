@@ -58,6 +58,26 @@ service cloud.firestore {
           || isCounterBump('discussionsCount');
     }
 
+    // Community: study circle member counter may only move by exactly 1.
+    function isMembersCountStepOnly() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['membersCount', 'updatedAt'])
+          && request.resource.data.membersCount is number
+          && request.resource.data.membersCount >= 0
+          && (
+            request.resource.data.membersCount == counterOf(resource.data, 'membersCount') + 1
+            || request.resource.data.membersCount == counterOf(resource.data, 'membersCount') - 1
+          );
+    }
+
+    // Community: http(s) only (or empty) for user-supplied links.
+    function isSafeOptionalLink(value) {
+      return value == null
+          || (value is string
+              && value.size() <= 500
+              && (value == '' || value.matches('https?://.*')));
+    }
+
     function isEmptyClaimedBy(data) {
       return !('claimedBy' in data)
           || data.claimedBy == null
@@ -979,7 +999,18 @@ service cloud.firestore {
 
       allow create: if isSignedIn()
                     && request.resource.data.authorId == request.auth.uid
-                    && isPendingCreate();
+                    && isPendingCreate()
+                    && request.resource.data.title is string
+                    && request.resource.data.title.size() > 0
+                    && request.resource.data.title.size() <= 200
+                    && request.resource.data.body is string
+                    && request.resource.data.body.size() > 0
+                    && request.resource.data.body.size() <= 10000
+                    && request.resource.data.authorName is string
+                    && request.resource.data.authorName.size() <= 100
+                    && request.resource.data.get('upvotesCount', 0) == 0
+                    && request.resource.data.get('repliesCount', 0) == 0
+                    && isSafeOptionalLink(request.resource.data.get('academicLink', null));
 
       allow update: if isAdmin()
                     || (isSignedIn() && (
@@ -995,9 +1026,21 @@ service cloud.firestore {
 
       match /replies/{replyId} {
         allow read: if isSignedIn();
+        // Replies are allowed only on approved posts, with a bounded body.
         allow create: if isSignedIn()
-                      && request.resource.data.authorId == request.auth.uid;
-        allow update, delete: if false;
+                      && request.resource.data.authorId == request.auth.uid
+                      && request.resource.data.keys().hasOnly(['authorId', 'authorName', 'body', 'createdAt'])
+                      && request.resource.data.body is string
+                      && request.resource.data.body.size() > 0
+                      && request.resource.data.body.size() <= 2000
+                      && request.resource.data.authorName is string
+                      && request.resource.data.authorName.size() <= 100
+                      && get(/databases/$(database)/documents/community_posts/$(postId)).data
+                            .get('approvalStatus', 'approved') == 'approved';
+        allow update: if false;
+        // The reply author or an admin can remove a reply.
+        allow delete: if isSignedIn()
+                      && (resource.data.authorId == request.auth.uid || isAdmin());
       }
 
       match /upvotes/{voteId} {
@@ -1173,8 +1216,7 @@ service cloud.firestore {
       allow update: if isSignedIn()
                     && (resource.data.creatorId == request.auth.uid
                         || isAdmin()
-                        || request.resource.data.diff(resource.data).affectedKeys()
-                            .hasOnly(['membersCount', 'updatedAt']));
+                        || isMembersCountStepOnly());
       allow delete: if isSignedIn()
                     && (resource.data.creatorId == request.auth.uid || isAdmin());
 
