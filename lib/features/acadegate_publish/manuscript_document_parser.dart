@@ -1488,8 +1488,11 @@ class ManuscriptDocumentParser {
           out.isNotEmpty &&
           out.last.type == ManuscriptBlockType.table) {
         final prev = out.last;
+        // A captioned table starts a new reported table; it is not a
+        // continuation fragment of the previous one.
         if (prev.rows.isNotEmpty &&
             block.rows.isNotEmpty &&
+            block.caption == null &&
             prev.rows.first.length == block.rows.first.length &&
             prev.borderless == block.borderless) {
           var start = 0;
@@ -3168,7 +3171,7 @@ class ManuscriptDocumentParser {
           id: nextId(),
           type: ManuscriptBlockType.table,
           rows: parsed.rows,
-          borderless: _explicitBorderlessTable(element),
+          borderless: _explicitBorderlessTable(_unwrapSingleCellTable(element)),
           rowCellImages: parsed.rowCellImages,
           rowCellMath: parsed.rowCellMath,
           colSpans: parsed.colSpans,
@@ -3563,6 +3566,7 @@ class ManuscriptDocumentParser {
     Archive archive,
     Map<String, String> rels,
   ) {
+    table = _unwrapSingleCellTable(table);
     final gridCols = <int>[];
     for (final grid in table.children.whereType<XmlElement>()) {
       if (grid.localName != 'tblGrid') continue;
@@ -3609,6 +3613,46 @@ class ManuscriptDocumentParser {
       rowSpans: grid.rowSpans,
       columnWidthsPct: grid.columnWidthsPct,
     );
+  }
+
+  /// A 1x1 wrapper table whose only content is one nested table carries no
+  /// grid of its own; read the inner table instead of flattening its rows
+  /// into a single cell of text.
+  static XmlElement _unwrapSingleCellTable(XmlElement table) {
+    var current = table;
+    for (;;) {
+      final trs = current.children
+          .whereType<XmlElement>()
+          .where((e) => e.localName == 'tr')
+          .toList();
+      if (trs.length != 1) return current;
+      final tcs = trs.first.children
+          .whereType<XmlElement>()
+          .where((e) => e.localName == 'tc')
+          .toList();
+      if (tcs.length != 1) return current;
+      XmlElement? nested;
+      var onlyNested = true;
+      for (final child in tcs.first.children.whereType<XmlElement>()) {
+        if (child.localName == 'tcPr') continue;
+        if (child.localName == 'tbl' && nested == null) {
+          nested = child;
+          continue;
+        }
+        if (child.localName == 'p' &&
+            _paragraphPlainText(child).trim().isEmpty &&
+            !child.descendants.whereType<XmlElement>().any((e) =>
+                e.localName == 'drawing' ||
+                e.localName == 'pict' ||
+                e.localName == 'object')) {
+          continue;
+        }
+        onlyNested = false;
+        break;
+      }
+      if (!onlyNested || nested == null) return current;
+      current = nested;
+    }
   }
 
   static bool _explicitBorderlessTable(XmlElement table) {
@@ -4336,7 +4380,9 @@ class ManuscriptDocumentParser {
           AcademicText.sanitize(next.title),
         ),
       );
-    } else {
+    } else if (!hasDecomposedArabicFrontMatter(
+      '${parsed.sourceTitle ?? ''}\n${parsed.bodyText.length > 1500 ? parsed.bodyText.substring(0, 1500) : parsed.bodyText}',
+    )) {
       final title = parsed.sourceTitle ?? _extractTitleFromBlocks(next.bodyBlocks);
       if (title != null && title.length > 10) {
         next = next.copyWith(
@@ -4361,6 +4407,26 @@ class ManuscriptDocumentParser {
       }
     }
     return CitationLinker.linkManuscript(next);
+  }
+
+  /// PDF-to-DOCX conversion can decompose Arabic: tatweel characters land
+  /// inside words and glyphs arrive reordered as single-character tokens.
+  /// No title can be recovered from such front matter, so the import leaves
+  /// the title empty instead of showing a wrong one. Conservative: ordinary
+  /// clean Arabic has no tatweel and few one-to-two-character tokens.
+  static bool hasDecomposedArabicFrontMatter(String text) {
+    final words = RegExp(r'[؀-ۿ]+')
+        .allMatches(text)
+        .map((m) => m.group(0)!)
+        .toList();
+    if (words.length < 20) return false;
+    final tatweel = 'ـ'.allMatches(text).length;
+    if (tatweel >= 5) return true;
+    if (tatweel >= 1) {
+      final short = words.where((w) => w.length <= 2).length;
+      if (short / words.length >= 0.3) return true;
+    }
+    return false;
   }
 
   static String _bodyWithoutBibliography(String text) {
@@ -4706,7 +4772,7 @@ class ManuscriptDocumentParser {
       if (CitationCues.isRunningMatterLine(line)) continue;
       final parts = line.split(
         RegExp(
-          '(?<=\\S)\\s+(?=\\[\\d{1,3}\\]\\s+)|'
+          '(?<=\\S)\\s+(?=\\[\\d{1,3}\\](?:\\s+|[A-Z]))|'
           '(?<=\\S)\\s+(?=\\d{1,3}[.)]\\s+(?:${CitationCues.standardsOrg}|'
           r'[A-Z][A-Za-z\-]{2,}(?:\s+[A-Z][A-Za-z\-]{2,}){0,2},\s*[A-Z]))',
         ),

@@ -112,6 +112,15 @@ class CitationFormatter {
           plainNumberList: plainNumberList || style == PublishCitationStyle.acs);
     }
     final prepared = _prepareForStyle(reference);
+    // If the title is the entire source citation, no title boundary was
+    // established. Rebuilding duplicates the citation and can invent authors.
+    // Preserve the source instead, without claiming a full style conversion.
+    final source = _cleanRawCitation(AcademicText.sanitize(reference.rawText));
+    if (source.length >= 20 &&
+        _cleanRawCitation(AcademicText.sanitize(prepared.title)) == source) {
+      return _rawBibliographyEntry(reference.rawText, style: style, index: index,
+          plainNumberList: plainNumberList || style == PublishCitationStyle.acs);
+    }
     final plain = plainNumberList || style == PublishCitationStyle.acs;
     final fromOriginal = _authorDateEntryFromOriginal(reference, style);
     if (fromOriginal != null) return fromOriginal;
@@ -584,6 +593,22 @@ class CitationFormatter {
     return BibliographyEntry([BibliographySpan(body)]);
   }
 
+  /// A DOI is printed once, in bare form, and only when it is one.
+  /// Imported values can carry an https://doi.org/ or doi: prefix already,
+  /// or unrelated field text that must not become a link.
+  static String _doiDisplayValue(String doi) {
+    var d = AcademicText.sanitize(doi).trim();
+    d = d.replaceFirst(
+      RegExp(r'^https?://(?:dx\.)?doi\.org/', caseSensitive: false),
+      '',
+    );
+    d = d.replaceFirst(RegExp(r'^doi\.org/', caseSensitive: false), '');
+    d = d.replaceFirst(RegExp(r'^doi\s*:\s*', caseSensitive: false), '');
+    d = d.trim();
+    if (!RegExp(r'^10\.\d{4,9}/\S+$').hasMatch(d)) return '';
+    return d;
+  }
+
   static String _formatParentheticalInText(
     PublishReference ref,
     PublishCitationStyle style,
@@ -644,6 +669,28 @@ class CitationFormatter {
       out.add(t);
     }
 
+    // When the title is the entire source line, no author boundary was
+    // established; parsed authors can be words from inside the line. Prefer
+    // names read from the source line itself when it leads with them.
+    final source = _cleanRawCitation(AcademicText.sanitize(ref.rawText));
+    if (source.length >= 20 &&
+        _cleanRawCitation(AcademicText.sanitize(ref.title)) == source) {
+      final rawNames = BibliographyMatch.lastNamesFromRaw(ref.rawText);
+      final stripped = source.replaceFirst(
+        RegExp(r'^(?:\[\d+\]|\d+[.)])\s*'),
+        '',
+      );
+      final authorLead =
+          ref.authors.isEmpty ? '' : _authorLastName(ref.authors.first);
+      if (rawNames.isNotEmpty &&
+          stripped.toLowerCase().startsWith(rawNames.first.toLowerCase()) &&
+          authorLead.toLowerCase() != rawNames.first.toLowerCase()) {
+        for (final n in rawNames) {
+          add(_displayLastName(n));
+        }
+        return out;
+      }
+    }
     for (final author in ref.authors) {
       add(_authorLastName(author));
     }
@@ -1455,8 +1502,9 @@ class CitationFormatter {
           if (ref.pages.isNotEmpty) {
             spans.add(BibliographySpan(', ${ref.pages.trim()}'));
           }
-          if (ref.doi.isNotEmpty) {
-            spans.add(BibliographySpan('. https://doi.org/${ref.doi.trim()}'));
+          final doiValue = _doiDisplayValue(ref.doi);
+          if (doiValue.isNotEmpty) {
+            spans.add(BibliographySpan('. https://doi.org/$doiValue'));
           } else if (ref.url.isNotEmpty) {
             spans.add(BibliographySpan('. ${ref.url.trim()}'));
           }
