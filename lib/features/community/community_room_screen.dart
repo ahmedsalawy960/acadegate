@@ -9,6 +9,7 @@ import '../moderation/approval_status.dart';
 import '../profile/academic_profile.dart';
 import '../profile/academic_profile_service.dart';
 import 'community_data.dart';
+import 'community_feed.dart';
 import 'community_models.dart';
 import 'community_post_detail_screen.dart';
 import 'community_service.dart';
@@ -33,6 +34,8 @@ class _CommunityRoomScreenState extends State<CommunityRoomScreen>
   final _searchController = TextEditingController();
   String _searchQuery = '';
   AcademicProfile? _profile;
+  CommunityFeedView _view = CommunityFeedView.latest;
+  int _limit = kCommunityFeedPageSize;
 
   static const _tabTypes = <String?>[
     null,
@@ -66,6 +69,17 @@ class _CommunityRoomScreenState extends State<CommunityRoomScreen>
     super.dispose();
   }
 
+  String _viewLabel(BuildContext context, CommunityFeedView view) {
+    switch (view) {
+      case CommunityFeedView.latest:
+        return context.t('الأحدث', 'Latest');
+      case CommunityFeedView.mostActive:
+        return context.t('الأكثر نقاشاً', 'Most active');
+      case CommunityFeedView.unanswered:
+        return context.t('بلا ردود', 'Unanswered');
+    }
+  }
+
   String? get _selectedType => _tabTypes.elementAt(_tabController.index);
 
   void _openSupervisors() {
@@ -96,7 +110,7 @@ class _CommunityRoomScreenState extends State<CommunityRoomScreen>
           indicatorColor: Colors.white,
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white70,
-          onTap: (_) => setState(() {}),
+          onTap: (_) => setState(() => _limit = kCommunityFeedPageSize),
           tabs: _tabTypes
               .map((type) => Tab(text: _tabLabel(context, type)))
               .toList(),
@@ -163,6 +177,25 @@ class _CommunityRoomScreenState extends State<CommunityRoomScreen>
               onChanged: (value) => setState(() => _searchQuery = value),
             ),
           ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (final view in CommunityFeedView.values)
+                    Padding(
+                      padding: const EdgeInsetsDirectional.only(end: 8),
+                      child: ChoiceChip(
+                        label: Text(_viewLabel(context, view)),
+                        selected: _view == view,
+                        onSelected: (_) => setState(() => _view = view),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
           if (widget.room.facultyCategoryId != null)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
@@ -188,9 +221,10 @@ class _CommunityRoomScreenState extends State<CommunityRoomScreen>
               ),
             ),
           Expanded(
-            child: StreamBuilder<List<CommunityPost>>(
-              stream: CommunityService.instance.watchRoomPosts(
+            child: StreamBuilder<CommunityFeed>(
+              stream: CommunityService.instance.watchRoomFeed(
                 roomId: widget.room.id,
+                limit: _limit,
                 type: _selectedType,
                 searchQuery: _searchQuery,
                 viewerFaculty: _profile?.resolvedFacultyCategory,
@@ -211,17 +245,25 @@ class _CommunityRoomScreenState extends State<CommunityRoomScreen>
                   );
                 }
 
-                final posts = snapshot.data ?? [];
+                final feed = snapshot.data;
+                final posts =
+                    applyCommunityFeedView(feed?.posts ?? const [], _view);
+                final hasMore = feed?.hasMore ?? false;
                 if (posts.isEmpty) {
                   return Center(
                     child: Padding(
                       padding: const EdgeInsets.all(24),
                       child: Text(
                         _searchQuery.trim().isEmpty
-                            ? context.t(
-                                'لا توجد منشورات في هذا القسم بعد.\nاضغط «منشور جديد» لتبدأ النقاش.',
-                                'No posts in this section yet.\nTap "New post" to start the discussion.',
-                              )
+                            ? (_view == CommunityFeedView.unanswered
+                                ? context.t(
+                                    'كل المنشورات المحمّلة لها ردود.',
+                                    'Every loaded post has a reply.',
+                                  )
+                                : context.t(
+                                    'لا توجد منشورات في هذا القسم بعد.\nاضغط «منشور جديد» لتبدأ النقاش.',
+                                    'No posts in this section yet.\nTap "New post" to start the discussion.',
+                                  ))
                             : context.t(
                                 'لا توجد نتائج لـ «$_searchQuery»',
                                 'No results for "$_searchQuery"',
@@ -236,8 +278,19 @@ class _CommunityRoomScreenState extends State<CommunityRoomScreen>
 
                 return ListView.builder(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 88),
-                  itemCount: posts.length,
+                  itemCount: posts.length + (hasMore ? 1 : 0),
                   itemBuilder: (context, index) {
+                    if (index >= posts.length) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: OutlinedButton(
+                          onPressed: () => setState(
+                            () => _limit += kCommunityFeedPageSize,
+                          ),
+                          child: Text(context.t('عرض المزيد', 'Show more')),
+                        ),
+                      );
+                    }
                     final post = posts[index];
                     return _PostCard(
                       post: post,

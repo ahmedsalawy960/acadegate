@@ -70,6 +70,19 @@ service cloud.firestore {
           );
     }
 
+    // Research rooms: a counter touched by a member may only move by exactly 1.
+    function roomCounterStep(field) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny([field])
+          || (request.resource.data[field] is number
+              && request.resource.data[field] >= 0
+              && (request.resource.data[field] == counterOf(resource.data, field) + 1
+                  || request.resource.data[field] == counterOf(resource.data, field) - 1));
+    }
+
+    function roomCountersStepOnly() {
+      return roomCounterStep('membersCount') && roomCounterStep('discussionsCount');
+    }
+
     // Community: http(s) only (or empty) for user-supplied links.
     function isSafeOptionalLink(value) {
       return value == null
@@ -925,11 +938,13 @@ service cloud.firestore {
                         && hasResearchRoomAccess(roomId))
                     || (isSignedIn()
                         && hasResearchRoomAccess(roomId)
+                        && roomCountersStepOnly()
                         && request.resource.data.diff(resource.data).affectedKeys()
                             .hasOnly(['membersCount', 'lastChannelActivity', 'lastActivityAt', 'updatedAt', 'discussionsCount']))
                     || (isSignedIn()
                         && resource.data.creatorId == request.auth.uid
                         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['passwordHash'])
+                        && roomCountersStepOnly()
                         && request.resource.data.diff(resource.data).affectedKeys()
                             .hasOnly(['title', 'description', 'categoryId', 'updatedAt', 'membersCount', 'lastChannelActivity', 'lastActivityAt']));
       allow delete: if isSignedIn()
@@ -1035,6 +1050,9 @@ service cloud.firestore {
                     && request.resource.data.authorName.size() <= 100
                     && request.resource.data.get('upvotesCount', 0) == 0
                     && request.resource.data.get('repliesCount', 0) == 0
+                    && (!('tags' in request.resource.data)
+                        || (request.resource.data.tags is list
+                            && request.resource.data.tags.size() <= 10))
                     && isSafeOptionalLink(request.resource.data.get('academicLink', null));
 
       allow update: if isAdmin()

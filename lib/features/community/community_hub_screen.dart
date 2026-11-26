@@ -9,6 +9,7 @@ import '../profile/academic_profile_service.dart';
 import 'community_data.dart';
 import 'community_room_screen.dart';
 import 'create_research_room_screen.dart';
+import 'my_community_posts_screen.dart';
 import 'research_room_models.dart';
 import 'research_room_navigator.dart';
 import 'research_room_service.dart';
@@ -82,6 +83,16 @@ class _CommunityHubScreenState extends State<CommunityHubScreen>
           const SectionGuideAppBarButton(
             guideId: SectionGuideCatalog.community,
             accent: Color(0xFF00695C),
+          ),
+          IconButton(
+            tooltip: context.t('منشوراتي', 'My posts'),
+            icon: const Icon(Icons.history_edu_outlined),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const MyCommunityPostsScreen(),
+              ),
+            ),
           ),
           IconButton(
             tooltip: context.t('إنشاء غرفة بحثية', 'Create research room'),

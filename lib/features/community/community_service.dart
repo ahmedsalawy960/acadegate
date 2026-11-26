@@ -7,6 +7,7 @@ import '../messaging/chat_media.dart';
 import '../moderation/approval_status.dart';
 import '../profile/academic_profile_service.dart';
 import 'community_data.dart';
+import 'community_feed.dart';
 import 'community_models.dart';
 
 const int kCommunityTitleMaxLength = 200;
@@ -30,8 +31,10 @@ class CommunityService {
   CollectionReference<Map<String, dynamic>> get _posts =>
       _db.collection('community_posts');
 
-  Stream<List<CommunityPost>> watchRoomPosts({
+  /// One page of a room feed. A bigger [limit] loads more (the stream stays live).
+  Stream<CommunityFeed> watchRoomFeed({
     required String roomId,
+    int limit = kCommunityFeedPageSize,
     String? type,
     String searchQuery = '',
     String? viewerFaculty,
@@ -43,8 +46,10 @@ class CommunityService {
     return _posts
         .where('roomId', isEqualTo: primaryId)
         .orderBy('createdAt', descending: true)
+        .limit(limit)
         .snapshots()
         .asyncMap((snapshot) async {
+      final hasMore = snapshot.docs.length >= limit;
       var posts = snapshot.docs
           .map((doc) => CommunityPost.fromMap(doc.data(), id: doc.id))
           .toList();
@@ -99,13 +104,33 @@ class CommunityService {
         }
       }
 
-      return _filterPosts(
-        posts,
-        type: type,
-        searchQuery: searchQuery,
-        viewerFaculty: viewerFaculty,
-        viewerSpecialization: viewerSpecialization,
+      return CommunityFeed(
+        posts: _filterPosts(
+          posts,
+          type: type,
+          searchQuery: searchQuery,
+          viewerFaculty: viewerFaculty,
+          viewerSpecialization: viewerSpecialization,
+        ),
+        hasMore: hasMore,
       );
+    });
+  }
+
+  /// The signed-in member's own posts in every room, with their review status.
+  Stream<List<CommunityPost>> watchMyPosts() {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return Stream.value(const []);
+    // Single-field query: no composite index needed; sorted on the device.
+    return _posts
+        .where('authorId', isEqualTo: uid)
+        .limit(100)
+        .snapshots()
+        .map((snapshot) {
+      final posts = snapshot.docs
+          .map((doc) => CommunityPost.fromMap(doc.data(), id: doc.id))
+          .toList();
+      return applyCommunityFeedView(posts, CommunityFeedView.latest);
     });
   }
 

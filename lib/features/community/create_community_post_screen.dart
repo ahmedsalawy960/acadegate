@@ -6,6 +6,7 @@ import '../../core/theme/acadegate_theme.dart';
 import '../profile/academic_profile.dart';
 import '../profile/academic_profile_service.dart';
 import 'community_data.dart';
+import 'community_feed.dart';
 import 'community_service.dart';
 
 class CreateCommunityPostScreen extends StatefulWidget {
@@ -79,11 +80,7 @@ class _CreateCommunityPostScreenState extends State<CreateCommunityPostScreen> {
 
     setState(() => _submitting = true);
 
-    final tags = _tagsController.text
-        .split('،')
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .toList();
+    final tags = parseCommunityTags(_tagsController.text);
 
     final error = await CommunityService.instance.createPost(
       roomId: widget.room.id,
@@ -346,8 +343,8 @@ class _CreateCommunityPostScreenState extends State<CreateCommunityPostScreen> {
               controller: _tagsController,
               decoration: InputDecoration(
                 labelText: context.t(
-                  'وسوم (مفصولة بفاصلة عربية ،)',
-                  'Tags (comma-separated)',
+                  'وسوم (افصل بينها بفاصلة , أو ،)',
+                  'Tags (separate with a comma , or ،)',
                 ),
                 border: const OutlineInputBorder(),
               ),
