@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import '../ai_advisor/gemini_advisor_client.dart';
 import 'citation_style_shapes.dart';
+import 'docx_scientific_extractor.dart';
 import 'publish_models.dart';
 
 enum ManuscriptStructureLabelSource {
@@ -157,6 +158,7 @@ class ManuscriptStructureAdvisor {
       }
       final text = block.text.trim();
       if (text.isEmpty || text == current) continue;
+      if (DocxScientificExtractor.isFrontMatterAuthorText(text)) continue;
       final count = text.split(RegExp(r'\s+')).length;
       if (count >= 8 &&
           text.length >= 40 &&

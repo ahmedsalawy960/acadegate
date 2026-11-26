@@ -6,7 +6,7 @@ import 'publish_models.dart';
 
 /// Explicit reference-style selector (APA / IEEE / Vancouver / …).
 class CitationStylePicker extends StatelessWidget {
-  final PublishCitationStyle value;
+  final PublishCitationStyle? value;
   final ValueChanged<PublishCitationStyle> onChanged;
   final bool enabled;
 
@@ -27,10 +27,10 @@ class CitationStylePicker extends StatelessWidget {
       isExpanded: true,
       decoration: InputDecoration(
         labelText: context.t('نوع تنسيق المراجع', 'Reference style'),
-        helperText: CitationFormatter.styleShortDescription(
-          value,
-          arabic: arabic,
-        ),
+        helperText: value == null
+            ? context.t('اختر نمط المراجع بعد مراجعة الدليل؛ لم يحدد الدليل نمطاً مؤكداً.',
+                'Choose a reference style after checking the guide; no style was resolved.')
+            : CitationFormatter.styleShortDescription(value!, arabic: arabic),
         helperMaxLines: 2,
         prefixIcon: const Icon(Icons.format_quote_outlined),
         border: const OutlineInputBorder(),

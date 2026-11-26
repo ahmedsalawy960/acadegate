@@ -16,13 +16,24 @@ class JournalCitationInference {
 }
 
 class JournalFormatRules {
+  static const defaultBodyFontHalfPoints = 22; // 11 pt, one fallback source.
+  static const defaultTitleFontHalfPoints = 28; // 14 pt.
+  static const defaultHeadingFontHalfPoints = 24; // 12 pt.
+
   final String journalName;
   final String publisher;
   final PublishCitationStyle citationStyle;
+  /// False for a partial guide with no supported, unambiguous style evidence.
+  /// citationStyle remains an internal placeholder until explicitly selected.
+  final bool citationStyleResolved;
+  final bool citationStyleChosenByUser;
   final String fontFamily;
   final int bodyFontHalfPoints;
   final int titleFontHalfPoints;
   final int headingFontHalfPoints;
+  final int? referenceFontHalfPoints;
+  int get effectiveReferenceFontHalfPoints =>
+      referenceFontHalfPoints ?? bodyFontHalfPoints - 2;
   final double lineSpacing;
   final int marginTwips;
   final bool justifyBody;
@@ -47,6 +58,7 @@ class JournalFormatRules {
   final bool headingUppercase;
   final String titleAlign;
   final bool pageNumbers;
+  final bool continuousLineNumbers;
   final bool runningHeader;
   final int? abstractMaxWords;
   final List<String> sectionOrder;
@@ -68,10 +80,13 @@ class JournalFormatRules {
     required this.journalName,
     this.publisher = '',
     required this.citationStyle,
+    this.citationStyleResolved = true,
+    this.citationStyleChosenByUser = false,
     this.fontFamily = 'Times New Roman',
-    this.bodyFontHalfPoints = 24,
-    this.titleFontHalfPoints = 32,
-    this.headingFontHalfPoints = 28,
+    this.bodyFontHalfPoints = defaultBodyFontHalfPoints,
+    this.titleFontHalfPoints = defaultTitleFontHalfPoints,
+    this.headingFontHalfPoints = defaultHeadingFontHalfPoints,
+    this.referenceFontHalfPoints,
     this.lineSpacing = 2.0,
     this.marginTwips = 1440,
     this.justifyBody = true,
@@ -93,6 +108,7 @@ class JournalFormatRules {
     this.headingUppercase = false,
     this.titleAlign = 'center',
     this.pageNumbers = true,
+    this.continuousLineNumbers = false,
     this.runningHeader = false,
     this.abstractMaxWords,
     this.sectionOrder = const [],
@@ -149,6 +165,16 @@ class JournalFormatRules {
   bool get usesPlainNumberBibliography => referenceListPlainNumber;
 
   String confidenceLabel({required bool isEnglish}) {
+    if (!citationStyleResolved) {
+      return isEnglish
+          ? 'Partial guide rules - reference style unresolved'
+          : 'قواعد جزئية من الدليل - نمط المراجع غير محدد';
+    }
+    if (extractedFromGuide && citationStyleChosenByUser) {
+      return isEnglish
+          ? 'Guide layout - reference style selected by you'
+          : 'تنسيق من الدليل - نمط المراجع من اختيارك';
+    }
     if (extractedFromGuide && (sourceUrl ?? '').startsWith('template:')) {
       return appTr(
         'مستخرج من قالب المجلة المرفوع',
@@ -183,10 +209,11 @@ class JournalFormatRules {
       arabic: !isEnglish,
     );
     return [
-      appTr(
-        'نمط المراجع: $styleName',
-        'Reference style: $styleName',
-      ),
+      !citationStyleResolved
+          ? appTr('نمط المراجع: غير محدد - اختره بعد مراجعة الدليل',
+              'Reference style: unresolved - select after checking the guide')
+          : appTr('نمط المراجع: $styleName${citationStyleChosenByUser ? ' (اختيارك)' : ''}',
+              'Reference style: $styleName${citationStyleChosenByUser ? ' (your selection)' : ''}'),
       if (referenceListPlainNumber)
         appTr(
           'قائمة المراجع: 1. 2. 3. بدون أقواس مربعة',
@@ -292,6 +319,8 @@ class JournalFormatRules {
           'Figure/table width: at most ${figureMaxWidthCm!.toStringAsFixed(1)} cm; legends below figures',
         ),
       if (pageNumbers) appTr('ترقيم الصفحات: نعم', 'Page numbers: yes'),
+      if (continuousLineNumbers)
+        appTr('ترقيم الأسطر: متصل', 'Continuous line numbers'),
       if (runningHeader)
         appTr('ترويسة جارية باسم المجلة', 'Running header with journal name'),
       if (abstractMaxWords != null)
@@ -325,10 +354,13 @@ class JournalFormatRules {
 
   JournalFormatRules copyWith({
     PublishCitationStyle? citationStyle,
+    bool? citationStyleResolved,
+    bool? citationStyleChosenByUser,
     String? fontFamily,
     int? bodyFontHalfPoints,
     int? titleFontHalfPoints,
     int? headingFontHalfPoints,
+    int? referenceFontHalfPoints,
     double? lineSpacing,
     int? marginTwips,
     bool? justifyBody,
@@ -342,6 +374,7 @@ class JournalFormatRules {
     bool? headingUppercase,
     String? titleAlign,
     bool? pageNumbers,
+    bool? continuousLineNumbers,
     bool? runningHeader,
     int? abstractMaxWords,
     List<String>? sectionOrder,
@@ -362,10 +395,13 @@ class JournalFormatRules {
       journalName: journalName,
       publisher: publisher,
       citationStyle: citationStyle ?? this.citationStyle,
+      citationStyleResolved: citationStyleResolved ?? this.citationStyleResolved,
+      citationStyleChosenByUser: citationStyleChosenByUser ?? this.citationStyleChosenByUser,
       fontFamily: fontFamily ?? this.fontFamily,
       bodyFontHalfPoints: bodyFontHalfPoints ?? this.bodyFontHalfPoints,
       titleFontHalfPoints: titleFontHalfPoints ?? this.titleFontHalfPoints,
       headingFontHalfPoints: headingFontHalfPoints ?? this.headingFontHalfPoints,
+      referenceFontHalfPoints: referenceFontHalfPoints ?? this.referenceFontHalfPoints,
       lineSpacing: lineSpacing ?? this.lineSpacing,
       marginTwips: marginTwips ?? this.marginTwips,
       justifyBody: justifyBody ?? this.justifyBody,
@@ -388,6 +424,7 @@ class JournalFormatRules {
       headingUppercase: headingUppercase ?? this.headingUppercase,
       titleAlign: titleAlign ?? this.titleAlign,
       pageNumbers: pageNumbers ?? this.pageNumbers,
+      continuousLineNumbers: continuousLineNumbers ?? this.continuousLineNumbers,
       runningHeader: runningHeader ?? this.runningHeader,
       abstractMaxWords: abstractMaxWords ?? this.abstractMaxWords,
       sectionOrder: sectionOrder ?? this.sectionOrder,
@@ -408,6 +445,8 @@ class JournalFormatRules {
   JournalFormatRules withCitationStyle(PublishCitationStyle style) {
     return copyWith(
       citationStyle: style,
+      citationStyleResolved: true,
+      citationStyleChosenByUser: true,
       profileLabel: referenceListPlainNumber
           ? profileLabel
           : CitationFormatter.styleLabel(style),
@@ -429,17 +468,14 @@ class JournalFormatRules {
       referenceExample: refExample,
       inTextExample: inTextExample,
     );
-    var citation = citationRaw != null &&
-            citationRaw.isNotEmpty &&
-            citationRaw.toLowerCase() != 'other'
+    const supported = {'apa', 'ieee', 'numbered', 'vancouver', 'acs', 'harvard', 'chicago'};
+    final explicitlyUnresolved = extracted['citationStyleUnresolved'] == true;
+    final namedStyle = supported.contains(citationRaw?.toLowerCase());
+    final resolved = !explicitlyUnresolved && (namedStyle || inferred != null);
+    final citation = namedStyle && !explicitlyUnresolved
         ? _mapExtractedCitation(citationRaw)
-        : (inferred?.style ?? fallback?.citationStyle ?? PublishCitationStyle.apa);
-    if ((citationRaw == null ||
-            citationRaw.isEmpty ||
-            citationRaw.toLowerCase() == 'other') &&
-        inferred != null) {
-      citation = inferred.style;
-    }
+        : (!explicitlyUnresolved ? inferred?.style : null) ??
+            fallback?.citationStyle ?? PublishCitationStyle.apa;
     final font = extracted['fontFamily']?.toString().trim();
     final bodyPt = _asExtractedDouble(extracted['bodyFontSizePt']);
     var lineSpacing = _asExtractedDouble(extracted['lineSpacing']);
@@ -481,22 +517,26 @@ class JournalFormatRules {
       journalName: journalName,
       publisher: publisher,
       citationStyle: citation,
+      citationStyleResolved: resolved,
       fontFamily: font?.isNotEmpty == true
           ? font!
           : (fallback?.fontFamily ?? 'Times New Roman'),
       bodyFontHalfPoints: bodyPt != null
           ? (bodyPt * 2).round()
-          : (fallback?.bodyFontHalfPoints ?? 24),
+          : (fallback?.extractedFromGuide == true
+              ? fallback!.bodyFontHalfPoints : defaultBodyFontHalfPoints),
       titleFontHalfPoints: titleFontPt != null
           ? (titleFontPt * 2).round()
-          : bodyPt != null
-              ? (bodyPt * 2 + 8).round()
-              : (fallback?.titleFontHalfPoints ?? 32),
+          : (fallback?.extractedFromGuide == true
+              ? fallback!.titleFontHalfPoints : defaultTitleFontHalfPoints),
       headingFontHalfPoints: headingFontPt != null
           ? (headingFontPt * 2).round()
-          : bodyPt != null
-              ? (bodyPt * 2 + 4).round()
-              : (fallback?.headingFontHalfPoints ?? 28),
+          : (fallback?.extractedFromGuide == true
+              ? fallback!.headingFontHalfPoints : defaultHeadingFontHalfPoints),
+      referenceFontHalfPoints: _asExtractedDouble(extracted['referenceFontSizePt']) != null
+          ? (_asExtractedDouble(extracted['referenceFontSizePt'])! * 2).round()
+          : (fallback?.extractedFromGuide == true
+              ? fallback!.referenceFontHalfPoints : null),
       lineSpacing: lineSpacing ?? fallback?.lineSpacing ?? 2.0,
       marginTwips: marginCm != null
           ? (marginCm * 567).round()
@@ -537,6 +577,9 @@ class JournalFormatRules {
               ? 'center'
               : (fallback?.titleAlign ?? 'center')),
       pageNumbers: extracted['pageNumbers'] != false,
+      continuousLineNumbers: extracted.containsKey('continuousLineNumbers')
+          ? extracted['continuousLineNumbers'] == true
+          : (fallback?.continuousLineNumbers ?? false),
       runningHeader: extracted['runningHeader'] == true ||
           extracted['runningTitleMaxChars'] != null ||
           (fallback?.runningHeader ?? false),
@@ -604,6 +647,9 @@ class JournalFormatRules {
       n++;
     }
     if (extracted['bodyFontSizePt'] != null) n++;
+    if (extracted['titleFontSizePt'] != null) n++;
+    if (extracted['headingFontSizePt'] != null) n++;
+    if (extracted['referenceFontSizePt'] != null) n++;
     if (extracted['columns'] != null) n++;
     if (extracted['firstLineIndentCm'] != null) n++;
     if (extracted['abstractMaxWords'] != null) n++;
@@ -848,7 +894,7 @@ class JournalSectionLayout {
     _SectionGroup? current;
 
     for (final block in blocks) {
-      if (block.type == ManuscriptBlockType.heading &&
+      if (!block.preserveCitationText && block.type == ManuscriptBlockType.heading &&
           isReferencesHeading(block.text)) {
         current = _SectionGroup(block, const [], skip: true);
         sections.add(current);
@@ -1103,9 +1149,6 @@ class JournalFormatRulesService {
           publisher: publisher,
           citationStyle: profile.citationStyle,
           fontFamily: profile.fontFamily,
-          bodyFontHalfPoints: profile.bodyFontHalfPoints,
-          titleFontHalfPoints: profile.titleFontHalfPoints,
-          headingFontHalfPoints: profile.headingFontHalfPoints,
           lineSpacing: profile.lineSpacing,
           marginTwips: profile.marginTwips,
           justifyBody: profile.justifyBody,

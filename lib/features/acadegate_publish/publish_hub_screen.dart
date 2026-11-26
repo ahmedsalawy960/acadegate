@@ -287,15 +287,15 @@ class PublishHubScreen extends StatelessWidget {
   IconData _statusIcon(ManuscriptStatus status) => switch (status) {
         ManuscriptStatus.draft => Icons.edit_note,
         ManuscriptStatus.formatted => Icons.format_quote,
-        ManuscriptStatus.submitted => Icons.send,
+        ManuscriptStatus.readyToSubmit || ManuscriptStatus.submitted =>
+          Icons.format_quote,
       };
 
   String _statusLabel(BuildContext context, PublishManuscript m) {
-    final status = switch (m.status) {
-      ManuscriptStatus.draft => context.t('مسودة', 'Draft'),
-      ManuscriptStatus.formatted => context.t('منسّق', 'Formatted'),
-      ManuscriptStatus.submitted => context.t('مُقدَّم', 'Submitted'),
-    };
+    final status = manuscriptStatusLabel(
+      m.status,
+      isEnglish: Localizations.localeOf(context).languageCode != 'ar',
+    );
     if (m.journalName != null && m.journalName!.isNotEmpty) {
       return '$status · ${m.journalName}';
     }

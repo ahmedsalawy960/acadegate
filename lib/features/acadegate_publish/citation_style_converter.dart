@@ -53,7 +53,7 @@ class CitationStyleConverter {
       body: convert(manuscript.body),
       bodyBlocks: [
         for (final block in manuscript.bodyBlocks)
-          block.type == ManuscriptBlockType.paragraph &&
+          !block.preserveCitationText && block.type == ManuscriptBlockType.paragraph &&
                   !CitationLinker.isEquationNumberLine(block.text) &&
                   ManuscriptStructureAdvisor.numberRoleFor(block.text) !=
                       'equation_number'
@@ -172,7 +172,7 @@ class CitationStyleConverter {
   }
 
   static bool _skipCitationScan(ManuscriptBlock block, bool inReferences) {
-    if (inReferences) return true;
+    if (inReferences || block.preserveCitationText) return true;
     if (block.type == ManuscriptBlockType.equation) return true;
     if (block.type == ManuscriptBlockType.heading) return true;
     final role = ManuscriptStructureAdvisor.numberRoleFor(block.text);

@@ -24,6 +24,19 @@ class JournalGuidelinesHeuristic {
       }
       out[key] = value;
     });
+    // Richer extraction cannot silently erase source-side style uncertainty.
+    if (heuristic['citationStyleUnresolved'] == true) {
+      out.remove('citationStyle');
+      out.remove('referenceListPlainNumber');
+      out['citationStyleUnresolved'] = true;
+      out['citationStyleUncertainty'] = heuristic['citationStyleUncertainty'];
+      _removeCitationClaims(out);
+    }
+    // Explicit sizes read directly from source wording outrank model guesses.
+    for (final key in ['bodyFontSizePt', 'titleFontSizePt',
+      'headingFontSizePt', 'referenceFontSizePt']) {
+      if (heuristic[key] != null) out[key] = heuristic[key];
+    }
     out['found'] = true;
     return out;
   }
@@ -36,6 +49,7 @@ class JournalGuidelinesHeuristic {
     if (text.length < 15) return null;
 
     final lower = text.toLowerCase();
+    final excerpt = text.replaceAll(RegExp(r'\s+'), ' ');
 
     final rules = <String, dynamic>{
       'found': false,
@@ -43,10 +57,10 @@ class JournalGuidelinesHeuristic {
       'keyRequirements': <String>[],
       'sectionOrder': <String>[],
       'acceptedFileFormats': <String>[],
-      'excerpt': text.replaceAll(RegExp(r'\s+'), ' ').substring(
-            0,
-            text.length > 350 ? 350 : text.length,
-          ),
+      'excerpt': excerpt.substring(
+        0,
+        excerpt.length > 350 ? 350 : excerpt.length,
+      ),
     };
 
     if (_has(
@@ -71,13 +85,54 @@ class JournalGuidelinesHeuristic {
       rules['found'] = true;
     }
 
+    // Local exceptions and optional font lists cannot set whole-paper fonts.
+    // Keep these out of font extraction without discarding other guide rules.
+    final fontLines = <String>[];
+    final headingScopes = <int, bool>{};
+    final localFontScope = RegExp(
+      r'\b(tables?|figures?|images?|graphical abstract|captions?|legends?|'
+      r'artwork|chemical structures?|atom labels?|latex|tex|'
+      r'special characters?|insert symbol|character code|diacritics?|'
+      r'phonetic symbols?|transliterated Arabic|European accents?)\b',
+      caseSensitive: false,
+    );
+    for (final raw in text.split('\n')) {
+      final heading = RegExp(r'^\s*(#{1,6})\s+(.+)$').firstMatch(raw);
+      if (heading != null) {
+        final level = heading.group(1)!.length;
+        headingScopes.removeWhere((key, _) => key >= level);
+        headingScopes[level] = localFontScope.hasMatch(heading.group(2)!);
+        continue;
+      }
+      if (headingScopes.values.any((excluded) => excluded)) continue;
+      for (final line in raw.split(RegExp(r'(?<=[.!?])\s+'))) {
+        if (localFontScope.hasMatch(line) || RegExp(
+          r'fonts?\s+such as|(?:recommended|suggested)\s+fonts?|'
+          r'(?:may|can)\s+(?:choose|use)\s+(?:either\s+)?(?:Times New Roman|Arial)|'
+          r'(?:Greek|Hebrew|Cyrillic)\s+(?:letters?|characters?)|'
+          r'(?:font|typeface)[^.]{0,60}dropdown menu',
+          caseSensitive: false,
+        ).hasMatch(line)) {
+          continue;
+        }
+        if (RegExp(r'\b(?:title|headings?|references?|captions?|footnotes?)\b',
+            caseSensitive: false).hasMatch(line) &&
+            !RegExp(r'\b(?:body|main text|manuscript text)\b',
+              caseSensitive: false).hasMatch(line)) {
+          continue;
+        }
+        fontLines.add(line);
+      }
+    }
+    final bodyFontText = fontLines.join('\n');
+
     if (_has(
-      text,
+      bodyFontText,
       r'(?:font|typeface|type face)[^.]{0,40}times new roman|times new roman[^.]{0,40}(?:font|typeface)|تايمز',
     )) {
       rules['fontFamily'] = 'Times New Roman';
     } else if (_has(
-      text,
+      bodyFontText,
       r'(?:font|typeface)[^.]{0,30}\barial\b|\barial\b[^.]{0,30}(?:font|typeface)|أريال',
     )) {
       rules['fontFamily'] = 'Arial';
@@ -87,7 +142,7 @@ class JournalGuidelinesHeuristic {
       r'(?:font|typeface|text)[^.\d]{0,40}(\d{1,2})[\s-]?(?:point|pt|نقطة)|'
       r'(\d{1,2})[\s-]?(?:point|pt|نقطة)[^.]{0,30}(?:font|typeface)',
       caseSensitive: false,
-    ).firstMatch(text);
+    ).firstMatch(bodyFontText);
     if (fontPt != null) {
       final pt = int.parse(fontPt.group(1) ?? fontPt.group(2)!);
       if (pt >= 8 && pt <= 16) {
@@ -173,6 +228,13 @@ class JournalGuidelinesHeuristic {
       rules['found'] = true;
     }
 
+    if (RegExp(r'(?:one of|either)[^.]{0,140}harvard[^.]{0,100}(?:or|and)[^.]{0,50}vancouver|(?:one of|either)[^.]{0,140}vancouver[^.]{0,100}(?:or|and)[^.]{0,50}harvard', caseSensitive: false).hasMatch(text)) {
+      rules.remove('citationStyle');
+      rules.remove('referenceListPlainNumber');
+      (rules['keyRequirements'] as List).removeWhere((item) => item == 'ACS citation style' || item == 'IEEE citation style' || item == 'APA citation style' || item == 'Numbered references (Vancouver/IEEE)' || item == 'References as 1., 2., 3. without brackets in list');
+      rules['citationStyleUnresolved'] = true;
+    }
+
     final refExample = _extractReferenceExample(text);
     if (refExample != null) {
       rules['referenceExample'] = refExample;
@@ -188,11 +250,30 @@ class JournalGuidelinesHeuristic {
       rules['found'] = true;
     }
 
-    if (_has(text, r'two[\s-]?column|double[\s-]?column|2[\s-]?column|عمودين')) {
+    // Figure widths, LaTeX resources and revised-stage rules do not establish
+    // an unqualified manuscript column requirement.
+    final columnLines = <String>[];
+    final columnScopes = <int, bool>{};
+    for (final raw in text.split('\n')) {
+      final heading = RegExp(r'^\s*(#{1,6})\s+(.+)$').firstMatch(raw);
+      if (heading != null) {
+        final level = heading.group(1)!.length;
+        columnScopes.removeWhere((key, _) => key >= level);
+        columnScopes[level] = RegExp(r'revised|revision|latex|tex|figures?|artwork|tables?', caseSensitive: false).hasMatch(heading.group(2)!);
+        continue;
+      }
+      if (columnScopes.values.any((excluded) => excluded)) continue;
+      for (final sentence in raw.split(RegExp(r'(?<=[.!?])\s+'))) {
+        if (RegExp(r'figures?|images?|artwork|width|equations?|latex|template|revised', caseSensitive: false).hasMatch(sentence)) continue;
+        if (RegExp(r'manuscript|article|main text|body text|submission|paper|عمود', caseSensitive: false).hasMatch(sentence)) columnLines.add(sentence);
+      }
+    }
+    final columnText = columnLines.join('\n');
+    if (_has(columnText, r'two[\s-]?column|double[\s-]?column|2[\s-]?column|عمودين')) {
       rules['columns'] = 2;
       (rules['keyRequirements'] as List).add('Two-column layout');
       rules['found'] = true;
-    } else if (_has(text, r'single[\s-]?column|one[\s-]?column|عمود واحد')) {
+    } else if (_has(columnText, r'single[\s-]?column|one[\s-]?column|عمود واحد')) {
       rules['columns'] = 1;
       rules['found'] = true;
     }
@@ -348,6 +429,20 @@ class JournalGuidelinesHeuristic {
           .add('Figure legends below the figure');
       rules['found'] = true;
     }
+    final continuousLines = text.split(RegExp(r'(?<=[.!?])\s+|\n+')).any((line) {
+      if (RegExp(r'supplement|supporting information|\bmay\b|optional|'
+          r'do not use|without|must not|should not', caseSensitive: false)
+          .hasMatch(line)) {
+        return false;
+      }
+      return RegExp(r'\b(?:use|include|required|must|should)\b[^.!?]{0,100}'
+          r'continuous line numbers?', caseSensitive: false).hasMatch(line);
+    });
+    if (continuousLines) {
+      rules['continuousLineNumbers'] = true;
+      (rules['keyRequirements'] as List).add('Continuous line numbers');
+      rules['found'] = true;
+    }
     if (_has(text, r'page numbers?|ترقيم الصفحات')) {
       rules['pageNumbers'] = true;
     }
@@ -363,6 +458,15 @@ class JournalGuidelinesHeuristic {
     if (titlePt != null) {
       rules['titleFontSizePt'] = int.parse(titlePt.group(1)!);
       rules['found'] = true;
+    }
+
+    for (final role in {'heading': r'headings?', 'reference': r'references?'}.entries) {
+      final size = RegExp('${role.value}[^.]{0,40}?(\\d{1,2})\\s*(?:point|pt|نقطة)',
+        caseSensitive: false).firstMatch(text);
+      if (size != null) {
+        rules['${role.key}FontSizePt'] = int.parse(size.group(1)!);
+        rules['found'] = true;
+      }
     }
 
     final formats = <String>[];
@@ -400,10 +504,128 @@ class JournalGuidelinesHeuristic {
       }
     }
 
+    _scopeCitationEvidence(text, rules);
+
     if (requireDistinctive) {
       return _isDistinctive(rules) ? rules : null;
     }
     return rules['found'] == true ? rules : null;
+  }
+
+  /// A style name in a cited work, abbreviation resource or optional policy
+  /// is not a mandatory style for this manuscript. Keep uncertainty explicit
+  /// so example inference and richer extraction cannot revive a guess.
+  static void _scopeCitationEvidence(String text, Map<String, dynamic> rules) {
+    var style = rules['citationStyle']?.toString();
+    final compact = text.replaceAll(RegExp(r'\s+'), ' ');
+    final flexible = RegExp(
+      r'(?:references?|reference style)[^.]{0,100}(?:any style|any reference style)|'
+      r'accept any reference style|'
+      r'(?:free[ -]format|format[ -]free)[^.]{0,300}(?:references?|reference style)|'
+      r'(?:references?|reference style)[^.]{0,300}(?:free[ -]format|format[ -]free)',
+      caseSensitive: false,
+    ).hasMatch(compact);
+    final candidates = <String>{};
+    final conditionalHeadings = <int, bool>{};
+    for (final raw in text.split('\n')) {
+      final heading = RegExp(r'^\s*(#{1,6})\s+(.+)').firstMatch(raw);
+      if (heading != null) {
+        final level = heading.group(1)!.length;
+        conditionalHeadings.removeWhere((key, _) => key >= level);
+        conditionalHeadings[level] = RegExp(
+          r'revis(?:ed|ion)|accept(?:ed|ance)|production',
+          caseSensitive: false,
+        ).hasMatch(heading.group(2)!);
+      }
+      for (final sentence in raw.split(RegExp(r'(?<=[.!?])\s+'))) {
+        if (conditionalHeadings.values.any((value) => value) ||
+            RegExp(
+              r'\b(?:may|optional|suggest|recommend|prefer|example|sample|abbreviat|'
+              r'chemical abstracts|journal titles?|typesett|if you wish|'
+              r'not required|not mandatory|not necessary|do not|does not|'
+              r'need not|no particular|no specific|for information only|'
+              r'revised manuscript|after acceptance)\w*\b',
+              caseSensitive: false,
+            ).hasMatch(sentence)) {
+          continue;
+        }
+        // A reference entry naming a manual/society is still source content.
+        if (RegExp(r'\b(?:19|20)\d{2}\b').hasMatch(sentence) ||
+            RegExp(r'https?://|doi\b', caseSensitive: false).hasMatch(sentence)) {
+          continue;
+        }
+        for (final named in [
+          'acs',
+          'ieee',
+          'apa',
+          'harvard',
+          'chicago',
+          'vancouver',
+        ]) {
+          if (RegExp('\\b$named\\b', caseSensitive: false).hasMatch(sentence) &&
+              RegExp(
+                r'\b(?:must|shall|should|follow|use|uses|using|required|formatted|prepared|conform)\b',
+                caseSensitive: false,
+              ).hasMatch(sentence)) {
+            candidates.add(named);
+          }
+        }
+        if (RegExp(
+          r'(?:references?|citations?|in.text|reference numbers)[^.]{0,100}(?:numbered|sequential|square brackets|\[\s*\d*\s*\])|numbered references',
+          caseSensitive: false,
+        ).hasMatch(sentence)) {
+          candidates.add('vancouver');
+        }
+      }
+    }
+    // IEEE explicitly named alongside numeric instructions is one style.
+    if (candidates.contains('ieee') &&
+        !RegExp(r'\bvancouver\b', caseSensitive: false).hasMatch(text)) {
+      candidates.remove('vancouver');
+      if (candidates.length == 1) {
+        style = 'ieee';
+        rules['citationStyle'] = style;
+      }
+    }
+    // Preserve the existing bracket/list variant when numeric evidence agrees.
+    final numeric =
+        candidates.length == 1 &&
+        candidates.contains('vancouver') &&
+        (style == 'ieee' || style == 'vancouver');
+    final valid =
+        !flexible &&
+        rules['citationStyleUnresolved'] != true &&
+        (numeric || (candidates.length == 1 && candidates.contains(style)));
+    final conditional =
+        !valid &&
+        (style != null ||
+            flexible ||
+            rules['referenceExample'] != null ||
+            rules['inTextExample'] != null ||
+            candidates.isNotEmpty ||
+            RegExp(r'\b(?:apa|acs|ieee|harvard|chicago|vancouver)\b',
+              caseSensitive: false).hasMatch(text));
+    if (!conditional) return;
+    rules.remove('citationStyle');
+    rules.remove('referenceListPlainNumber');
+    rules['citationStyleUnresolved'] = true;
+    rules['citationStyleUncertainty'] = flexible
+        ? 'Reference style is optional/free-format or depends on submission stage.'
+        : 'No single unqualified reference-style instruction was established.';
+    _removeCitationClaims(rules);
+    (rules['keyRequirements'] as List).add(rules['citationStyleUncertainty']);
+    rules['found'] = true;
+  }
+
+  static void _removeCitationClaims(Map<String, dynamic> rules) {
+    if (rules['keyRequirements'] is! List) return;
+    (rules['keyRequirements'] as List).removeWhere(
+      (item) => RegExp(
+        r'ACS citation style|IEEE citation style|APA citation style|'
+        r'Numbered references|References as 1|In-text \[n\]',
+        caseSensitive: false,
+      ).hasMatch(item.toString()),
+    );
   }
 
   static bool _isDistinctive(Map<String, dynamic> rules) {
@@ -412,6 +634,9 @@ class JournalGuidelinesHeuristic {
     if (rules['citationStyle'] != null) n++;
     if (rules['lineSpacing'] != null) n++;
     if (rules['bodyFontSizePt'] != null) n++;
+    if (rules['titleFontSizePt'] != null) n++;
+    if (rules['headingFontSizePt'] != null) n++;
+    if (rules['referenceFontSizePt'] != null) n++;
     if (rules['columns'] != null) n++;
     if (rules['firstLineIndentCm'] != null) n++;
     if (rules['abstractMaxWords'] != null) n++;

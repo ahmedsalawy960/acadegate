@@ -1,5 +1,4 @@
 import 'academic_text.dart';
-import 'citation_style_shapes.dart';
 import 'publish_models.dart';
 
 /// One job: an in-text cite is the same work as a bibliography row.
@@ -17,6 +16,7 @@ class BibliographyMatch {
         ].whereType<_Row>().toList();
 
   final List<PublishReference> _refs;
+  List<PublishReference> get references => List.unmodifiable(_refs);
   final Map<int, PublishReference> _byNumber;
   final List<_Row> _rows;
 
@@ -55,11 +55,24 @@ class BibliographyMatch {
     if (last.length < 2) return null;
     final y = _digitsYear(year);
     if (y.length < 4) return null;
-    final extras = CitationStyleShapes.lastNamesFromCitation(authorPart)
-        .where((n) => n != last)
-        .toList();
-    final wanted = {last, ...extras};
-    return _bestYearHit(y, wanted, suffix: _yearSuffix(year));
+    final parts = authorPart
+        .replaceAll(RegExp(r'\b[Ee]ds?\.?\b'), '')
+        .replaceAll(RegExp(r'\s+et\s+al\.?', caseSensitive: false), '')
+        .split(RegExp(r'\s+(?:and|&)\s+|,', caseSensitive: false));
+    final wanted = <String>{last};
+    for (final part in parts) {
+      final value = part.trim();
+      if (value.isEmpty ||
+          (RegExp(r'^(?:[A-Z]\.?\s*)+$').hasMatch(value) ||
+              RegExp(r'^[A-Z][a-z]+\s+[A-Z]{1,3}$').hasMatch(value))) {
+        continue;
+      }
+      final name = lastNameFromAuthor(value);
+      if (name.length >= 2) wanted.add(name);
+    }
+    return _bestYearHit(
+      y, wanted, suffix: _yearSuffix(year), requireAllNames: true,
+    );
   }
 
   PublishReference? byLastNames(List<String> names, {String? year}) {
@@ -80,6 +93,7 @@ class BibliographyMatch {
     Set<String> wanted, {
     bool yearRequired = true,
     String suffix = '',
+    bool requireAllNames = false,
   }) {
     final hits = <({PublishReference ref, int score})>[];
     for (final row in _rows) {
@@ -89,6 +103,8 @@ class BibliographyMatch {
       if (suffix.isNotEmpty && rowSuffix.isNotEmpty && rowSuffix != suffix) {
         continue;
       }
+      // Every named author is evidence, not a vote to ignore a mismatch.
+      if (requireAllNames && !wanted.every(row.names.contains)) continue;
       var score = 0;
       for (final name in wanted) {
         if (row.names.contains(name)) score += 3;
@@ -104,9 +120,9 @@ class BibliographyMatch {
     }
     final tied = hits.where((h) => h.score == best.score).toList();
     if (tied.length == 1) return best.ref;
-    // Same surnames+year: keep the imported number if the cite was numbered;
-    // otherwise the first file-order row with that score.
-    return best.ref;
+    // Equal surname/year evidence cannot identify one work. Keep it unresolved;
+    // explicit imported numbers still resolve through byNumber.
+    return null;
   }
 
   static int? importedNumberOf(PublishReference ref) {

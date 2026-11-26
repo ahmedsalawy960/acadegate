@@ -11,6 +11,11 @@ import 'publish_models.dart';
 class BibliographyStyleAdvisor {
   BibliographyStyleAdvisor._();
 
+  /// Offline request seam; bypasses model availability and cache in tests.
+  @visibleForTesting
+  static Future<List<String>?> Function(List<String> sources)?
+  requestLinesForTesting;
+
   static final _cache = <String, List<String>>{};
 
   static Future<List<String>?> restyle({
@@ -21,7 +26,7 @@ class BibliographyStyleAdvisor {
     bool plainNumbers = false,
   }) async {
     if (references.isEmpty) return const [];
-    if (!_modelAvailable) return null;
+    if (requestLinesForTesting == null && !_modelAvailable) return null;
     final local = [
       for (var i = 0; i < references.length; i++)
         CitationFormatter.buildBibliographyEntry(
@@ -31,17 +36,18 @@ class BibliographyStyleAdvisor {
           plainNumberList: plainNumbers,
         ).plain.trim(),
     ];
-    final key = '${style.name}|$plainNumbers|${referenceExample ?? ''}|'
+    final key =
+        '${style.name}|$plainNumbers|${referenceExample ?? ''}|'
         '${local.join('\n')}';
     final cached = _cache[key];
-    if (cached != null) return cached;
+    if (requestLinesForTesting == null && cached != null) return cached;
 
     final numbered = CitationFormatter.isNumberedStyle(style);
     final marker = !numbered
         ? 'Do not add numbers. Keep author–date form.'
-        : (plainNumbers
-            ? 'Every line starts with the same marker: 1. 2. 3.'
-            : 'Every line starts with the same marker: [1] [2] [3].');
+        : (plainNumbers || style == PublishCitationStyle.acs
+              ? 'Every line starts with the same marker: 1. 2. 3.'
+              : 'Every line starts with the same marker: [1] [2] [3].');
     final sample = (referenceExample ?? '').trim();
     final inText = (inTextExample ?? '').trim();
 
@@ -65,16 +71,16 @@ class BibliographyStyleAdvisor {
         if (lines == null || lines.length != end - start) continue;
         for (var i = 0; i < lines.length; i++) {
           final source = _sourceLine(references[start + i], local[start + i]);
-          if (_keepsFacts(
-            source,
-            lines[i],
-            numbered: sample.isEmpty ? numbered : _sampleIsNumbered(sample),
-          )) {
-            out[start + i] = _alignToSample(
-              local: local[start + i],
-              model: lines[i],
-              sample: sample,
-            );
+          if (_keepsFacts(source, lines[i])) {
+            out[start + i] = CitationFormatter.applyListNumberPolicy(
+              BibliographyEntry([BibliographySpan(lines[i])]),
+              style: style,
+              index: CitationFormatter.bibliographyIndex(
+                references[start + i],
+                start + i + 1,
+              ),
+              plainNumberList: plainNumbers,
+            ).plain;
             anyModel = true;
           }
         }
@@ -83,7 +89,7 @@ class BibliographyStyleAdvisor {
       }
     }
     if (!anyModel) return null;
-    _cache[key] = out;
+    if (requestLinesForTesting == null) _cache[key] = out;
     if (_cache.length > 4) _cache.remove(_cache.keys.first);
     return out;
   }
@@ -110,14 +116,24 @@ class BibliographyStyleAdvisor {
     required String inText,
     required int indexBase,
   }) async {
+    final request = requestLinesForTesting;
+    if (request != null) {
+      return request([
+        for (var i = 0; i < references.length; i++)
+          _sourceLine(references[i], local[i]),
+      ]);
+    }
     final input = StringBuffer();
     for (var i = 0; i < references.length; i++) {
-      input.writeln('${indexBase + i + 1}\t${_sourceLine(references[i], local[i])}');
+      input.writeln(
+        '${indexBase + i + 1}\t${_sourceLine(references[i], local[i])}',
+      );
     }
     final result = await GeminiAdvisorClient.instance.generateResult(
       preferPro: true,
       maxOutputTokens: 8192,
-      systemPrompt: '''
+      systemPrompt:
+          '''
 You are the references editor of a scientific journal. Restyle each source line into one consistent reference list.
 
 Target style: ${style.name}.
@@ -157,11 +173,7 @@ Rules:
     return out;
   }
 
-  static bool _keepsFacts(
-    String source,
-    String line, {
-    required bool numbered,
-  }) {
+  static bool _keepsFacts(String source, String line) {
     if (line.trim().length < 8) return false;
     final year = RegExp(r'(?:19|20)\d{2}').firstMatch(source)?.group(0);
     if (year != null && !line.contains(year)) return false;
@@ -174,48 +186,6 @@ Rules:
     if (token != null && !line.toLowerCase().contains(token.toLowerCase())) {
       return false;
     }
-    if (numbered) {
-      final bracket = RegExp(r'^\[\d+\]').hasMatch(line.trim());
-      final plain = RegExp(r'^\d+\.\s').hasMatch(line.trim());
-      if (!bracket && !plain) return false;
-    }
     return true;
-  }
-
-  static bool _sampleIsNumbered(String sample) {
-    final t = sample.trim();
-    return RegExp(r'^\[\d+\]').hasMatch(t) || RegExp(r'^\d+\.').hasMatch(t);
-  }
-
-  static String _alignToSample({
-    required String local,
-    required String model,
-    required String sample,
-  }) {
-    if (sample.trim().isEmpty) return _withLocalPrefix(local, model);
-    final body = model.trim().replaceFirst(
-          RegExp(r'^(?:\[\d+\]|\d+\.)\s*'),
-          '',
-        );
-    if (!_sampleIsNumbered(sample)) return body;
-    final plain = RegExp(r'^\d+\.').hasMatch(sample.trim());
-    final prefix =
-        RegExp(r'^(?:\[\d+\]|\d+\.)\s*').firstMatch(local.trim())?.group(0);
-    if (prefix == null) return model.trim();
-    final wantedPlain = RegExp(r'^\d+\.').hasMatch(prefix);
-    if (wantedPlain == plain) return '$prefix$body';
-    final number = RegExp(r'\d+').firstMatch(prefix)?.group(0) ?? '1';
-    return plain ? '$number. $body' : '[$number] $body';
-  }
-
-  static String _withLocalPrefix(String local, String model) {
-    final prefix =
-        RegExp(r'^(?:\[\d+\]|\d+\.)\s*').firstMatch(local.trim())?.group(0);
-    final body = model.trim().replaceFirst(
-          RegExp(r'^(?:\[\d+\]|\d+\.)\s*'),
-          '',
-        );
-    if (prefix == null) return body;
-    return '$prefix$body';
   }
 }

@@ -20,7 +20,7 @@ void main() {
           'J. Agric. Food Chem. 2017, 65, 1234-1240. Use numbered citations [1].'
           '</w:t></w:r></w:p>'
           '<w:sectPr><w:pgSz w:w="11906" w:h="16838"/>'
-          '<w:pgMar w:top="1440"/><w:cols w:num="1"/></w:sectPr>'
+          '<w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/><w:cols w:num="1"/></w:sectPr>'
           '</w:body></w:document>',
         ),
       ))
@@ -34,7 +34,7 @@ void main() {
           '<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/>'
           '<w:sz w:val="24"/>'
           '</w:rPr></w:rPrDefault></w:docDefaults>'
-          '<w:style><w:pPr><w:spacing w:line="480" w:lineRule="auto"/></w:pPr></w:style>'
+          '<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:pPr><w:spacing w:line="480" w:lineRule="auto"/></w:pPr></w:style>'
           '</w:styles>',
         ),
       ));

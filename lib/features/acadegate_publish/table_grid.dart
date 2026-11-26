@@ -5,6 +5,7 @@
 class TableGridData {
   final List<List<String>> rows;
   final List<List<String>> rowCellImages;
+  final List<List<String>> rowCellMath;
   final List<List<int>> colSpans;
   final List<List<int>> rowSpans;
   /// Column widths in fiftieths of a percent (sum ≈ 5000). Empty = unknown.
@@ -13,6 +14,7 @@ class TableGridData {
   const TableGridData({
     required this.rows,
     required this.rowCellImages,
+    this.rowCellMath = const [],
     required this.colSpans,
     required this.rowSpans,
     this.columnWidthsPct = const [],
@@ -24,6 +26,7 @@ class TableGridData {
 class WordTableCell {
   final String text;
   final String imageUrl;
+  final String mathXml;
   final int colSpan;
   final bool vMergeContinue;
   final int gridBefore;
@@ -32,6 +35,7 @@ class WordTableCell {
   const WordTableCell({
     required this.text,
     this.imageUrl = '',
+    this.mathXml = '',
     this.colSpan = 1,
     this.vMergeContinue = false,
     this.gridBefore = 0,
@@ -76,6 +80,7 @@ class TableGrid {
   }) {
     final rows = <List<String>>[];
     final images = <List<String>>[];
+    final maths = <List<String>>[];
     final colSpans = <List<int>>[];
     final rowSpans = <List<int>>[];
 
@@ -83,6 +88,7 @@ class TableGrid {
       while (rows.length <= r) {
         rows.add([]);
         images.add([]);
+        maths.add([]);
         colSpans.add([]);
         rowSpans.add([]);
       }
@@ -93,6 +99,7 @@ class TableGrid {
       while (rows[r].length < cols) {
         rows[r].add('');
         images[r].add('');
+        maths[r].add('');
         colSpans[r].add(1);
         rowSpans[r].add(1);
       }
@@ -111,20 +118,24 @@ class TableGrid {
 
         var text = cell.text;
         var img = cell.imageUrl;
+        var math = cell.mathXml;
         if (cell.vMergeContinue) {
           // Continuation cells are real Word `tc`s but must not duplicate text.
           text = '';
           img = '';
+          math = '';
           rowSpans[r][col] = 0;
         } else {
           rowSpans[r][col] = 1;
         }
         rows[r][col] = text;
         images[r][col] = img;
+        maths[r][col] = math;
         colSpans[r][col] = span;
         for (var i = 1; i < span; i++) {
           rows[r][col + i] = '';
           images[r][col + i] = '';
+          maths[r][col + i] = '';
           colSpans[r][col + i] = 0;
           rowSpans[r][col + i] = 0;
         }
@@ -158,6 +169,7 @@ class TableGrid {
     return TableGridData(
       rows: rows,
       rowCellImages: images,
+      rowCellMath: maths.any((row) => row.any((cell) => cell.isNotEmpty)) ? maths : const [],
       colSpans: colSpans,
       rowSpans: rowSpans,
       columnWidthsPct: widthsToPct(

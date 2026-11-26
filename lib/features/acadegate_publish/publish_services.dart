@@ -217,20 +217,30 @@ class ManuscriptService {
     });
   }
 
-  Future<void> submitToJournal({
+  Future<void> recordJournalWordExport({
     required String manuscriptId,
     required String journalId,
     required String journalName,
   }) async {
-    await _manuscripts.doc(manuscriptId).update({
-      'journalId': journalId,
-      'journalName': journalName,
-      'status': ManuscriptStatus.submitted.name,
-      'submittedAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+    await _manuscripts.doc(manuscriptId).update(
+      journalWordExportUpdate(journalId: journalId, journalName: journalName),
+    );
   }
 }
+
+/// Records a completed Word save, never journal readiness or submission.
+Map<String, dynamic> journalWordExportUpdate({
+  required String journalId,
+  required String journalName,
+}) => {
+  'journalId': journalId,
+  'journalName': journalName,
+  'status': ManuscriptStatus.formatted.name,
+  'wordExportedAt': FieldValue.serverTimestamp(),
+  'readyToSubmitAt': FieldValue.delete(),
+  'submittedAt': FieldValue.delete(),
+  'updatedAt': FieldValue.serverTimestamp(),
+};
 
 class JournalCatalogService {
   JournalCatalogService._();

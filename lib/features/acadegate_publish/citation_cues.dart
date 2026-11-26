@@ -150,7 +150,7 @@ class CitationCues {
       return true;
     }
     if (RegExp(r'^[a-z]').hasMatch(t)) return true;
-    if (!RegExp(r'\b(?:19|20)\d{2}\b').hasMatch(cur) &&
+    if (!RegExp(r'\b(?:19|20)\d{2}[a-z]?\b').hasMatch(cur) &&
         looksLikeAuthorListFragment(cur)) {
       return true;
     }

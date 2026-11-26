@@ -267,6 +267,11 @@ class BibliographyCiteAligner {
             (folded.length >= 4 && n.startsWith(folded)),
       );
       if (!hit) continue;
+      // A surname may occur in a URL hostname or path. It is not an entry
+      // boundary unless it begins a new whitespace-delimited token.
+      if (m.start > 0 && !RegExp(r'\s').hasMatch(blob[m.start - 1])) {
+        continue;
+      }
       if (m.start == 0) return 0;
       final before = blob.substring(0, m.start);
       final ended = RegExp(r'\b(?:19|20)\d{2}[a-z]?\s*[.;]?\s*$').hasMatch(before) ||
@@ -275,7 +280,10 @@ class BibliographyCiteAligner {
             caseSensitive: false,
           ).hasMatch(before) ||
           RegExp(r'\.\s+$').hasMatch(before);
-      if (ended) return m.start;
+      // A matching organization word may also be in a title or place name.
+      // The proposed new work needs its own date after its author lead.
+      final suffix = blob.substring(m.start);
+      if (ended && RegExp(r'\b(?:19|20)\d{2}[a-z]?\b').hasMatch(suffix)) return m.start;
     }
     return null;
   }
@@ -378,9 +386,19 @@ class BibliographyCiteAligner {
         null;
   }
 
+  static String _identityDigits(String text) {
+    const sub = '₀₁₂₃₄₅₆₇₈₉';
+    const sup = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+    var result = text;
+    for (var i = 0; i < 10; i++) {
+      result = result.replaceAll(sub[i], '$i').replaceAll(sup[i], '$i');
+    }
+    return result;
+  }
+
   static bool _rawOverlap(String a, String b) {
     String compact(String s) =>
-        AcademicText.foldLatin(s).replaceAll(RegExp(r'[^a-z0-9]+'), '');
+        AcademicText.foldLatin(_identityDigits(s)).replaceAll(RegExp(r'[^a-z0-9]+'), '');
     final ka = compact(a);
     final kb = compact(b);
     if (ka.length < 24 || kb.length < 24) return ka == kb && ka.isNotEmpty;

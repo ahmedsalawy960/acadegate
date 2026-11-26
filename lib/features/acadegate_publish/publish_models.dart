@@ -20,7 +20,30 @@ enum InTextCitationForm {
   superscript,
 }
 
-enum ManuscriptStatus { draft, formatted, submitted }
+enum ManuscriptStatus {
+  draft,
+  formatted,
+  // Legacy export-only values. Retained for compatibility, never newly written.
+  readyToSubmit,
+  submitted,
+}
+
+ManuscriptStatus manuscriptStatusFromStored(Object? value) {
+  // Both values were written solely after Word export, without readiness checks.
+  if (value == 'submitted' || value == 'readyToSubmit') {
+    return ManuscriptStatus.formatted;
+  }
+  return ManuscriptStatus.values.firstWhere(
+    (status) => status.name == value,
+    orElse: () => ManuscriptStatus.draft,
+  );
+}
+
+/// Formatting is a recorded action, not a journal-compliance assessment.
+String manuscriptStatusLabel(ManuscriptStatus status, {required bool isEnglish}) {
+  if (status == ManuscriptStatus.draft) return isEnglish ? 'Draft' : 'مسودة';
+  return isEnglish ? 'Formatted - review required' : 'منسّق - يحتاج مراجعة';
+}
 
 enum ReferenceType { journal, book, web, conference }
 
@@ -168,6 +191,7 @@ class PublishReference {
   static int? numberFromImportedLine(String raw) {
     final t = AcademicText.westernDigits(raw.trim());
     final m = RegExp(r'^\[(\d{1,3})\]').firstMatch(t) ??
+        RegExp(r'^\((\d{1,3})\)(?:\s|$)').firstMatch(t) ??
         RegExp(r'^(\d{1,3})[.)](?:\s|$)').firstMatch(t) ??
         RegExp(r'^(\d{1,3})[.)](?=[A-Z])').firstMatch(t);
     return m == null ? null : int.tryParse(m.group(1)!);
@@ -175,6 +199,8 @@ class PublishReference {
 }
 
 class ManuscriptBlock {
+  /// Supplementary bibliography text belongs to its own printed scope.
+  final bool preserveCitationText;
   final String id;
   final ManuscriptBlockType type;
   final String text;
@@ -183,6 +209,10 @@ class ManuscriptBlock {
   final List<List<String>> rows;
   /// Image URL per table cell (same shape as [rows]); empty = text-only cell.
   final List<List<String>> rowCellImages;
+  /// Native math cell fragments with an exact text snapshot, for unchanged cells.
+  final List<List<String>> rowCellMath;
+  /// Only true when all six source table borders explicitly say none/nil.
+  final bool borderless;
   /// Word `gridSpan`. 0 = covered by a cell to the left (do not emit `tc`).
   final List<List<int>> colSpans;
   /// Word vertical merge. 0 = continuation row; >1 = restart with rowspan.
@@ -196,6 +226,7 @@ class ManuscriptBlock {
   final String? ommlXml;
 
   const ManuscriptBlock({
+    this.preserveCitationText = false,
     required this.id,
     required this.type,
     this.text = '',
@@ -203,6 +234,8 @@ class ManuscriptBlock {
     this.caption,
     this.rows = const [],
     this.rowCellImages = const [],
+    this.rowCellMath = const [],
+    this.borderless = false,
     this.colSpans = const [],
     this.rowSpans = const [],
     this.columnWidthsPct = const [],
@@ -215,6 +248,8 @@ class ManuscriptBlock {
         'id': id,
         'type': type.name,
         'text': text,
+        if (preserveCitationText) 'preserveCitationText': true,
+        if (borderless) 'borderless': true,
         if (imageUrl != null) 'imageUrl': imageUrl,
         if (caption != null && caption!.isNotEmpty) 'caption': caption,
         if (ommlXml != null && ommlXml!.isNotEmpty) 'ommlXml': ommlXml,
@@ -224,6 +259,8 @@ class ManuscriptBlock {
           'rowCells': rows
               .map((cells) => {'cells': cells})
               .toList(),
+        if (rowCellMath.isNotEmpty)
+          'rowCellMath': rowCellMath.map((cells) => {'cells': cells}).toList(),
         if (rowCellImages.isNotEmpty)
           'rowCellImages': rowCellImages
               .map((cells) => {'cells': cells})
@@ -377,11 +414,13 @@ class ManuscriptBlock {
     );
     var rows = _rowsFromMap(map['rowCells'] ?? map['rows']);
     var cellImages = _rowsFromMap(map['rowCellImages']);
+    var cellMath = _rowsFromMap(map['rowCellMath']);
     var colSpans = _intGridFromMap(map['colSpans']);
     var rowSpans = _intGridFromMap(map['rowSpans']);
     if (type == ManuscriptBlockType.table) {
       rows = normalizedRows(rows);
       cellImages = normalizedCellImages(cellImages, rows);
+      if (cellMath.isNotEmpty) cellMath = normalizedCellImages(cellMath, rows);
       colSpans = normalizedIntGrid(colSpans, rows);
       rowSpans = normalizedIntGrid(rowSpans, rows);
     }
@@ -390,10 +429,13 @@ class ManuscriptBlock {
       id: map['id']?.toString() ?? '',
       type: type,
       text: map['text']?.toString() ?? '',
+      preserveCitationText: map['preserveCitationText'] == true,
       imageUrl: map['imageUrl']?.toString(),
       caption: map['caption']?.toString(),
       rows: rows,
       rowCellImages: cellImages,
+      rowCellMath: cellMath,
+      borderless: map['borderless'] == true,
       colSpans: colSpans,
       rowSpans: rowSpans,
       columnWidthsPct: _intListFromMap(map['columnWidthsPct']),
@@ -409,18 +451,22 @@ class ManuscriptBlock {
     return block.copyWith(
       rows: rows,
       rowCellImages: normalizedCellImages(block.rowCellImages, rows),
+      rowCellMath: block.rowCellMath.isEmpty ? const [] : normalizedCellImages(block.rowCellMath, rows),
       colSpans: normalizedIntGrid(block.colSpans, rows),
       rowSpans: normalizedIntGrid(block.rowSpans, rows),
     );
   }
 
   ManuscriptBlock copyWith({
+    bool? preserveCitationText,
     ManuscriptBlockType? type,
     String? text,
     String? imageUrl,
     String? caption,
     List<List<String>>? rows,
     List<List<String>>? rowCellImages,
+    List<List<String>>? rowCellMath,
+    bool? borderless,
     List<List<int>>? colSpans,
     List<List<int>>? rowSpans,
     List<int>? columnWidthsPct,
@@ -431,11 +477,14 @@ class ManuscriptBlock {
     return ManuscriptBlock(
       id: id,
       type: type ?? this.type,
+      preserveCitationText: preserveCitationText ?? this.preserveCitationText,
       text: text ?? this.text,
       imageUrl: imageUrl ?? this.imageUrl,
       caption: caption ?? this.caption,
       rows: rows ?? this.rows,
       rowCellImages: rowCellImages ?? this.rowCellImages,
+      rowCellMath: rowCellMath ?? this.rowCellMath,
+      borderless: borderless ?? this.borderless,
       colSpans: colSpans ?? this.colSpans,
       rowSpans: rowSpans ?? this.rowSpans,
       columnWidthsPct: columnWidthsPct ?? this.columnWidthsPct,
@@ -572,7 +621,7 @@ class PublishManuscript {
       if (citationStyle != null) 'citationStyle': citationStyle!.name,
       if (journalId != null) 'journalId': journalId,
       if (journalName != null) 'journalName': journalName,
-      'status': status.name,
+      'status': manuscriptStatusFromStored(status.name).name,
       'updatedAt': FieldValue.serverTimestamp(),
     };
   }
@@ -632,10 +681,7 @@ class PublishManuscript {
       citationStyle: style,
       journalId: map['journalId']?.toString(),
       journalName: map['journalName']?.toString(),
-      status: ManuscriptStatus.values.firstWhere(
-        (s) => s.name == map['status'],
-        orElse: () => ManuscriptStatus.draft,
-      ),
+      status: manuscriptStatusFromStored(map['status']),
       updatedAt: (map['updatedAt'] as Timestamp?)?.toDate(),
     );
   }

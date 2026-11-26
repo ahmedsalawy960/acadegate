@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 import 'package:flutter/foundation.dart';
+import 'package:xml/xml.dart';
 
 import '../../core/locale/app_translate.dart';
 import 'academic_text.dart';
@@ -62,6 +63,13 @@ class ManuscriptDocxExportService {
     required JournalFormatRules rules,
     Uint8List? sourceDocxBytes,
   }) async {
+    // Fail before conversion, citation reading, file fetching or output writes.
+    if (!rules.citationStyleResolved) {
+      throw StateError(appTr(
+        'دليل المجلة لم يحدد نمط المراجع. اختر النمط صراحة قبل التصدير.',
+        'The journal guide did not resolve the reference style. Select a style explicitly before export.',
+      ));
+    }
     final embeddedImages = <_DocxEmbeddedImage>[];
     final bodyXml = StringBuffer();
     final style = rules.citationStyle;
@@ -75,9 +83,7 @@ class ManuscriptDocxExportService {
       ),
     );
     final cleanTitle = ManuscriptStructureAdvisor.readingTitle(
-      title: AcademicText.stripTrailingAuthorFromTitle(
-        AcademicText.sanitize(manuscript.title.trim()),
-      ),
+      title: AcademicText.sanitize(manuscript.title.trim()),
       blocks: manuscript.bodyBlocks,
     );
 
@@ -162,7 +168,7 @@ class ManuscriptDocxExportService {
     }
 
     final blocks = JournalSectionLayout.prepareExportBlocks(
-      blocks: rawBlocks,
+      blocks: _withoutRepeatedFrontTitle(rawBlocks, cleanTitle),
       sectionOrder: const [],
       dropAbstractSection: false,
     );
@@ -179,17 +185,25 @@ class ManuscriptDocxExportService {
       sectionHasContent = false;
     }
 
-    for (final block in blocks) {
-      final blockText = AcademicText.sanitize(block.text.trim());
-      if (block.type == ManuscriptBlockType.heading &&
-          (blockText == cleanTitle ||
-              (cleanTitle.length > 20 && blockText.startsWith(cleanTitle)))) {
-        continue;
+    var inTitleRegion = true;
+    for (var blockIndex = 0; blockIndex < blocks.length; blockIndex++) {
+      final originalBlock = blocks[blockIndex];
+      if (blockIndex >= 50 || _titleRegionBoundary(originalBlock)) {
+        inTitleRegion = false;
       }
-      if (block.type == ManuscriptBlockType.paragraph &&
+      var block = originalBlock;
+      var blockText = AcademicText.sanitize(block.text.trim());
+      if ((block.type == ManuscriptBlockType.heading ||
+              block.type == ManuscriptBlockType.paragraph) &&
+          inTitleRegion &&
           cleanTitle.length > 20 &&
           blockText.startsWith(cleanTitle)) {
-        continue;
+        // Title and byline can share one imported paragraph. Never discard
+        // the rest of that paragraph while suppressing the repeated title.
+        final rest = blockText.substring(cleanTitle.length).trimLeft();
+        if (rest.isEmpty) continue;
+        block = block.copyWith(text: rest, type: ManuscriptBlockType.paragraph);
+        blockText = rest;
       }
 
       final wide = block.type == ManuscriptBlockType.table ||
@@ -197,7 +211,11 @@ class ManuscriptDocxExportService {
       final desired = rules.columnCount > 1 && !wide ? 2 : 1;
       closeAndSwitch(desired);
 
-      final exportBlock = block.type == ManuscriptBlockType.heading
+      final authorLine = block.type == ManuscriptBlockType.heading &&
+          DocxScientificExtractor.isFrontMatterAuthorText(block.text);
+      final normalizedBlock = authorLine
+          ? block.copyWith(type: ManuscriptBlockType.paragraph) : block;
+      final exportBlock = normalizedBlock.type == ManuscriptBlockType.heading
           ? block.copyWith(
               text: _formatHeadingText(
                 blockText,
@@ -205,7 +223,7 @@ class ManuscriptDocxExportService {
                 number: ++headingNumber,
               ),
             )
-          : block;
+          : normalizedBlock;
       if (block.type == ManuscriptBlockType.heading &&
           (JournalSectionLayout.isAbstractHeading(block.text) ||
               JournalSectionLayout.isReferencesHeading(block.text) ||
@@ -267,7 +285,13 @@ class ManuscriptDocxExportService {
               for (final line in aiLines)
                 BibliographyEntry([BibliographySpan(line)]),
             ];
-      for (final entry in entries) {
+      for (var i = 0; i < entries.length; i++) {
+        final entry = CitationFormatter.applyListNumberPolicy(
+          entries[i],
+          style: style,
+          index: CitationFormatter.bibliographyIndex(bibRefs[i], i + 1),
+          plainNumberList: rules.referenceListPlainNumber,
+        );
         bodyXml.write(_bibliographyParagraph(entry, rules));
       }
     }
@@ -316,6 +340,56 @@ class ManuscriptDocxExportService {
     return Uint8List.fromList(ZipEncoder().encode(archive));
   }
 
+  static bool _titleRegionBoundary(ManuscriptBlock b) =>
+      b.type == ManuscriptBlockType.heading &&
+      RegExp(
+        r'^(?:\d+[.)]?\s+)?(?:Abstract|Summary|Introduction|Background|Methods|الملخص|المقدمة)\s*[:.]?$',
+        caseSensitive: false,
+      ).hasMatch(b.text.trim());
+
+  /// Remove only source title lines in front matter, retaining bylines and
+  /// affiliations that share their paragraph. Do not rewrite tables or body.
+  static List<ManuscriptBlock> _withoutRepeatedFrontTitle(
+    List<ManuscriptBlock> blocks,
+    String title,
+  ) {
+    String key(String t) =>
+        AcademicText.sanitize(t).replaceAll(RegExp(r'\s+'), ' ').trim();
+    final target = key(title);
+    if (target.length < 20) return blocks;
+    var front = true;
+    final out = <ManuscriptBlock>[];
+    for (var i = 0; i < blocks.length; i++) {
+      final b = blocks[i];
+      if (i >= 50 || _titleRegionBoundary(b)) {
+        front = false;
+      }
+      if (!front ||
+          (b.type != ManuscriptBlockType.heading &&
+              b.type != ManuscriptBlockType.paragraph)) {
+        out.add(b);
+        continue;
+      }
+      final kept = <String>[];
+      for (final line in b.text.split(RegExp(r'\n+'))) {
+        final t = key(line);
+        if (t == target) continue;
+        // Only whole lines, not arbitrary phrases within prose, can be title
+        // continuations. Bounds prevent deleting short common fragments.
+        if (t.length >= 24 &&
+            (target == t || target.startsWith('$t ') ||
+             target.endsWith(' $t') || target.contains(' $t '))) {
+          continue;
+        }
+        kept.add(line);
+      }
+      if (kept.any((t) => t.trim().isNotEmpty)) {
+        out.add(b.copyWith(text: kept.join('\n')));
+      }
+    }
+    return out;
+  }
+
   Future<String> _blockXml(
     ManuscriptBlock block,
     PublishManuscript manuscript,
@@ -323,6 +397,17 @@ class ManuscriptDocxExportService {
     PublishCitationStyle style,
     List<_DocxEmbeddedImage> embeddedImages,
   ) async {
+    // Captions and table cells are emitted by media-specific paths below.
+    // Resolve their citation markers with the same reference map as prose.
+    // Do not touch literal template syntax or separately scoped references.
+    if (!block.preserveCitationText) {
+      String resolve(String text) => _resolveBodyText(
+        text: text, manuscript: manuscript, style: style, rules: rules);
+      block = block.copyWith(
+        caption: block.caption == null ? null : resolve(block.caption!),
+        rows: block.rows.map((row) => row.map(resolve).toList()).toList(),
+      );
+    }
     return switch (block.type) {
       ManuscriptBlockType.heading => _paragraph(
           _resolveBodyText(
@@ -338,8 +423,9 @@ class ManuscriptDocxExportService {
           spacingAfter: 80,
         ),
       ManuscriptBlockType.paragraph => () {
-          final front = DocxScientificExtractor.isFrontMatterAuthorText(block.text);
-          final raw = front
+          final front = !block.preserveCitationText &&
+              DocxScientificExtractor.isFrontMatterAuthorText(block.text);
+          final raw = front || block.preserveCitationText
               ? AcademicText.sanitize(CitationLinker.stripHints(block.text))
               : _resolveBodyText(
                   text: block.text,
@@ -447,7 +533,7 @@ class ManuscriptDocxExportService {
 <w:p>
   <w:pPr>
     <w:jc w:val="center"/>
-    <w:spacing w:before="60" w:after="60" w:line="${rules.lineSpacingExactTwips}" w:lineRule="${rules.lineSpacingRule}"/>
+    <w:spacing w:before="60" w:after="60" w:line="240" w:lineRule="auto"/>
   </w:pPr>
   <w:r>
     <w:drawing>
@@ -718,6 +804,7 @@ class ManuscriptDocxExportService {
       contentTwips: contentTwips,
       fontHalfPoints: tableHalfPoints,
     );
+    final borderValue = block.borderless ? 'nil' : 'single';
     final buffer = StringBuffer();
     buffer.write('<w:tbl>');
     buffer.write('''
@@ -725,12 +812,12 @@ class ManuscriptDocxExportService {
   <w:tblW w:w="$contentTwips" w:type="dxa"/>
   <w:tblLayout w:type="fixed"/>
   <w:tblBorders>
-    <w:top w:val="single" w:sz="4" w:space="0" w:color="000000"/>
-    <w:left w:val="single" w:sz="4" w:space="0" w:color="000000"/>
-    <w:bottom w:val="single" w:sz="4" w:space="0" w:color="000000"/>
-    <w:right w:val="single" w:sz="4" w:space="0" w:color="000000"/>
-    <w:insideH w:val="single" w:sz="4" w:space="0" w:color="000000"/>
-    <w:insideV w:val="single" w:sz="4" w:space="0" w:color="000000"/>
+    <w:top w:val="$borderValue" w:sz="4" w:space="0" w:color="000000"/>
+    <w:left w:val="$borderValue" w:sz="4" w:space="0" w:color="000000"/>
+    <w:bottom w:val="$borderValue" w:sz="4" w:space="0" w:color="000000"/>
+    <w:right w:val="$borderValue" w:sz="4" w:space="0" w:color="000000"/>
+    <w:insideH w:val="$borderValue" w:sz="4" w:space="0" w:color="000000"/>
+    <w:insideV w:val="$borderValue" w:sz="4" w:space="0" w:color="000000"/>
   </w:tblBorders>
   <w:tblCellMar>
     <w:top w:w="40" w:type="dxa"/>
@@ -813,7 +900,12 @@ class ManuscriptDocxExportService {
         final formula = RegExp(r'[A-Z][a-z]?\d').hasMatch(cellText)
             ? DocxScientificExtractor.formatChemicalFormula(cellText)
             : cellText;
-        if (formula.isNotEmpty && rowSpan != 0) {
+        final nativeMath = r < block.rowCellMath.length && c < block.rowCellMath[r].length
+            ? _nativeTableCellMath(block.rowCellMath[r][c], cellText, rules) : '';
+        if (nativeMath.isNotEmpty && rowSpan != 0) {
+          buffer.write(nativeMath);
+          wroteParagraph = true;
+        } else if (formula.isNotEmpty && rowSpan != 0) {
           buffer.write(_paragraph(
             formula,
             rules: rules,
@@ -842,6 +934,29 @@ class ManuscriptDocxExportService {
       ));
     }
     return buffer.toString();
+  }
+
+  String _nativeTableCellMath(String fragment, String text, JournalFormatRules rules) {
+    if (fragment.isEmpty) return '';
+    try {
+      final root = XmlDocument.parse(fragment).rootElement;
+      if (root.localName != 'cell' || root.getAttribute('snapshot') != text) return '';
+      const w = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+      const m = 'http://schemas.openxmlformats.org/officeDocument/2006/math';
+      var hasMath = false;
+      for (final el in root.descendants.whereType<XmlElement>()) {
+        if (el.namespaceUri == m) { hasMath = true; continue; }
+        if (el.namespaceUri != w && !el.ancestors.whereType<XmlElement>().any((a) => a.namespaceUri == m)) return '';
+        if (['drawing', 'pict', 'object', 'instrText', 'fldChar', 'hyperlink', 'altChunk'].contains(el.localName)) return '';
+        if (el.attributes.any((a) => ['embed', 'link', 'id'].contains(a.name.local) && a.name.prefix == 'r')) return '';
+      }
+      if (!hasMath) return '';
+      final namespaces = root.attributes.where((a) => a.name.prefix == 'xmlns' || a.name.qualified == 'xmlns').map((a) => a.toXmlString()).join(' ');
+      return root.children.whereType<XmlElement>().where((e) => e.localName == 'p').map((p) =>
+          '<w:p $namespaces><w:pPr><w:spacing w:before="40" w:after="40" w:line="${rules.lineSpacingExactTwips}" w:lineRule="atLeast"/></w:pPr>${p.children.map((e) => e.toXmlString()).join()}</w:p>').join();
+    } catch (_) {
+      return '';
+    }
   }
 
   Future<String> _equationXml(
@@ -879,6 +994,23 @@ class ManuscriptDocxExportService {
   }
 
   String _ommlParagraph(String ommlXml, JournalFormatRules rules) {
+    // A retained mixed paragraph includes ordinary runs around native math.
+    // Do not wrap it in oMathPara, which would detach or invalidate its text.
+    final trimmed = ommlXml.trim();
+    final root = trimmed.startsWith('<w:p ') || trimmed.startsWith('<w:p>')
+        ? XmlDocument.parse(trimmed).rootElement
+        : null;
+    if (root != null && root.localName == 'p') {
+      final content = root.children.map((e) => e.toXmlString()).join();
+      final namespaces = root.attributes
+          .where((a) => a.name.prefix == 'xmlns' || a.name.qualified == 'xmlns')
+          .map((a) => a.toXmlString())
+          .join(' ');
+      return '<w:p $namespaces><w:pPr><w:spacing w:before="120" w:after="120" '
+          'w:line="${rules.lineSpacingExactTwips}" '
+          // Tall native fractions need room beyond an exact text baseline.
+          'w:lineRule="${rules.lineSpacingRule == 'exact' ? 'atLeast' : rules.lineSpacingRule}"/></w:pPr>$content</w:p>';
+    }
     final inner = _normalizeOmmlXml(ommlXml);
     if (inner.isEmpty) return '';
     return '''
@@ -934,7 +1066,7 @@ class ManuscriptDocxExportService {
         span.text,
         rules: rules,
         italic: span.italic,
-        fontHalfPoints: rules.bodyFontHalfPoints - 2,
+        fontHalfPoints: rules.effectiveReferenceFontHalfPoints,
       ));
     }
     final hanging = CitationFormatter.isNumberedStyle(rules.citationStyle)
@@ -1149,6 +1281,10 @@ class ManuscriptDocxExportService {
     return parts.join();
   }
 
+  String _lineNumberXml(JournalFormatRules rules) => rules.continuousLineNumbers
+      ? '<w:lnNumType w:countBy="1" w:distance="360" w:restart="continuous"/>'
+      : '';
+
   String _continuousSectionBreak(JournalFormatRules rules, {required int columns}) {
     return '''
 <w:p>
@@ -1157,6 +1293,7 @@ class ManuscriptDocxExportService {
       ${_headerFooterRefs(rules)}
       ${_paperSizeXml(rules)}
       ${_pageMarXml(rules)}
+      ${_lineNumberXml(rules)}
       <w:cols w:num="$columns" w:space="720"/>
       <w:type w:val="continuous"/>
     </w:sectPr>
@@ -1170,6 +1307,7 @@ class ManuscriptDocxExportService {
   ${_headerFooterRefs(rules)}
   ${_paperSizeXml(rules)}
   ${_pageMarXml(rules)}
+  ${_lineNumberXml(rules)}
   <w:cols w:num="$columns" w:space="720"/>
 </w:sectPr>''';
   }
@@ -1190,6 +1328,7 @@ class ManuscriptDocxExportService {
 <w:hdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
   <w:p>
     <w:pPr>
+      <w:suppressLineNumbers/>
       <w:jc w:val="center"/>
     </w:pPr>
     <w:r>
@@ -1209,6 +1348,7 @@ class ManuscriptDocxExportService {
 <w:ftr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
   <w:p>
     <w:pPr>
+      <w:suppressLineNumbers/>
       <w:jc w:val="center"/>
     </w:pPr>
     <w:r>

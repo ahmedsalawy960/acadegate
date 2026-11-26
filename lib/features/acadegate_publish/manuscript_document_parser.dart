@@ -13,6 +13,7 @@ import 'citation_formatter.dart';
 import 'citation_linker.dart';
 import 'citation_style_shapes.dart';
 import 'docx_list_numbering.dart';
+import 'docx_title_reader.dart';
 import 'docx_scientific_extractor.dart';
 import 'manuscript_image_session_cache.dart';
 import 'manuscript_structure_advisor.dart';
@@ -38,12 +39,6 @@ enum _CiteImportRegion { frontMatter, body, bibliography }
 class ManuscriptDocumentParser {
   ManuscriptDocumentParser._();
 
-  /// Soft cap only — media (figures/tables/equations) is never dropped.
-  static const maxImportedBlocks = 500;
-  static const maxImportedReferences = 200;
-  static const maxBlockTextLength = 120000;
-  static const maxRawTextLength = 20000;
-
   /// Keep imported pictures as data URIs for the same-session Word export.
   /// Firestore cannot store them — [stripDataUrisForPersistence] runs on save.
   /// Uploading first then re-fetching with raw `http.get` returns 403 / CORS 0
@@ -65,7 +60,7 @@ class ManuscriptDocumentParser {
       final blocks = _extractDocxBlocks(bytes);
       if (text.trim().length >= 40 || blocks.isNotEmpty) {
         final labeled = await ManuscriptStructureAdvisor.align(blocks);
-        return _resultFromText(text, blocks: labeled);
+        return _resultFromText(text, blocks: labeled).copyWith(sourceTitle: DocxTitleReader.read(bytes));
       }
     }
 
@@ -208,88 +203,24 @@ class ManuscriptDocumentParser {
       block.type == ManuscriptBlockType.equation;
 
   static List<ManuscriptBlock> sanitizeImportedBlocks(List<ManuscriptBlock> blocks) {
-    final trimmed = blocks.map((block) {
-      final text = AcademicText.sanitize(block.text);
-      final clipped = text.length <= maxBlockTextLength
-          ? text
-          : text.substring(0, maxBlockTextLength);
-      final rows = block.rows
-          .map((row) => row.map(AcademicText.sanitize).toList())
-          .toList();
-      return block.copyWith(text: clipped, rows: rows);
-    }).toList();
-
-    if (trimmed.length <= maxImportedBlocks) return trimmed;
-
-    // Never drop images/tables/equations — only trim excess paragraphs.
-    final mediaCount = trimmed.where(_isMediaBlock).length;
-    final maxTextBlocks =
-        (maxImportedBlocks - mediaCount).clamp(10, maxImportedBlocks);
-    final out = <ManuscriptBlock>[];
-    var textKept = 0;
-    var omitted = 0;
-    for (final block in trimmed) {
-      if (_isMediaBlock(block)) {
-        out.add(block);
-        continue;
-      }
-      if (textKept < maxTextBlocks) {
-        out.add(block);
-        textKept++;
-      } else {
-        omitted++;
-      }
-    }
-    if (omitted > 0) {
-      out.add(ManuscriptBlock(
-        id: 'import_truncated_${DateTime.now().millisecondsSinceEpoch}',
-        type: ManuscriptBlockType.paragraph,
-        text: appTr(
-          '… تم اختصار $omitted فقرة نصية — الجداول والصور والمعادلات محفوظة',
-          '… $omitted text paragraphs omitted — tables, figures and equations kept',
-        ),
-      ));
-    }
-    return out;
+    return blocks.map((block) => block.copyWith(
+      text: AcademicText.sanitize(block.text),
+      rows: block.rows.map((row) => row.map(AcademicText.sanitize).toList()).toList(),
+    )).toList();
   }
 
   static List<PublishReference> sanitizeImportedReferences(
     List<PublishReference> references,
   ) {
-    final capped = references.take(maxImportedReferences).map((ref) {
-      final raw = AcademicText.sanitize(ref.rawText);
-      final clipped = raw.length <= maxRawTextLength
-          ? raw
-          : '${raw.substring(0, maxRawTextLength)} '
-              '… [shortened — open the original file for the full reference]';
-      return ref.copyWith(
-        rawText: clipped,
-        year: AcademicText.westernDigits(ref.year),
-        volume: AcademicText.westernDigits(ref.volume),
-        issue: AcademicText.westernDigits(ref.issue),
-        pages: AcademicText.westernDigits(ref.pages),
-        doi: AcademicText.fixDoiCommas(AcademicText.westernDigits(ref.doi)),
-      );
-    }).toList();
-
-    final stamped = stampImportedNumbers(capped);
-    if (references.length <= maxImportedReferences) return stamped;
-
-    return [
-      ...stamped,
-      PublishReference(
-        id: 'ref_truncated_${DateTime.now().millisecondsSinceEpoch}',
-        type: ReferenceType.journal,
-        title: appTr(
-          '… ${references.length - maxImportedReferences} مراجع إضافية',
-          '… ${references.length - maxImportedReferences} more references',
-        ),
-        rawText: appTr(
-          '… ${references.length - maxImportedReferences} مراجع إضافية — راجع الملف الأصلي',
-          '… ${references.length - maxImportedReferences} more references — see original file',
-        ),
-      ),
-    ];
+    final sanitized = references.map((ref) => ref.copyWith(
+      rawText: AcademicText.sanitize(ref.rawText),
+      year: AcademicText.westernDigits(ref.year),
+      volume: AcademicText.westernDigits(ref.volume),
+      issue: AcademicText.westernDigits(ref.issue),
+      pages: AcademicText.westernDigits(ref.pages),
+      doi: AcademicText.fixDoiCommas(AcademicText.westernDigits(ref.doi)),
+    )).toList();
+    return stampImportedNumbers(sanitized);
   }
 
   /// Keep printed [n] / "n." from the imported file. Fill gaps only for
@@ -393,6 +324,12 @@ class ManuscriptDocumentParser {
 
     void writeParagraphs(Iterable<XmlElement> paragraphs) {
       for (final paragraph in paragraphs) {
+        // Reference-manager fields can identify a bibliography with no printed
+        // heading. Keep its first visible entry instead of guessing a later run.
+        final bibliographyField = paragraph.descendants.whereType<XmlElement>().any((e) =>
+          e.localName == 'instrText' &&
+          RegExp(r'CSL_BIBLIOGRAPHY|ADDIN\s+(?:ZOTERO|MENDELEY)[_\s]+BIBL', caseSensitive: false).hasMatch(e.innerText));
+        if (bibliographyField) buffer.writeln('References');
         _appendParagraphText(paragraph, buffer, numbering: numbering);
         buffer.writeln();
       }
@@ -640,13 +577,51 @@ class ManuscriptDocumentParser {
     return input.split('').map((c) => map[c] ?? c).join();
   }
 
-  static String _serializeOmml(XmlElement math) {
-    if (math.localName == 'oMathPara') {
-      return math.toXmlString(pretty: false);
+  /// A copied Word subtree can depend on namespace declarations on ancestors.
+  /// Keep those bindings with the stored fragment, including unknown extensions.
+  static String _inheritedNamespaceAttributes(
+    XmlElement element, {
+    Set<String> excluding = const {},
+  }) {
+    final bindings = <String, String>{};
+    XmlNode? current = element;
+    while (current != null) {
+      if (current is XmlElement) {
+        for (final attribute in current.attributes) {
+          if (attribute.name.prefix == 'xmlns' ||
+              attribute.name.qualified == 'xmlns') {
+            bindings.putIfAbsent(
+              attribute.name.qualified,
+              () => attribute.value,
+            );
+          }
+        }
+      }
+      current = current.parent;
     }
+    return bindings.entries
+        .where((e) => !excluding.contains(e.key))
+        .map(
+          (e) => XmlAttribute(XmlName.fromString(e.key), e.value).toXmlString(),
+        )
+        .join(' ');
+  }
+
+  static String _serializeOmml(XmlElement math) {
+    final copy = math.copy();
+    final wrapper = XmlDocument.parse(
+      '<fragment ${_inheritedNamespaceAttributes(math)}/>',
+    ).rootElement;
+    for (final attribute in wrapper.attributes) {
+      if (!copy.attributes.any(
+        (a) => a.name.qualified == attribute.name.qualified,
+      )) {
+        copy.attributes.add(attribute.copy());
+      }
+    }
+    if (math.localName == 'oMathPara') return copy.toXmlString(pretty: false);
     return '<m:oMathPara xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math">'
-        '${math.toXmlString(pretty: false)}'
-        '</m:oMathPara>';
+        '${copy.toXmlString(pretty: false)}</m:oMathPara>';
   }
 
   static ManuscriptBlock _equationBlock({
@@ -681,7 +656,13 @@ class ManuscriptDocumentParser {
     final wrapCites = region != _CiteImportRegion.bibliography;
     final citeDigitBuf = StringBuffer();
     var collectingBracket = false;
+    var fieldInstruction = '';
+    var inField = false;
+    var pendingOmmlPreview = false;
     final bracketInner = StringBuffer();
+    final inlineParts = <String>[];
+    var hasInlineMath = false;
+    var hasEquationText = false;
 
     void flushCiteDigits() {
       final n = citeDigitBuf.toString();
@@ -739,9 +720,15 @@ class ManuscriptDocumentParser {
         collectingBracket = false;
       }
       flushBoldHint();
-      var text = _cleanExtractedText(textBuffer.toString());
+      final rawText = textBuffer.toString();
+      var text = _cleanExtractedText(rawText);
       text = CitationLinker.normalizeNumberedCiteDigits(text);
       textBuffer.clear();
+      if (rawText.trim().isNotEmpty) hasEquationText = true;
+      final escaped = XmlText(CitationLinker.stripHints(rawText)).toXmlString()
+          .replaceAll('\t', '</w:t><w:tab/><w:t xml:space="preserve">')
+          .replaceAll('\n', '</w:t><w:br/><w:t xml:space="preserve">');
+      inlineParts.add('<w:r><w:t xml:space="preserve">$escaped</w:t></w:r>');
       if (text.isEmpty) return;
       if (DocxScientificExtractor.isEquationPlaceholder(text)) return;
       blocks.add(ManuscriptBlock(
@@ -755,6 +742,7 @@ class ManuscriptDocumentParser {
 
     void appendFormattedRun(String raw, XmlElement run) {
       if (raw.isEmpty) return;
+      pendingOmmlPreview = false;
       final ascii = CitationLinker.asciiDigits(raw);
       final isCiteDigitRun = wrapCites &&
           inBody &&
@@ -884,22 +872,39 @@ class ManuscriptDocumentParser {
         final tag = child.localName;
         if (tag == 'oMath' || tag == 'oMathPara') {
           flushText();
+          pendingOmmlPreview = true;
           final eqText = _ommlPlainText(child);
           if (eqText.isNotEmpty) {
+            hasInlineMath = true;
+            inlineParts.add(child.localName == 'oMathPara'
+                ? child.children.whereType<XmlElement>()
+                    .where((e) => e.localName == 'oMath')
+                    .map((e) => e.toXmlString()).join()
+                : child.toXmlString());
             blocks.add(_equationBlock(nextId: nextId, math: child));
           }
           continue;
         }
         if (tag == 'r') {
+          for (final marker in child.findAllElements('w:fldChar')) {
+            final kind = marker.getAttribute('w:fldCharType');
+            if (kind == 'begin') { inField = true; fieldInstruction = ''; }
+            if (kind == 'end') { inField = false; fieldInstruction = ''; }
+          }
+          if (inField) {
+            fieldInstruction += child.findAllElements('w:instrText').map((e) => e.innerText).join();
+          }
           appendBodyRun(child);
           walkNonMath(child);
           continue;
         }
         if (tag == 'tab') {
+          if (el.localName == 'r') continue;
           textBuffer.write('\t');
           continue;
         }
         if (tag == 'br' || tag == 'cr') {
+          if (el.localName == 'r') continue;
           textBuffer.write('\n');
           continue;
         }
@@ -915,6 +920,16 @@ class ManuscriptDocumentParser {
           continue;
         }
         if (tag == 'drawing' || tag == 'pict' || tag == 'object') {
+          // Word may store an OMML equation plus a hidden QUOTE-field raster.
+          // Keep unrelated drawings and fields; omit only this explicit preview.
+          final isEquationPreview = tag == 'pict' && child.descendants.whereType<XmlElement>().any((e) => e.localName == 'shape' && e.getAttribute('equationxml') != null);
+          if (pendingOmmlPreview && inField && RegExp(r'^\s*QUOTE\b', caseSensitive: false).hasMatch(fieldInstruction) && isEquationPreview) {
+            for (final url in _extractAllEmbeddedImages(child, archive, rels)) {
+              onVisualUsed(url);
+            }
+            pendingOmmlPreview = false;
+            continue;
+          }
           flushText();
           addVisualBlocks(
             child,
@@ -964,6 +979,24 @@ class ManuscriptDocumentParser {
 
     walkNonMath(element);
     flushText();
+
+    // Keep text, inline math and its label in their original Word paragraph.
+    // Image-bearing paragraphs retain the existing visual extraction path.
+    if (hasInlineMath &&
+        hasEquationText &&
+        blocks.every((b) => (b.imageUrl ?? '').isEmpty)) {
+      final mixed =
+          '<w:p xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" '
+          'xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math" '
+          '${_inheritedNamespaceAttributes(element, excluding: {'xmlns:w', 'xmlns:m'})}>'
+          '${inlineParts.join()}</w:p>';
+      return [ManuscriptBlock(
+        id: blocks.first.id,
+        type: ManuscriptBlockType.equation,
+        text: _ommlPlainText(XmlDocument.parse(mixed).rootElement),
+        ommlXml: mixed,
+      )];
+    }
 
     // Fallback: OMML present but walker missed it (nested wrappers).
     if (!blocks.any((b) => b.type == ManuscriptBlockType.equation)) {
@@ -1294,6 +1327,7 @@ class ManuscriptDocumentParser {
         continue;
       }
       final t = block.text.trim();
+      if (block.preserveCitationText) { cleaned.add(block); continue; }
       if (t.isEmpty) continue;
       if (_isJunkTextFragment(t)) continue;
 
@@ -1334,6 +1368,7 @@ class ManuscriptDocumentParser {
     }
 
     bool isMergeable(ManuscriptBlock b) {
+      if (b.preserveCitationText) return false;
       if (b.type != ManuscriptBlockType.paragraph) return false;
       final t = b.text.trim();
       if (t.isEmpty || _isJunkTextFragment(t)) return false;
@@ -1453,9 +1488,13 @@ class ManuscriptDocumentParser {
           out.isNotEmpty &&
           out.last.type == ManuscriptBlockType.table) {
         final prev = out.last;
+        // A captioned table starts a new reported table; it is not a
+        // continuation fragment of the previous one.
         if (prev.rows.isNotEmpty &&
             block.rows.isNotEmpty &&
-            prev.rows.first.length == block.rows.first.length) {
+            block.caption == null &&
+            prev.rows.first.length == block.rows.first.length &&
+            prev.borderless == block.borderless) {
           var start = 0;
           if (_sameTableRow(prev.rows.first, block.rows.first)) start = 1;
           out[out.length - 1] = prev.copyWith(
@@ -1464,6 +1503,10 @@ class ManuscriptDocumentParser {
               ...prev.rowCellImages,
               if (start < block.rowCellImages.length)
                 ...block.rowCellImages.sublist(start),
+            ],
+            rowCellMath: prev.rowCellMath.isEmpty && block.rowCellMath.isEmpty ? const [] : [
+              ...ManuscriptBlock.normalizedCellImages(prev.rowCellMath, prev.rows),
+              ...ManuscriptBlock.normalizedCellImages(block.rowCellMath, block.rows).sublist(start),
             ],
             caption: prev.caption ?? block.caption,
           );
@@ -2092,7 +2135,7 @@ class ManuscriptDocumentParser {
   static int? _bibliographyHeadingIndex(List<ManuscriptBlock> blocks) {
     int? headingAt;
     for (var i = 0; i < blocks.length; i++) {
-      if (_isBibliographyBlock(blocks[i])) headingAt = i;
+      if (_isBibliographyBlock(blocks[i]) && !blocks[i].preserveCitationText) headingAt = i;
     }
     return headingAt;
   }
@@ -2116,7 +2159,7 @@ class ManuscriptDocumentParser {
   static int _findBibliographyIndex(List<ManuscriptBlock> blocks) {
     int? headingAt;
     for (var i = 0; i < blocks.length; i++) {
-      if (_isBibliographyBlock(blocks[i])) headingAt = i;
+      if (_isBibliographyBlock(blocks[i]) && !blocks[i].preserveCitationText) headingAt = i;
     }
     if (headingAt != null) return headingAt;
     return _lastBibliographyRunIndex(blocks) ?? blocks.length;
@@ -2405,7 +2448,14 @@ class ManuscriptDocumentParser {
     List<ManuscriptBlock> blocks,
   ) {
     final out = <ManuscriptBlock>[];
+    var afterMainBibliography = false;
     for (final block in blocks) {
+      if (block.preserveCitationText) { out.add(block); continue; }
+      if (_isPostBibliographyBoundary(block.text)) afterMainBibliography = true;
+      if (afterMainBibliography) {
+        out.add(block);
+        continue;
+      }
       if (_isMediaBlock(block)) {
         out.add(block);
         continue;
@@ -2424,6 +2474,43 @@ class ManuscriptDocumentParser {
       }
     }
     return out;
+  }
+
+  /// End of the main bibliography, not a title or an organization name.
+  static bool _isPostBibliographyBoundary(String text) {
+    final t = text.trim();
+    if (t.length > 300) return false;
+    // Only an entire declaration heading ends the bibliography. A matching
+    // word inside a reference title or organization name is not a boundary.
+    // Apply this same boundary to text parsing and body-block harvesting so
+    // post-reference prose is retained in the body, never appended to a ref.
+    if (RegExp(
+      r'^(?:\d+[.)]?\s*)?(?:acknowledg(?:e)?ments?|funding(?: statement)?|'
+      r'financial (?:support|disclosures?)|author(?:s|[’\x27]s)? contributions?|'
+      r'contributions? (?:of|by) (?:the )?authors?|author information|'
+      r'ethic(?:s|al) (?:approval|statement|declarations?|considerations?)|'
+      r'conflicts? of interests?(?: statement)?|competing interests?|'
+      r'declarations? of (?:competing interests?|conflicts? of interests?)|'
+      r'data (?:and (?:code|materials) )?availability(?: statement)?|'
+      r'consent (?:to participate|for publication)|'
+      r'agradecimientos|financiamiento|financiaci[oó]n|'
+      r'contribuci[oó]n de (?:la )?autor[ií]a|'
+      r'contribuciones? de (?:los )?autores|'
+      r'declaraci[oó]n de conflictos? de intereses|'
+      r'declaraci[oó]n sobre el uso de inteligencia artificial|'
+      r'الشكر والتقدير|مساهمات المؤلفين|التمويل|تضارب المصالح|'
+      r'الموافقة الأخلاقية)\s*[:.：]?$',
+      caseSensitive: false,
+    ).hasMatch(t)) {
+      return true;
+    }
+    return RegExp(
+      r'^(?:(?:\d+[.)]?\s*)?(?:appendices|appendix(?:\s+[A-Z0-9]+)?|'
+      r'supplementary(?:\s+(?:materials?|information|files?))?|'
+      r'supporting information|tables?|figures?|figure legends?|table legends?)'
+      r'\s*[:.]?|(?:table|figure)\s+\d+(?:[.:]\s+[^\n]+)?|for table of contents only)$',
+      caseSensitive: false,
+    ).hasMatch(t);
   }
 
   static bool _isAppendixHeading(String text) {
@@ -2670,14 +2757,70 @@ class ManuscriptDocumentParser {
       );
 
       var region = _CiteImportRegion.frontMatter;
-      for (final child in body.children.whereType<XmlElement>()) {
+      var mainBibliographySeen = false;
+      var pastMainBibliography = false;
+      var inSupplementBibliography = false;
+      var fieldDepth = 0;
+      int? bibliographyFieldDepth;
+      XmlElement outsideBibliographyField(XmlElement paragraph) {
+        XmlNode? keep(XmlNode node) {
+          if (node is! XmlElement) return bibliographyFieldDepth == null ? node.copy() : null;
+          final tag = node.localName;
+          if (tag == 'fldChar') {
+            final kind = node.attributes.where((a) => a.name.local == 'fldCharType').firstOrNull?.value;
+            if (kind == 'begin') fieldDepth++;
+            if (kind == 'end') {
+              if (bibliographyFieldDepth == fieldDepth) bibliographyFieldDepth = null;
+              if (fieldDepth > 0) fieldDepth--;
+            }
+            return null;
+          }
+          if (tag == 'instrText') {
+            if (RegExp(r'CSL_BIBLIOGRAPHY|ADDIN\s+(?:ZOTERO|MENDELEY)[_\s]+BIBL', caseSensitive: false).hasMatch(node.innerText)) {
+              bibliographyFieldDepth = fieldDepth;
+            }
+            return null;
+          }
+          // Scientific media remains available, even inside bibliography fields.
+          if (tag == 'oMath' || tag == 'oMathPara' || tag == 'drawing' || tag == 'pict' || tag == 'object') return node.copy();
+          if (tag == 't') return bibliographyFieldDepth == null ? node.copy() : null;
+          final copy = node.copy();
+          copy.children.clear();
+          for (final child in node.children) {
+            final kept = keep(child);
+            if (kept != null) copy.children.add(kept);
+          }
+          return copy;
+        }
+        return keep(paragraph)! as XmlElement;
+      }
+      final sourceChildren = body.children.whereType<XmlElement>().toList();
+      for (var sourceIndex = 0; sourceIndex < sourceChildren.length; sourceIndex++) {
+        final sourceChild = sourceChildren[sourceIndex];
+        final hasBibliographyField = sourceChild.descendants.whereType<XmlElement>().any((e) =>
+            e.localName == 'instrText' && RegExp(r'CSL_BIBLIOGRAPHY|ADDIN\s+(?:ZOTERO|MENDELEY)[_\s]+BIBL', caseSensitive: false).hasMatch(e.innerText));
+        final child = sourceChild.localName == 'p' && (bibliographyFieldDepth != null || hasBibliographyField)
+            ? outsideBibliographyField(sourceChild) : sourceChild;
         final tag = child.localName;
 
         if (tag == 'p') {
           final plain = _paragraphPlainText(child).trim();
+          final isHeading = _isBibliographyHeadingLine(plain);
+          final following = isHeading ? sourceChildren.skip(sourceIndex + 1)
+              .where((e) => e.localName == 'p')
+              .map((e) => _paragraphPlainText(e).trim())
+              .firstWhere((s) => s.isNotEmpty, orElse: () => '') : '';
           if (_isBibliographyParagraph(child) ||
-              _isBibliographyHeadingLine(plain)) {
-            region = _CiteImportRegion.bibliography;
+              (isHeading &&
+                (mainBibliographySeen || _looksLikeBibliographyStartLine(following)))) {
+            if (pastMainBibliography && mainBibliographySeen) {
+              inSupplementBibliography = true;
+              blocks.add(ManuscriptBlock(id: nextId(), type: ManuscriptBlockType.heading,
+                text: plain, preserveCitationText: true));
+            } else {
+              mainBibliographySeen = true;
+              region = _CiteImportRegion.bibliography;
+            }
             continue;
           }
           if (region == _CiteImportRegion.frontMatter &&
@@ -2688,8 +2831,9 @@ class ManuscriptDocumentParser {
 
         if (region == _CiteImportRegion.bibliography && tag == 'p') {
           final plain = _paragraphPlainText(child).trim();
-          if (_isAppendixHeading(plain)) {
+          if (_isPostBibliographyBoundary(plain)) {
             region = _CiteImportRegion.body;
+            pastMainBibliography = true;
           } else {
             final paraBlocks = _blocksFromDocxParagraph(
               child,
@@ -2715,6 +2859,22 @@ class ManuscriptDocumentParser {
                 text: plain,
               ));
             }
+            continue;
+          }
+        }
+
+        if (inSupplementBibliography && tag == 'p') {
+          final plain = _paragraphPlainText(child).trim();
+          if (_isPostBibliographyBoundary(plain) || _isAppendixHeading(plain)) {
+            inSupplementBibliography = false;
+          } else {
+            // Keep scientific media even when it sits in a reference paragraph.
+            blocks.addAll(_blocksFromDocxParagraph(child, archive: archive,
+              rels: rels, nextId: nextId, onVisualUsed: onVisualUsed,
+              imageCount: () => imageCount, maxLocalImages: maxLocalImages,
+              region: _CiteImportRegion.bibliography).where(_isMediaBlock));
+            blocks.add(ManuscriptBlock(id: nextId(), type: ManuscriptBlockType.paragraph,
+              text: plain, preserveCitationText: true));
             continue;
           }
         }
@@ -3011,7 +3171,9 @@ class ManuscriptDocumentParser {
           id: nextId(),
           type: ManuscriptBlockType.table,
           rows: parsed.rows,
+          borderless: _explicitBorderlessTable(_unwrapSingleCellTable(element)),
           rowCellImages: parsed.rowCellImages,
+          rowCellMath: parsed.rowCellMath,
           colSpans: parsed.colSpans,
           rowSpans: parsed.rowSpans,
           columnWidthsPct: parsed.columnWidthsPct,
@@ -3395,6 +3557,7 @@ class ManuscriptDocumentParser {
   static ({
     List<List<String>> rows,
     List<List<String>> rowCellImages,
+    List<List<String>> rowCellMath,
     List<List<int>> colSpans,
     List<List<int>> rowSpans,
     List<int> columnWidthsPct,
@@ -3403,6 +3566,7 @@ class ManuscriptDocumentParser {
     Archive archive,
     Map<String, String> rels,
   ) {
+    table = _unwrapSingleCellTable(table);
     final gridCols = <int>[];
     for (final grid in table.children.whereType<XmlElement>()) {
       if (grid.localName != 'tblGrid') continue;
@@ -3426,6 +3590,7 @@ class ManuscriptDocumentParser {
         rowCells.add(WordTableCell(
           text: cell.text,
           imageUrl: cell.imageUrl ?? '',
+          mathXml: _tableCellMathFragment(tc, cell.text),
           colSpan: _tcPrInt(tc, 'gridSpan', fallback: 1).clamp(1, 64),
           vMergeContinue: _tcVMergeContinue(tc),
           gridBefore: _tcPrInt(tc, 'gridBefore'),
@@ -3443,10 +3608,66 @@ class ManuscriptDocumentParser {
     return (
       rows: grid.rows,
       rowCellImages: grid.rowCellImages,
+      rowCellMath: grid.rowCellMath,
       colSpans: grid.colSpans,
       rowSpans: grid.rowSpans,
       columnWidthsPct: grid.columnWidthsPct,
     );
+  }
+
+  /// A 1x1 wrapper table whose only content is one nested table carries no
+  /// grid of its own; read the inner table instead of flattening its rows
+  /// into a single cell of text.
+  static XmlElement _unwrapSingleCellTable(XmlElement table) {
+    var current = table;
+    for (;;) {
+      final trs = current.children
+          .whereType<XmlElement>()
+          .where((e) => e.localName == 'tr')
+          .toList();
+      if (trs.length != 1) return current;
+      final tcs = trs.first.children
+          .whereType<XmlElement>()
+          .where((e) => e.localName == 'tc')
+          .toList();
+      if (tcs.length != 1) return current;
+      XmlElement? nested;
+      var onlyNested = true;
+      for (final child in tcs.first.children.whereType<XmlElement>()) {
+        if (child.localName == 'tcPr') continue;
+        if (child.localName == 'tbl' && nested == null) {
+          nested = child;
+          continue;
+        }
+        if (child.localName == 'p' &&
+            _paragraphPlainText(child).trim().isEmpty &&
+            !child.descendants.whereType<XmlElement>().any((e) =>
+                e.localName == 'drawing' ||
+                e.localName == 'pict' ||
+                e.localName == 'object')) {
+          continue;
+        }
+        onlyNested = false;
+        break;
+      }
+      if (!onlyNested || nested == null) return current;
+      current = nested;
+    }
+  }
+
+  static bool _explicitBorderlessTable(XmlElement table) {
+    final props = _directChild(table, 'tblPr');
+    final borders = props == null ? null : _directChild(props, 'tblBorders');
+    if (borders == null) return false;
+    for (final name in ['top', 'left', 'bottom', 'right', 'insideH', 'insideV']) {
+      final border = _directChild(borders, name);
+      final value = border?.attributes.where((a) => a.name.local == 'val').firstOrNull?.value;
+      if (value != 'none' && value != 'nil') return false;
+    }
+    // An explicit cell border wins over table defaults.
+    return !table.descendants.whereType<XmlElement>().any((e) =>
+        e.localName == 'tcBorders' && e.children.whereType<XmlElement>().any((b) =>
+          !['none', 'nil'].contains(b.attributes.where((a) => a.name.local == 'val').firstOrNull?.value)));
   }
 
   static XmlElement? _directChild(XmlElement parent, String name) {
@@ -3477,12 +3698,40 @@ class ManuscriptDocumentParser {
   }
 
   static (int, int)? _drawingExtentEmu(XmlElement node) {
-    for (final el in node.findAllElements('extent')) {
+    // DrawingML prefixes vary between publishers. Match the local name.
+    for (final el in _descendantsNamed(node, 'extent')) {
       final cx = int.tryParse(el.getAttribute('cx') ?? '');
       final cy = int.tryParse(el.getAttribute('cy') ?? '');
       if (cx != null && cy != null && cx > 0 && cy > 0) {
         return (cx, cy);
       }
+    }
+    // Older Word equation objects use a VML preview with CSS point sizes,
+    // not a DrawingML extent. Keep that aspect ratio instead of guessing 4:3.
+    for (final shape in _descendantsNamed(node, 'shape')) {
+      final style = shape.getAttribute('style') ?? '';
+      int? dimension(String property) {
+        final match = RegExp(
+          '(?:^|;)\\s*$property'
+              r'\s*:\s*([0-9]+(?:\.[0-9]+)?)\s*(pt|in|cm|mm|px)\s*(?:;|$)',
+          caseSensitive: false,
+        ).firstMatch(style);
+        if (match == null) return null;
+        final value = double.tryParse(match.group(1)!);
+        if (value == null || value <= 0 || !value.isFinite) return null;
+        final factor = switch (match.group(2)!.toLowerCase()) {
+          'pt' => 12700.0,
+          'in' => 914400.0,
+          'cm' => 360000.0,
+          'mm' => 36000.0,
+          _ => 9525.0,
+        };
+        return (value * factor).round();
+      }
+
+      final width = dimension('width');
+      final height = dimension('height');
+      if (width != null && height != null) return (width, height);
     }
     return null;
   }
@@ -3580,6 +3829,60 @@ class ManuscriptDocumentParser {
     );
   }
 
+  /// Retain only visible text and native math, never fields, links or drawings.
+  /// The snapshot prevents a later cell edit from exporting stale equations.
+  static String _tableCellMathFragment(XmlElement cell, String text) {
+    if (!cell.descendants.whereType<XmlElement>().any((e) => e.localName == 'oMath')) return '';
+    const w = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+    const m = 'http://schemas.openxmlformats.org/officeDocument/2006/math';
+    XmlNode? visible(XmlNode node) {
+      if (node is! XmlElement) return null;
+      if (node.namespaceUri == m && (node.localName == 'oMath' || node.localName == 'oMathPara')) {
+        return node.copy();
+      }
+      if (node.namespaceUri == w && node.localName == 'r') {
+        final run = XmlElement(XmlName('r', 'w'));
+        for (final child in node.children.whereType<XmlElement>()) {
+          if (['rPr', 't', 'tab', 'br', 'cr', 'sym'].contains(child.localName)) run.children.add(child.copy());
+        }
+        return run;
+      }
+      if (['drawing', 'pict', 'object', 'instrText', 'del'].contains(node.localName)) return null;
+      final out = XmlElement(XmlName(node.localName == 'p' ? 'p' : 's', node.localName == 'p' ? 'w' : null));
+      for (final child in node.children) {
+        final kept = visible(child);
+        if (kept != null) out.children.add(kept);
+      }
+      return out;
+    }
+    final wrapper = XmlDocument.parse('<cell xmlns:w="$w" ${_inheritedNamespaceAttributes(cell, excluding: {'xmlns:w'})}/>').rootElement;
+    wrapper.setAttribute('snapshot', AcademicText.sanitize(text.trim()));
+    for (final paragraph in cell.descendants.whereType<XmlElement>().where((e) => e.localName == 'p')) {
+      // Nested tables are flattened in the editable grid, so flatten their
+      // paragraphs in the same order while retaining each native math object.
+      final kept = visible(paragraph);
+      if (kept != null) {
+        // Unwrap transparent containers (hyperlinks, smart tags, bookmarks).
+        void unwrap(XmlElement node) {
+          if (node.namespaceUri == m) return;
+          for (final child in node.children.whereType<XmlElement>().toList()) {
+            unwrap(child);
+            if (child.localName == 's' && child.namespaceUri == null) {
+              final index = node.children.indexOf(child);
+              final children = child.children.toList();
+              child.children.clear();
+              node.children.remove(child);
+              node.children.insertAll(index, children);
+            }
+          }
+        }
+        unwrap(kept as XmlElement);
+        wrapper.children.add(kept);
+      }
+    }
+    return wrapper.toXmlString(pretty: false);
+  }
+
   static String? _preferDisplayableImage(List<String> urls) {
     if (urls.isEmpty) return null;
     int rank(String url) {
@@ -3633,6 +3936,7 @@ class ManuscriptDocumentParser {
       final nextImages = [for (final row in images) List<String>.from(row)];
       for (var r = 1; r < rows.length && poolIdx < unused.length; r++) {
         for (final c in drawingCols) {
+          if (poolIdx >= unused.length) break;
           if (c >= rows[r].length || c >= nextImages[r].length) continue;
           if (nextImages[r][c].isNotEmpty) continue;
           if (rows[r][c].trim().isNotEmpty) continue;
@@ -4076,13 +4380,19 @@ class ManuscriptDocumentParser {
           AcademicText.sanitize(next.title),
         ),
       );
-    } else {
-      final title = _extractTitleFromBlocks(next.bodyBlocks);
+    } else if (!hasDecomposedArabicFrontMatter(
+      '${parsed.sourceTitle ?? ''}\n${parsed.bodyText.length > 1500 ? parsed.bodyText.substring(0, 1500) : parsed.bodyText}',
+    )) {
+      final title = parsed.sourceTitle ?? _extractTitleFromBlocks(next.bodyBlocks);
       if (title != null && title.length > 10) {
         next = next.copyWith(
-          title: AcademicText.stripTrailingAuthorFromTitle(
-            AcademicText.sanitize(title),
-          ),
+          // The source reader already separates title and byline. Capitalized
+          // final words are not evidence of an appended person's name.
+          title: parsed.sourceTitle != null
+              ? AcademicText.sanitize(title)
+              : AcademicText.stripTrailingAuthorFromTitle(
+                  AcademicText.sanitize(title),
+                ),
         );
       } else if (parsed.bodyText.length > 20) {
         final extracted =
@@ -4099,6 +4409,26 @@ class ManuscriptDocumentParser {
     return CitationLinker.linkManuscript(next);
   }
 
+  /// PDF-to-DOCX conversion can decompose Arabic: tatweel characters land
+  /// inside words and glyphs arrive reordered as single-character tokens.
+  /// No title can be recovered from such front matter, so the import leaves
+  /// the title empty instead of showing a wrong one. Conservative: ordinary
+  /// clean Arabic has no tatweel and few one-to-two-character tokens.
+  static bool hasDecomposedArabicFrontMatter(String text) {
+    final words = RegExp(r'[؀-ۿ]+')
+        .allMatches(text)
+        .map((m) => m.group(0)!)
+        .toList();
+    if (words.length < 20) return false;
+    final tatweel = 'ـ'.allMatches(text).length;
+    if (tatweel >= 5) return true;
+    if (tatweel >= 1) {
+      final short = words.where((w) => w.length <= 2).length;
+      if (short / words.length >= 0.3) return true;
+    }
+    return false;
+  }
+
   static String _bodyWithoutBibliography(String text) {
     final idx = _bibliographyStartIndex(text);
     if (idx == null) return text.trim();
@@ -4110,18 +4440,31 @@ class ManuscriptDocumentParser {
 
     final heading = RegExp(
       r'(?:^|\n)\s*(?:\d+\.?\s*)?(References?|Bibliography|Works Cited|'
-      r'Reference List|Literature Cited|REFERENCES|المراجع|قائمة المراجع|'
+      r'Reference List|Literature Cited|REFERENCES|Referencias(?: bibliogr[aá]ficas)?|Refer[eê]ncias(?: bibliogr[aá]ficas)?|Bibliograf[ií]a|المراجع|قائمة المراجع|'
       r'المصادر)\s*:?\s*(?:\n|$)',
       caseSensitive: false,
     );
     int? lastInBody;
     for (final m in heading.allMatches(text)) {
-      if (m.start >= text.length * 0.28) lastInBody = m.start;
+      // Main bibliography precedes supplementary lists. Table column labels
+      // do not qualify: the next nonempty line must start a real reference.
+      final following=text.substring(m.end).split('\n').map((l)=>l.trim()).firstWhere((l)=>l.isNotEmpty,orElse:()=>'');
+      if (!_looksLikeBibliographyStartLine(following)) {
+        continue;
+      }
       lastInBody ??= m.start;
     }
     if (lastInBody != null) return lastInBody;
+    final printed=heading.allMatches(text).toList();
+    if (printed.isNotEmpty) {
+      return printed.last.start;
+    }
     final runAt = _bibliographyRunStartInText(text);
-    if (runAt != null) return runAt;
+    if (runAt != null) {
+      // Converted PDFs wrap entries across lines and interleave columns, so
+      // a strict run can start mid-list. Absorb the wrapped lead-in first.
+      return _absorbBibliographyLeadIn(text, runAt);
+    }
 
     final minPos = text.length > 4000 ? (text.length * 0.42).floor() : 0;
     var charPos = 0;
@@ -4132,8 +4475,142 @@ class ManuscriptDocumentParser {
       if (lineStart < minPos) continue;
       if (_isBibliographyHeadingLine(line)) return lineStart;
     }
-    return null;
+    return _bibliographyDensityStartInText(text);
   }
+
+  /// Wrapped bibliography entries (one entry spanning several lines) never
+  /// form a run of consecutive bibliographic lines, so the strict run
+  /// detector misses them. Density fallback: cluster bibliographic lines
+  /// separated by only a few continuation lines; a cluster with enough
+  /// entries marks the bibliography. As with runs, the last cluster wins so
+  /// author-year mentions earlier in the paper do not.
+  static int? _bibliographyDensityStartInText(String text) {
+    if (text.length < 4000) return null;
+    final minPos = (text.length * 0.3).floor();
+    const maxGapLines = 6;
+    const minClusterEntries = 3;
+    var charPos = 0;
+    var lineNo = 0;
+    final hits = <int>[];
+    final hitLines = <int>[];
+    for (final rawLine in text.split('\n')) {
+      final lineStart = charPos;
+      charPos += rawLine.length + 1;
+      lineNo++;
+      if (lineStart < minPos) continue;
+      final line = rawLine.trim();
+      if (line.isEmpty) continue;
+      final isBib = PublishReference.numberFromImportedLine(line) != null ||
+          _isStandaloneBibliographyEntry(line) ||
+          (line.length >= 40 && _looksLikeReference(line)) ||
+          (line.length >= 40 &&
+              RegExp(r'(?:19|20)\d{2}').hasMatch(line) &&
+              RegExp(r'مجلة|جامعة|أطروحة|رسالة').hasMatch(line));
+      if (isBib) {
+        hits.add(lineStart);
+        hitLines.add(lineNo);
+      }
+    }
+    if (hits.length < minClusterEntries) return null;
+    int? lastClusterStart;
+    var clusterFirst = 0;
+    var clusterLen = 1;
+    for (var i = 1; i < hits.length; i++) {
+      if (hitLines[i] - hitLines[i - 1] <= maxGapLines + 1) {
+        clusterLen++;
+      } else {
+        if (clusterLen >= minClusterEntries) {
+          lastClusterStart = hits[clusterFirst];
+        }
+        clusterFirst = i;
+        clusterLen = 1;
+      }
+    }
+    if (clusterLen >= minClusterEntries) lastClusterStart = hits[clusterFirst];
+    if (lastClusterStart == null) return null;
+    return _absorbBibliographyLeadIn(text, lastClusterStart);
+  }
+
+  /// Wrapped and interleaved bibliographies put strict reference lines far
+  /// apart, so a density cluster can start mid-list. From the cluster's
+  /// first line, absorb the lead-in lines that are blanks, page furniture,
+  /// DOI fragments, author leads awaiting their year, or continuation
+  /// fragments, stopping at the first finished body sentence.
+  static int _absorbBibliographyLeadIn(String text, int clusterStart) {
+    // Running heads/footers repeat verbatim on every page; a long line seen
+    // three or more times is furniture, not content.
+    final counts = <String, int>{};
+    for (final l in text.split('\n')) {
+      final t = l.trim();
+      if (t.length >= 8) counts[t] = (counts[t] ?? 0) + 1;
+    }
+    final furniture = <String>{
+      for (final e in counts.entries)
+        if (e.value >= 3) e.key,
+    };
+    final rawLines = text.substring(0, clusterStart).split('\n');
+    var boundary = clusterStart;
+    var absorbed = 0;
+    const cap = 60;
+    for (var i = rawLines.length - 1; i >= 0 && absorbed < cap; i--) {
+      final raw = rawLines[i];
+      final line = raw.trim();
+      final lineStart = boundary - raw.length - 1;
+      if (furniture.contains(line)) {
+        boundary = lineStart < 0 ? 0 : lineStart;
+        absorbed++;
+        continue;
+      }
+      if (_isMajorSectionHeading(line)) break;
+      if (_looksLikeReference(line) || _isStandaloneBibliographyEntry(line)) {
+        boundary = lineStart < 0 ? 0 : lineStart;
+        absorbed++;
+        continue;
+      }
+      // Citation tails (volume:pages, issue/page ranges) keep absorbing even
+      // though they end with a period.
+      if (RegExp(r'\d{1,3}\s*:\s*\d{2,5}\s*[–-]\s*\d{1,5}').hasMatch(line) ||
+          RegExp(r'\d+\(\d+\)[,;]?\s*\d{2,5}\s*[–-]\s*\d{1,5}')
+              .hasMatch(line)) {
+        boundary = lineStart < 0 ? 0 : lineStart;
+        absorbed++;
+        continue;
+      }
+      if (line.isEmpty ||
+          RegExp(r'^\d{1,4}$').hasMatch(line) ||
+          (line.length <= 2 && !RegExp(r'[A-Za-z؀-ۿ0-9]').hasMatch(line)) ||
+          RegExp(r'^(?:doi\b|https?://doi\.org)', caseSensitive: false)
+              .hasMatch(line) ||
+          RegExp(r'^\((?:19|20)\d{2}[a-z]?\)').hasMatch(line) ||
+          (_hasBibliographyAuthorLead(line) && !_hasBibYear(line))) {
+        boundary = lineStart < 0 ? 0 : lineStart;
+        absorbed++;
+        continue;
+      }
+      if (line.length > 45) {
+        if (RegExp(r'[.!؟?]$').hasMatch(line)) break;
+        // Converted Arabic prose carries the sentence period at the start of
+        // the next line (visual order), so the trailing-period test never
+        // fires for it. A long Arabic-dominant line with no bibliographic
+        // cues is body text: stop.
+        final arabicChars = RegExp(r'[؀-ۿ]').allMatches(line).length;
+        final latinChars = RegExp(r'[A-Za-z]').allMatches(line).length;
+        if (arabicChars > latinChars &&
+            !RegExp(r'(?:19|20)\d{2}').hasMatch(line) &&
+            !RegExp(r'مجلة|جامعة|أطروحة|رسالة|مؤتمر|دار').hasMatch(line)) {
+          break;
+        }
+      }
+      boundary = lineStart < 0 ? 0 : lineStart;
+      absorbed++;
+    }
+    return boundary;
+  }
+
+  static bool _looksLikeBibliographyStartLine(String line) =>
+      RegExp(r'^\[\d{1,3}\]\s*\S').hasMatch(line) ||
+      _isBibliographicNumberedLine(line) ||
+      (_hasBibYear(line) && _hasBibliographyAuthorLead(line));
 
   /// Last run of bibliographic lines in the file (the printed list, not Methods).
   static int? _bibliographyRunStartInText(String text) {
@@ -4149,13 +4626,22 @@ class ManuscriptDocumentParser {
       if (lineStart < minPos) continue;
       final line = rawLine.trim();
       if (line.isEmpty) continue;
+      // Converted PDFs interleave page numbers and lone punctuation inside
+      // the bibliography. They neither extend nor break a reference run.
+      if (RegExp(r'^\d{1,4}$').hasMatch(line) ||
+          (line.length <= 2 && !RegExp(r'[A-Za-z؀-ۿ0-9]').hasMatch(line))) {
+        continue;
+      }
       if (_isBibliographyHeadingLine(line)) {
         if (runLen >= 3) lastRun = runChar;
         return lastRun ?? (runLen >= 3 ? runChar : lineStart);
       }
       final isBib = PublishReference.numberFromImportedLine(line) != null ||
           _isStandaloneBibliographyEntry(line) ||
-          (line.length >= 40 && _looksLikeReference(line));
+          (line.length >= 40 && _looksLikeReference(line)) ||
+          (line.length >= 40 &&
+              RegExp(r'(?:19|20)\d{2}').hasMatch(line) &&
+              RegExp(r'مجلة|جامعة|أطروحة|رسالة').hasMatch(line));
       if (isBib) {
         if (runChar < 0) runChar = lineStart;
         runLen++;
@@ -4191,11 +4677,16 @@ class ManuscriptDocumentParser {
 
     return RegExp(
       r'^(?:\d+\.?\s*)?(References?|Bibliography|Works Cited|Reference List|'
-      r'Literature Cited|REFERENCES)\s*:?\.?\s*$',
+      r'Literature Cited|REFERENCES|Referencias(?: bibliogr[aá]ficas)?|Refer[eê]ncias(?: bibliogr[aá]ficas)?|Bibliograf[ií]a)\s*:?\.?\s*$',
       caseSensitive: false,
     ).hasMatch(t) ||
         RegExp(r'^(?:\d+\.?\s*)?(المراجع|قائمة المراجع|المصادر)( والمصادر)?\s*:?\.?\s*$')
-            .hasMatch(t);
+            .hasMatch(t) ||
+        // Converted PDFs can drop lam glyphs; a short Arabic heading line
+        // with every lam removed is compared to the lam-free heading forms.
+        (RegExp(r'[؀-ۿ]').hasMatch(t) &&
+            RegExp(r'^(?:\d+\.?\s*)?(امراجع|قائمة امراج|امصادر)( وامصادر)?\s*:?\.?\s*$')
+                .hasMatch(t.replaceAll('ل', '')));
   }
 
   /// Prefer the real end-of-file bibliography over title-page authors
@@ -4265,11 +4756,30 @@ class ManuscriptDocumentParser {
     final idx = _bibliographyStartIndex(text);
     if (idx == null) return '';
     var section = text.substring(idx);
+    // The heading can share the first line with the first entry; strip just
+    // the heading token so it does not leak into the entry's raw text.
+    section = section.replaceFirst(
+      RegExp(
+        r'^\s*(?:\d+\.?\s*)?(?:References?|Bibliography|Works Cited|'
+        r'Reference List|Literature Cited|REFERENCES|'
+        r'Referencias(?: bibliogr[aá]ficas)?|Refer[eê]ncias(?: bibliogr[aá]ficas)?|'
+        r'Bibliograf[ií]a|المراجع|املراجع|قائمة المراجع|قائمة امراج|المصادر|امصادر)\s*[:：.]\s*',
+        caseSensitive: false,
+      ),
+      '',
+    ).trimLeft();
     final nl = section.indexOf('\n');
     if (nl > 0 && nl < 80) {
-      section = section.substring(nl + 1);
+      // Strip only a genuine heading line; a short first ENTRY line (common
+      // in wrapped bibliographies) must not be eaten.
+      final firstLine = section.substring(0, nl).trim();
+      if (firstLine.isEmpty || _isBibliographyHeadingLine(firstLine)) {
+        section = section.substring(nl + 1);
+      }
     }
-    return section.trim();
+    final lines = section.split('\n');
+    final end = lines.indexWhere(_isPostBibliographyBoundary);
+    return (end < 0 ? section : lines.take(end).join('\n')).trim();
   }
 
   static List<PublishReference> _parseReferences(String fullText) {
@@ -4280,8 +4790,15 @@ class ManuscriptDocumentParser {
     final source = section.isEmpty ? fullText : section;
     final body = _bodyWithoutBibliography(fullText);
     final cites = InTextCiteKeys.fromBody(body);
-    final numbered = _parseNumbered(source, cites);
-    final harvested = _harvestNumberedBibliographyLines(fullText);
+    // Without a located bibliography, an ordinary sentence such as a
+    // comma-separated phrase can resemble an author lead. Do not turn the
+    // rest of the manuscript into a reference without bibliographic evidence.
+    final numbered = _parseNumbered(source, cites)
+        .where((ref) => section.isNotEmpty ||
+            _isBibliographicNumberedLine(ref.rawText) ||
+            _looksLikeReference(ref.rawText))
+        .toList();
+    final harvested = _harvestNumberedBibliographyLines(source);
     final mixed = section.isEmpty
         ? const <PublishReference>[]
         : _parseMixedBibliography(section);
@@ -4296,6 +4813,12 @@ class ManuscriptDocumentParser {
     final paragraphs = section.isEmpty
         ? const <PublishReference>[]
         : _parseParagraphBlocks(section);
+    // A located bibliography's coherent printed list defines work boundaries.
+    // Do not discard short supplier/web entries or split a row on a cited name.
+    final printedRows = section.isEmpty
+        ? const <PublishReference>[]
+        : _parsePrintedBibliography(section);
+    if (printedRows.isNotEmpty) return printedRows;
     final chosen = _chooseBibliographyParse(
       [numbered, harvested, mixed, apa, paragraphs, ieee],
       cites,
@@ -4306,6 +4829,35 @@ class ManuscriptDocumentParser {
       parsed: chosen,
       keys: cites,
     );
+  }
+
+  static List<PublishReference> _parsePrintedBibliography(String section) {
+    // Parenthesized lists are otherwise misread as unnumbered author-year rows.
+    if (!RegExp(r'^\s*\(1\)\s', multiLine: true).hasMatch(section)) {
+      return const [];
+    }
+    final rows = <({int number, StringBuffer text})>[];
+    for (final raw in section.split('\n')) {
+      final line = raw.trim();
+      if (line.isEmpty || CitationCues.isRunningMatterLine(line)) continue;
+      if (_isPostBibliographyBoundary(line)) break;
+      final number = PublishReference.numberFromImportedLine(line);
+      if (number != null) {
+        rows.add((number: number, text: StringBuffer(line)));
+      } else if (rows.isNotEmpty) {
+        rows.last.text.write(' $line');
+      }
+    }
+    if (rows.length < 3 || rows.first.number != 1) return const [];
+    for (var i = 1; i < rows.length; i++) {
+      if (rows[i].number != rows[i - 1].number + 1) return const [];
+    }
+    // Require bibliographic evidence across the list, not a numbered prose list.
+    final withYear = rows.where((r) => _hasBibYear(r.text.toString())).length;
+    if (withYear * 2 < rows.length) return const [];
+    return [for (final row in rows)
+      _blockToReference(row.text.toString(), id: 'ref_${row.number}',
+        rawText: row.text.toString(), importedNumber: row.number)];
   }
 
   /// Walk every line of the file. Keep `n. Author` / `[n] Author` only —
@@ -4384,7 +4936,7 @@ class ManuscriptDocumentParser {
       if (CitationCues.isRunningMatterLine(line)) continue;
       final parts = line.split(
         RegExp(
-          '(?<=\\S)\\s+(?=\\[\\d{1,3}\\]\\s+)|'
+          '(?<=\\S)\\s+(?=\\[\\d{1,3}\\](?:\\s+|[A-Z]))|'
           '(?<=\\S)\\s+(?=\\d{1,3}[.)]\\s+(?:${CitationCues.standardsOrg}|'
           r'[A-Z][A-Za-z\-]{2,}(?:\s+[A-Z][A-Za-z\-]{2,}){0,2},\s*[A-Z]))',
         ),
@@ -4700,7 +5252,7 @@ class ManuscriptDocumentParser {
   }
 
   static bool _hasBibYear(String text) =>
-      RegExp(r'\b(?:19|20)\d{2}\b').hasMatch(text);
+      RegExp(r'\b(?:19|20)\d{2}[a-z]?\b|\(n\.d\.(?:-[a-z])?\)', caseSensitive: false).hasMatch(text);
 
   static List<PublishReference> _parseParagraphBlocks(String section) {
     final blocks = section
@@ -4733,8 +5285,11 @@ class ManuscriptDocumentParser {
     }
     if (CitationCues.isRunningMatterLine(t)) return false;
     if (_isTableCaption(t) || _isFigureCaption(t)) return false;
-    if (DocxScientificExtractor.isFrontMatterAuthorText(t)) return false;
-    return RegExp(r'\b(?:19|20)\d{2}\b').hasMatch(t);
+    final explicitUndated = RegExp(r'\(n\.d\.(?:-[a-z])?\)', caseSensitive: false).hasMatch(t);
+    if (!explicitUndated && DocxScientificExtractor.isFrontMatterAuthorText(t)) {
+      return false;
+    }
+    return _hasBibYear(t);
   }
 
   static bool _looksLikeReference(String block) {
@@ -4811,7 +5366,7 @@ class ManuscriptDocumentParser {
     }
     if (RegExp(
       r'^(?:\[\d{1,3}\]\s+|\d{1,3}[.)]\s+)?'
-      r'[A-Z]{2,10}\.\s+[A-Z]',
+      r'[A-Z]{2,12}(?:\s+[A-Z]{2,12}){0,4}\.\s+[A-Z]',
     ).hasMatch(s)) {
       return true;
     }
@@ -4913,9 +5468,18 @@ class ManuscriptDocumentParser {
         harvestFrom = trailingAt;
       }
     }
+    var afterMainBibliography = false;
     for (var i = 0; i < blocks.length; i++) {
       final block = blocks[i];
+      if (block.preserveCitationText) { out.add(block); continue; }
       final afterBib = harvestFrom != null && i >= harvestFrom;
+      if (afterBib && _isPostBibliographyBoundary(block.text)) {
+        afterMainBibliography = true;
+      }
+      if (afterMainBibliography) {
+        out.add(block);
+        continue;
+      }
       if (!afterBib) {
         if (block.type == ManuscriptBlockType.heading &&
             _isBibliographyHeadingLine(block.text)) {
@@ -5085,6 +5649,7 @@ class ManuscriptDocumentParser {
 }
 
 class ManuscriptParseResult {
+  final String? sourceTitle;
   final String fullText;
   final String bodyText;
   final List<PublishReference> references;
@@ -5092,6 +5657,7 @@ class ManuscriptParseResult {
   final List<ImportedDocumentImage> images;
 
   const ManuscriptParseResult({
+    this.sourceTitle,
     required this.fullText,
     required this.bodyText,
     required this.references,
@@ -5100,10 +5666,12 @@ class ManuscriptParseResult {
   });
 
   ManuscriptParseResult copyWith({
+    String? sourceTitle,
     List<PublishReference>? references,
     List<ManuscriptBlock>? bodyBlocks,
   }) {
     return ManuscriptParseResult(
+      sourceTitle: sourceTitle ?? this.sourceTitle,
       fullText: fullText,
       bodyText: bodyText,
       references: references ?? this.references,
