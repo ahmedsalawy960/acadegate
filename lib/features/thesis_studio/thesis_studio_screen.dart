@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -35,6 +36,7 @@ import 'thesis_abstract_result.dart';
 import 'thesis_studio_branding.dart';
 import 'thesis_studio_citation_report.dart';
 import 'thesis_studio_citations.dart';
+import 'thesis_studio_claims.dart';
 import 'thesis_studio_docx_export.dart';
 import 'thesis_studio_engine.dart';
 import 'thesis_studio_file_share.dart';
@@ -3178,21 +3180,22 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
               ),
             )
           else ...[
+            Text(
+              context.t(
+                'اضغط أي جملة لعرض مصادرها والاقتباس الداعم من الملخص، مع رابط المصدر للتحقق من النص الكامل.',
+                'Tap any sentence to see its sources and the supporting abstract excerpt, with the source link for full-text checking.',
+              ),
+              style: TextStyle(
+                fontSize: 11,
+                color: const Color(0xFFB7C3D6),
+                height: 1.3,
+              ),
+            ),
+            const SizedBox(height: 4),
             ConstrainedBox(
               constraints: const BoxConstraints(maxHeight: 420),
               child: SingleChildScrollView(
-                child: SelectableText(
-                  ThesisStudioCitations.styledProse(
-                    paragraph.body,
-                    _draft!,
-                    works: paragraph.references.isNotEmpty
-                        ? paragraph.references
-                        : null,
-                  ),
-                  textDirection: dir,
-                  textAlign: arabic ? TextAlign.right : TextAlign.start,
-                  style: const TextStyle(height: 1.55),
-                ),
+                child: _claimTextView(paragraph, dir, arabic),
               ),
             ),
             const SizedBox(height: 6),
@@ -3356,6 +3359,274 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
   bool hasAbsLabel(ThesisParagraph paragraph) => paragraph.references.any(
         (w) => w.abstractText.trim().length >= 80,
       );
+
+  Widget _claimTextView(
+    ThesisParagraph paragraph,
+    TextDirection dir,
+    bool arabic,
+  ) {
+    final draft = _draft;
+    if (draft == null) return const SizedBox.shrink();
+    final claims = ThesisClaimMapper.mapBody(
+      body: paragraph.body,
+      draft: draft,
+      paragraph: paragraph,
+    );
+    final spans = <InlineSpan>[];
+    for (var i = 0; i < claims.length; i++) {
+      final claim = claims[i];
+      spans.add(
+        TextSpan(
+          text: claim.display,
+          style: TextStyle(
+            height: 1.55,
+            decoration: claim.hasMarkers
+                ? TextDecoration.underline
+                : TextDecoration.none,
+            decorationColor: const Color(0xFF93C5FD).withValues(alpha: 0.45),
+          ),
+          recognizer: TapGestureRecognizer()
+            ..onTap = () => _showClaimSheet(claim),
+        ),
+      );
+      if (i < claims.length - 1) spans.add(const TextSpan(text: ' '));
+    }
+    return SelectableText.rich(
+      TextSpan(children: spans),
+      textDirection: dir,
+      textAlign: arabic ? TextAlign.right : TextAlign.start,
+    );
+  }
+
+  String _evidenceBadge(ClaimSource source) {
+    switch (source.level) {
+      case ClaimEvidenceLevel.abstractOnly:
+        return context.t(
+          'التحقق من الملخص فقط — النص الكامل عبر الرابط',
+          'Verified from the abstract only — full text via the link',
+        );
+      case ClaimEvidenceLevel.metadataOnly:
+        return context.t(
+          'لا ملخص متاح — تحقق من المصدر مباشرة',
+          'No abstract available — check the source directly',
+        );
+      case ClaimEvidenceLevel.unknownMarker:
+        return context.t(
+          'علامة غير موجودة في قائمة مراجع هذه الفقرة',
+          'Marker not in this paragraph\'s harvested list',
+        );
+    }
+  }
+
+  Color _evidenceColor(ClaimSource source) {
+    switch (source.level) {
+      case ClaimEvidenceLevel.abstractOnly:
+        return const Color(0xFFFBBF24);
+      case ClaimEvidenceLevel.metadataOnly:
+        return const Color(0xFFB7C3D6);
+      case ClaimEvidenceLevel.unknownMarker:
+        return Colors.red.shade300;
+    }
+  }
+
+  void _showClaimSheet(ClaimSentence claim) {
+    final arabic = _arabicDraft;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => SafeArea(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  ctx.t('الجملة ومصادرها', 'Sentence and its sources'),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(ctx).colorScheme.surfaceContainerHighest
+                        .withValues(alpha: 0.35),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    claim.display,
+                    textDirection:
+                        arabic ? TextDirection.rtl : TextDirection.ltr,
+                    style: const TextStyle(height: 1.5),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                if (!claim.hasMarkers)
+                  Text(
+                    ctx.t(
+                      'هذه الجملة بلا استشهاد. اجلب المراجع ثم ولّد، أو عدّل الأمر لتدعيمها بمصدر.',
+                      'This sentence has no citation. Fetch sources and generate, or adjust the command to back it with a source.',
+                    ),
+                    style: const TextStyle(height: 1.4),
+                  ),
+                for (final source in claim.sources) ...[
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: _evidenceColor(source).withValues(alpha: 0.5),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (source.work != null) ...[
+                          Text(
+                            '[${source.marker}] ${source.work!.title}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              height: 1.35,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            [
+                              if (source.work!.authors.trim().isNotEmpty)
+                                source.work!.authors,
+                              if (source.work!.year != null)
+                                '${source.work!.year}',
+                              if (source.work!.journal != null &&
+                                  source.work!.journal!.trim().isNotEmpty)
+                                source.work!.journal!,
+                            ].join(' · '),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(ctx)
+                                  .colorScheme
+                                  .onSurface
+                                  .withValues(alpha: 0.7),
+                            ),
+                          ),
+                        ] else
+                          Text(
+                            '[${source.marker}]',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              height: 1.35,
+                            ),
+                          ),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            Icon(Icons.fact_check_outlined,
+                                size: 16, color: _evidenceColor(source)),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                _evidenceBadge(source),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: _evidenceColor(source),
+                                  height: 1.3,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (source.quote.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Theme.of(ctx)
+                                  .colorScheme
+                                  .surfaceContainerHighest
+                                  .withValues(alpha: 0.3),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              '"${source.quote}"',
+                              textDirection: TextDirection.ltr,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                height: 1.45,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          ),
+                        ] else if (source.level ==
+                            ClaimEvidenceLevel.abstractOnly) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            ctx.t(
+                              'لا جملة مطابقة بوضوح في الملخص — راجع النص الكامل قبل الاعتماد على هذا الاستشهاد.',
+                              'No clearly matching sentence in the abstract — review the full text before relying on this citation.',
+                            ),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(ctx)
+                                  .colorScheme
+                                  .onSurface
+                                  .withValues(alpha: 0.7),
+                              height: 1.35,
+                            ),
+                          ),
+                        ],
+                        if (source.work != null &&
+                            source.work!.primaryUrl.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: AlignmentDirectional.centerStart,
+                            child: TextButton.icon(
+                              onPressed: () => _openExternalUri(
+                                Uri.parse(source.work!.primaryUrl),
+                              ),
+                              icon: const Icon(Icons.open_in_new, size: 16),
+                              label: Text(
+                                ctx.t(
+                                  'فتح المصدر للتحقق من النص الكامل',
+                                  'Open source to verify full text',
+                                ),
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+                if (claim.hasMarkers)
+                  Text(
+                    ctx.t(
+                      'وجود العلامة لا يثبت أن المرجع يؤيد الجملة — الاقتباس أعلاه من الملخص، والتحقق النهائي يكون من النص الكامل عبر رابط المصدر.',
+                      'A marker does not prove the reference supports the sentence — the excerpt above is from the abstract, and final verification is from the full text via the source link.',
+                    ),
+                    style: TextStyle(
+                      fontSize: 11,
+                      height: 1.35,
+                      color: Theme.of(ctx)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.6),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget _lengthMeter(ThesisChapter chapter, ThesisParagraph paragraph) {
     final command = _paraCmd(paragraph).text.trim().isNotEmpty
