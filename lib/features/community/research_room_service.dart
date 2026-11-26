@@ -636,6 +636,7 @@ class ResearchRoomService {
     required String roomId,
     required String discussionId,
     required String body,
+    ChatAttachment attachment = const ChatAttachment(),
   }) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
@@ -651,7 +652,7 @@ class ResearchRoomService {
     }
 
     final trimmedBody = body.trim();
-    if (trimmedBody.isEmpty) {
+    if (trimmedBody.isEmpty && !attachment.hasMedia) {
       return appTr('اكتب رداً أولاً', 'Write a reply first');
     }
 
@@ -693,6 +694,7 @@ class ResearchRoomService {
         'authorName': authorName,
         'body': trimmedBody,
         'createdAt': FieldValue.serverTimestamp(),
+        ...attachment.toFirestoreFields(),
       });
       transaction.update(discussionRef, {
         'repliesCount': FieldValue.increment(1),

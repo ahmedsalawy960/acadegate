@@ -78,6 +78,25 @@ service cloud.firestore {
               && (value == '' || value.matches('https?://.*')));
     }
 
+    // Community reply attachment: image, video, file, or a map link.
+    function isSafeReplyAttachment() {
+      return !request.resource.data.keys().hasAny(
+               ['attachmentType', 'attachmentUrl', 'attachmentName', 'attachmentMime'])
+          || (
+            request.resource.data.attachmentType in ['image', 'video', 'file', 'location']
+            && request.resource.data.attachmentUrl is string
+            && request.resource.data.attachmentUrl.size() > 0
+            && request.resource.data.attachmentUrl.size() <= 2000
+            && request.resource.data.attachmentUrl.matches('https?://.*')
+            && (!('attachmentName' in request.resource.data)
+                || (request.resource.data.attachmentName is string
+                    && request.resource.data.attachmentName.size() <= 200))
+            && (!('attachmentMime' in request.resource.data)
+                || (request.resource.data.attachmentMime is string
+                    && request.resource.data.attachmentMime.size() <= 120))
+          );
+    }
+
     function isEmptyClaimedBy(data) {
       return !('claimedBy' in data)
           || data.claimedBy == null
@@ -1029,12 +1048,16 @@ service cloud.firestore {
         // Replies are allowed only on approved posts, with a bounded body.
         allow create: if isSignedIn()
                       && request.resource.data.authorId == request.auth.uid
-                      && request.resource.data.keys().hasOnly(['authorId', 'authorName', 'body', 'createdAt'])
+                      && request.resource.data.keys().hasOnly([
+                           'authorId', 'authorName', 'body', 'createdAt',
+                           'attachmentType', 'attachmentUrl', 'attachmentName', 'attachmentMime'])
                       && request.resource.data.body is string
-                      && request.resource.data.body.size() > 0
                       && request.resource.data.body.size() <= 2000
                       && request.resource.data.authorName is string
                       && request.resource.data.authorName.size() <= 100
+                      && isSafeReplyAttachment()
+                      && (request.resource.data.body.size() > 0
+                          || request.resource.data.keys().hasAny(['attachmentUrl']))
                       && get(/databases/$(database)/documents/community_posts/$(postId)).data
                             .get('approvalStatus', 'approved') == 'approved';
         allow update: if false;

@@ -5,7 +5,9 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/locale/locale_extensions.dart';
 import '../auth/user_account_service.dart';
+import '../messaging/chat_media.dart';
 import '../messaging/chat_screen.dart';
+import '../messaging/chat_widgets.dart';
 import '../messaging/messaging_service.dart';
 import '../moderation/approval_status.dart';
 import '../moderation/delete_content_button.dart';
@@ -69,7 +71,9 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
     }
   }
 
-  Future<void> _submitReply() async {
+  Future<void> _submitReply({
+    ChatAttachment attachment = const ChatAttachment(),
+  }) async {
     final postId = widget.post.id;
     if (postId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -87,6 +91,7 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
     final error = await CommunityService.instance.addReply(
       postId: postId,
       body: _replyController.text,
+      attachment: attachment,
     );
 
     if (!mounted) return;
@@ -403,43 +408,15 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
             ),
           )
         else
-        SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _replyController,
-                    decoration: InputDecoration(
-                      hintText: context.t('اكتب رداً...', 'Write a reply...'),
-                      counterText: '',
-                      border: const OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                    minLines: 1,
-                    maxLines: 3,
-                    maxLength: kCommunityReplyMaxLength,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton.filled(
-                  onPressed: _replyLoading ? null : _submitReply,
-                  icon: _replyLoading
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Icon(Icons.send),
-                ),
-              ],
-            ),
+          ChatComposerBar(
+            controller: _replyController,
+            sending: _replyLoading,
+            accentColor: widget.room.color,
+            hintText: context.t('اكتب رداً...', 'Write a reply...'),
+            onSend: _submitReply,
+            onSendAttachment: (attachment) =>
+                _submitReply(attachment: attachment),
           ),
-        ),
       ],
     );
   }
@@ -499,8 +476,20 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
                         reply.authorName,
                         style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
-                      const SizedBox(height: 6),
-                      Text(reply.body, style: const TextStyle(height: 1.4)),
+                      if (reply.body.trim().isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text(reply.body, style: const TextStyle(height: 1.4)),
+                      ],
+                      if (reply.attachment.hasMedia) ...[
+                        const SizedBox(height: 8),
+                        ChatMessageBubble(
+                          text: '',
+                          mine: false,
+                          attachment: reply.attachment,
+                          theirsColor: const Color(0xFFF4F7FB),
+                          theirsTextColor: const Color(0xFF1C1917),
+                        ),
+                      ],
                     ],
                   ),
                 ),

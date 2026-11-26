@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../core/locale/app_translate.dart';
+import '../messaging/chat_media.dart';
 import '../moderation/approval_status.dart';
 import 'community_data.dart';
 
@@ -128,6 +129,7 @@ class CommunityReply {
   final String authorName;
   final String body;
   final DateTime? createdAt;
+  final ChatAttachment attachment;
 
   const CommunityReply({
     this.id,
@@ -136,6 +138,7 @@ class CommunityReply {
     required this.authorName,
     required this.body,
     this.createdAt,
+    this.attachment = const ChatAttachment(),
   });
 
   factory CommunityReply.fromMap(
@@ -157,6 +160,7 @@ class CommunityReply {
           appTr('طالب', 'Student'),
       body: map['body']?.toString() ?? '',
       createdAt: created,
+      attachment: ChatAttachment.fromMap(map),
     );
   }
 }

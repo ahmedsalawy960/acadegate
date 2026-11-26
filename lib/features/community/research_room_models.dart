@@ -270,6 +270,7 @@ class ResearchDiscussionReply {
   final String authorName;
   final String body;
   final DateTime? createdAt;
+  final ChatAttachment attachment;
 
   const ResearchDiscussionReply({
     required this.id,
@@ -278,6 +279,7 @@ class ResearchDiscussionReply {
     required this.authorName,
     required this.body,
     this.createdAt,
+    this.attachment = const ChatAttachment(),
   });
 
   factory ResearchDiscussionReply.fromMap(
@@ -297,6 +299,7 @@ class ResearchDiscussionReply {
           appTr('باحث', 'Researcher'),
       body: map['body']?.toString() ?? '',
       createdAt: created,
+      attachment: ChatAttachment.fromMap(map),
     );
   }
 }

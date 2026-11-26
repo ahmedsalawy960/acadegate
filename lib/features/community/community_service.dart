@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../core/locale/app_translate.dart';
 import '../home/home_search_utils.dart';
+import '../messaging/chat_media.dart';
 import '../moderation/approval_status.dart';
 import '../profile/academic_profile_service.dart';
 import 'community_data.dart';
@@ -274,6 +275,7 @@ class CommunityService {
   Future<String?> addReply({
     required String postId,
     required String body,
+    ChatAttachment attachment = const ChatAttachment(),
   }) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
@@ -281,7 +283,7 @@ class CommunityService {
     }
 
     final trimmedBody = body.trim();
-    if (trimmedBody.isEmpty) {
+    if (trimmedBody.isEmpty && !attachment.hasMedia) {
       return appTr('اكتب رداً أولاً', 'Write a reply first');
     }
     if (trimmedBody.length > kCommunityReplyMaxLength) {
@@ -298,6 +300,7 @@ class CommunityService {
         'authorName': authorName,
         'body': trimmedBody,
         'createdAt': FieldValue.serverTimestamp(),
+        ...attachment.toFirestoreFields(),
       });
 
       transaction.update(postRef, {
