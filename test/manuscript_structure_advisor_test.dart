@@ -201,7 +201,7 @@ void main() {
     ManuscriptStructureAdvisor.lastDetailCode = null;
     expect(
       ManuscriptStructureAdvisor.statusMessage(arabic: true),
-      contains('راجع Gemini الملف وصنّف 12 سطراً'),
+      contains('راجع AcadeGate الملف وصنّف 12 سطراً'),
     );
 
     ManuscriptStructureAdvisor.lastSource =
@@ -210,7 +210,7 @@ void main() {
     ManuscriptStructureAdvisor.lastDetailCode = 'empty';
     expect(
       ManuscriptStructureAdvisor.statusMessage(arabic: true),
-      contains('لم يكتمل رد Gemini'),
+      contains('لم يكتمل رد AcadeGate'),
     );
     expect(
       ManuscriptStructureAdvisor.statusMessage(arabic: true),
@@ -232,7 +232,7 @@ void main() {
     ManuscriptStructureAdvisor.lastDetailCode = 'retired';
     expect(
       ManuscriptStructureAdvisor.statusMessage(arabic: true),
-      contains('أوقفت نموذج Gemini'),
+      contains('خدمة AcadeGate قيد التحديث'),
     );
   });
 

@@ -1,4 +1,10 @@
 import '../../../core/locale/app_translate.dart';
+import '../../academic_integrity/academic_translation_service.dart';
+import '../../academic_integrity/citation_health.dart';
+import '../../academic_integrity/citation_health_service.dart';
+import '../../academic_integrity/consensus_client.dart';
+import '../../academic_integrity/europe_pmc_client.dart';
+import '../../academic_integrity/unpaywall_client.dart';
 import '../../acadegate_publish/manuscript_draft_chat_service.dart';
 import '../../acadegate_publish/publish_services.dart';
 import '../../research_journey/research_file.dart';
@@ -13,6 +19,64 @@ import '../grounded_work.dart';
 /// One instance per user turn: it accumulates what the tools found so the
 /// final answer can be checked (DOIs) and decorated (lab/supervisor cards).
 class AssistantToolbox {
+  /// Injectable for tests; defaults to the live evidence-answer index.
+  final Future<List<ConsensusPaper>> Function(String query, {int? limit})
+      _consensusSearch;
+
+  /// Injectable for tests; defaults to the open-access full-text index.
+  final Future<String> Function(String doi) _fullTextForDoi;
+
+  /// Injectable for tests; defaults to the open-access location index.
+  final Future<OaLocation> Function(String doi) _oaLocationForDoi;
+
+  /// Injectable for tests; defaults to the verified-literature search.
+  final Future<GroundedReferenceBundle> Function(String query, {int? limit})
+      _literatureSearch;
+
+  /// Injectable for tests; defaults to the registry health check (retraction,
+  /// correction, expression of concern) for one DOI.
+  final Future<CitationHealth> Function(String doi) _healthForDoi;
+
+  /// Injectable for tests; defaults to the server-side academic translation
+  /// function (enforced academic register, DOI/citation/number preservation).
+  final Future<String> Function(String text, {required String targetLang})
+      _translate;
+
+  /// When a specialist chip is selected, the tool names that specialty may
+  /// use (advisorAgentAllowedTools). Null in auto mode: every tool is
+  /// available and routing follows the message text.
+  final Set<String>? allowedTools;
+
+  AssistantToolbox({
+    Future<List<ConsensusPaper>> Function(String query, {int? limit})?
+        consensusSearch,
+    Future<String> Function(String doi)? fullTextForDoi,
+    Future<OaLocation> Function(String doi)? oaLocationForDoi,
+    Future<GroundedReferenceBundle> Function(String query, {int? limit})?
+        literatureSearch,
+    Future<CitationHealth> Function(String doi)? healthForDoi,
+    Future<String> Function(String text, {required String targetLang})?
+        translate,
+    this.allowedTools,
+  })  : _consensusSearch = consensusSearch ??
+            ((query, {limit}) =>
+                ConsensusClient.instance.search(query, limit: limit ?? 8)),
+        _fullTextForDoi =
+            fullTextForDoi ?? EuropePmcClient.instance.fullTextForDoi,
+        _oaLocationForDoi =
+            oaLocationForDoi ?? UnpaywallClient.instance.bestLocationForDoi,
+        _literatureSearch = literatureSearch ??
+            ((query, {limit}) => GroundedReferenceService.instance.searchTopic(
+                query,
+                limit: limit ?? 8,
+                byRelevance: true)),
+        _healthForDoi = healthForDoi ?? CitationHealthService.instance.forDoi,
+        _translate = translate ??
+            ((text, {required targetLang}) async => (await
+                        AcademicTranslationService.instance
+                    .translate(text: text, targetLang: targetLang))
+                .translation);
+
   final List<GroundedWork> _works = [];
   final List<CatalogHit> _labs = [];
   final List<CatalogHit> _supervisors = [];
@@ -23,13 +87,28 @@ class AssistantToolbox {
 
   static const _maxAbstract = 500;
 
-  static List<Map<String, dynamic>> get declarations => [
+  static List<Map<String, dynamic>> get declarations =>
+      declarationsFor(null);
+
+  /// The declarations the model may see. When [allowedTools] is set (a
+  /// specialist chip is active), only that specialty's tools are offered, so
+  /// the answer cannot claim capabilities outside it.
+  static List<Map<String, dynamic>> declarationsFor(Set<String>? allowedTools) {
+    final all = _allDeclarations;
+    if (allowedTools == null) return all;
+    return all
+        .where((d) => allowedTools.contains(d['name']))
+        .toList(growable: false);
+  }
+
+  static List<Map<String, dynamic>> get _allDeclarations => [
         {
           'name': 'search_scientific_literature',
           'description':
               'Search real scholarly works (OpenAlex, Crossref, Semantic Scholar). '
                   'Use for references, literature reviews, research gaps, or evidence. '
-                  'Returns verified citations with DOI and abstract.',
+                  'Returns verified citations with DOI and abstract. '
+                  'Results may carry a retracted flag; never cite retracted works as support and warn the user.',
           'parameters': {
             'type': 'object',
             'properties': {
@@ -43,6 +122,49 @@ class AssistantToolbox {
               },
             },
             'required': ['query'],
+          },
+        },
+        {
+          'name': 'check_research_evidence',
+          'description':
+              'Check what published research concludes about a specific effect or yes/no question '
+                  '(e.g. "does X improve Y"). Returns short evidence statements with citations. '
+                  'Use for evidence-direction questions; if it returns nothing, answer from verified literature. '
+                  'Results may carry a retracted flag; never cite retracted works as support and warn the user.',
+          'parameters': {
+            'type': 'object',
+            'properties': {
+              'query': {
+                'type': 'string',
+                'description': 'Precise English research question.',
+              },
+              'limit': {
+                'type': 'integer',
+                'description': 'Max results, 3-12. Default 8.',
+              },
+            },
+            'required': ['query'],
+          },
+        },
+        {
+          'name': 'read_paper_text',
+          'description':
+              'Read the open-access full text of one paper by DOI (methods, results, details beyond the abstract). '
+                  'Use when the user asks about a specific paper in depth. Not every paper has a free full text; '
+                  'if unavailable you get an open-access link or a note instead.',
+          'parameters': {
+            'type': 'object',
+            'properties': {
+              'doi': {
+                'type': 'string',
+                'description': 'The paper DOI, e.g. "10.1000/xyz123".',
+              },
+              'max_chars': {
+                'type': 'integer',
+                'description': 'Max characters to return, 1000-12000. Default 6000.',
+              },
+            },
+            'required': ['doi'],
           },
         },
         {
@@ -123,27 +245,54 @@ class AssistantToolbox {
             'required': ['query'],
           },
         },
+        {
+          'name': 'translate_academic_text',
+          'description':
+              'Translate academic text between Arabic and English with a formal scholarly register. '
+                  'Use when the user asks to translate text. Keeps DOIs, citations, numbers and technical terms intact. '
+                  'For long text, send one coherent section at a time.',
+          'parameters': {
+            'type': 'object',
+            'properties': {
+              'text': {
+                'type': 'string',
+                'description': 'The exact text to translate (verbatim, not a summary).',
+              },
+              'target_language': {
+                'type': 'string',
+                'description': 'Target language: "ar" (Arabic) or "en" (English).',
+              },
+            },
+            'required': ['text', 'target_language'],
+          },
+        },
       ];
 
   static String statusLabel(String toolName) => switch (toolName) {
         'search_scientific_literature' => appTr('يبحث في المراجع العلمية…', 'Searching scholarly literature…'),
+        'check_research_evidence' => appTr('يفحص الأدلة البحثية…', 'Checking research evidence…'),
+        'read_paper_text' => appTr('يقرأ نص الورقة…', 'Reading the paper text…'),
         'verify_references' => appTr('يتحقق من المراجع…', 'Verifying references…'),
         'search_labs_and_equipment' => appTr('يبحث في المختبرات والأجهزة…', 'Searching labs and equipment…'),
         'find_supervisors' => appTr('يبحث عن مشرفين…', 'Finding supervisors…'),
         'read_my_research_file' => appTr('يقرأ ملف الرسالة…', 'Reading the thesis file…'),
         'ask_my_draft' => appTr('يقرأ مسودتك…', 'Reading your draft…'),
         'search_store_products' => appTr('يبحث في المتجر…', 'Searching the store…'),
+        'translate_academic_text' => appTr('يترجم أكاديمياً…', 'Translating academically…'),
         _ => appTr('يعمل…', 'Working…'),
       };
 
   static String _chipLabel(String toolName) => switch (toolName) {
         'search_scientific_literature' => appTr('مراجع موثّقة', 'Verified references'),
+        'check_research_evidence' => appTr('أدلة بحثية', 'Research evidence'),
+        'read_paper_text' => appTr('نص الورقة', 'Paper text'),
         'verify_references' => appTr('تحقق المراجع', 'Reference check'),
         'search_labs_and_equipment' => appTr('المختبرات', 'Labs'),
         'find_supervisors' => appTr('المشرفون', 'Supervisors'),
         'read_my_research_file' => appTr('ملف الرسالة', 'Thesis file'),
         'ask_my_draft' => appTr('مسودتك', 'Your draft'),
         'search_store_products' => appTr('المتجر', 'Store'),
+        'translate_academic_text' => appTr('ترجمة أكاديمية', 'Academic translation'),
         _ => toolName,
       };
 
@@ -166,17 +315,23 @@ class AssistantToolbox {
 
   /// Never throws: failures are reported to the model as `{error: ...}`.
   Future<Map<String, dynamic>> execute(String name, Map<String, dynamic> args) async {
+    if (allowedTools != null && !allowedTools!.contains(name)) {
+      return {'error': 'tool $name is not available in this specialty'};
+    }
     final label = _chipLabel(name);
     if (!_usedLabels.contains(label)) _usedLabels.add(label);
     try {
       return switch (name) {
         'search_scientific_literature' => await _literature(args),
+        'check_research_evidence' => await _evidence(args),
+        'read_paper_text' => await _paperText(args),
         'verify_references' => await _verify(args),
         'search_labs_and_equipment' => await _labsSearch(args),
         'find_supervisors' => await _supervisorsSearch(args),
         'read_my_research_file' => await _researchFile(),
         'ask_my_draft' => await _draft(args),
         'search_store_products' => await _store(args),
+        'translate_academic_text' => await _translateText(args),
         _ => {'error': 'unknown tool $name'},
       };
     } catch (e) {
@@ -186,15 +341,29 @@ class AssistantToolbox {
 
   static String _str(Map<String, dynamic> args, String key) => (args[key] ?? '').toString().trim();
 
+  Future<Map<String, dynamic>> _translateText(
+      Map<String, dynamic> args) async {
+    final text = _str(args, 'text');
+    final targetLang = _str(args, 'target_language').toLowerCase();
+    if (text.length < 3) return {'error': 'text too short'};
+    if (text.length > 40000) return {'error': 'text too long (max 40000 chars)'};
+    final lang = (targetLang == 'ar' || targetLang == 'arabic')
+        ? 'ar'
+        : (targetLang == 'en' || targetLang == 'english')
+            ? 'en'
+            : '';
+    if (lang.isEmpty) {
+      return {'error': 'target_language must be ar or en'};
+    }
+    final translation = await _translate(text, targetLang: lang);
+    return {'translation': translation};
+  }
+
   Future<Map<String, dynamic>> _literature(Map<String, dynamic> args) async {
     final query = _str(args, 'query');
     if (query.length < 3) return {'error': 'query too short'};
     final limit = (int.tryParse('${args['limit'] ?? ''}') ?? 8).clamp(3, 12);
-    final bundle = await GroundedReferenceService.instance.searchTopic(
-      query,
-      limit: limit,
-      byRelevance: true,
-    );
+    final bundle = await _literatureSearch(query, limit: limit);
     final known = {for (final w in _works) w.doi.toLowerCase()};
     for (final w in bundle.works) {
       if (w.doi.isEmpty || !known.contains(w.doi.toLowerCase())) _works.add(w);
@@ -213,12 +382,113 @@ class AssistantToolbox {
             if (w.doi.isNotEmpty) 'doi': w.doi,
             if (w.year != null) 'year': w.year,
             'source_index': w.source,
+            if (w.citationCount != null) 'citation_count': w.citationCount,
+            if (w.isRetracted) 'retracted': true,
+            if (w.tldr.trim().isNotEmpty) 'tldr': w.tldr,
             if (w.abstractText.trim().isNotEmpty)
               'abstract': w.abstractText.length > _maxAbstract
                   ? '${w.abstractText.substring(0, _maxAbstract)}…'
                   : w.abstractText,
           },
       ],
+      if (bundle.works.any((w) => w.isRetracted))
+        'note': 'Results marked "retracted" were withdrawn by their journal. '
+            'Never cite them as support; tell the user they were retracted and suggest a sound alternative.',
+    };
+  }
+
+  Future<Map<String, dynamic>> _evidence(Map<String, dynamic> args) async {
+    final query = _str(args, 'query');
+    if (query.length < 3) return {'error': 'query too short'};
+    final limit = (int.tryParse('${args['limit'] ?? ''}') ?? 8).clamp(3, 12);
+    final papers = await _consensusSearch(query, limit: limit);
+    if (papers.isEmpty) {
+      return {
+        'results': <Object>[],
+        'note': 'No direct evidence statements available for this question. '
+            'Answer from verified literature instead and say the evidence could not be checked directly.',
+      };
+    }
+    final known = {for (final w in _works) w.mergeKey};
+    final healths = await Future.wait([
+      for (final p in papers)
+        p.doi.trim().isEmpty
+            ? Future<CitationHealth>.value(CitationHealth.empty)
+            : _healthForDoi(p.doi).catchError((_) => CitationHealth.empty),
+    ]);
+    var anyRetracted = false;
+    final results = <Map<String, dynamic>>[];
+    for (var i = 0; i < papers.length; i++) {
+      final p = papers[i];
+      final retracted = healths[i].isRetracted;
+      if (retracted) anyRetracted = true;
+      final work = GroundedWork(
+        title: p.title,
+        source: 'Consensus',
+        doi: p.doi,
+        year: p.year,
+        authors: p.authors,
+        journal: p.journal.isEmpty ? null : p.journal,
+        abstractText: p.groundedAbstract,
+        externalUrl: p.url,
+      );
+      if (!known.contains(work.mergeKey)) {
+        known.add(work.mergeKey);
+        _works.add(work);
+      }
+      final abstract = p.abstractText.trim();
+      final takeaway = p.takeaway.trim();
+      results.add({
+        'citation_apa': work.apaLine,
+        if (work.hasDoi) 'doi': work.doi,
+        if (p.year != null) 'year': p.year,
+        if (retracted) 'retracted': true,
+        if (takeaway.isNotEmpty) 'evidence': takeaway,
+        if (abstract.isNotEmpty)
+          'abstract': abstract.length > _maxAbstract
+              ? '${abstract.substring(0, _maxAbstract)}…'
+              : abstract,
+      });
+    }
+    return {
+      'results': results,
+      if (anyRetracted)
+        'note': 'Results marked "retracted" were withdrawn by their journal. '
+            'Never cite them as support; tell the user they were retracted and suggest a sound alternative.',
+    };
+  }
+
+  Future<Map<String, dynamic>> _paperText(Map<String, dynamic> args) async {
+    final doi = _str(args, 'doi')
+        .replaceAll(RegExp(r'^https?://(dx\.)?doi\.org/', caseSensitive: false), '');
+    if (doi.length < 6) return {'error': 'doi too short'};
+    final maxChars =
+        (int.tryParse('${args['max_chars'] ?? ''}') ?? 6000).clamp(1000, 12000);
+    final text = await _fullTextForDoi(doi);
+    if (text.trim().isNotEmpty) {
+      final trimmed = text.trim();
+      return {
+        'doi': doi,
+        'full_text': trimmed.length > maxChars
+            ? '${trimmed.substring(0, maxChars)}…'
+            : trimmed,
+        'truncated': trimmed.length > maxChars,
+        'note': 'Open-access full text. Answer from it and cite the paper.',
+      };
+    }
+    final oa = await _oaLocationForDoi(doi);
+    if (oa.bestUrl.isNotEmpty) {
+      return {
+        'doi': doi,
+        'open_access_url': oa.bestUrl,
+        'note': 'No machine-readable full text, but a free open-access copy exists at this link. '
+            'Answer from the abstract and verified literature, and share the link.',
+      };
+    }
+    return {
+      'doi': doi,
+      'note': 'No open-access full text found for this DOI. '
+          'Answer from the abstract and verified literature, and say the full text is not freely available.',
     };
   }
 

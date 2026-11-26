@@ -15,6 +15,10 @@ class ThesisCitationReport {
   final int uncitedSentenceCount;
   final int scaffoldSentenceCount;
 
+  /// 1-based indexes of catalog works a free index reports as retracted.
+  /// Retracted works must never be cited as support.
+  final List<int> retractedIndexes;
+
   const ThesisCitationReport({
     required this.sourceCount,
     required this.usedIndexes,
@@ -23,6 +27,7 @@ class ThesisCitationReport {
     required this.citedSentenceCount,
     required this.uncitedSentenceCount,
     required this.scaffoldSentenceCount,
+    this.retractedIndexes = const [],
   });
 
   int get reviewedSentences => citedSentenceCount + uncitedSentenceCount;
@@ -153,6 +158,10 @@ class ThesisCitationReport {
       for (var i = 1; i <= n; i++)
         if (!used.contains(i)) i,
     ];
+    final retracted = [
+      for (var i = 0; i < catalog.length; i++)
+        if (catalog[i].isRetracted) i + 1,
+    ];
     return ThesisCitationReport(
       sourceCount: n,
       usedIndexes: used,
@@ -161,6 +170,7 @@ class ThesisCitationReport {
       citedSentenceCount: cited,
       uncitedSentenceCount: uncited,
       scaffoldSentenceCount: scaffold,
+      retractedIndexes: retracted,
     );
   }
 
@@ -178,6 +188,11 @@ class ThesisCitationReport {
       );
       if (unusedIndexes.isNotEmpty) {
         buf.writeln('مصادر غير مستخدمة: ${unusedIndexes.map((i) => '[$i]').join(', ')}');
+      }
+      if (retractedIndexes.isNotEmpty) {
+        buf.writeln(
+          'مراجع مسحوبة من مجلتها: ${retractedIndexes.map((i) => '[$i]').join(', ')} — أزلها ولا تستشهد بها أبداً كدليل.',
+        );
       }
       if (unknownMarkers.isNotEmpty) {
         buf.writeln('علامات غير موجودة في القائمة: ${unknownMarkers.join(', ')}');
@@ -200,6 +215,11 @@ class ThesisCitationReport {
       if (unusedIndexes.isNotEmpty) {
         buf.writeln(
           'Unused sources: ${unusedIndexes.map((i) => '[$i]').join(', ')}',
+        );
+      }
+      if (retractedIndexes.isNotEmpty) {
+        buf.writeln(
+          'Retracted references: ${retractedIndexes.map((i) => '[$i]').join(', ')} — remove them; never cite them as support.',
         );
       }
       if (unknownMarkers.isNotEmpty) {

@@ -1,13 +1,32 @@
 import '../../core/locale/app_translate.dart';
 import '../academic_integrity/consensus_client.dart';
 import '../academic_integrity/crossref_client.dart';
+import '../academic_integrity/datacite_client.dart';
 import '../academic_integrity/europe_pmc_client.dart';
 import '../academic_integrity/google_scholar_client.dart';
+import '../academic_integrity/openaire_client.dart';
+import '../academic_integrity/open_citations_client.dart';
 import '../academic_integrity/openalex_works_client.dart';
 import '../academic_integrity/semantic_scholar_client.dart';
+import '../academic_integrity/zotero_client.dart';
+import '../academic_integrity/zotero_connection_store.dart';
+import '../academic_integrity/zenodo_client.dart';
 import 'advisor_intent.dart';
 import 'grounded_work.dart';
 import 'literature_relevance.dart';
+
+/// Outcome of checking one DOI against the scholarly indexes.
+/// [answered] is false when every index request failed (network, timeout),
+/// which is different from "the DOI does not exist".
+class DoiCheckResult {
+  final GroundedWork? work;
+  final bool answered;
+
+  const DoiCheckResult(this.work, {this.answered = true});
+}
+
+/// Injectable DOI check for offline tests and alternate data sources.
+typedef DoiStatusLookup = Future<DoiCheckResult> Function(String doi);
 
 /// Live bibliography from OpenAlex, Crossref, Semantic Scholar, Europe PMC,
 /// Google Scholar, and Consensus. Never invent a DOI.
@@ -93,6 +112,7 @@ class GroundedReferenceService {
           'OpenAlex',
           journal: work.journal,
           abstractText: work.abstractText,
+          isRetracted: work.isRetracted,
         );
       }
     } catch (_) {}
@@ -103,7 +123,15 @@ class GroundedReferenceService {
         rows: limit,
       );
       for (final work in crossref) {
-        _offer(byDoi, work.doi, work.title, work.year, work.authors, 'Crossref');
+        _offer(
+          byDoi,
+          work.doi,
+          work.title,
+          work.year,
+          work.authors,
+          'Crossref',
+          isRetracted: work.retractedByRelation,
+        );
       }
     } catch (_) {}
 
@@ -122,6 +150,8 @@ class GroundedReferenceService {
           'Semantic Scholar',
           journal: work.venue,
           abstractText: work.abstractText,
+          tldr: work.tldr,
+          citationCount: work.citationCount,
           externalUrl: work.url,
         );
       }
@@ -166,6 +196,53 @@ class GroundedReferenceService {
       if (e.code != 'quota_exceeded') rethrow;
     } catch (_) {}
 
+    // The user's own Zotero library, when connected on this device.
+    try {
+      final zotero = await ZoteroConnectionStore.instance.read();
+      if (zotero != null) {
+        final items = await ZoteroClient.instance.searchItems(
+          userId: zotero.userId,
+          apiKey: zotero.apiKey,
+          query: topic,
+          limit: limit,
+        );
+        for (final work in items) {
+          _offer(
+            byDoi,
+            work.doi,
+            work.title,
+            work.year,
+            work.authors,
+            'Zotero',
+            journal: work.journal,
+            abstractText: work.abstractText,
+            externalUrl: work.url,
+          );
+        }
+      }
+    } catch (_) {}
+
+    try {
+      final openaire = await OpenAireClient.instance.search(
+        topic,
+        limit: limit,
+      );
+      for (final work in openaire) {
+        _offer(
+          byDoi,
+          work.doi,
+          work.title,
+          work.year,
+          work.authors,
+          'OpenAIRE',
+          journal: work.journal,
+          abstractText: work.abstractText,
+          citationCount: work.citationCount,
+          externalUrl: work.url,
+        );
+      }
+    } catch (_) {}
+
     try {
       final consensus = await ConsensusClient.instance.search(
         topic,
@@ -186,6 +263,48 @@ class GroundedReferenceService {
       }
     } catch (_) {}
 
+    // Research datasets (DataCite index + Zenodo repository) join the
+    // general topic search; DOI dedup keeps one record per dataset.
+    try {
+      final datasets = await DataCiteClient.instance.searchDatasets(
+        topic,
+        limit: 5,
+      );
+      for (final ds in datasets) {
+        _offer(
+          byDoi,
+          ds.doi,
+          ds.title,
+          ds.year,
+          ds.authors,
+          'DataCite',
+          journal: ds.publisher,
+          abstractText: ds.abstractText,
+          citationCount: ds.citationCount,
+          externalUrl: ds.url,
+        );
+      }
+    } catch (_) {}
+
+    try {
+      final zenodo = await ZenodoClient.instance.searchDatasets(
+        topic,
+        limit: 5,
+      );
+      for (final ds in zenodo) {
+        _offer(
+          byDoi,
+          ds.doi,
+          ds.title,
+          ds.year,
+          ds.authors,
+          'Zenodo',
+          abstractText: ds.abstractText,
+          externalUrl: ds.url,
+        );
+      }
+    } catch (_) {}
+
     var works = byDoi.values.toList()
       ..sort((a, b) => (b.year ?? 0).compareTo(a.year ?? 0));
     final tokens = mustMatchTokens
@@ -200,7 +319,7 @@ class GroundedReferenceService {
     }
     return GroundedReferenceBundle(
       topic: topic,
-      works: works.take(limit).toList(),
+      works: await _enrichCitationCounts(works.take(limit).toList()),
     );
   }
 
@@ -262,6 +381,7 @@ class GroundedReferenceService {
             abstractText: work.abstractText,
             requireDoi: requireDoi,
             externalUrl: work.url,
+            isRetracted: work.isRetracted,
           );
         }
       } catch (_) {}
@@ -285,6 +405,7 @@ class GroundedReferenceService {
             work.year,
             work.authors,
             'Crossref',
+            isRetracted: work.retractedByRelation,
             requireDoi: requireDoi,
           );
         }
@@ -329,6 +450,56 @@ class GroundedReferenceService {
             requireDoi: requireDoi,
             externalUrl: work.url,
           );
+        }
+      } catch (_) {}
+
+      try {
+        final openaire = await OpenAireClient.instance.search(
+          query,
+          limit: perSource,
+          fromYear: minYear > 0 ? minYear : null,
+        );
+        for (final work in openaire) {
+          _offer(
+            byKey,
+            work.doi,
+            work.title,
+            work.year,
+            work.authors,
+            'OpenAIRE',
+            journal: work.journal,
+            abstractText: work.abstractText,
+            citationCount: work.citationCount,
+            requireDoi: requireDoi,
+            externalUrl: work.url,
+          );
+        }
+      } catch (_) {}
+
+      // The user's own Zotero library, when connected on this device.
+      try {
+        final zotero = await ZoteroConnectionStore.instance.read();
+        if (zotero != null) {
+          final items = await ZoteroClient.instance.searchItems(
+            userId: zotero.userId,
+            apiKey: zotero.apiKey,
+            query: query,
+            limit: perSource,
+          );
+          for (final work in items) {
+            _offer(
+              byKey,
+              work.doi,
+              work.title,
+              work.year,
+              work.authors,
+              'Zotero',
+              journal: work.journal,
+              abstractText: work.abstractText,
+              requireDoi: requireDoi,
+              externalUrl: work.url,
+            );
+          }
         }
       } catch (_) {}
     }
@@ -464,8 +635,39 @@ class GroundedReferenceService {
 
     return GroundedReferenceBundle(
       topic: cleaned.first,
-      works: ranked,
+      works: await _enrichCitationCounts(ranked),
     );
+  }
+
+  /// Fills missing citation counts on the final works from the
+  /// OpenCitations COCI index (free, DOI-based), so results do not depend
+  /// on Semantic Scholar's rate-limited counts alone. At most [maxLookups]
+  /// DOIs are checked, in parallel. Never throws.
+  Future<List<GroundedWork>> _enrichCitationCounts(
+    List<GroundedWork> works, {
+    int maxLookups = 8,
+  }) async {
+    final targets = <int>[];
+    for (var i = 0; i < works.length && targets.length < maxLookups; i++) {
+      final w = works[i];
+      if (w.hasDoi && w.citationCount == null) targets.add(i);
+    }
+    if (targets.isEmpty) return works;
+    final counts = await Future.wait(
+      targets.map(
+        (i) => OpenCitationsClient.instance.citationCount(works[i].doi),
+      ),
+    );
+    final out = List<GroundedWork>.of(works);
+    var changed = false;
+    for (var k = 0; k < targets.length; k++) {
+      final count = counts[k];
+      if (count != null) {
+        out[targets[k]] = out[targets[k]].withCitationCount(count);
+        changed = true;
+      }
+    }
+    return changed ? out : works;
   }
 
   /// Drop DOIs that OpenAlex/Crossref cannot confirm. Real DOIs in the text
@@ -474,17 +676,31 @@ class GroundedReferenceService {
     String text, {
     GroundedReferenceBundle? known,
     Future<GroundedWork?> Function(String doi)? lookup,
+    DoiStatusLookup? statusLookup,
   }) async {
     final dois = extractDois(text);
     if (dois.isEmpty) return text;
 
     final allowed = {...?known?.doiSet};
     final dropped = <String>[];
-    final resolve = lookup ?? _lookup;
+    final uncertain = <String>[];
 
     for (final doi in dois) {
       if (allowed.contains(doi)) continue;
-      final verified = await resolve(doi);
+      if (statusLookup != null || lookup == null) {
+        final resolve = statusLookup ?? _lookupDetailed;
+        final result = await resolve(doi);
+        if (result.work != null) {
+          allowed.add(normalizeDoi(result.work!.doi));
+        } else if (result.answered) {
+          dropped.add(doi);
+        } else {
+          // Indexes unreachable: keep the DOI and say we could not check it.
+          uncertain.add(doi);
+        }
+        continue;
+      }
+      final verified = await lookup(doi);
       if (verified != null) {
         allowed.add(normalizeDoi(verified.doi));
       } else {
@@ -508,13 +724,21 @@ class GroundedReferenceService {
     }
     cleaned = cleaned.replaceAll(RegExp(r'[ \t]{2,}'), ' ').trim();
 
-    if (dropped.isEmpty) return cleaned;
+    if (dropped.isEmpty && uncertain.isEmpty) return cleaned;
 
-    final note = appTr(
-      '\n\n_حُذف ${dropped.length} معرّف DOI غير موجود في OpenAlex أو Crossref._',
-      '\n\n_${dropped.length} DOI(s) not found in OpenAlex or Crossref were removed._',
-    );
-    return '$cleaned$note';
+    final notes = <String>[
+      if (dropped.isNotEmpty)
+        appTr(
+          '_حُذف ${dropped.length} معرّف DOI غير موجود في OpenAlex أو Crossref._',
+          '_${dropped.length} DOI(s) not found in OpenAlex or Crossref were removed._',
+        ),
+      if (uncertain.isNotEmpty)
+        appTr(
+          '_تعذر التحقق من ${uncertain.length} معرّف DOI بسبب مشكلة اتصال — تُركت كما هي دون حذف._',
+          '_${uncertain.length} DOI(s) could not be checked due to a connection problem and were left unchanged._',
+        ),
+    ];
+    return '$cleaned\n\n${notes.join('\n\n')}';
   }
 
   String promptBlock(GroundedReferenceBundle bundle) {
@@ -565,7 +789,10 @@ class GroundedReferenceService {
     return buffer.toString();
   }
 
-  Future<String> verifyPastedBibliography(String message) async {
+  Future<String> verifyPastedBibliography(
+    String message, {
+    DoiStatusLookup? statusLookup,
+  }) async {
     final dois = extractDois(message);
     if (dois.isEmpty) {
       return appTr(
@@ -573,33 +800,54 @@ class GroundedReferenceService {
         'No DOI was found in the text. Add DOI identifiers or ask for sources on a topic — I will not format unverified sources.',
       );
     }
+    final resolve = statusLookup ?? _lookupDetailed;
     final verified = <GroundedWork>[];
     final rejected = <String>[];
+    final uncertain = <String>[];
     for (final doi in dois.take(20)) {
-      final work = await _lookup(doi);
-      if (work == null) {
+      final result = await resolve(doi);
+      if (result.work != null) {
+        verified.add(result.work!);
+      } else if (result.answered) {
         rejected.add(doi);
       } else {
-        verified.add(work);
+        uncertain.add(doi);
       }
     }
     final buffer = StringBuffer(
       appTr(
-        '**تحقق DOI عبر OpenAlex / Crossref**\n',
-        '**DOI check via OpenAlex / Crossref**\n',
+        '**تحقق DOI عبر فهارس AcadeGate**\n',
+        '**DOI check via AcadeGate indexes**\n',
       ),
     );
+    final retracted = verified.where((w) => w.isRetracted).toList();
     if (verified.isNotEmpty) {
       buffer.writeln(appTr('مؤكد:', 'Verified:'));
       for (final work in verified) {
         buffer.writeln('• ${work.apaLine}');
       }
     }
+    if (retracted.isNotEmpty) {
+      buffer.writeln(
+        appTr(
+          '\nمسحوبة (سُحبت من المجلة — لا تُستشهد أبداً كدليل):\n${retracted.map((w) => '• ${w.apaLine}').join('\n')}',
+          '\nRetracted (withdrawn by the journal — never cite as support):\n${retracted.map((w) => '• ${w.apaLine}').join('\n')}',
+        ),
+      );
+    }
     if (rejected.isNotEmpty) {
       buffer.writeln(
         appTr(
           '\nغير موجود (حُذف ولن يُستخدم):\n${rejected.map((d) => '• $d').join('\n')}',
           '\nNot found (removed, will not be used):\n${rejected.map((d) => '• $d').join('\n')}',
+        ),
+      );
+    }
+    if (uncertain.isNotEmpty) {
+      buffer.writeln(
+        appTr(
+          '\nتعذر التحقق بسبب مشكلة اتصال (لم يُحذف — أعد المحاولة):\n${uncertain.map((d) => '• $d').join('\n')}',
+          '\nCould not be checked due to a connection problem (not removed — try again):\n${uncertain.map((d) => '• $d').join('\n')}',
         ),
       );
     }
@@ -639,7 +887,10 @@ class GroundedReferenceService {
     String source, {
     String? journal,
     String? abstractText,
+    String? tldr,
+    int? citationCount,
     String? externalUrl,
+    bool isRetracted = false,
     bool requireDoi = false,
   }) {
     if (title.trim().isEmpty) return;
@@ -657,7 +908,10 @@ class GroundedReferenceService {
       source: source,
       journal: journal,
       abstractText: abstractText?.trim() ?? '',
+      tldr: tldr?.trim() ?? '',
+      citationCount: citationCount,
       externalUrl: (externalUrl ?? '').trim(),
+      isRetracted: isRetracted,
     );
     final key = incoming.mergeKey;
     final existing = byKey[key];
@@ -665,11 +919,17 @@ class GroundedReferenceService {
       byKey[key] = incoming;
       return;
     }
+    byKey[key] = mergeWorks(existing, incoming);
+  }
+
+  /// Merges two records of the same work from different indexes, keeping the
+  /// DOI-bearing record as the base and filling gaps from the other.
+  static GroundedWork mergeWorks(GroundedWork existing, GroundedWork incoming) {
     // Prefer the record that already has a DOI / richer metadata.
     final preferIncoming = incoming.hasDoi && !existing.hasDoi;
     final base = preferIncoming ? incoming : existing;
     final other = preferIncoming ? existing : incoming;
-    byKey[key] = GroundedWork(
+    return GroundedWork(
       title: base.title,
       doi: base.hasDoi ? base.doi : other.doi,
       year: base.year ?? other.year,
@@ -681,17 +941,28 @@ class GroundedReferenceService {
       abstractText: base.abstractText.trim().isNotEmpty
           ? base.abstractText
           : other.abstractText,
+      tldr: base.tldr.trim().isNotEmpty ? base.tldr : other.tldr,
+      citationCount: base.citationCount ?? other.citationCount,
       externalUrl: base.externalUrl.trim().isNotEmpty
           ? base.externalUrl
           : other.externalUrl,
+      isRetracted: base.isRetracted || other.isRetracted,
     );
   }
 
   Future<GroundedWork?> _lookup(String doi) async {
+    return (await _lookupDetailed(doi)).work;
+  }
+
+  /// Like [_lookup] but reports whether any index answered at all, so callers
+  /// can tell "not found" apart from "could not check".
+  Future<DoiCheckResult> _lookupDetailed(String doi) async {
     final key = normalizeDoi(doi);
+    var answered = false;
     GroundedWork? best;
     try {
       final openAlex = await OpenAlexWorksClient.instance.lookupDoi(key);
+      answered = true;
       if (openAlex != null && openAlex.title.trim().isNotEmpty) {
         best = GroundedWork(
           title: openAlex.title,
@@ -701,11 +972,13 @@ class GroundedReferenceService {
           source: 'OpenAlex',
           journal: openAlex.journal,
           abstractText: openAlex.abstractText,
+          isRetracted: openAlex.isRetracted,
         );
       }
     } catch (_) {}
     try {
       final semantic = await SemanticScholarClient.instance.lookupDoi(key);
+      answered = true;
       if (semantic != null && semantic.title.trim().isNotEmpty) {
         final next = GroundedWork(
           title: semantic.title,
@@ -721,6 +994,7 @@ class GroundedReferenceService {
     } catch (_) {}
     try {
       final crossref = await CrossrefClient.instance.lookupDoi(key);
+      answered = true;
       if (crossref != null && crossref.title.trim().isNotEmpty) {
         final next = GroundedWork(
           title: crossref.title,
@@ -729,6 +1003,7 @@ class GroundedReferenceService {
           authors: crossref.authors ?? '',
           source: 'Crossref',
           abstractText: crossref.abstractText,
+          isRetracted: crossref.retractedByRelation,
         );
         best = best == null ? next : _preferRicher(best, next);
       }
@@ -745,11 +1020,12 @@ class GroundedReferenceService {
             source: 'Europe PMC',
             journal: best.journal,
             abstractText: epmc.trim(),
+            isRetracted: best.isRetracted,
           );
         }
       } catch (_) {}
     }
-    return best;
+    return DoiCheckResult(best, answered: answered);
   }
 
   GroundedWork _preferRicher(GroundedWork a, GroundedWork b) {
@@ -763,6 +1039,7 @@ class GroundedReferenceService {
       abstractText: a.abstractText.trim().isNotEmpty
           ? a.abstractText
           : b.abstractText,
+      isRetracted: a.isRetracted || b.isRetracted,
     );
   }
 

@@ -8,8 +8,12 @@ import 'package:http/http.dart' as http;
 
 import '../../../core/firebase/callable_http_client.dart';
 import '../../../core/locale/app_translate.dart';
+import '../advisor_agent.dart';
+import '../advisor_agent_registry.dart';
+import '../advisor_agent_tools.dart';
 import '../advisor_attachment.dart';
 import '../advisor_branding.dart';
+import '../advisor_router.dart';
 import '../grounded_reference_service.dart';
 import 'assistant_attachment_payload.dart';
 import 'assistant_prompt.dart';
@@ -21,6 +25,13 @@ class AssistantRunResult {
   final String text;
   final String? error;
   final bool deep;
+
+  /// The user asked for deep reasoning (the server may still answer fast).
+  final bool requestedDeep;
+
+  /// At least one round was not served by the primary model of its class.
+  /// Surfaced as a brand-neutral note; never shows a model or vendor name.
+  final bool downgraded;
   final List<String> toolLabels;
   final AssistantToolbox toolbox;
 
@@ -32,6 +43,8 @@ class AssistantRunResult {
     required this.toolbox,
     this.error,
     this.deep = false,
+    this.requestedDeep = false,
+    this.downgraded = false,
     this.toolLabels = const [],
     this.backendUnavailable = false,
   });
@@ -44,12 +57,16 @@ class _RoundResult {
   final String text;
   final List<Map<String, dynamic>> calls;
   final bool deep;
+  final bool requestedDeep;
+  final bool downgraded;
 
   const _RoundResult({
     required this.parts,
     required this.text,
     required this.calls,
     required this.deep,
+    this.requestedDeep = false,
+    this.downgraded = false,
   });
 }
 
@@ -76,6 +93,80 @@ class AcademicAssistantClient {
 
   static bool get isAvailable => FirebaseAuth.instance.currentUser != null;
 
+  /// The routed specialist's persona, appended to the streaming system
+  /// prompt so the agent's expertise reaches the model on this path too
+  /// (previously only the fallback orchestrator sent it). Empty for general
+  /// chat and catalog requests, which need no specialist framing.
+  ///
+  /// When [forcedAgentId] is set (the user tapped a specialist chip), the
+  /// specialty is BINDING: the reply must follow that specialty's output
+  /// type, treating the input as material for it, instead of routing by
+  /// message text or choosing an output form freely.
+  static String specialistFocusBlock(
+    String routeText, {
+    AdvisorAgentId? forcedAgentId,
+  }) {
+    final plan = AdvisorRouter.instance.route(routeText);
+    final primaryId = forcedAgentId ?? plan.primary;
+    if (primaryId == AdvisorAgentId.general ||
+        primaryId == AdvisorAgentId.catalogExecute) {
+      return '';
+    }
+    final registry = AdvisorAgentRegistry.instance;
+    final primary = registry.byId(primaryId);
+    if (forcedAgentId != null) {
+      final header = appTr(
+        '\n## التخصص المختار (ملزم): ${primary.displayShortLabel}',
+        '\n## Selected specialty (binding): ${primary.displayShortLabel}',
+      );
+      final binding = appTr(
+        'اختار الباحث هذا التخصص بنفسه. التزم به تماماً: نوع المخرجات يتبع هذا التخصص لا اختيارك. تعامل مع مدخلاته كمادة لهذا التخصص (مثال: وكيل تخطيط البحث يستقبل جملة فيعالجها كمدخل لتخطيط البحث). إن كان جزء من الطلب خارج هذا التخصص فأجب عن الجزء الداخل ونبّه باختصار إلى ما يخرج عنه، من دون تبديل التخصص ومن دون استخدام أدوات خارج قائمته.',
+        'The user explicitly selected this specialty. Commit to it fully: the output type follows this specialty, not your choice. Treat the input as material for this specialty (e.g. the research-planning agent given a sentence treats it as research-planning input). If part of the request falls outside this specialty, answer the in-scope part and briefly note what falls outside, without switching specialties and without using tools outside its list.',
+      );
+      return '$header\n${primary.systemPrompt.trim()}\n$binding';
+    }
+    final supporting = plan.supporting
+        .where(
+          (id) =>
+              id != AdvisorAgentId.general &&
+              id != AdvisorAgentId.catalogExecute,
+        )
+        .toList();
+    final buffer = StringBuffer()
+      ..writeln(
+        appTr(
+          '\n## التخصص النشط: ${primary.displayShortLabel}',
+          '\n## Active specialty: ${primary.displayShortLabel}',
+        ),
+      )
+      ..writeln(primary.systemPrompt.trim());
+    if (supporting.isNotEmpty) {
+      final joined = supporting
+          .map((id) => registry.byId(id).displayShortLabel)
+          .join(appTr('، ', ', '));
+      buffer.writeln(
+        appTr(
+          '\nالطلب يحتاج أيضاً خبرة: $joined — ادمجها في رد واحد متماسك.',
+          '\nThe request also needs expertise from: $joined — merge into one cohesive answer.',
+        ),
+      );
+    }
+    return buffer.toString();
+  }
+
+  /// Data-analysis and simulation turns enable server-side code execution
+  /// so computed statistics come from a real run, not from prose. It is
+  /// billed as ordinary model tokens and never named to the user.
+  static bool wantsCodeExecution(
+    String routeText, {
+    AdvisorAgentId? forcedAgentId,
+  }) {
+    final primary =
+        forcedAgentId ?? AdvisorRouter.instance.route(routeText).primary;
+    return primary == AdvisorAgentId.dataAnalysis ||
+        primary == AdvisorAgentId.researchSimulation;
+  }
+
   String _newTurnId() {
     final r = Random.secure();
     return '${DateTime.now().millisecondsSinceEpoch}_${List.generate(10, (_) => r.nextInt(36).toRadixString(36)).join()}';
@@ -88,10 +179,14 @@ class AcademicAssistantClient {
     required List<Map<String, String>> history,
     List<GeminiInlinePart> attachments = const [],
     bool deep = false,
+    AdvisorAgent? forcedAgent,
     void Function(String textSoFar)? onText,
     void Function(String? status)? onStatus,
   }) async {
-    final toolbox = AssistantToolbox();
+    final allowedTools = forcedAgent == null
+        ? null
+        : advisorAgentAllowedTools[forcedAgent.id];
+    final toolbox = AssistantToolbox(allowedTools: allowedTools);
     final languageSample = message.trim().isNotEmpty
         ? message
         : history.reversed
@@ -101,7 +196,15 @@ class AcademicAssistantClient {
       await AssistantReplyLanguagePrefs.load(),
       languageSample,
     );
-    final systemPrompt = await AssistantPrompt.build(language: language);
+    var systemPrompt = await AssistantPrompt.build(language: language);
+    final routeText = message.trim().isNotEmpty
+        ? message.trim()
+        : appTr('حلّل الملفات المرفقة.', 'Analyze the attached files.');
+    final focus = specialistFocusBlock(
+      routeText,
+      forcedAgentId: forcedAgent?.id,
+    );
+    if (focus.isNotEmpty) systemPrompt = '$systemPrompt\n$focus';
     final turnId = _newTurnId();
 
     final contents = <Map<String, dynamic>>[
@@ -140,6 +243,8 @@ class AcademicAssistantClient {
 
     final visible = StringBuffer();
     var usedDeep = false;
+    var wasDowngraded = false;
+    var wasRequestedDeep = deep;
 
     for (var round = 0; round < _maxRounds; round++) {
       final lastRound = round == _maxRounds - 1;
@@ -153,9 +258,12 @@ class AcademicAssistantClient {
             'turnId': turnId,
             'systemPrompt': systemPrompt,
             'contents': contents,
-            'functionDeclarations': AssistantToolbox.declarations,
+            'functionDeclarations':
+                AssistantToolbox.declarationsFor(allowedTools),
             'toolMode': lastRound ? 'NONE' : 'AUTO',
             'mode': deep ? 'deep' : 'fast',
+            if (wantsCodeExecution(routeText,
+                forcedAgentId: forcedAgent?.id)) 'codeExecution': true,
             if (attachmentPayload.isNotEmpty) 'attachments': attachmentPayload,
           },
           onDelta: (delta) {
@@ -184,6 +292,8 @@ class AcademicAssistantClient {
       }
 
       usedDeep = usedDeep || res.deep;
+      wasDowngraded = wasDowngraded || res.downgraded;
+      wasRequestedDeep = wasRequestedDeep || res.requestedDeep;
       // The final result is authoritative, even when some deltas were lost,
       // normalized by the backend, or already displayed. Never append it twice.
       final finalVisible = '$prefix${res.text}';
@@ -231,6 +341,8 @@ class AcademicAssistantClient {
     return AssistantRunResult(
       text: text,
       deep: usedDeep,
+      requestedDeep: wasRequestedDeep,
+      downgraded: wasDowngraded,
       toolLabels: toolbox.usedLabels,
       toolbox: toolbox,
       error: text.isEmpty
@@ -324,6 +436,8 @@ class AcademicAssistantClient {
         text: result['text']?.toString() ?? '',
         calls: calls,
         deep: result['deep'] == true,
+        requestedDeep: result['requestedDeep'] == true,
+        downgraded: result['downgraded'] == true,
       );
     } on TimeoutException {
       throw AssistantBackendException(

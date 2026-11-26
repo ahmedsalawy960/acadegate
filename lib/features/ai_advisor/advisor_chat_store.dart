@@ -17,6 +17,11 @@ class AdvisorChatStore {
 
   bool get canPersist => FirebaseAuth.instance.currentUser != null;
 
+  /// A stored message is worth reloading when it carries visible text or
+  /// files; attachment-only messages are real turns, not empty placeholders.
+  static bool isReloadableMessage(AdvisorMessage message) =>
+      message.content.trim().isNotEmpty || message.attachments.isNotEmpty;
+
   DocumentReference<Map<String, dynamic>>? _userRef() {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return null;
@@ -120,7 +125,7 @@ class AdvisorChatStore {
 
       return snapshot.docs
           .map((doc) => _messageFromDoc(doc.id, doc.data()))
-          .where((message) => message.content.trim().isNotEmpty)
+          .where(isReloadableMessage)
           .toList();
     } catch (_) {
       return [];

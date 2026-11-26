@@ -16,6 +16,7 @@ import '../auth/user_role.dart';
 import 'academic_profile_screen.dart';
 import 'merchant_business_section.dart';
 import 'provider_org_section.dart';
+import 'zotero_connect_screen.dart';
 
 /// ملف الحساب الشخصي — صورة، بريد، اسم، وإدارة الملف الأكاديمي.
 class AccountProfileScreen extends StatefulWidget {
@@ -329,6 +330,31 @@ class _AccountProfileScreenState extends State<AccountProfileScreen> {
                         subtitle: Text(UserRole.label(role)),
                       ),
                     ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  side: const BorderSide(color: AcadeGateColors.line),
+                ),
+                child: ListTile(
+                  leading: const Icon(Icons.menu_book_outlined),
+                  title: Text(context.t('مكتبة Zotero', 'Zotero library')),
+                  subtitle: Text(
+                    context.t(
+                      'اربط مكتبتك لإثراء البحث بمراجعك الخاصة',
+                      'Connect your library to enrich search with your references',
+                    ),
+                  ),
+                  trailing: const Icon(Icons.chevron_left),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const ZoteroConnectScreen(),
+                    ),
                   ),
                 ),
               ),

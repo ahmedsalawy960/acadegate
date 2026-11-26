@@ -7,6 +7,11 @@ const ALLOWED_HOSTS = new Set([
   "api.crossref.org",
   "api.openalex.org",
   "api.semanticscholar.org",
+  "api.unpaywall.org",
+  "api.openaire.eu",
+  "opencitations.net",
+  "api.datacite.org",
+  "zenodo.org",
   "www.ebi.ac.uk",
   "serpapi.com",
   "pub.orcid.org",
@@ -70,4 +75,4 @@ function createCitationProxyHandler() {
   });
 }
 
-module.exports = { createCitationProxyHandler };
+module.exports = { createCitationProxyHandler, ALLOWED_HOSTS };

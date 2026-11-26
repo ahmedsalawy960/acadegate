@@ -19,6 +19,8 @@ import '../academic_integrity/academic_integrity_hub_screen.dart';
 import '../academic_integrity/citation_check_screen.dart';
 import '../ai_advisor/gemini_advisor_client.dart';
 import '../ai_advisor/grounded_work.dart';
+import '../ai_advisor/ris_export.dart';
+import '../academic_integrity/csl_formatting_service.dart';
 import '../auth/usage_quota_banner.dart';
 import '../profile/academic_profile.dart';
 import '../profile/academic_profile_screen.dart';
@@ -106,6 +108,60 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
         state == AppLifecycleState.detached) {
       _persistDraft();
     }
+  }
+
+  Future<void> _exportJournalStyle(ThesisDraft draft) async {
+    if (draft.literature.works.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            context.t('لا توجد مراجع بعد.', 'No references yet.'),
+          ),
+        ),
+      );
+      return;
+    }
+    final style = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                ctx.t('اختر أسلوب المجلة', 'Choose a journal style'),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            for (final entry in CslFormattingService.supportedStyles.entries)
+              ListTile(
+                title: Text(entry.value),
+                onTap: () => Navigator.pop(ctx, entry.key),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (style == null || !mounted) return;
+    final lines = await CslFormattingService.instance.formatBibliography(
+      style: style,
+      works: draft.literature.works,
+    );
+    if (lines.isEmpty) {
+      if (!mounted) return;
+      throw Exception(
+        context.t('لم يرجع التنسيق نتيجة.', 'Formatting returned nothing.'),
+      );
+    }
+    await shareThesisFile(
+      bytes: Uint8List.fromList(utf8.encode(lines.join('\n\n'))),
+      name: 'references_$style.txt',
+    );
   }
 
   Future<void> _bootstrap() async {
@@ -1269,6 +1325,19 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
               onTap: () => Navigator.pop(ctx, 'bib'),
             ),
             ListTile(
+              leading: const Icon(Icons.format_list_bulleted),
+              title: Text(ctx.t('RIS (Zotero / Mendeley)', 'RIS (Zotero / Mendeley)')),
+              onTap: () => Navigator.pop(ctx, 'ris'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.style_outlined),
+              title: Text(ctx.t('تنسيق بأسلوب مجلة', 'Journal style format')),
+              subtitle: Text(
+                ctx.t('APA، Vancouver، IEEE وغيرها', 'APA, Vancouver, IEEE, more'),
+              ),
+              onTap: () => Navigator.pop(ctx, 'csl'),
+            ),
+            ListTile(
               leading: const Icon(Icons.verified_outlined),
               title: Text(ctx.t('تقرير الاستشهادات', 'Citation report')),
               onTap: () => Navigator.pop(ctx, 'report'),
@@ -1327,6 +1396,15 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
           ),
           name: 'references.bib',
         );
+      } else if (action == 'ris') {
+        await shareThesisFile(
+          bytes: Uint8List.fromList(
+            utf8.encode(RisExport.forWorks(draft.literature.works)),
+          ),
+          name: 'references.ris',
+        );
+      } else if (action == 'csl') {
+        await _exportJournalStyle(draft);
       } else {
         await ThesisStudioPdfService.instance.shareDraft(
           draft,
@@ -2625,6 +2703,18 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
               ),
               style: const TextStyle(height: 1.4, fontSize: 13),
             ),
+            if (report.retractedIndexes.isNotEmpty)
+              Text(
+                context.t(
+                  'مراجع مسحوبة: ${report.retractedIndexes.map((i) => '[$i]').join(', ')} — أزلها ولا تستشهد بها.',
+                  'Retracted references: ${report.retractedIndexes.map((i) => '[$i]').join(', ')} — remove them; never cite them.',
+                ),
+                style: TextStyle(
+                  color: Colors.red.shade800,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             if (report.unknownMarkers.isNotEmpty)
               Text(
                 context.t(

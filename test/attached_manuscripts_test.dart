@@ -123,6 +123,10 @@ void main() {
         }
         expect(kept.length, anchors.length, reason: '${paper.$2}: ${missing.join(' || ')}');
       },
+      // Local manuscript copies are not committed to the repo; skip when absent.
+      skip: !File(paper.$1).existsSync()
+          ? 'local manuscript fixture not present: ${paper.$1}'
+          : false,
       timeout: const Timeout(Duration(minutes: 4)),
     );
   }

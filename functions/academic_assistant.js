@@ -13,22 +13,28 @@ const { consumeQuota, quotaExceededHttpsError } = require("./usage_quota");
 
 const geminiApiKey = defineSecret("GEMINI_API_KEY");
 
+// Deprecated IDs stay out of both lists: gemini-2.5-flash and gemini-2.5-pro
+// auto-route to cheaper models on 2026-12-01 (Gemini API deprecations page),
+// which would silently weaken every answer.
 const PRO_MODEL = "gemini-3.1-pro-preview";
-const DEEP_MODELS = [PRO_MODEL, "gemini-3.6-flash", "gemini-3-flash-preview", "gemini-2.5-pro"];
+const DEEP_MODELS = [PRO_MODEL, "gemini-3.8-flash", "gemini-3.6-flash"];
 const FAST_MODELS = [
-  "gemini-2.5-flash",
-  "gemini-3.1-flash-lite",
-  "gemini-3-flash-preview",
   "gemini-3.6-flash",
+  "gemini-3-flash-preview",
+  "gemini-3.1-flash-lite",
 ];
-const LEGACY_THINKING = new Set(["gemini-2.5-flash", "gemini-2.5-pro"]);
+
+/** The model a request should be served by when nothing is failing. */
+function primaryModelFor(deep) {
+  return (deep ? DEEP_MODELS : FAST_MODELS)[0];
+}
 
 const MAX_ROUNDS = 6;
 const TURN_TTL_MS = 15 * 60 * 1000;
 const MAX_CONTENTS = 80;
 const MAX_PAYLOAD_CHARS = 900000;
 const MAX_TOOLS = 16;
-const ALLOWED_PART_KEYS = ["text", "functionCall", "functionResponse", "thoughtSignature"];
+const ALLOWED_PART_KEYS = ["text", "functionCall", "functionResponse", "thoughtSignature", "executableCode", "codeExecutionResult"];
 
 function db() {
   return getFirestore();
@@ -163,18 +169,56 @@ function injectAttachments(contents, attachmentParts) {
 }
 
 /**
+ * Admission failures split in two. An HttpsError is a decision that must be
+ * honored: quota exhausted, foreign turn, stale turn, or too many rounds.
+ * Anything else is infrastructure noise (Firestore hiccup, admit race
+ * timeout) and must not block an answer, so it fails open as the free tier.
+ */
+function shouldFailOpenOnAdmissionError(error) {
+  return !(error instanceof HttpsError);
+}
+
+async function admitTurnOrFailOpen(
+  uid,
+  turnId,
+  { admit = admitRound, timeoutMs = 8000 } = {},
+) {
+  let timer = null;
+  try {
+    const admitted = await Promise.race([
+      admit(uid, turnId),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error("admit-timeout")), timeoutMs);
+      }),
+    ]);
+    return (admitted && admitted.tier) || "free";
+  } catch (e) {
+    if (!shouldFailOpenOnAdmissionError(e)) throw e;
+    console.error("academicAssistant admit skipped", (e && e.message) || e);
+    return "free";
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+/**
  * Charges quota on the first call of a turn; later calls must reuse the same
  * turnId within TURN_TTL_MS and MAX_ROUNDS.
  */
-async function admitRound(uid, turnId) {
-  const ref = db().collection("assistant_turns").doc(`${uid}_${turnId}`);
-  let snap = null;
+async function admitRound(uid, turnId, { getTurn } = {}) {
+  // Injectable in tests. A failed turn read can hide an existing turn, and
+  // falling through to charging would bill one question twice — so surface
+  // the error and let admission fail open (no charge) instead.
+  const read = getTurn ??
+    (() => db().collection("assistant_turns").doc(`${uid}_${turnId}`).get());
+  let snap;
   try {
-    snap = await ref.get();
+    snap = await read();
   } catch (e) {
-    console.error("assistant turn read failed", e.message || e);
+    throw new Error(`assistant turn read failed: ${(e && e.message) || e}`);
   }
-  if (!snap || !snap.exists) {
+  const ref = db().collection("assistant_turns").doc(`${uid}_${turnId}`);
+  if (!snap.exists) {
     const quota = await consumeQuota({ uid, kind: "gemini" });
     if (!quota.ok) {
       if (quota.code === "resource-exhausted") throw quotaExceededHttpsError(quota, "gemini");
@@ -212,13 +256,19 @@ async function admitRound(uid, turnId) {
   });
 }
 
+/** Tools for one model call: app functions, plus optional code execution. */
+function buildModelTools(functionDeclarations, { codeExecution = false } = {}) {
+  const out = [];
+  if (functionDeclarations.length > 0) out.push({ functionDeclarations });
+  if (codeExecution) out.push({ codeExecution: {} });
+  return out;
+}
+
 function generationConfigFor(model, { deep, hasMedia }) {
   const config = { maxOutputTokens: deep ? 16384 : 8192 };
-  if (LEGACY_THINKING.has(model)) {
-    config.temperature = 0.5;
-    if (!hasMedia) config.thinkingConfig = { thinkingBudget: deep ? 4096 : 0 };
-  } else if (String(model).startsWith("gemini-3")) {
-    // Gemini 3: keep default temperature (Google advises against lowering it).
+  const name = String(model);
+  if (name.startsWith("gemini-3") || name.startsWith("gemini-4")) {
+    // Gemini 3+: keep default temperature (Google advises against lowering it).
     if (!hasMedia) config.thinkingConfig = { thinkingLevel: deep ? "high" : "medium" };
   } else {
     config.temperature = 0.5;
@@ -243,6 +293,19 @@ function apiErrorText(status, body) {
 function appendPart(out, part) {
   if (!part || part.thought === true) return;
   const sig = part.thoughtSignature;
+  // Code-execution parts round-trip verbatim so the next turn's contents
+  // keep the code and its result attached to the model's answer.
+  const codeKind = part.executableCode
+    ? "executableCode"
+    : part.codeExecutionResult
+      ? "codeExecutionResult"
+      : null;
+  if (codeKind) {
+    const clean = { [codeKind]: part[codeKind] };
+    if (sig) clean.thoughtSignature = sig;
+    out.push(clean);
+    return;
+  }
   if (part.functionCall) {
     out.push(sig ? { functionCall: part.functionCall, thoughtSignature: sig } : { functionCall: part.functionCall });
     return;
@@ -264,11 +327,37 @@ function appendPart(out, part) {
   }
 }
 
-async function streamOnce({ model, apiKey, body, onText }) {
+/**
+ * Per-model stream caps. Deep answers with thinking regularly exceed 25s, so
+ * they get a larger budget; the idle cap aborts a stalled stream in any mode.
+ */
+function streamLimitsFor(deep) {
+  return deep
+    ? { idleMs: 45000, totalMs: 240000 }
+    : { idleMs: 30000, totalMs: 75000 };
+}
+
+/**
+ * One model call over streamGenerateContent (SSE). Text deltas reach onText
+ * as they arrive; parts are merged exactly like a non-streamed response.
+ * Aborts when the stream goes idle for limits.idleMs or runs past
+ * limits.totalMs overall.
+ */
+async function streamOnce({ model, apiKey, body, onText, limits }) {
+  const { idleMs, totalMs } = limits || streamLimitsFor(false);
   const url =
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`;
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 25000);
+  const startedAt = Date.now();
+  let lastActivity = startedAt;
+  const watchdog = setInterval(() => {
+    const now = Date.now();
+    if (now - lastActivity > idleMs) {
+      controller.abort(new Error("stream-idle-timeout"));
+    } else if (now - startedAt > totalMs) {
+      controller.abort(new Error("stream-total-timeout"));
+    }
+  }, 1000);
   try {
     const res = await fetch(url, {
       method: "POST",
@@ -280,27 +369,69 @@ async function streamOnce({ model, apiKey, body, onText }) {
       const errBody = await res.text();
       return { ok: false, status: res.status, errBody };
     }
-    const json = await res.json();
     const parts = [];
     let finishReason = null;
-    const blockReason = json?.promptFeedback?.blockReason || null;
-    const cand = Array.isArray(json?.candidates) ? json.candidates[0] : null;
-    if (cand?.finishReason) finishReason = cand.finishReason;
+    let blockReason = null;
     let streamedChars = 0;
-    for (const p of cand?.content?.parts || []) {
-      appendPart(parts, p);
-      if (p && p.thought !== true && typeof p.text === "string" && p.text.length > 0) {
-        streamedChars += p.text.length;
-        onText(p.text);
+    const handleData = (payload) => {
+      let chunk;
+      try {
+        chunk = JSON.parse(payload);
+      } catch (_) {
+        return;
       }
+      blockReason = chunk?.promptFeedback?.blockReason || blockReason;
+      const cand = Array.isArray(chunk?.candidates) ? chunk.candidates[0] : null;
+      if (cand?.finishReason) finishReason = cand.finishReason;
+      for (const p of cand?.content?.parts || []) {
+        appendPart(parts, p);
+        if (p && p.thought !== true && typeof p.text === "string" && p.text.length > 0) {
+          streamedChars += p.text.length;
+          onText(p.text);
+        }
+      }
+    };
+    const decoder = new TextDecoder();
+    let buffer = "";
+    for await (const piece of res.body) {
+      lastActivity = Date.now();
+      buffer += decoder.decode(piece, { stream: true });
+      let idx;
+      while ((idx = buffer.indexOf("\n")) >= 0) {
+        const line = buffer.slice(0, idx).replace(/\r$/, "");
+        buffer = buffer.slice(idx + 1);
+        if (!line.startsWith("data:")) continue;
+        const payload = line.slice(5).trim();
+        if (payload && payload !== "[DONE]") handleData(payload);
+      }
+    }
+    buffer += decoder.decode();
+    const tail = buffer.trim();
+    if (tail.startsWith("data:")) {
+      const payload = tail.slice(5).trim();
+      if (payload && payload !== "[DONE]") handleData(payload);
     }
     return { ok: true, parts, finishReason, blockReason, streamedChars };
   } finally {
-    clearTimeout(timer);
+    clearInterval(watchdog);
   }
 }
 
-exports._test = { appendPart, sanitizeContents, injectAttachments, streamOnce, generationConfigFor };
+exports._test = {
+  appendPart,
+  sanitizeContents,
+  injectAttachments,
+  streamOnce,
+  streamLimitsFor,
+  generationConfigFor,
+  admitTurnOrFailOpen,
+  shouldFailOpenOnAdmissionError,
+  admitRound,
+  primaryModelFor,
+  DEEP_MODELS,
+  FAST_MODELS,
+  buildModelTools,
+};
 
 exports.academicAssistant = onCall(
   {
@@ -339,6 +470,9 @@ exports.academicAssistant = onCall(
       }
       return tool;
     });
+    // The client asks for code execution on data-analysis and simulation
+    // turns; it is a server-side Gemini tool billed as ordinary tokens.
+    const wantsCodeExecution = data.codeExecution === true;
     const streaming = request.acceptsStreaming === true;
     if (streaming && response && typeof response.sendChunk === "function") {
       response.sendChunk({ t: "" });
@@ -350,20 +484,10 @@ exports.academicAssistant = onCall(
       throw new HttpsError("failed-precondition", "GEMINI_API_KEY غير مضبوط في Firebase Functions");
     }
 
-    let tier = "free";
-    try {
-      const admitted = await Promise.race([
-        admitRound(uid, turnId),
-        new Promise((_, reject) => {
-          setTimeout(() => reject(new Error("admit-timeout")), 8000);
-        }),
-      ]);
-      tier = admitted.tier || "free";
-    } catch (e) {
-      console.error("academicAssistant admit skipped", e.message || e);
-    }
+    const tier = await admitTurnOrFailOpen(uid, turnId);
     console.log("academicAssistant model loop", tier);
-    const deep = data.mode === "deep" && (tier === "pro" || tier === "admin");
+    const requestedDeep = data.mode === "deep";
+    const deep = requestedDeep && (tier === "pro" || tier === "admin");
 
     const attachmentParts = await resolveAttachmentParts(data.attachments, uid);
     injectAttachments(contents, attachmentParts);
@@ -383,17 +507,21 @@ exports.academicAssistant = onCall(
         generationConfig: generationConfigFor(model, { deep, hasMedia }),
       };
       if (systemPrompt) body.systemInstruction = { parts: [{ text: systemPrompt }] };
-      if (tools.length > 0) {
-        body.tools = [{ functionDeclarations: tools }];
-        body.toolConfig = { functionCallingConfig: { mode: toolMode } };
+      const modelTools = buildModelTools(tools, { codeExecution: wantsCodeExecution });
+      if (modelTools.length > 0) {
+        body.tools = modelTools;
+        if (tools.length > 0) {
+          body.toolConfig = { functionCallingConfig: { mode: toolMode } };
+        }
       }
 
       let result;
       try {
-        result = await streamOnce({ model, apiKey, body, onText });
+        const limits = streamLimitsFor(deep);
+        result = await streamOnce({ model, apiKey, body, onText, limits });
         if (!result.ok && body.generationConfig.thinkingConfig && /thinking/i.test(result.errBody)) {
           delete body.generationConfig.thinkingConfig;
-          result = await streamOnce({ model, apiKey, body, onText });
+          result = await streamOnce({ model, apiKey, body, onText, limits });
         }
       } catch (err) {
         const message = err.name === "TimeoutError" || err.name === "AbortError"
@@ -443,6 +571,8 @@ exports.academicAssistant = onCall(
         functionCalls,
         model,
         deep,
+        requestedDeep,
+        downgraded: model !== primaryModelFor(deep),
         tier,
         finishReason: result.finishReason || null,
       };

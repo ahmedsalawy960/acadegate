@@ -8,8 +8,16 @@ class GroundedWork {
   final String source;
   final String? journal;
   final String abstractText;
+  /// One-line evidence summary from the index, when available.
+  final String tldr;
+  /// Times cited, when the index reports it.
+  final int? citationCount;
   /// Landing page when DOI is missing (external academic indexes).
   final String externalUrl;
+
+  /// True when a free index reports this work was retracted or withdrawn.
+  /// Never cite retracted works as support; tell the user instead.
+  final bool isRetracted;
 
   /// اسم المصدر كما يظهر للمستخدم (AcadeGate وليس اسم الفهرس الخارجي).
   String get publicSource => AdvisorBranding.indexLabel;
@@ -22,12 +30,32 @@ class GroundedWork {
     this.authors = '',
     this.journal,
     this.abstractText = '',
+    this.tldr = '',
+    this.citationCount,
     this.externalUrl = '',
+    this.isRetracted = false,
   });
 
   bool get hasDoi {
     final d = doi.trim().toLowerCase();
     return d.startsWith('10.') && d.contains('/');
+  }
+
+  /// Copy with [citationCount] set (enrichment from a second index).
+  GroundedWork withCitationCount(int count) {
+    return GroundedWork(
+      title: title,
+      source: source,
+      doi: doi,
+      year: year,
+      authors: authors,
+      journal: journal,
+      abstractText: abstractText,
+      tldr: tldr,
+      citationCount: count,
+      externalUrl: externalUrl,
+      isRetracted: isRetracted,
+    );
   }
 
   String get doiUrl => hasDoi ? 'https://doi.org/${doi.trim()}' : '';

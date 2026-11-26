@@ -3,6 +3,11 @@ import 'catalog_hit.dart';
 
 enum AdvisorMessageRole { user, assistant }
 
+/// Builds a message id that stays unique across app restarts (epoch
+/// microseconds + a per-session sequence), unlike a plain counter.
+String newAdvisorMessageId(int sequence) =>
+    'msg_${DateTime.now().microsecondsSinceEpoch}_$sequence';
+
 class AdvisorMessage {
   final String id;
   final AdvisorMessageRole role;

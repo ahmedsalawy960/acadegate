@@ -70,8 +70,8 @@ class PrivacyPolicyScreen extends StatelessWidget {
         LegalSection(
           title: isAr ? '6. المساعد الأكاديمي' : '6. Academic Assistant',
           body: isAr
-              ? 'عند استخدام المساعد الأكاديمي قد تُرسل أسئلتك والمرفقات (نص/صورة/PDF ضمن الحدود) إلى مزود خدمة الذكاء الاصطناعي لتوليد الردود. لا تُستخدم هذه المدخلات لبيع بياناتك الشخصية لأطراف إعلانية. تجنّب رفع بيانات حساسة غير ضرورية (هويات مرضى، أسرار تجارية، بيانات قاصرين). قد تُحفظ المحادثات لحسابك المسجّل لتحسين التجربة.'
-              : 'When you use the Academic Assistant, your prompts and attachments (text/image/PDF within limits) may be sent to the AI service provider to generate replies. Inputs are not sold for advertising. Avoid uploading unnecessary sensitive data (patient identifiers, trade secrets, children’s data). Conversations may be stored for signed-in users to improve continuity.',
+              ? 'عند استخدام المساعد الأكاديمي قد تُرسل أسئلتك والمرفقات (نص/صورة/PDF ضمن الحدود) إلى مزود خدمة الذكاء الاصطناعي لتوليد الردود. يعالج المزوّد هذه المدخلات بموجب شروط مدفوعة لا تُستخدم فيها المحتويات لتحسين خدماته. لا تُستخدم هذه المدخلات لبيع بياناتك الشخصية لأطراف إعلانية. تجنّب رفع بيانات حساسة غير ضرورية (هويات مرضى، أسرار تجارية، بيانات قاصرين). قد تُحفظ المحادثات لحسابك المسجّل لتحسين التجربة.'
+              : 'When you use the Academic Assistant, your prompts and attachments (text/image/PDF within limits) may be sent to the AI service provider to generate replies. The provider processes these inputs under paid terms that do not use your content to improve its services. Inputs are not sold for advertising. Avoid uploading unnecessary sensitive data (patient identifiers, trade secrets, children’s data). Conversations may be stored for signed-in users to improve continuity.',
         ),
         LegalSection(
           title: isAr ? '7. المشاركة والمعالجون' : '7. Sharing & processors',

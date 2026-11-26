@@ -23,9 +23,11 @@ class AiAdvisorService {
 
   bool get isCloudAiEnabled => GeminiAdvisorClient.isAvailable;
 
+  /// Unique across app restarts: conversations are reloaded from
+  /// Firestore, so a per-session counter would overwrite old messages.
   String _nextId() {
     _messageCounter++;
-    return 'msg_$_messageCounter';
+    return newAdvisorMessageId(_messageCounter);
   }
 
   AdvisorMessage welcomeMessage() {
@@ -98,6 +100,9 @@ class AiAdvisorService {
     AdvisorAgentId.dataAnalysis,
     AdvisorAgentId.researchSimulation,
     AdvisorAgentId.researchIdea,
+    AdvisorAgentId.academicEditing,
+    AdvisorAgentId.citations,
+    AdvisorAgentId.presentations,
   };
 
   /// Deep reasoning for substantial requests; the server only grants it to Pro/admin.
@@ -138,6 +143,7 @@ class AiAdvisorService {
     required String message,
     List<AdvisorMessage> history = const [],
     List<GeminiInlinePart> attachments = const [],
+    AdvisorAgent? forcedAgent,
     void Function(String textSoFar)? onText,
     void Function(String? status)? onStatus,
   }) async {
@@ -150,6 +156,7 @@ class AiAdvisorService {
       history: historyForModel(history),
       attachments: attachments,
       deep: wantsDeepThinking(message, hasAttachments: attachments.isNotEmpty),
+      forcedAgent: forcedAgent,
       onText: onText,
       onStatus: onStatus,
     );
@@ -173,7 +180,13 @@ class AiAdvisorService {
       createdAt: DateTime.now(),
       usedCloudAi: true,
       agentLabels: [
+        if (forcedAgent != null) forcedAgent.displayShortLabel,
         if (result.deep) appTr('تفكير عميق', 'Deep thinking'),
+        if (result.downgraded)
+          appTr(
+            'إجابة أخف بسبب ضغط مؤقت — أعد السؤال إن أردت تعمقاً أكبر',
+            'A lighter answer under temporary load — ask again for more depth',
+          ),
         ...result.toolLabels,
       ],
       catalog: catalog.isEmpty
