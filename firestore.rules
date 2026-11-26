@@ -376,6 +376,14 @@ service cloud.firestore {
     // ─── مسودة استوديو الرسالة (Thesis Studio) ─────────────
     match /thesis_studio_drafts/{userId} {
       allow read, write: if isOwner(userId);
+
+      // Multi-project drafts + per-project version history (owner only).
+      match /projects/{projectId} {
+        allow read, write: if isOwner(userId);
+        match /versions/{versionId} {
+          allow read, write: if isOwner(userId);
+        }
+      }
     }
 
     // ─── AcadeGate Publish — مسودات ───────────────────────

@@ -79,6 +79,9 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
   AcademicProfile? _profile;
   String? _busyKey;
   bool _restoredDraft = false;
+  String? _projectId;
+  List<ThesisProjectMeta> _projects = const [];
+  ThesisSaveResult? _lastSave;
   final _thesisLibraryQuery = TextEditingController();
   bool _thesisLibraryLoading = false;
   List<ThesisLibraryHit> _thesisLibraryHits = const [];
@@ -108,8 +111,19 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
   }
 
   Future<void> _restoreSavedDraft() async {
-    final snap = await ThesisStudioStorage.instance.load();
-    if (!mounted || snap == null) return;
+    final projects = await ThesisStudioStorage.instance.listProjects();
+    final activeId = await ThesisStudioStorage.instance.activeProjectId();
+    final snap = await ThesisStudioStorage.instance.loadActiveProject();
+    if (!mounted) return;
+    setState(() {
+      _projects = projects;
+      _projectId = activeId;
+    });
+    if (snap == null) return;
+    _applySnapshot(snap);
+  }
+
+  void _applySnapshot(ThesisStudioSnapshot snap) {
     // Explicit nav goal wins over saved goal text.
     final navGoal = widget.initialGoal?.trim() ?? '';
     setState(() {
@@ -136,12 +150,16 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
     });
   }
 
-  Future<void> _persistDraft() async {
+  Future<void> _persistDraft({
+    bool recordVersion = true,
+    bool forceVersion = false,
+  }) async {
     final draft = _draft;
     if (draft == null) return;
     try {
-      await ThesisStudioStorage.instance.save(
-        ThesisStudioSnapshot(
+      final projectId =
+          _projectId ?? await ThesisStudioStorage.instance.createProject();
+      final snapshot = ThesisStudioSnapshot(
           draft: draft,
           goalText: _goalController.text.trim().isNotEmpty
               ? _goalController.text.trim()
@@ -156,8 +174,20 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
           targetPages: _targetPages,
           priorStudiesPaste: _priorStudiesPaste.text,
           savedAt: DateTime.now(),
-        ),
       );
+      final result = await ThesisStudioStorage.instance.saveProject(
+        projectId,
+        snapshot,
+        recordVersion: recordVersion,
+        forceVersion: forceVersion,
+      );
+      if (mounted) {
+        setState(() {
+          _projectId = projectId;
+          _lastSave = result;
+          _noteProjectSaved(projectId, snapshot, result.savedAt);
+        });
+      }
       final goalLen = _goalController.text.trim().isNotEmpty
           ? _goalController.text.trim().length
           : draft.goal.raw.trim().length;
@@ -186,6 +216,269 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
     }
   }
 
+  void _noteProjectSaved(
+    String projectId,
+    ThesisStudioSnapshot snapshot,
+    DateTime savedAt,
+  ) {
+    final title = ThesisStudioStorage.deriveTitle(snapshot);
+    final ms = savedAt.millisecondsSinceEpoch;
+    final i = _projects.indexWhere((m) => m.id == projectId);
+    final meta = i >= 0
+        ? _projects[i].copyWith(
+            title: title.isNotEmpty ? title : _projects[i].title,
+            savedAtMs: ms,
+          )
+        : ThesisProjectMeta(
+            id: projectId,
+            title: title,
+            createdAtMs: ms,
+            savedAtMs: ms,
+          );
+    final next = [..._projects];
+    if (i >= 0) {
+      next[i] = meta;
+    } else {
+      next.insert(0, meta);
+    }
+    next.sort((a, b) => b.savedAtMs.compareTo(a.savedAtMs));
+    _projects = next;
+  }
+
+  ThesisProjectMeta? _activeProjectMeta() {
+    for (final m in _projects) {
+      if (m.id == _projectId) return m;
+    }
+    return null;
+  }
+
+  String _fmtTime(DateTime t) {
+    final h = t.hour.toString().padLeft(2, '0');
+    final m = t.minute.toString().padLeft(2, '0');
+    return '$h:$m';
+  }
+
+  String _fmtDateTime(int ms) {
+    final t = DateTime.fromMillisecondsSinceEpoch(ms);
+    final d = t.day.toString().padLeft(2, '0');
+    final mo = t.month.toString().padLeft(2, '0');
+    return '$d/$mo ${_fmtTime(t)}';
+  }
+
+  Future<void> _switchToProject(String projectId) async {
+    if (projectId == _projectId || _loading) return;
+    await _persistDraft();
+    await ThesisStudioStorage.instance.setActiveProject(projectId);
+    final snap = await ThesisStudioStorage.instance.loadProject(projectId);
+    if (!mounted) return;
+    setState(() {
+      _projectId = projectId;
+      _lastSave = null;
+      if (snap == null) {
+        _draft = null;
+        _restoredDraft = false;
+        _goalController.clear();
+        _abstractCmd.clear();
+        _priorStudiesPaste.clear();
+        _progress = '';
+        for (final c in _paraCmds.values) {
+          c.dispose();
+        }
+        _paraCmds.clear();
+      }
+    });
+    if (snap != null) _applySnapshot(snap);
+  }
+
+  Future<void> _createNewProject() async {
+    if (_loading) return;
+    await _persistDraft();
+    final id = await ThesisStudioStorage.instance.createProject();
+    final projects = await ThesisStudioStorage.instance.listProjects();
+    if (!mounted) return;
+    setState(() {
+      _projectId = id;
+      _projects = projects;
+      _lastSave = null;
+      _draft = null;
+      _restoredDraft = false;
+      _goalController.clear();
+      _abstractCmd.clear();
+      _priorStudiesPaste.clear();
+      _progress = '';
+      for (final c in _paraCmds.values) {
+        c.dispose();
+      }
+      _paraCmds.clear();
+    });
+  }
+
+  Future<void> _showProjectsDialog() async {
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(ctx.t('مشاريع الرسالة', 'Thesis projects')),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: _projects.isEmpty
+              ? Text(
+                  ctx.t('لا مشاريع محفوظة بعد.', 'No saved projects yet.'),
+                )
+              : ListView(
+                  shrinkWrap: true,
+                  children: [
+                    for (final m in _projects)
+                      ListTile(
+                        dense: true,
+                        selected: m.id == _projectId,
+                        leading: Icon(
+                          m.id == _projectId
+                              ? Icons.radio_button_checked
+                              : Icons.radio_button_off,
+                        ),
+                        title: Text(
+                          m.title.isEmpty
+                              ? ctx.t('مسودة بدون عنوان', 'Untitled draft')
+                              : m.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: Text(_fmtDateTime(m.savedAtMs)),
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          _switchToProject(m.id);
+                        },
+                      ),
+                  ],
+                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _createNewProject();
+            },
+            child: Text(ctx.t('مشروع جديد', 'New project')),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(ctx.t('إغلاق', 'Close')),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showVersionsDialog() async {
+    final projectId = _projectId;
+    if (projectId == null) return;
+    final versions =
+        await ThesisStudioStorage.instance.listVersions(projectId);
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(ctx.t('سجل النسخ', 'Version history')),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: versions.isEmpty
+              ? Text(
+                  ctx.t(
+                    'لا نسخ محفوظة بعد. تُسجَّل نسخة تلقائياً أثناء التحرير (كل عشر دقائق كحد أقصى)، وقبل أي استرجاع، فلا يضيع شغلك.',
+                    'No versions yet. A version is recorded automatically while you edit (at most every ten minutes), and before any restore, so your work is never lost.',
+                  ),
+                )
+              : ListView(
+                  shrinkWrap: true,
+                  children: [
+                    for (final v in versions)
+                      ListTile(
+                        dense: true,
+                        leading: const Icon(Icons.history),
+                        title: Text(_fmtDateTime(v.savedAtMs)),
+                        subtitle: Text(
+                          ctx.t('اضغط للاسترجاع', 'Tap to restore'),
+                        ),
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          _confirmRestoreVersion(v);
+                        },
+                      ),
+                  ],
+                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(ctx.t('إغلاق', 'Close')),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmRestoreVersion(ThesisDraftVersionMeta version) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(ctx.t('استرجاع هذه النسخة؟', 'Restore this version?')),
+        content: Text(
+          ctx.t(
+            'سيحل محتوى نسخة ${_fmtDateTime(version.savedAtMs)} محل المسودة الحالية. حالتك الحالية تُحفظ كنسخة قبل الاسترجاع، فيمكنك التراجع.',
+            'The version from ${_fmtDateTime(version.savedAtMs)} will replace the current draft. Your current state is saved as a version first, so you can undo this.',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(ctx.t('إلغاء', 'Cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(ctx.t('استرجاع', 'Restore')),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await _restoreVersion(version);
+  }
+
+  Future<void> _restoreVersion(ThesisDraftVersionMeta version) async {
+    final projectId = _projectId;
+    if (projectId == null) return;
+    // Make the restore itself undoable: record the current state first.
+    if (_draft != null) {
+      await _persistDraft(recordVersion: true, forceVersion: true);
+    }
+    final snap = await ThesisStudioStorage.instance
+        .loadVersion(projectId, version.id);
+    if (!mounted) return;
+    if (snap == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            context.t(
+              'تعذّر تحميل هذه النسخة.',
+              'This version could not be loaded.',
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+    _applySnapshot(snap);
+    await _persistDraft(recordVersion: false);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          context.t('تم استرجاع النسخة.', 'Version restored.'),
+        ),
+      ),
+    );
+  }
+
   Future<void> _clearSavedDraft({required bool wipeUi}) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -193,8 +486,8 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
         title: Text(ctx.t('حذف مسودة الرسالة؟', 'Delete thesis draft?')),
         content: Text(
           ctx.t(
-            'سيُحذف النص والمراجع المحفوظة لهذا الحساب على الجهاز والسحابة. لا يُحذف شيء تلقائياً عند الإغلاق أو تسجيل الخروج.',
-            'This removes the saved text and references for this account on device and cloud. Nothing is deleted automatically on close or sign-out.',
+            'سيُحذف هذا المشروع بنصه ومراجعه ونسخه المحفوظة من الجهاز والسحابة. مشاريعك الأخرى لا تتأثر، ولا يُحذف شيء تلقائياً عند الإغلاق أو تسجيل الخروج.',
+            'This removes this project with its saved text, references, and versions from device and cloud. Your other projects are untouched, and nothing is deleted automatically on close or sign-out.',
           ),
         ),
         actions: [
@@ -211,11 +504,18 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
       ),
     );
     if (ok != true || !mounted) return;
-    await ThesisStudioStorage.instance.clear();
+    final projectId = _projectId;
+    if (projectId != null) {
+      await ThesisStudioStorage.instance.deleteProject(projectId);
+    } else {
+      await ThesisStudioStorage.instance.clear();
+    }
     if (!wipeUi || !mounted) return;
     setState(() {
       _draft = null;
       _restoredDraft = false;
+      _projectId = null;
+      _lastSave = null;
       _abstractCmd.clear();
       _priorStudiesPaste.clear();
       for (final c in _paraCmds.values) {
@@ -224,6 +524,13 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
       _paraCmds.clear();
       _progress = '';
     });
+    final remaining = await ThesisStudioStorage.instance.listProjects();
+    if (!mounted) return;
+    setState(() => _projects = remaining);
+    if (remaining.isNotEmpty) {
+      await _switchToProject(remaining.first.id);
+      return;
+    }
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -1328,30 +1635,7 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
           ),
           if (_draft != null) ...[
             const SizedBox(height: 8),
-            Text(
-              context.t(
-                _restoredDraft
-                    ? 'المسودة محفوظة لهذا الحساب (جهاز + سحابة) وتُستعاد عند العودة.'
-                    : 'تُحفظ المسودة تلقائياً لهذا الحساب على الجهاز والسحابة.',
-                _restoredDraft
-                    ? 'Draft is saved for this account (device + cloud) and restored when you return.'
-                    : 'The draft is auto-saved for this account on device and cloud.',
-              ),
-              style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6), height: 1.35),
-            ),
-            Align(
-              alignment: AlignmentDirectional.centerEnd,
-              child: TextButton.icon(
-                onPressed: _loading || _busyKey != null
-                    ? null
-                    : () => _clearSavedDraft(wipeUi: true),
-                icon: Icon(Icons.delete_outline, color: Colors.red.shade700),
-                label: Text(
-                  context.t('حذف المسودة المحفوظة', 'Delete saved draft'),
-                  style: TextStyle(color: Colors.red.shade700),
-                ),
-              ),
-            ),
+            _draftSafetyCard(),
           ],
           if (_loading && _progress.isNotEmpty) ...[
             const SizedBox(height: 10),
@@ -1649,6 +1933,156 @@ class _ThesisStudioScreenState extends State<ThesisStudioScreen>
         color: selected ? const Color(0xFFFDE68A) : const Color(0xFFF4F7FB),
         fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
         fontSize: 12,
+      ),
+    );
+  }
+
+  ({String text, Color color}) _saveStatusLines() {
+    const normal = Color(0xFFB7C3D6);
+    const warn = Color(0xFFFBBF24);
+    final bad = Colors.red.shade300;
+    final result = _lastSave;
+    if (result == null) {
+      return (
+        text: context.t(
+          _restoredDraft
+              ? 'هذه المسودة مستعادة من التخزين، وتُحفظ تلقائياً على الجهاز والسحابة مع سجل نسخ للاسترجاع.'
+              : 'تُحفظ هذه المسودة تلقائياً على الجهاز والسحابة، مع سجل نسخ يمكنك الاسترجاع منه.',
+          _restoredDraft
+              ? 'This draft was restored from storage, and auto-saves on device and cloud with a restorable version history.'
+              : 'This draft auto-saves on device and cloud, with a version history you can restore from.',
+        ),
+        color: normal,
+      );
+    }
+    final time = _fmtTime(result.savedAt);
+    if (!result.localOk && !result.cloudOk) {
+      return (
+        text: context.t(
+          'تعذّر حفظ المسودة على الجهاز والسحابة ($time). انسخ عملك احتياطياً الآن قبل المتابعة.',
+          'The draft could not be saved on device or cloud ($time). Copy your work somewhere safe before continuing.',
+        ),
+        color: bad,
+      );
+    }
+    if (result.cloudSkippedSignedOut) {
+      return (
+        text: context.t(
+          'محفوظة على هذا الجهاز فقط ($time). سجّل الدخول للحفظ السحابي والمزامنة بين الأجهزة.',
+          'Saved on this device only ($time). Sign in for cloud save and sync across devices.',
+        ),
+        color: warn,
+      );
+    }
+    if (result.localOk && !result.cloudOk) {
+      return (
+        text: context.t(
+          'محفوظة على هذا الجهاز فقط — فشل الحفظ السحابي ($time). تُعاد المحاولة تلقائياً مع الحفظ التالي.',
+          'Saved on this device only — cloud save failed ($time). It retries automatically with the next save.',
+        ),
+        color: warn,
+      );
+    }
+    if (!result.localOk && result.cloudOk) {
+      return (
+        text: context.t(
+          'محفوظة سحابياً فقط ($time) — تعذّر الحفظ المحلي على هذا الجهاز (قد تكون مساحة التخزين ممتلئة).',
+          'Saved to cloud only ($time) — local save on this device failed (storage may be full).',
+        ),
+        color: warn,
+      );
+    }
+    return (
+      text: context.t(
+        'محفوظة على الجهاز والسحابة ($time).',
+        'Saved on device and cloud ($time).',
+      ),
+      color: normal,
+    );
+  }
+
+  Widget _draftSafetyCard() {
+    final status = _saveStatusLines();
+    final active = _activeProjectMeta();
+    final title = (active == null || active.title.isEmpty)
+        ? context.t('مسودة بدون عنوان', 'Untitled draft')
+        : active.title;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F2440),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF1E3A5F)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.folder_outlined,
+                  size: 16, color: Color(0xFF93C5FD)),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF93C5FD),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            status.text,
+            style: TextStyle(fontSize: 12, color: status.color, height: 1.35),
+          ),
+          const SizedBox(height: 4),
+          Wrap(
+            spacing: 4,
+            runSpacing: 4,
+            children: [
+              TextButton.icon(
+                onPressed: _loading || _busyKey != null
+                    ? null
+                    : _showProjectsDialog,
+                icon: const Icon(Icons.folder_copy_outlined, size: 18),
+                label: Text(
+                  context.t(
+                    'مشاريعي (${_projects.length})',
+                    'My projects (${_projects.length})',
+                  ),
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
+              TextButton.icon(
+                onPressed:
+                    _loading || _busyKey != null ? null : _showVersionsDialog,
+                icon: const Icon(Icons.history, size: 18),
+                label: Text(
+                  context.t('النسخ', 'Versions'),
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
+              TextButton.icon(
+                onPressed: _loading || _busyKey != null
+                    ? null
+                    : () => _clearSavedDraft(wipeUi: true),
+                icon: Icon(Icons.delete_outline,
+                    size: 18, color: Colors.red.shade700),
+                label: Text(
+                  context.t('حذف المشروع', 'Delete project'),
+                  style: TextStyle(fontSize: 12, color: Colors.red.shade700),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
