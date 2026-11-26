@@ -4756,9 +4756,26 @@ class ManuscriptDocumentParser {
     final idx = _bibliographyStartIndex(text);
     if (idx == null) return '';
     var section = text.substring(idx);
+    // The heading can share the first line with the first entry; strip just
+    // the heading token so it does not leak into the entry's raw text.
+    section = section.replaceFirst(
+      RegExp(
+        r'^\s*(?:\d+\.?\s*)?(?:References?|Bibliography|Works Cited|'
+        r'Reference List|Literature Cited|REFERENCES|'
+        r'Referencias(?: bibliogr[aá]ficas)?|Refer[eê]ncias(?: bibliogr[aá]ficas)?|'
+        r'Bibliograf[ií]a|المراجع|املراجع|قائمة المراجع|قائمة امراج|المصادر|امصادر)\s*[:：.]\s*',
+        caseSensitive: false,
+      ),
+      '',
+    ).trimLeft();
     final nl = section.indexOf('\n');
     if (nl > 0 && nl < 80) {
-      section = section.substring(nl + 1);
+      // Strip only a genuine heading line; a short first ENTRY line (common
+      // in wrapped bibliographies) must not be eaten.
+      final firstLine = section.substring(0, nl).trim();
+      if (firstLine.isEmpty || _isBibliographyHeadingLine(firstLine)) {
+        section = section.substring(nl + 1);
+      }
     }
     final lines = section.split('\n');
     final end = lines.indexWhere(_isPostBibliographyBoundary);
@@ -5349,7 +5366,7 @@ class ManuscriptDocumentParser {
     }
     if (RegExp(
       r'^(?:\[\d{1,3}\]\s+|\d{1,3}[.)]\s+)?'
-      r'[A-Z]{2,10}\.\s+[A-Z]',
+      r'[A-Z]{2,12}(?:\s+[A-Z]{2,12}){0,4}\.\s+[A-Z]',
     ).hasMatch(s)) {
       return true;
     }
