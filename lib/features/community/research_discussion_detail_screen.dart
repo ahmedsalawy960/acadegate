@@ -253,6 +253,7 @@ class _ResearchDiscussionDetailScreenState
                 ),
               ),
               ChatComposerBar(
+                restrictedAttachments: true,
                 controller: _replyController,
                 sending: _isSending,
                 accentColor: const Color(0xFF00695C),

@@ -6,6 +6,8 @@ import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../features/community/community_attachment_policy.dart';
+
 class StorageService {
   StorageService._();
 
@@ -72,6 +74,31 @@ class StorageService {
     final mime = contentType.contains('/')
         ? contentType
         : 'application/octet-stream';
+    await ref.putData(
+      Uint8List.fromList(bytes),
+      SettableMetadata(contentType: mime),
+    );
+    return ref.getDownloadURL();
+  }
+
+  /// Attachments on community replies: images and PDF, 5 MB, under
+  /// `community_uploads/{uid}/` (its own storage rule enforces the same limits).
+  Future<String> uploadCommunityBytes({
+    required List<int> bytes,
+    required String fileName,
+  }) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('يجب تسجيل الدخول لرفع مرفق');
+    final error = communityAttachmentError(
+      fileName: fileName,
+      sizeBytes: bytes.length,
+    );
+    if (error != null) throw Exception(error.ar);
+    final ext = communityAttachmentExtension(fileName)!;
+    final mime = kCommunityAttachmentMimeByExt[ext]!;
+    final ref = _storage.ref().child(
+      'community_uploads/${user.uid}/${_uuid.v4()}.$ext',
+    );
     await ref.putData(
       Uint8List.fromList(bytes),
       SettableMetadata(contentType: mime),

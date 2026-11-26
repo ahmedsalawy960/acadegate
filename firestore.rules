@@ -78,22 +78,27 @@ service cloud.firestore {
               && (value == '' || value.matches('https?://.*')));
     }
 
-    // Community reply attachment: image, video, file, or a map link.
+    // Community reply attachment: an image or a PDF uploaded by the author to
+    // community_uploads/{uid}/ (see storage.rules). No video, no map links.
     function isSafeReplyAttachment() {
       return !request.resource.data.keys().hasAny(
                ['attachmentType', 'attachmentUrl', 'attachmentName', 'attachmentMime'])
           || (
-            request.resource.data.attachmentType in ['image', 'video', 'file', 'location']
+            request.resource.data.attachmentType in ['image', 'file']
             && request.resource.data.attachmentUrl is string
-            && request.resource.data.attachmentUrl.size() > 0
             && request.resource.data.attachmentUrl.size() <= 2000
-            && request.resource.data.attachmentUrl.matches('https?://.*')
+            && request.resource.data.attachmentUrl.matches(
+                 'https://firebasestorage\\.googleapis\\.com/v0/b/acadegate-new\\.(firebasestorage\\.app|appspot\\.com)/o/community_uploads%2F'
+                 + request.auth.uid + '%2F[A-Za-z0-9._-]+\\?alt=media&token=[A-Za-z0-9-]+')
+            && request.resource.data.attachmentMime is string
+            && request.resource.data.attachmentMime in [
+                 'image/png', 'image/jpeg', 'image/webp', 'image/gif', 'application/pdf']
+            && (request.resource.data.attachmentType == 'image'
+                ? request.resource.data.attachmentMime.matches('image/.*')
+                : request.resource.data.attachmentMime == 'application/pdf')
             && (!('attachmentName' in request.resource.data)
                 || (request.resource.data.attachmentName is string
                     && request.resource.data.attachmentName.size() <= 200))
-            && (!('attachmentMime' in request.resource.data)
-                || (request.resource.data.attachmentMime is string
-                    && request.resource.data.attachmentMime.size() <= 120))
           );
     }
 
@@ -980,7 +985,8 @@ service cloud.firestore {
           allow read: if isSignedIn() && hasResearchRoomAccess(roomId);
           allow create: if isSignedIn()
                         && hasResearchRoomAccess(roomId)
-                        && request.resource.data.authorId == request.auth.uid;
+                        && request.resource.data.authorId == request.auth.uid
+                        && isSafeReplyAttachment();
           allow update, delete: if false;
         }
       }

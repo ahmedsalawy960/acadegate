@@ -409,6 +409,7 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
           )
         else
           ChatComposerBar(
+            restrictedAttachments: true,
             controller: _replyController,
             sending: _replyLoading,
             accentColor: widget.room.color,

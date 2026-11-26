@@ -25,6 +25,18 @@ service firebase.storage {
                        || request.resource.contentType.matches('text/.*'));
     }
 
+    // مرفقات ردود المجتمع: صور وPDF فقط، حتى 5 ميجا. مسار منفصل عن uploads/
+    // لأن قاعدة uploads العامة تسمح بصور حتى 15 ميجا تحت أي مسار فرعي.
+    match /community_uploads/{userId}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+                   && request.auth.uid == userId
+                   && request.resource.size > 0
+                   && request.resource.size <= 5 * 1024 * 1024
+                   && request.resource.contentType.matches('image/png|image/jpeg|image/webp|image/gif|application/pdf')
+                   && fileName.matches('[A-Za-z0-9-]+\\.(png|jpe?g|webp|gif|pdf)');
+    }
+
     match /uploads/{userId}/claims/{allPaths=**} {
       allow read: if request.auth != null && request.auth.uid == userId;
       allow write: if request.auth != null

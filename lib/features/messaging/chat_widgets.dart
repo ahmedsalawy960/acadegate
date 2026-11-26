@@ -6,11 +6,12 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/locale/locale_extensions.dart';
 import '../../core/locale/locale_service.dart';
 import '../../core/storage/storage_service.dart';
+import '../community/community_attachment_policy.dart';
 import 'chat_media.dart';
 
 Future<void> openChatUrl(String url) async {
   final uri = Uri.tryParse(url.trim());
-  if (uri == null) return;
+  if (uri == null || !(uri.isScheme('http') || uri.isScheme('https'))) return;
   await launchUrl(uri, mode: LaunchMode.externalApplication);
 }
 
@@ -276,6 +277,10 @@ class ChatComposerBar extends StatefulWidget {
   final String hintText;
   final List<Widget> leadingActions;
 
+  /// Public community replies: only images and PDF up to 5 MB, no video,
+  /// audio, other files or map links. Uploads go to community_uploads/.
+  final bool restrictedAttachments;
+
   const ChatComposerBar({
     super.key,
     required this.controller,
@@ -285,6 +290,7 @@ class ChatComposerBar extends StatefulWidget {
     this.accentColor = const Color(0xFF1A237E),
     this.hintText = '',
     this.leadingActions = const [],
+    this.restrictedAttachments = false,
   });
 
   @override
@@ -381,21 +387,25 @@ class _ChatComposerBarState extends State<ChatComposerBar> {
                 title: ctx.t('صورة', 'Photo'),
                 value: 'image',
               ),
-              tile(
-                icon: Icons.videocam_outlined,
-                title: ctx.t('فيديو', 'Video'),
-                value: 'video',
-              ),
+              if (!widget.restrictedAttachments)
+                tile(
+                  icon: Icons.videocam_outlined,
+                  title: ctx.t('فيديو', 'Video'),
+                  value: 'video',
+                ),
               tile(
                 icon: Icons.attach_file,
-                title: ctx.t('ملف', 'File'),
+                title: widget.restrictedAttachments
+                    ? ctx.t('ملف PDF', 'PDF file')
+                    : ctx.t('ملف', 'File'),
                 value: 'file',
               ),
-              tile(
-                icon: Icons.location_on_outlined,
-                title: ctx.t('موقع / رابط خريطة', 'Location / map link'),
-                value: 'location',
-              ),
+              if (!widget.restrictedAttachments)
+                tile(
+                  icon: Icons.location_on_outlined,
+                  title: ctx.t('موقع / رابط خريطة', 'Location / map link'),
+                  value: 'location',
+                ),
             ],
           ),
         );
@@ -441,11 +451,19 @@ class _ChatComposerBarState extends State<ChatComposerBar> {
   Future<void> _pickAndUploadImage() async {
     final file = await StorageService.instance.pickImage();
     if (file == null) return;
-    final url = await StorageService.instance.uploadChatBytes(
-      bytes: await file.readAsBytes(),
-      fileName: file.name,
-      contentType: _guessImageMime(file.name),
-    );
+    final bytes = await file.readAsBytes();
+    final url = widget.restrictedAttachments
+        ? await StorageService.instance.uploadCommunityBytes(
+            bytes: bytes,
+            fileName: communityAttachmentExtension(file.name) == null
+                ? 'image.jpg'
+                : file.name,
+          )
+        : await StorageService.instance.uploadChatBytes(
+            bytes: bytes,
+            fileName: file.name,
+            contentType: _guessImageMime(file.name),
+          );
     await _emit(
       ChatAttachment(
         kind: ChatAttachmentKind.image,
@@ -482,7 +500,8 @@ class _ChatComposerBarState extends State<ChatComposerBar> {
   Future<void> _pickAndUploadFile() async {
     final result = await FilePicker.platform.pickFiles(
       withData: true,
-      type: FileType.any,
+      type: widget.restrictedAttachments ? FileType.custom : FileType.any,
+      allowedExtensions: widget.restrictedAttachments ? const ['pdf'] : null,
     );
     if (result == null || result.files.isEmpty) return;
     final f = result.files.first;
@@ -498,11 +517,16 @@ class _ChatComposerBarState extends State<ChatComposerBar> {
     }
     final name = f.name;
     final mime = _guessFileMime(name);
-    final url = await StorageService.instance.uploadChatBytes(
-      bytes: bytes,
-      fileName: name,
-      contentType: mime,
-    );
+    final url = widget.restrictedAttachments
+        ? await StorageService.instance.uploadCommunityBytes(
+            bytes: bytes,
+            fileName: name,
+          )
+        : await StorageService.instance.uploadChatBytes(
+            bytes: bytes,
+            fileName: name,
+            contentType: mime,
+          );
     await _emit(
       ChatAttachment(
         kind: ChatAttachmentKind.file,
