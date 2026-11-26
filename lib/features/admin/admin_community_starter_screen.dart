@@ -92,8 +92,8 @@ class _AdminCommunityStarterScreenState
           children: [
             Text(
               context.t(
-                'منشورات رسمية بالعربية والإنجليزية تظهر في كل غرف الكليات، ودائرتا دراسة.',
-                'Official Arabic and English posts that appear in every faculty room, plus two study circles.',
+                'منشورات رسمية بالعربية والإنجليزية تظهر في كل غرف الكليات، و4 دوائر دراسة.',
+                'Official Arabic and English posts that appear in every faculty room, plus four study circles.',
               ),
             ),
             const SizedBox(height: 12),

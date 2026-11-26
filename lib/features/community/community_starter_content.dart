@@ -132,12 +132,32 @@ const List<StarterCircle> kStarterCircles = [
   StarterCircle(
     id: 'starter_circle_statistics_hour',
     roomId: 'starter_room_statistics_hour',
-    titleAr: 'ساعة الإحصاء: أسئلة تحليل البيانات',
-    titleEn: 'Statistics hour: data analysis questions',
+    titleAr: 'مساعدة الإحصاء: اسأل عن تحليل نتائجك',
+    titleEn: 'Statistics help: ask about analyzing your results',
     descriptionAr:
         'مكان لأسئلة اختيار الاختبار الإحصائي وتفسير النتائج وتجهيز البيانات. اذكر نوع بياناتك وسؤال بحثك وما جرّبته، ويشارك الأعضاء خبرتهم. القرار الإحصائي النهائي مسؤولية الباحث ومشرفه.',
     descriptionEn:
         "A place for questions about choosing a statistical test, interpreting results and preparing data. Say what kind of data you have, your research question and what you tried, and members share their experience. The final statistical decision is the researcher's and the supervisor's responsibility.",
+  ),
+  StarterCircle(
+    id: 'starter_circle_academic_writing',
+    roomId: 'starter_room_academic_writing',
+    titleAr: 'الكتابة الأكاديمية: نراجع فقراتنا معاً',
+    titleEn: 'Academic writing: reviewing our paragraphs together',
+    descriptionAr:
+        'مجموعة صغيرة لتبادل الملاحظات على الكتابة الأكاديمية. كل عضو يشارك فقرة من كتابته (مقدمة، مراجعة أدبيات، مناقشة) ويقول ما يريد تحسينه: الوضوح، الترتيب، أو الأسلوب. نعلّق على بعضنا باحترام. الكتابة تبقى لصاحبها، والمجموعة للملاحظات وتبادل الخبرة.',
+    descriptionEn:
+        'A small group for swapping feedback on academic writing. Members share a paragraph of their own (an introduction, a literature review, a discussion) and say what they want to improve: clarity, structure or style. We comment on each other respectfully. The writing stays with its author; the group is for feedback and shared experience.',
+  ),
+  StarterCircle(
+    id: 'starter_circle_start_research',
+    roomId: 'starter_room_start_research',
+    titleAr: 'ابدأ بحثك: أفكار وأسئلة بحثية',
+    titleEn: 'Start your research: ideas and research questions',
+    descriptionAr:
+        'مكان لمن يبدأ بحثه ويريد تحويل فكرة عامة إلى سؤال بحثي واضح. اكتب مجالك وما يشغلك، وما قرأته حتى الآن، ويشارك الأعضاء أسئلتهم وخبرتهم. اختيار الموضوع النهائي قرارك أنت ومشرفك.',
+    descriptionEn:
+        'A place for anyone starting a study who wants to turn a general idea into a clear research question. Say your field, what interests you and what you have read so far, and members share their questions and experience. The final choice of topic is yours and your supervisor\'s.',
   ),
 ];
 

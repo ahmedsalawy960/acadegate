@@ -25,7 +25,15 @@ void main() {
       expect(c.description, contains(c.descriptionAr));
       expect(c.description, contains(c.descriptionEn));
     }
-    expect(kStarterCircles.length, 2);
+    expect(kStarterCircles.length, 4);
+    expect(
+      kStarterCircles.map((c) => c.titleAr),
+      containsAll([
+        'مساعدة الإحصاء: اسأل عن تحليل نتائجك',
+        'الكتابة الأكاديمية: نراجع فقراتنا معاً',
+        'ابدأ بحثك: أفكار وأسئلة بحثية',
+      ]),
+    );
   });
 
   test('no tool or model names in starter texts', () {
