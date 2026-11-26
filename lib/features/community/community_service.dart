@@ -8,6 +8,7 @@ import '../moderation/approval_status.dart';
 import '../profile/academic_profile_service.dart';
 import 'community_data.dart';
 import 'community_feed.dart';
+import 'community_papers.dart';
 import 'community_models.dart';
 
 const int kCommunityTitleMaxLength = 200;
@@ -535,5 +536,73 @@ class CommunityService {
     final data = doc.data();
     if (!doc.exists || data == null) return null;
     return CommunityPost.fromMap(data, id: doc.id);
+  }
+
+  /// Approved paper discussions (all papers). Grouped on the device.
+  Stream<List<CommunityPost>> watchPaperPosts({String? paperKey}) {
+    Query<Map<String, dynamic>> query = _posts
+        .where('roomId', isEqualTo: kPapersRoomId)
+        .where('approvalStatus', isEqualTo: ApprovalStatus.approved);
+    if (paperKey != null) query = query.where('paperKey', isEqualTo: paperKey);
+    return query.limit(200).snapshots().map(
+          (snapshot) => snapshot.docs
+              .map((doc) => CommunityPost.fromMap(doc.data(), id: doc.id))
+              .toList(),
+        );
+  }
+
+  /// A new post in a paper's discussion. Goes through the usual review.
+  Future<String?> createPaperPost({
+    required PaperRef paper,
+    required String paperTitle,
+    required String type,
+    required String title,
+    required String body,
+    List<String> tags = const [],
+  }) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return appTr('يجب تسجيل الدخول أولاً', 'You must sign in first');
+    }
+    final cleanPaperTitle = paperTitle.trim();
+    final cleanTitle = title.trim();
+    final cleanBody = body.trim();
+    if (cleanPaperTitle.isEmpty || cleanTitle.isEmpty || cleanBody.isEmpty) {
+      return appTr('اكتب عنوان الورقة وعنوان ومحتوى المنشور',
+          'Enter the paper title, a post title and the content');
+    }
+    if (cleanTitle.length > kCommunityTitleMaxLength ||
+        cleanPaperTitle.length > kCommunityTitleMaxLength ||
+        cleanBody.length > kCommunityPostBodyMaxLength) {
+      return appTr('النص أطول من الحد المسموح',
+          'The text is longer than allowed');
+    }
+    if (!isSafeCommunityLink(paper.link)) {
+      return appTr('الرابط لازم يبدأ بـ http:// أو https://',
+          'The link must start with http:// or https://');
+    }
+    final authorName = await resolveAuthorName();
+    try {
+      await _posts.add({
+        'roomId': kPapersRoomId,
+        'type': type,
+        'title': cleanTitle,
+        'body': cleanBody,
+        'authorId': user.uid,
+        'authorName': authorName,
+        'tags': tags,
+        'upvotesCount': 0,
+        'repliesCount': 0,
+        'approvalStatus': ApprovalStatus.pending,
+        'audienceScope': PostAudienceScope.app,
+        'academicLink': paper.link,
+        'academicTitle': cleanPaperTitle,
+        'paperKey': paper.key,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    } on FirebaseException catch (e) {
+      return e.message ?? e.code;
+    }
+    return null;
   }
 }

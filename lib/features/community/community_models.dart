@@ -15,6 +15,7 @@ class CommunityPost {
   final String authorName;
   final String authorBadge;
   final String bestReplyId;
+  final String paperKey;
   final List<String> tags;
   final int upvotesCount;
   final int repliesCount;
@@ -39,6 +40,7 @@ class CommunityPost {
     this.authorName = '',
     this.authorBadge = '',
     this.bestReplyId = '',
+    this.paperKey = '',
     this.tags = const [],
     this.upvotesCount = 0,
     this.repliesCount = 0,
@@ -111,6 +113,7 @@ class CommunityPost {
           appTr('طالب', 'Student'),
       authorBadge: map['authorBadge']?.toString() ?? '',
       bestReplyId: map['bestReplyId']?.toString() ?? '',
+      paperKey: map['paperKey']?.toString() ?? '',
       tags: tags,
       upvotesCount: _parseInt(map['upvotesCount']),
       repliesCount: _parseInt(map['repliesCount']),

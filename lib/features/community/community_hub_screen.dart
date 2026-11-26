@@ -10,6 +10,7 @@ import 'community_data.dart';
 import 'community_room_screen.dart';
 import 'create_research_room_screen.dart';
 import 'my_community_posts_screen.dart';
+import 'papers_tab.dart';
 import 'research_room_models.dart';
 import 'research_room_navigator.dart';
 import 'research_room_service.dart';
@@ -29,7 +30,7 @@ class _CommunityHubScreenState extends State<CommunityHubScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     _tabController.addListener(() => setState(() {}));
   }
 
@@ -77,6 +78,7 @@ class _CommunityHubScreenState extends State<CommunityHubScreen>
             Tab(text: context.t('غرف التخصص', 'Faculty rooms')),
             Tab(text: context.t('الغرف البحثية', 'Research rooms')),
             Tab(text: context.t('دوائر دراسة', 'Study circles')),
+            Tab(text: context.t('الأوراق', 'Papers')),
           ],
         ),
         actions: [
@@ -126,6 +128,7 @@ class _CommunityHubScreenState extends State<CommunityHubScreen>
                 _FacultyRoomsTab(),
                 _ResearchRoomsTab(),
                 StudyCirclesTab(),
+                PapersTab(),
               ],
             ),
           ),

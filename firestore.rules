@@ -1061,6 +1061,14 @@ service cloud.firestore {
                     && request.resource.data.get('upvotesCount', 0) == 0
                     && request.resource.data.get('repliesCount', 0) == 0
                     && !request.resource.data.keys().hasAny(['authorBadge', 'bestReplyId', 'hiddenByReports', 'hiddenAt'])
+                    && (request.resource.data.get('roomId', '') != 'papers'
+                        || (request.resource.data.get('paperKey', null) is string
+                            && request.resource.data.paperKey.size() > 0
+                            && request.resource.data.paperKey.size() <= 200
+                            && request.resource.data.get('academicLink', null) is string
+                            && request.resource.data.academicLink.size() > 0))
+                    && (!('paperKey' in request.resource.data)
+                        || request.resource.data.roomId == 'papers')
                     && (!('tags' in request.resource.data)
                         || (request.resource.data.tags is list
                             && request.resource.data.tags.size() <= 10))
@@ -1076,7 +1084,7 @@ service cloud.firestore {
                       || (resource.data.authorId == request.auth.uid
                           && approvalUnchanged()
                           && !request.resource.data.diff(resource.data).affectedKeys()
-                              .hasAny(['authorId', 'authorName', 'authorBadge', 'bestReplyId', 'hiddenByReports', 'hiddenAt'])
+                              .hasAny(['authorId', 'authorName', 'authorBadge', 'bestReplyId', 'paperKey', 'roomId', 'hiddenByReports', 'hiddenAt'])
                           && resource.data.approvalStatus in ['pending', 'rejected'])
                     ));
 
