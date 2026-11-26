@@ -4440,7 +4440,7 @@ class ManuscriptDocumentParser {
 
     final heading = RegExp(
       r'(?:^|\n)\s*(?:\d+\.?\s*)?(References?|Bibliography|Works Cited|'
-      r'Reference List|Literature Cited|REFERENCES|Referencias(?: bibliogr[aá]ficas)?|Bibliograf[ií]a|المراجع|قائمة المراجع|'
+      r'Reference List|Literature Cited|REFERENCES|Referencias(?: bibliogr[aá]ficas)?|Refer[eê]ncias(?: bibliogr[aá]ficas)?|Bibliograf[ií]a|المراجع|قائمة المراجع|'
       r'المصادر)\s*:?\s*(?:\n|$)',
       caseSensitive: false,
     );
@@ -4460,7 +4460,11 @@ class ManuscriptDocumentParser {
       return printed.last.start;
     }
     final runAt = _bibliographyRunStartInText(text);
-    if (runAt != null) return runAt;
+    if (runAt != null) {
+      // Converted PDFs wrap entries across lines and interleave columns, so
+      // a strict run can start mid-list. Absorb the wrapped lead-in first.
+      return _absorbBibliographyLeadIn(text, runAt);
+    }
 
     final minPos = text.length > 4000 ? (text.length * 0.42).floor() : 0;
     var charPos = 0;
@@ -4471,7 +4475,136 @@ class ManuscriptDocumentParser {
       if (lineStart < minPos) continue;
       if (_isBibliographyHeadingLine(line)) return lineStart;
     }
-    return null;
+    return _bibliographyDensityStartInText(text);
+  }
+
+  /// Wrapped bibliography entries (one entry spanning several lines) never
+  /// form a run of consecutive bibliographic lines, so the strict run
+  /// detector misses them. Density fallback: cluster bibliographic lines
+  /// separated by only a few continuation lines; a cluster with enough
+  /// entries marks the bibliography. As with runs, the last cluster wins so
+  /// author-year mentions earlier in the paper do not.
+  static int? _bibliographyDensityStartInText(String text) {
+    if (text.length < 4000) return null;
+    final minPos = (text.length * 0.3).floor();
+    const maxGapLines = 6;
+    const minClusterEntries = 3;
+    var charPos = 0;
+    var lineNo = 0;
+    final hits = <int>[];
+    final hitLines = <int>[];
+    for (final rawLine in text.split('\n')) {
+      final lineStart = charPos;
+      charPos += rawLine.length + 1;
+      lineNo++;
+      if (lineStart < minPos) continue;
+      final line = rawLine.trim();
+      if (line.isEmpty) continue;
+      final isBib = PublishReference.numberFromImportedLine(line) != null ||
+          _isStandaloneBibliographyEntry(line) ||
+          (line.length >= 40 && _looksLikeReference(line)) ||
+          (line.length >= 40 &&
+              RegExp(r'(?:19|20)\d{2}').hasMatch(line) &&
+              RegExp(r'مجلة|جامعة|أطروحة|رسالة').hasMatch(line));
+      if (isBib) {
+        hits.add(lineStart);
+        hitLines.add(lineNo);
+      }
+    }
+    if (hits.length < minClusterEntries) return null;
+    int? lastClusterStart;
+    var clusterFirst = 0;
+    var clusterLen = 1;
+    for (var i = 1; i < hits.length; i++) {
+      if (hitLines[i] - hitLines[i - 1] <= maxGapLines + 1) {
+        clusterLen++;
+      } else {
+        if (clusterLen >= minClusterEntries) {
+          lastClusterStart = hits[clusterFirst];
+        }
+        clusterFirst = i;
+        clusterLen = 1;
+      }
+    }
+    if (clusterLen >= minClusterEntries) lastClusterStart = hits[clusterFirst];
+    if (lastClusterStart == null) return null;
+    return _absorbBibliographyLeadIn(text, lastClusterStart);
+  }
+
+  /// Wrapped and interleaved bibliographies put strict reference lines far
+  /// apart, so a density cluster can start mid-list. From the cluster's
+  /// first line, absorb the lead-in lines that are blanks, page furniture,
+  /// DOI fragments, author leads awaiting their year, or continuation
+  /// fragments, stopping at the first finished body sentence.
+  static int _absorbBibliographyLeadIn(String text, int clusterStart) {
+    // Running heads/footers repeat verbatim on every page; a long line seen
+    // three or more times is furniture, not content.
+    final counts = <String, int>{};
+    for (final l in text.split('\n')) {
+      final t = l.trim();
+      if (t.length >= 8) counts[t] = (counts[t] ?? 0) + 1;
+    }
+    final furniture = <String>{
+      for (final e in counts.entries)
+        if (e.value >= 3) e.key,
+    };
+    final rawLines = text.substring(0, clusterStart).split('\n');
+    var boundary = clusterStart;
+    var absorbed = 0;
+    const cap = 60;
+    for (var i = rawLines.length - 1; i >= 0 && absorbed < cap; i--) {
+      final raw = rawLines[i];
+      final line = raw.trim();
+      final lineStart = boundary - raw.length - 1;
+      if (furniture.contains(line)) {
+        boundary = lineStart < 0 ? 0 : lineStart;
+        absorbed++;
+        continue;
+      }
+      if (_isMajorSectionHeading(line)) break;
+      if (_looksLikeReference(line) || _isStandaloneBibliographyEntry(line)) {
+        boundary = lineStart < 0 ? 0 : lineStart;
+        absorbed++;
+        continue;
+      }
+      // Citation tails (volume:pages, issue/page ranges) keep absorbing even
+      // though they end with a period.
+      if (RegExp(r'\d{1,3}\s*:\s*\d{2,5}\s*[–-]\s*\d{1,5}').hasMatch(line) ||
+          RegExp(r'\d+\(\d+\)[,;]?\s*\d{2,5}\s*[–-]\s*\d{1,5}')
+              .hasMatch(line)) {
+        boundary = lineStart < 0 ? 0 : lineStart;
+        absorbed++;
+        continue;
+      }
+      if (line.isEmpty ||
+          RegExp(r'^\d{1,4}$').hasMatch(line) ||
+          (line.length <= 2 && !RegExp(r'[A-Za-z؀-ۿ0-9]').hasMatch(line)) ||
+          RegExp(r'^(?:doi\b|https?://doi\.org)', caseSensitive: false)
+              .hasMatch(line) ||
+          RegExp(r'^\((?:19|20)\d{2}[a-z]?\)').hasMatch(line) ||
+          (_hasBibliographyAuthorLead(line) && !_hasBibYear(line))) {
+        boundary = lineStart < 0 ? 0 : lineStart;
+        absorbed++;
+        continue;
+      }
+      if (line.length > 45) {
+        if (RegExp(r'[.!؟?]$').hasMatch(line)) break;
+        // Converted Arabic prose carries the sentence period at the start of
+        // the next line (visual order), so the trailing-period test never
+        // fires for it. A long Arabic-dominant line with no bibliographic
+        // cues is body text: stop.
+        final arabicChars = RegExp(r'[؀-ۿ]').allMatches(line).length;
+        final latinChars = RegExp(r'[A-Za-z]').allMatches(line).length;
+        if (arabicChars > latinChars &&
+            !RegExp(r'(?:19|20)\d{2}').hasMatch(line) &&
+            !RegExp(r'مجلة|جامعة|أطروحة|رسالة|مؤتمر|دار').hasMatch(line)) {
+          break;
+        }
+      }
+      boundary = lineStart < 0 ? 0 : lineStart;
+      absorbed++;
+    }
+    return boundary;
   }
 
   static bool _looksLikeBibliographyStartLine(String line) =>
@@ -4544,7 +4677,7 @@ class ManuscriptDocumentParser {
 
     return RegExp(
       r'^(?:\d+\.?\s*)?(References?|Bibliography|Works Cited|Reference List|'
-      r'Literature Cited|REFERENCES|Referencias(?: bibliogr[aá]ficas)?|Bibliograf[ií]a)\s*:?\.?\s*$',
+      r'Literature Cited|REFERENCES|Referencias(?: bibliogr[aá]ficas)?|Refer[eê]ncias(?: bibliogr[aá]ficas)?|Bibliograf[ií]a)\s*:?\.?\s*$',
       caseSensitive: false,
     ).hasMatch(t) ||
         RegExp(r'^(?:\d+\.?\s*)?(المراجع|قائمة المراجع|المصادر)( والمصادر)?\s*:?\.?\s*$')
