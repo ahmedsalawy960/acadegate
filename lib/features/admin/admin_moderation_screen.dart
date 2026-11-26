@@ -13,6 +13,7 @@ import '../supervisor_import/admin_supervisor_import_screen.dart';
 import 'admin_access_gate.dart';
 import 'admin_activity_service.dart';
 import 'admin_bugs_screen.dart';
+import 'admin_community_reports_screen.dart';
 import 'admin_kpi_screen.dart';
 import 'admin_privacy_ops_screen.dart';
 import 'admin_profile_claims_screen.dart';
@@ -284,6 +285,18 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
               context.t('مؤشرات الأداء', 'KPIs'),
               style: const TextStyle(color: Colors.white),
             ),
+          ),
+          IconButton(
+            tooltip: context.t('بلاغات المجتمع', 'Community reports'),
+            icon: const Icon(Icons.flag_outlined),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const AdminCommunityReportsScreen(),
+                ),
+              );
+            },
           ),
           IconButton(
             tooltip: context.t('مطالبات الملفات', 'Profile claims'),

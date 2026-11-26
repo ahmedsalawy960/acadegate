@@ -1051,6 +1051,35 @@ service cloud.firestore {
       }
     }
 
+    // ─── بلاغات المجتمع ──────────────────────────────────
+    // One report per member per post/reply (deterministic document id).
+    match /community_reports/{reportId} {
+      allow create: if isSignedIn()
+                    && request.resource.data.keys().hasOnly(
+                         ['reporterId', 'postId', 'replyId', 'reason', 'note',
+                          'postTitle', 'status', 'createdAt'])
+                    && request.resource.data.reporterId == request.auth.uid
+                    && request.resource.data.postId is string
+                    && request.resource.data.postId.size() > 0
+                    && request.resource.data.replyId is string
+                    && reportId == (request.resource.data.replyId == ''
+                         ? request.auth.uid + '_' + request.resource.data.postId
+                         : request.auth.uid + '_' + request.resource.data.postId
+                           + '_' + request.resource.data.replyId)
+                    && request.resource.data.reason in ['spam', 'abuse', 'impersonation', 'other']
+                    && request.resource.data.note is string
+                    && request.resource.data.note.size() <= 500
+                    && request.resource.data.postTitle is string
+                    && request.resource.data.postTitle.size() <= 200
+                    && request.resource.data.status == 'open';
+      allow read: if isAdmin()
+                  || (isSignedIn() && resource.data.reporterId == request.auth.uid);
+      allow update: if isAdmin()
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['status', 'resolvedAt']);
+      allow delete: if isAdmin();
+    }
+
     // ─── خدمات الكتابة الأكاديمية ─────────────────────────
     match /{path=**}/writing_orders/{orderId} {
       allow read: if isSignedIn()

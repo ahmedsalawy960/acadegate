@@ -11,6 +11,7 @@ import '../moderation/approval_status.dart';
 import '../moderation/delete_content_button.dart';
 import 'community_data.dart';
 import 'community_models.dart';
+import 'community_report_dialog.dart';
 import 'community_service.dart';
 
 class CommunityPostDetailScreen extends StatefulWidget {
@@ -140,12 +141,25 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
         title: Text(CommunityPostType.label(widget.post.type)),
         backgroundColor: widget.room.color,
         foregroundColor: Colors.white,
-        actions: deleteAppBarActions(
-          collection: 'community_posts',
-          documentId: widget.post.id,
-          ownerId: widget.post.authorId,
-          itemLabel: widget.post.title,
-        ),
+        actions: [
+          if (!isDemo &&
+              FirebaseAuth.instance.currentUser?.uid != widget.post.authorId)
+            IconButton(
+              tooltip: context.t('إبلاغ', 'Report'),
+              icon: const Icon(Icons.flag_outlined),
+              onPressed: () => showCommunityReportDialog(
+                context,
+                postId: widget.post.id ?? '',
+                postTitle: widget.post.title,
+              ),
+            ),
+          ...deleteAppBarActions(
+            collection: 'community_posts',
+            documentId: widget.post.id,
+            ownerId: widget.post.authorId,
+            itemLabel: widget.post.title,
+          ),
+        ],
       ),
       body: isDemo
           ? _buildBody(widget.post, const [])
@@ -495,6 +509,20 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
                     tooltip: context.t('حذف الرد', 'Delete reply'),
                     icon: const Icon(Icons.delete_outline, size: 20),
                     onPressed: () => _confirmDeleteReply(reply),
+                  ),
+                if (post.isFromFirebase &&
+                    (reply.id ?? '').isNotEmpty &&
+                    uid != null &&
+                    uid != reply.authorId)
+                  IconButton(
+                    tooltip: context.t('إبلاغ', 'Report'),
+                    icon: const Icon(Icons.flag_outlined, size: 20),
+                    onPressed: () => showCommunityReportDialog(
+                      context,
+                      postId: post.id!,
+                      replyId: reply.id,
+                      postTitle: post.title,
+                    ),
                   ),
               ],
             ),
