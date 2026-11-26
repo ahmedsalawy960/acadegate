@@ -804,6 +804,7 @@ class ManuscriptDocxExportService {
       contentTwips: contentTwips,
       fontHalfPoints: tableHalfPoints,
     );
+    final borderValue = block.borderless ? 'nil' : 'single';
     final buffer = StringBuffer();
     buffer.write('<w:tbl>');
     buffer.write('''
@@ -811,12 +812,12 @@ class ManuscriptDocxExportService {
   <w:tblW w:w="$contentTwips" w:type="dxa"/>
   <w:tblLayout w:type="fixed"/>
   <w:tblBorders>
-    <w:top w:val="single" w:sz="4" w:space="0" w:color="000000"/>
-    <w:left w:val="single" w:sz="4" w:space="0" w:color="000000"/>
-    <w:bottom w:val="single" w:sz="4" w:space="0" w:color="000000"/>
-    <w:right w:val="single" w:sz="4" w:space="0" w:color="000000"/>
-    <w:insideH w:val="single" w:sz="4" w:space="0" w:color="000000"/>
-    <w:insideV w:val="single" w:sz="4" w:space="0" w:color="000000"/>
+    <w:top w:val="$borderValue" w:sz="4" w:space="0" w:color="000000"/>
+    <w:left w:val="$borderValue" w:sz="4" w:space="0" w:color="000000"/>
+    <w:bottom w:val="$borderValue" w:sz="4" w:space="0" w:color="000000"/>
+    <w:right w:val="$borderValue" w:sz="4" w:space="0" w:color="000000"/>
+    <w:insideH w:val="$borderValue" w:sz="4" w:space="0" w:color="000000"/>
+    <w:insideV w:val="$borderValue" w:sz="4" w:space="0" w:color="000000"/>
   </w:tblBorders>
   <w:tblCellMar>
     <w:top w:w="40" w:type="dxa"/>
@@ -899,7 +900,12 @@ class ManuscriptDocxExportService {
         final formula = RegExp(r'[A-Z][a-z]?\d').hasMatch(cellText)
             ? DocxScientificExtractor.formatChemicalFormula(cellText)
             : cellText;
-        if (formula.isNotEmpty && rowSpan != 0) {
+        final nativeMath = r < block.rowCellMath.length && c < block.rowCellMath[r].length
+            ? _nativeTableCellMath(block.rowCellMath[r][c], cellText, rules) : '';
+        if (nativeMath.isNotEmpty && rowSpan != 0) {
+          buffer.write(nativeMath);
+          wroteParagraph = true;
+        } else if (formula.isNotEmpty && rowSpan != 0) {
           buffer.write(_paragraph(
             formula,
             rules: rules,
@@ -928,6 +934,29 @@ class ManuscriptDocxExportService {
       ));
     }
     return buffer.toString();
+  }
+
+  String _nativeTableCellMath(String fragment, String text, JournalFormatRules rules) {
+    if (fragment.isEmpty) return '';
+    try {
+      final root = XmlDocument.parse(fragment).rootElement;
+      if (root.localName != 'cell' || root.getAttribute('snapshot') != text) return '';
+      const w = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+      const m = 'http://schemas.openxmlformats.org/officeDocument/2006/math';
+      var hasMath = false;
+      for (final el in root.descendants.whereType<XmlElement>()) {
+        if (el.namespaceUri == m) { hasMath = true; continue; }
+        if (el.namespaceUri != w && !el.ancestors.whereType<XmlElement>().any((a) => a.namespaceUri == m)) return '';
+        if (['drawing', 'pict', 'object', 'instrText', 'fldChar', 'hyperlink', 'altChunk'].contains(el.localName)) return '';
+        if (el.attributes.any((a) => ['embed', 'link', 'id'].contains(a.name.local) && a.name.prefix == 'r')) return '';
+      }
+      if (!hasMath) return '';
+      final namespaces = root.attributes.where((a) => a.name.prefix == 'xmlns' || a.name.qualified == 'xmlns').map((a) => a.toXmlString()).join(' ');
+      return root.children.whereType<XmlElement>().where((e) => e.localName == 'p').map((p) =>
+          '<w:p $namespaces><w:pPr><w:spacing w:before="40" w:after="40" w:line="${rules.lineSpacingExactTwips}" w:lineRule="atLeast"/></w:pPr>${p.children.map((e) => e.toXmlString()).join()}</w:p>').join();
+    } catch (_) {
+      return '';
+    }
   }
 
   Future<String> _equationXml(

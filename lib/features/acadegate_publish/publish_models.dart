@@ -209,6 +209,10 @@ class ManuscriptBlock {
   final List<List<String>> rows;
   /// Image URL per table cell (same shape as [rows]); empty = text-only cell.
   final List<List<String>> rowCellImages;
+  /// Native math cell fragments with an exact text snapshot, for unchanged cells.
+  final List<List<String>> rowCellMath;
+  /// Only true when all six source table borders explicitly say none/nil.
+  final bool borderless;
   /// Word `gridSpan`. 0 = covered by a cell to the left (do not emit `tc`).
   final List<List<int>> colSpans;
   /// Word vertical merge. 0 = continuation row; >1 = restart with rowspan.
@@ -230,6 +234,8 @@ class ManuscriptBlock {
     this.caption,
     this.rows = const [],
     this.rowCellImages = const [],
+    this.rowCellMath = const [],
+    this.borderless = false,
     this.colSpans = const [],
     this.rowSpans = const [],
     this.columnWidthsPct = const [],
@@ -243,6 +249,7 @@ class ManuscriptBlock {
         'type': type.name,
         'text': text,
         if (preserveCitationText) 'preserveCitationText': true,
+        if (borderless) 'borderless': true,
         if (imageUrl != null) 'imageUrl': imageUrl,
         if (caption != null && caption!.isNotEmpty) 'caption': caption,
         if (ommlXml != null && ommlXml!.isNotEmpty) 'ommlXml': ommlXml,
@@ -252,6 +259,8 @@ class ManuscriptBlock {
           'rowCells': rows
               .map((cells) => {'cells': cells})
               .toList(),
+        if (rowCellMath.isNotEmpty)
+          'rowCellMath': rowCellMath.map((cells) => {'cells': cells}).toList(),
         if (rowCellImages.isNotEmpty)
           'rowCellImages': rowCellImages
               .map((cells) => {'cells': cells})
@@ -405,11 +414,13 @@ class ManuscriptBlock {
     );
     var rows = _rowsFromMap(map['rowCells'] ?? map['rows']);
     var cellImages = _rowsFromMap(map['rowCellImages']);
+    var cellMath = _rowsFromMap(map['rowCellMath']);
     var colSpans = _intGridFromMap(map['colSpans']);
     var rowSpans = _intGridFromMap(map['rowSpans']);
     if (type == ManuscriptBlockType.table) {
       rows = normalizedRows(rows);
       cellImages = normalizedCellImages(cellImages, rows);
+      if (cellMath.isNotEmpty) cellMath = normalizedCellImages(cellMath, rows);
       colSpans = normalizedIntGrid(colSpans, rows);
       rowSpans = normalizedIntGrid(rowSpans, rows);
     }
@@ -423,6 +434,8 @@ class ManuscriptBlock {
       caption: map['caption']?.toString(),
       rows: rows,
       rowCellImages: cellImages,
+      rowCellMath: cellMath,
+      borderless: map['borderless'] == true,
       colSpans: colSpans,
       rowSpans: rowSpans,
       columnWidthsPct: _intListFromMap(map['columnWidthsPct']),
@@ -438,6 +451,7 @@ class ManuscriptBlock {
     return block.copyWith(
       rows: rows,
       rowCellImages: normalizedCellImages(block.rowCellImages, rows),
+      rowCellMath: block.rowCellMath.isEmpty ? const [] : normalizedCellImages(block.rowCellMath, rows),
       colSpans: normalizedIntGrid(block.colSpans, rows),
       rowSpans: normalizedIntGrid(block.rowSpans, rows),
     );
@@ -451,6 +465,8 @@ class ManuscriptBlock {
     String? caption,
     List<List<String>>? rows,
     List<List<String>>? rowCellImages,
+    List<List<String>>? rowCellMath,
+    bool? borderless,
     List<List<int>>? colSpans,
     List<List<int>>? rowSpans,
     List<int>? columnWidthsPct,
@@ -467,6 +483,8 @@ class ManuscriptBlock {
       caption: caption ?? this.caption,
       rows: rows ?? this.rows,
       rowCellImages: rowCellImages ?? this.rowCellImages,
+      rowCellMath: rowCellMath ?? this.rowCellMath,
+      borderless: borderless ?? this.borderless,
       colSpans: colSpans ?? this.colSpans,
       rowSpans: rowSpans ?? this.rowSpans,
       columnWidthsPct: columnWidthsPct ?? this.columnWidthsPct,

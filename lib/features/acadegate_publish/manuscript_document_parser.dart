@@ -1490,7 +1490,8 @@ class ManuscriptDocumentParser {
         final prev = out.last;
         if (prev.rows.isNotEmpty &&
             block.rows.isNotEmpty &&
-            prev.rows.first.length == block.rows.first.length) {
+            prev.rows.first.length == block.rows.first.length &&
+            prev.borderless == block.borderless) {
           var start = 0;
           if (_sameTableRow(prev.rows.first, block.rows.first)) start = 1;
           out[out.length - 1] = prev.copyWith(
@@ -1499,6 +1500,10 @@ class ManuscriptDocumentParser {
               ...prev.rowCellImages,
               if (start < block.rowCellImages.length)
                 ...block.rowCellImages.sublist(start),
+            ],
+            rowCellMath: prev.rowCellMath.isEmpty && block.rowCellMath.isEmpty ? const [] : [
+              ...ManuscriptBlock.normalizedCellImages(prev.rowCellMath, prev.rows),
+              ...ManuscriptBlock.normalizedCellImages(block.rowCellMath, block.rows).sublist(start),
             ],
             caption: prev.caption ?? block.caption,
           );
@@ -3163,7 +3168,9 @@ class ManuscriptDocumentParser {
           id: nextId(),
           type: ManuscriptBlockType.table,
           rows: parsed.rows,
+          borderless: _explicitBorderlessTable(element),
           rowCellImages: parsed.rowCellImages,
+          rowCellMath: parsed.rowCellMath,
           colSpans: parsed.colSpans,
           rowSpans: parsed.rowSpans,
           columnWidthsPct: parsed.columnWidthsPct,
@@ -3547,6 +3554,7 @@ class ManuscriptDocumentParser {
   static ({
     List<List<String>> rows,
     List<List<String>> rowCellImages,
+    List<List<String>> rowCellMath,
     List<List<int>> colSpans,
     List<List<int>> rowSpans,
     List<int> columnWidthsPct,
@@ -3578,6 +3586,7 @@ class ManuscriptDocumentParser {
         rowCells.add(WordTableCell(
           text: cell.text,
           imageUrl: cell.imageUrl ?? '',
+          mathXml: _tableCellMathFragment(tc, cell.text),
           colSpan: _tcPrInt(tc, 'gridSpan', fallback: 1).clamp(1, 64),
           vMergeContinue: _tcVMergeContinue(tc),
           gridBefore: _tcPrInt(tc, 'gridBefore'),
@@ -3595,10 +3604,26 @@ class ManuscriptDocumentParser {
     return (
       rows: grid.rows,
       rowCellImages: grid.rowCellImages,
+      rowCellMath: grid.rowCellMath,
       colSpans: grid.colSpans,
       rowSpans: grid.rowSpans,
       columnWidthsPct: grid.columnWidthsPct,
     );
+  }
+
+  static bool _explicitBorderlessTable(XmlElement table) {
+    final props = _directChild(table, 'tblPr');
+    final borders = props == null ? null : _directChild(props, 'tblBorders');
+    if (borders == null) return false;
+    for (final name in ['top', 'left', 'bottom', 'right', 'insideH', 'insideV']) {
+      final border = _directChild(borders, name);
+      final value = border?.attributes.where((a) => a.name.local == 'val').firstOrNull?.value;
+      if (value != 'none' && value != 'nil') return false;
+    }
+    // An explicit cell border wins over table defaults.
+    return !table.descendants.whereType<XmlElement>().any((e) =>
+        e.localName == 'tcBorders' && e.children.whereType<XmlElement>().any((b) =>
+          !['none', 'nil'].contains(b.attributes.where((a) => a.name.local == 'val').firstOrNull?.value)));
   }
 
   static XmlElement? _directChild(XmlElement parent, String name) {
@@ -3758,6 +3783,60 @@ class ManuscriptDocumentParser {
       text: _cleanExtractedText(buffer.toString()),
       imageUrl: _preferDisplayableImage(foundImages),
     );
+  }
+
+  /// Retain only visible text and native math, never fields, links or drawings.
+  /// The snapshot prevents a later cell edit from exporting stale equations.
+  static String _tableCellMathFragment(XmlElement cell, String text) {
+    if (!cell.descendants.whereType<XmlElement>().any((e) => e.localName == 'oMath')) return '';
+    const w = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+    const m = 'http://schemas.openxmlformats.org/officeDocument/2006/math';
+    XmlNode? visible(XmlNode node) {
+      if (node is! XmlElement) return null;
+      if (node.namespaceUri == m && (node.localName == 'oMath' || node.localName == 'oMathPara')) {
+        return node.copy();
+      }
+      if (node.namespaceUri == w && node.localName == 'r') {
+        final run = XmlElement(XmlName('r', 'w'));
+        for (final child in node.children.whereType<XmlElement>()) {
+          if (['rPr', 't', 'tab', 'br', 'cr', 'sym'].contains(child.localName)) run.children.add(child.copy());
+        }
+        return run;
+      }
+      if (['drawing', 'pict', 'object', 'instrText', 'del'].contains(node.localName)) return null;
+      final out = XmlElement(XmlName(node.localName == 'p' ? 'p' : 's', node.localName == 'p' ? 'w' : null));
+      for (final child in node.children) {
+        final kept = visible(child);
+        if (kept != null) out.children.add(kept);
+      }
+      return out;
+    }
+    final wrapper = XmlDocument.parse('<cell xmlns:w="$w" ${_inheritedNamespaceAttributes(cell, excluding: {'xmlns:w'})}/>').rootElement;
+    wrapper.setAttribute('snapshot', AcademicText.sanitize(text.trim()));
+    for (final paragraph in cell.descendants.whereType<XmlElement>().where((e) => e.localName == 'p')) {
+      // Nested tables are flattened in the editable grid, so flatten their
+      // paragraphs in the same order while retaining each native math object.
+      final kept = visible(paragraph);
+      if (kept != null) {
+        // Unwrap transparent containers (hyperlinks, smart tags, bookmarks).
+        void unwrap(XmlElement node) {
+          if (node.namespaceUri == m) return;
+          for (final child in node.children.whereType<XmlElement>().toList()) {
+            unwrap(child);
+            if (child.localName == 's' && child.namespaceUri == null) {
+              final index = node.children.indexOf(child);
+              final children = child.children.toList();
+              child.children.clear();
+              node.children.remove(child);
+              node.children.insertAll(index, children);
+            }
+          }
+        }
+        unwrap(kept as XmlElement);
+        wrapper.children.add(kept);
+      }
+    }
+    return wrapper.toXmlString(pretty: false);
   }
 
   static String? _preferDisplayableImage(List<String> urls) {

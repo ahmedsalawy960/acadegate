@@ -90,7 +90,7 @@ class DocxTitleReader {
                   .trim()
             : full;
         final selected =
-            prominent.length >= 24 && prominent.length >= full.length * .5
+            prominent.length >= 24 && (prominent.length >= full.length * .5 || _byline(full.substring(full.indexOf(prominent) + prominent.length)))
             ? prominent
             : full;
         lines.add(_TitleLine(selected, maxSize, explicitTitle));
@@ -108,7 +108,7 @@ class DocxTitleReader {
         }
         var text = line.text;
         var end = i;
-        if (line.size >= 26) {
+        if (line.size >= 26 || (line.size >= 24 && RegExp(r'\b(?:first|second|third|of|for|with|and|in|the|by|to)$', caseSensitive: false).hasMatch(line.text))) {
           var skipped = 0;
           for (var j = i + 1; j < lines.length && j <= i + 5; j++) {
             final next = lines[j];
@@ -149,6 +149,8 @@ class DocxTitleReader {
   }
 
   static bool _bodyBoundary(String t) =>
+      RegExp(r'^(?:[:.\s]*)(?:ملخص|الملخص|مستخلص|المستخلص)(?:$|[\s:])').hasMatch(_plainArabic(t)) ||
+
       RegExp(
         r'^(?:\d+(?:\.\d+)*[.)]?\s+)?(?:Abstract|Summary|Introduction|Background|Methods|Materials and Methods|Results|Discussion|Conclusion|Conclusions|References|Bibliography|الملخص|المقدمة|المراجع)\s*[:.]?$',
         caseSensitive: false,
@@ -169,6 +171,8 @@ class DocxTitleReader {
       !_byline(t) &&
       !RegExp(r'@|https?://|[.!?]\s+[A-Z]').hasMatch(t);
   static bool _metadata(String t) =>
+      _arabicPublicationMetadata(t) ||
+
       RegExp(
         r'^(?:abstract\s|draft\s*version|print\s+issn|online\s+issn|provided proper attribution|reproduce the tables and figures|scholarly works|arxiv\s*:|[/\s]*(?:preprint|submitted manuscript)|running\s+(?:head|title)|short\s+title|word\s+count|key\s*words|authors?\s*:|research\s+article|original\s+(?:research|article)|review\s*$|open\s+access|type\b|published\b|received\b|accepted\b|revised\b|edited\s+by|reviewed\s+by|doi\b|digital\s+object|citation\b|downloaded\b|document\s+(?:version|license)|publication\s+status|terms\s+and|link\s+to|copyright|©|p-?issn|e-?issn|correspond|abstract\s*[:.]|summary\s*[:.]|references\s*[:.]|table\s+\d|fig(?:ure)?\.?\s*\d)',
         caseSensitive: false,
@@ -177,7 +181,25 @@ class DocxTitleReader {
         r'\b(?:research information portal|journal of|jurnal|journal\s+pendidikan)\b',
         caseSensitive: false,
       ).hasMatch(t);
+  static String _plainArabic(String t) => t
+      .replaceAll(RegExp(r'[\u064B-\u065F\u0670\u0640]'), '')
+      .replaceAll(RegExp('[أإآ]'), 'ا')
+      .replaceAll(RegExp(r'\s+'), ' ').trim();
+
+  static bool _arabicPublicationMetadata(String t) {
+    final plain = _plainArabic(t);
+    // Publisher names and issue strips, not scientific titles about journals.
+    return RegExp(r'^(?:[\d\s()،.,–-]*|.*(?:العدد|المجلد|اجمللد).*)?(?:المجلة|المجله|مجلة|مجله|جملة)\s+(?:العلمية|الدولية|التربوية|ابحاث|احباث)').hasMatch(plain) ||
+        RegExp(r'^(?:المجلد|اجمللد|العدد|مسلسل العدد|تاريخ (?:النشر|الارسال|القبول)|رقم الايداع|معرف هذا البحث|بنك المعرفة|موقع المجلة|العنوان البريدي|مصنفة دوليا|محكمة|دورية|CC BY)(?:$|[\s:–-])', caseSensitive: false).hasMatch(plain) ||
+        (RegExp(r'(?:العدد|المجلد|اجمللد)').hasMatch(plain) && RegExp(r'\d{4}').hasMatch(plain) && RegExp(r'^(?:[^\p{L}]*\d|[^\p{L}]*لسنة)', unicode: true).hasMatch(plain));
+  }
+
   static bool _byline(String t) {
+    final arabic = _plainArabic(t);
+    if (arabic.startsWith('&') && arabic.split('&').where((g) => g.trim().isNotEmpty).every((g) => g.trim().split(' ').length <= 5)) { return true; }
+    if (RegExp(r'(?:^|[&،]\s*)(?:د[./]|ا[.]|ا\.د|استاذ|استاذة|باحثات?\s|قسم\s|كلية\s|جامعة\s)').hasMatch(arabic) ||
+        RegExp(r'(?:^|[\s،/])(?:قسم|كلية|جامعة)\s').hasMatch(arabic)) { return true; }
+
     if (RegExp(r'(?:observatory|istituto|consiglio|researchcenter)',
         caseSensitive: false).hasMatch(t) &&
         (t.contains(',') || RegExp(r'[a-z][A-Z]').allMatches(t).length >= 3)) {

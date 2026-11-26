@@ -107,7 +107,7 @@ class CitationFormatter {
     // Harvard single-quoted titles and abbreviated author lists cannot yet be
     // safely rebuilt. Preserve the source entry rather than inventing metadata.
     if (RegExp(r"\((?:(?:19|20)\d{2}[a-z]?|no date)\)\s*['‘]", caseSensitive: false).hasMatch(reference.rawText) ||
-        RegExp(r'^.{1,160}\bet al\.\s*\((?:(?:19|20)\d{2}[a-z]?|no date)\)', caseSensitive: false).hasMatch(reference.rawText)) {
+        RegExp(r'^(?:\[?\d+[.)\]]?\s*)?[^.!?]{1,120}(?:[A-Z]\.\s*)*[^!?]{0,40}\bet al\.\s*(?:\((?:(?:19|20)\d{2}[a-z]?|no date)\)|[A-Z])', caseSensitive: false).hasMatch(reference.rawText)) {
       return _rawBibliographyEntry(reference.rawText, style: style, index: index,
           plainNumberList: plainNumberList || style == PublishCitationStyle.acs);
     }
@@ -242,6 +242,8 @@ class CitationFormatter {
       final ieee = _parseIeeeLikeLine(s);
       if (ieee != null) return ieee;
     }
+    final surnameFirst = _parseSurnameFirstPublicationLine(s);
+    if (surnameFirst != null) return surnameFirst;
     final initialFirst = _parseInitialFirstJournalLine(s);
     if (initialFirst != null) return initialFirst;
     final vancouver = _parseVancouverJournalLine(s);
@@ -1175,6 +1177,52 @@ class CitationFormatter {
     );
   }
 
+  /// Surname-initials lists with a comma-year lead or a volume/pages (year)
+  /// tail. Consume the complete author grammar before considering title years.
+  static PublishReference? _parseSurnameFirstPublicationLine(String s) {
+    final name = RegExp(r"^([\p{Lu}][\p{L}\p{M}'’\-]*(?:\s+(?:van|von|de|del|da|der|den|[\p{Lu}][\p{L}\p{M}'’\-]*)){0,3}),\s*((?:[\p{Lu}]\.(?:-[\p{Lu}]\.)?\s*)+)", unicode: true);
+    final authors = <String>[];
+    var rest = s;
+    while (true) {
+      final match = name.firstMatch(rest);
+      if (match == null) break;
+      authors.add('${match[1]}, ${match[2]!.trim()}');
+      rest = rest.substring(match.end);
+      final next = rest.replaceFirst(RegExp(r'^,?\s*(?:&\s*|and\s+)?'), '');
+      if (name.hasMatch(next)) { rest = next; continue; }
+      rest = rest.replaceFirst(RegExp(r'^,?\s*et\s+al\.\s*', caseSensitive: false), '');
+      break;
+    }
+    if (authors.isEmpty) return null;
+    rest = rest.trim();
+    // An unconsumed author delimiter/initial is evidence of a partial list,
+    // never evidence that the remaining names are an article title.
+    if (RegExp(r'^(?:&|and\s|-|[A-Z]\.)').hasMatch(rest) || (rest.startsWith(',') && !RegExp(r'^,\s*(?:19|20)\d{2}\.').hasMatch(rest))) return null;
+    final leading = RegExp(r'^,?\s*((?:19|20)\d{2})[a-z]?\.\s+').firstMatch(rest);
+    final trailing = RegExp(r'\s+\(((?:19|20)\d{2})\)\.?(?:\s+(?:https?://|doi:).*)?$').firstMatch(rest);
+    if (leading == null && trailing == null) return null;
+    final year = leading?[1] ?? trailing![1]!;
+    final content = leading != null ? rest.substring(leading.end) : rest.substring(0, trailing!.start);
+    final boundary = RegExp(r'[.?!]\s+(?=[\p{Lu}])', unicode: true).firstMatch(content);
+    if (boundary == null || boundary.start < 8) return null;
+    final title = content.substring(0, boundary.start).trim().replaceFirst(RegExp(r'^:\s*'), '');
+    if (RegExp(r'(?:^|[, ]+)(?:and\s+)?[A-Z]\.?$').hasMatch(title) || title.contains(', and ')) return null;
+    if (content.contains('?') || content.contains('!')) return null;
+    final publication = content.substring(boundary.end).trim();
+    // A real volume separates journal and page/article locator. Never use a
+    // bare parenthesized date in prose as enough evidence for this grammar.
+    final journal = RegExp(r'^(.+?)\s+(\d+)(?:\s*\(([^)]+)\))?\s*,\s*([A-Za-z]*\d[A-Za-z0-9]*(?:[-–][A-Za-z]*\d[A-Za-z0-9]*)?(?:\.[A-Za-z0-9]+)*)?(?=\s|[.;]|$)').firstMatch(publication);
+    if (journal == null || journal[1]!.length > 80 || RegExp(r'[0-9,;]|\bno\.', caseSensitive: false).hasMatch(journal[1]!.replaceFirst(RegExp(r',\s*$'), '')) || RegExp(r'\b(?:and|the|with|of)\s+[a-z]').hasMatch(journal[1]!)) return null;
+    // Do not accept a partial locator or silently discard unknown publication
+    // tokens. A DOI suffix is metadata; other unconsumed text is ambiguous.
+    final publicationTail = publication.substring(journal.end).trim();
+    if (publicationTail.isNotEmpty && !RegExp(r'^(?:[.;]\s*)?(?:(?:https?://|doi:|10\.\d{4,9}/)\S+)?\s*$', caseSensitive: false).hasMatch(publicationTail)) return null;
+    final doi = RegExp(r'(?:doi[:\s]*|https?://doi\.org/)([^\s,]+)', caseSensitive: false).firstMatch(rest)?[1]?.replaceFirst(RegExp(r'[.)]+$'), '') ?? '';
+    return PublishReference(id: '', type: ReferenceType.journal, authors: authors,
+      title: title, container: journal[1]!.trim().replaceFirst(RegExp(r'[,;]+$'), ''), year: year, volume: journal[2]!,
+      issue: journal[3] ?? '', pages: journal[4] ?? '', doi: doi);
+  }
+
   static PublishReference? _parseApaLikeLine(String s) {
     final m = RegExp(
       r'^(.+?)\s*\(((?:19|20)\d{2})[a-z]?\)\.?\s+(.+)$',
@@ -1276,7 +1324,7 @@ class CitationFormatter {
     s = s.replaceAll(RegExp(r'\s+and\s+', caseSensitive: false), ', ');
     s = s.replaceAll(RegExp(r'\bet\s+al\.?', caseSensitive: false), '');
     final pairs = RegExp(
-      r"([\p{Lu}][\p{Ll}][\p{L}'\-]*),\s*"
+      r"([\p{Lu}][\p{Ll}][\p{L}\p{M}'’\-]*),\s*"
       r"((?:[A-Z](?:[a-z]+|\.)?)(?:\s+[A-Z](?:[a-z]+|\.)?)*)",
       unicode: true,
     )
