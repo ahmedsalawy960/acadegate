@@ -14,6 +14,7 @@ import 'admin_access_gate.dart';
 import 'admin_activity_service.dart';
 import 'admin_bugs_screen.dart';
 import 'admin_community_reports_screen.dart';
+import 'admin_community_starter_screen.dart';
 import 'admin_kpi_screen.dart';
 import 'admin_privacy_ops_screen.dart';
 import 'admin_profile_claims_screen.dart';
@@ -285,6 +286,18 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
               context.t('مؤشرات الأداء', 'KPIs'),
               style: const TextStyle(color: Colors.white),
             ),
+          ),
+          IconButton(
+            tooltip: context.t('محتوى المجتمع الأولي', 'Community starter content'),
+            icon: const Icon(Icons.auto_awesome_outlined),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const AdminCommunityStarterScreen(),
+                ),
+              );
+            },
           ),
           IconButton(
             tooltip: context.t('بلاغات المجتمع', 'Community reports'),
