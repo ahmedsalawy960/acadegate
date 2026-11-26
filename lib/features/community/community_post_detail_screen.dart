@@ -11,6 +11,7 @@ import '../messaging/chat_widgets.dart';
 import '../messaging/messaging_service.dart';
 import '../moderation/approval_status.dart';
 import '../moderation/delete_content_button.dart';
+import 'community_trust.dart';
 import 'community_data.dart';
 import 'community_models.dart';
 import 'community_report_dialog.dart';
@@ -238,8 +239,9 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
               const SizedBox(height: 8),
               Row(
                 children: [
-                  Text(
-                    post.authorName,
+                  CommunityAuthorLine(
+                    name: post.authorName,
+                    badge: post.authorBadge,
                     style: TextStyle(color: const Color(0xFFB7C3D6)),
                   ),
                   if (post.university != null) ...[
@@ -473,10 +475,21 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        reply.authorName,
+                      CommunityAuthorLine(
+                        name: reply.authorName,
+                        badge: reply.authorBadge,
                         style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
+                      if (reply.hiddenByReports) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          context.t(
+                            'تم إخفاء هذا الرد مؤقتاً بعد بلاغات، وهو قيد المراجعة.',
+                            'This reply is hidden after reports and is under review.',
+                          ),
+                          style: const TextStyle(color: Colors.black54),
+                        ),
+                      ] else ...[
                       if (reply.body.trim().isNotEmpty) ...[
                         const SizedBox(height: 6),
                         Text(reply.body, style: const TextStyle(height: 1.4)),
@@ -490,6 +503,7 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
                           theirsColor: const Color(0xFFF4F7FB),
                           theirsTextColor: const Color(0xFF1C1917),
                         ),
+                      ],
                       ],
                     ],
                   ),

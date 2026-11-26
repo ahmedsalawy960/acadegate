@@ -1,0 +1,12 @@
+{
+  "name": "acadegate-community-functions",
+  "description": "Community trust functions: server-side author names, badges, auto-hide after reports",
+  "main": "index.js",
+  "private": true,
+  "engines": { "node": "22" },
+  "scripts": { "test": "node --test test/trust.test.js" },
+  "dependencies": {
+    "firebase-admin": "^14.5.1",
+    "firebase-functions": "^7.4.0"
+  }
+}

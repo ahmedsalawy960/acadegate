@@ -8,6 +8,7 @@ import '../matchmaking/matchmaking_screen.dart';
 import '../moderation/approval_status.dart';
 import '../profile/academic_profile.dart';
 import '../profile/academic_profile_service.dart';
+import 'community_trust.dart';
 import 'community_data.dart';
 import 'community_feed.dart';
 import 'community_models.dart';
@@ -429,8 +430,9 @@ class _PostCard extends StatelessWidget {
               const SizedBox(height: 10),
               Row(
                 children: [
-                  Text(
-                    post.authorName,
+                  CommunityAuthorLine(
+                    name: post.authorName,
+                    badge: post.authorBadge,
                     style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6)),
                   ),
                   if (post.university != null) ...[

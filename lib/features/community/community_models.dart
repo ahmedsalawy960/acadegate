@@ -13,6 +13,7 @@ class CommunityPost {
   final String body;
   final String authorId;
   final String authorName;
+  final String authorBadge;
   final List<String> tags;
   final int upvotesCount;
   final int repliesCount;
@@ -35,6 +36,7 @@ class CommunityPost {
     required this.body,
     this.authorId = '',
     this.authorName = '',
+    this.authorBadge = '',
     this.tags = const [],
     this.upvotesCount = 0,
     this.repliesCount = 0,
@@ -105,6 +107,7 @@ class CommunityPost {
       authorId: map['authorId']?.toString() ?? '',
       authorName: map['authorName']?.toString() ??
           appTr('طالب', 'Student'),
+      authorBadge: map['authorBadge']?.toString() ?? '',
       tags: tags,
       upvotesCount: _parseInt(map['upvotesCount']),
       repliesCount: _parseInt(map['repliesCount']),
@@ -127,6 +130,8 @@ class CommunityReply {
   final String postId;
   final String authorId;
   final String authorName;
+  final String authorBadge;
+  final bool hiddenByReports;
   final String body;
   final DateTime? createdAt;
   final ChatAttachment attachment;
@@ -136,6 +141,8 @@ class CommunityReply {
     required this.postId,
     required this.authorId,
     required this.authorName,
+    this.authorBadge = '',
+    this.hiddenByReports = false,
     required this.body,
     this.createdAt,
     this.attachment = const ChatAttachment(),
@@ -158,6 +165,8 @@ class CommunityReply {
       authorId: map['authorId']?.toString() ?? '',
       authorName: map['authorName']?.toString() ??
           appTr('طالب', 'Student'),
+      authorBadge: map['authorBadge']?.toString() ?? '',
+      hiddenByReports: map['hiddenByReports'] == true,
       body: map['body']?.toString() ?? '',
       createdAt: created,
       attachment: ChatAttachment.fromMap(map),

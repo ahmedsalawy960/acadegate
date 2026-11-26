@@ -6,9 +6,16 @@
   "storage": {
     "rules": "storage.rules"
   },
-  "functions": {
-    "source": "functions"
-  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default"
+    },
+    {
+      "source": "functions_community",
+      "codebase": "community"
+    }
+  ],
   "hosting": {
     "public": "build/web",
     "ignore": [

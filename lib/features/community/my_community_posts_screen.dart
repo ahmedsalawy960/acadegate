@@ -16,6 +16,11 @@ class MyCommunityPostsScreen extends StatelessWidget {
     switch (status) {
       case ApprovalStatus.pending:
         return context.t('بانتظار المراجعة', 'Pending review');
+      case ApprovalStatus.suspended:
+        return context.t(
+          'مخفي مؤقتاً بعد بلاغات (قيد المراجعة)',
+          'Hidden after reports (under review)',
+        );
       case ApprovalStatus.rejected:
         return context.t('مرفوض', 'Not approved');
       default:

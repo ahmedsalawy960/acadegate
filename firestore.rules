@@ -1050,6 +1050,7 @@ service cloud.firestore {
                     && request.resource.data.authorName.size() <= 100
                     && request.resource.data.get('upvotesCount', 0) == 0
                     && request.resource.data.get('repliesCount', 0) == 0
+                    && !request.resource.data.keys().hasAny(['authorBadge', 'hiddenByReports', 'hiddenAt'])
                     && (!('tags' in request.resource.data)
                         || (request.resource.data.tags is list
                             && request.resource.data.tags.size() <= 10))
@@ -1060,6 +1061,8 @@ service cloud.firestore {
                       isCounterBumpOnly()
                       || (resource.data.authorId == request.auth.uid
                           && approvalUnchanged()
+                          && !request.resource.data.diff(resource.data).affectedKeys()
+                              .hasAny(['authorId', 'authorName', 'authorBadge', 'hiddenByReports', 'hiddenAt'])
                           && resource.data.approvalStatus in ['pending', 'rejected'])
                     ));
 
