@@ -4493,13 +4493,22 @@ class ManuscriptDocumentParser {
       if (lineStart < minPos) continue;
       final line = rawLine.trim();
       if (line.isEmpty) continue;
+      // Converted PDFs interleave page numbers and lone punctuation inside
+      // the bibliography. They neither extend nor break a reference run.
+      if (RegExp(r'^\d{1,4}$').hasMatch(line) ||
+          (line.length <= 2 && !RegExp(r'[A-Za-z؀-ۿ0-9]').hasMatch(line))) {
+        continue;
+      }
       if (_isBibliographyHeadingLine(line)) {
         if (runLen >= 3) lastRun = runChar;
         return lastRun ?? (runLen >= 3 ? runChar : lineStart);
       }
       final isBib = PublishReference.numberFromImportedLine(line) != null ||
           _isStandaloneBibliographyEntry(line) ||
-          (line.length >= 40 && _looksLikeReference(line));
+          (line.length >= 40 && _looksLikeReference(line)) ||
+          (line.length >= 40 &&
+              RegExp(r'(?:19|20)\d{2}').hasMatch(line) &&
+              RegExp(r'مجلة|جامعة|أطروحة|رسالة').hasMatch(line));
       if (isBib) {
         if (runChar < 0) runChar = lineStart;
         runLen++;
@@ -4539,7 +4548,12 @@ class ManuscriptDocumentParser {
       caseSensitive: false,
     ).hasMatch(t) ||
         RegExp(r'^(?:\d+\.?\s*)?(المراجع|قائمة المراجع|المصادر)( والمصادر)?\s*:?\.?\s*$')
-            .hasMatch(t);
+            .hasMatch(t) ||
+        // Converted PDFs can drop lam glyphs; a short Arabic heading line
+        // with every lam removed is compared to the lam-free heading forms.
+        (RegExp(r'[؀-ۿ]').hasMatch(t) &&
+            RegExp(r'^(?:\d+\.?\s*)?(امراجع|قائمة امراج|امصادر)( وامصادر)?\s*:?\.?\s*$')
+                .hasMatch(t.replaceAll('ل', '')));
   }
 
   /// Prefer the real end-of-file bibliography over title-page authors

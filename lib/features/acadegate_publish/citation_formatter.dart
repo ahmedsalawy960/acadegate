@@ -329,7 +329,7 @@ class CitationFormatter {
     }
     if (doi.isEmpty) {
       doi = RegExp(
-            r'(?:doi[:\s]*|https?://doi\.org/)([^\s,]+)',
+            r'(?:doi[:\s]*|https?://doi\.org/)(10\.\d{4,9}/[^\s,]+)',
             caseSensitive: false,
           ).firstMatch(raw)?.group(1)?.replaceAll(RegExp(r'[.)]+$'), '') ??
           '';
@@ -959,7 +959,7 @@ class CitationFormatter {
       caseSensitive: false,
     ).firstMatch(rest);
     if (publication == null || publication.start < 8) return null;
-    final doi = RegExp(r'(?:doi[:\s]*|https?://doi\.org/)([^\s,]+)',
+    final doi = RegExp(r'(?:doi[:\s]*|https?://doi\.org/)(10\.\d{4,9}/[^\s,]+)',
         caseSensitive: false).firstMatch(rest)?.group(1)
         ?.replaceFirst(RegExp(r'[.)]+$'), '') ?? '';
     return PublishReference(
@@ -993,7 +993,7 @@ class CitationFormatter {
     final container = before.substring(boundary!.end).trim()
         .replaceFirst(RegExp(r'\.$'), '');
     if (container.isEmpty) return null;
-    final doi = RegExp(r'(?:doi[:\s]*|https?://doi\.org/)([^\s,]+)',
+    final doi = RegExp(r'(?:doi[:\s]*|https?://doi\.org/)(10\.\d{4,9}/[^\s,]+)',
       caseSensitive: false).firstMatch(rest)?.group(1)
       ?.replaceFirst(RegExp(r'[.)]+$'), '') ?? '';
     return PublishReference(
@@ -1022,7 +1022,7 @@ class CitationFormatter {
     final publication = before.substring(boundary.end);
     final journal = RegExp(r'^(.+?)\s+(\d+):\s*([A-Za-z]?\d+(?:[–-][A-Za-z]?\d+)?)$')
       .firstMatch(publication);
-    final doi = RegExp(r'doi:\s*(\S+)',caseSensitive:false).firstMatch(rest)
+    final doi = RegExp(r'doi:\s*(10\.\d{4,9}/\S+)',caseSensitive:false).firstMatch(rest)
       ?.group(1)?.replaceFirst(RegExp(r'[.)]+$'), '') ?? '';
     return PublishReference(id: '', type: journal == null ? ReferenceType.book : ReferenceType.journal,
       authors: authors, title: title, year: year.group(1)!,
@@ -1085,7 +1085,7 @@ class CitationFormatter {
             ?.replaceAll(' ', '') ??
         '';
     final doi = RegExp(
-          r'(?:doi[:\s]*|https?://doi\.org/)([^\s,]+)',
+          r'(?:doi[:\s]*|https?://doi\.org/)(10\.\d{4,9}/[^\s,]+)',
           caseSensitive: false,
         ).firstMatch(s)?.group(1)?.replaceAll(RegExp(r'[.)]+$'), '') ??
         '';
@@ -1159,7 +1159,7 @@ class CitationFormatter {
     rest = rest.replaceFirst(RegExp(r'^in\s+', caseSensitive: false), '');
 
     final doi = RegExp(
-          r'(?:doi[:\s]*|https?://doi\.org/)([^\s,]+)',
+          r'(?:doi[:\s]*|https?://doi\.org/)(10\.\d{4,9}/[^\s,]+)',
           caseSensitive: false,
         ).firstMatch(rest)?.group(1)?.replaceAll(RegExp(r'[.)]+$'), '') ??
         '';
@@ -1264,7 +1264,7 @@ class CitationFormatter {
     // tokens. A DOI suffix is metadata; other unconsumed text is ambiguous.
     final publicationTail = publication.substring(journal.end).trim();
     if (publicationTail.isNotEmpty && !RegExp(r'^(?:[.;]\s*)?(?:(?:https?://|doi:|10\.\d{4,9}/)\S+)?\s*$', caseSensitive: false).hasMatch(publicationTail)) return null;
-    final doi = RegExp(r'(?:doi[:\s]*|https?://doi\.org/)([^\s,]+)', caseSensitive: false).firstMatch(rest)?[1]?.replaceFirst(RegExp(r'[.)]+$'), '') ?? '';
+    final doi = RegExp(r'(?:doi[:\s]*|https?://doi\.org/)(10\.\d{4,9}/[^\s,]+)', caseSensitive: false).firstMatch(rest)?[1]?.replaceFirst(RegExp(r'[.)]+$'), '') ?? '';
     return PublishReference(id: '', type: ReferenceType.journal, authors: authors,
       title: title, container: journal[1]!.trim().replaceFirst(RegExp(r'[,;]+$'), ''), year: year, volume: journal[2]!,
       issue: journal[3] ?? '', pages: journal[4] ?? '', doi: doi);
@@ -1300,7 +1300,7 @@ class CitationFormatter {
     final pages = RegExp(r'(\d+\s*[-–]\s*\d+)').firstMatch(rest)?.group(1)?.replaceAll(' ', '') ??
         '';
     final doi = RegExp(
-          r'(?:doi[:\s]*|https?://doi\.org/)([^\s,]+)',
+          r'(?:doi[:\s]*|https?://doi\.org/)(10\.\d{4,9}/[^\s,]+)',
           caseSensitive: false,
         ).firstMatch(s)?.group(1)?.replaceAll(RegExp(r'[.)]+$'), '') ??
         '';
