@@ -704,41 +704,11 @@ service cloud.firestore {
               ]);
     }
 
-    function isLabClaimByManager() {
-      return isSignedIn()
-          && (userDoc().data.role == 'lab_manager' || isAdmin())
-          && (!('ownerId' in resource.data) || resource.data.ownerId == '')
-          && request.resource.data.ownerId == request.auth.uid
-          && request.resource.data.diff(resource.data).affectedKeys()
-              .hasOnly([
-                'ownerId', 'claimedAt', 'claimedByName',
-                'directoryStatus', 'lastReviewedAt', 'lastVerifiedIso',
-              ])
-          && request.resource.data.directoryStatus == 'claimed';
-    }
-
-    function isSupplierClaimByMerchant() {
-      return isSignedIn()
-          && (userDoc().data.role == 'merchant' || isAdmin())
-          && (!('claimedByUid' in resource.data)
-              || resource.data.claimedByUid == ''
-              || resource.data.claimedByUid == request.auth.uid)
-          && request.resource.data.claimedByUid == request.auth.uid
-          && request.resource.data.directoryStatus == 'claimed'
-          && request.resource.data.diff(resource.data).affectedKeys()
-              .hasOnly([
-                'directoryStatus', 'claimedByUid', 'claimedByName', 'claimedAt',
-                'lastReviewedAt', 'lastVerifiedIso', 'isPartner',
-                'isVerifiedSeller', 'updatedAt',
-              ]);
-    }
-
     // ─── دليل موردي المتجر الأكاديمي ───────────────────────
     match /store_suppliers/{docId} {
       allow read: if true;
       allow create, delete: if isAdmin();
       allow update: if isAdmin()
-                    || isSupplierClaimByMerchant()
                     || isManagedSupplierOwner();
     }
 
@@ -779,22 +749,6 @@ service cloud.firestore {
               ]);
     }
 
-    function isSupervisorClaim() {
-      return isSignedIn()
-          && (userDoc().data.role == 'supervisor'
-              || userDoc().data.role == 'student'
-              || isAdmin())
-          && (!('ownerId' in resource.data) || resource.data.ownerId == '')
-          && request.resource.data.ownerId == request.auth.uid
-          && request.resource.data.diff(resource.data).affectedKeys()
-              .hasOnly([
-                'ownerId', 'claimedAt', 'claimedByName', 'isAvailable',
-                'directoryStatus', 'lastVerifiedIso', 'lastReviewedAt',
-              ])
-          && (!('directoryStatus' in request.resource.data)
-              || request.resource.data.directoryStatus == 'claimed');
-    }
-
     // ─── المشرفون ───────────────────────────────────────────
     match /supervisors/{docId} {
       allow read: if isApprovedContent()
@@ -805,7 +759,6 @@ service cloud.firestore {
                         && request.resource.data.ownerId == request.auth.uid
                         && isPendingCreate());
       allow update: if isAdmin()
-                    || isSupervisorClaim()
                     || isManagedSupervisorOwner()
                     || (isSignedIn()
                         && resource.data.ownerId == request.auth.uid
@@ -827,7 +780,6 @@ service cloud.firestore {
                         && isPendingCreate());
 
       allow update: if isAdmin()
-                    || isLabClaimByManager()
                     || isManagedLabOwner()
                     || (isSignedIn()
                         && resource.data.ownerId == request.auth.uid
