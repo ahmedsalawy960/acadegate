@@ -97,6 +97,16 @@ exports.researchIdeasSyncWeekly = researchIdeasSyncWeekly;
 exports.researchIdeasSyncHumanitiesWeekly = researchIdeasSyncHumanitiesWeekly;
 exports.researchIdeasSyncNow = researchIdeasSyncNow;
 
+const {
+  createResearchIdeasAlertHandlers,
+} = require("./research_ideas_alerts");
+const {
+  researchIdeasDevelopmentsWeekly,
+  researchIdeasNewIdeaAlertsDaily,
+} = createResearchIdeasAlertHandlers();
+exports.researchIdeasDevelopmentsWeekly = researchIdeasDevelopmentsWeekly;
+exports.researchIdeasNewIdeaAlertsDaily = researchIdeasNewIdeaAlertsDaily;
+
 const { onStoreOrderPaidHeld } = createStoreOrderStatsHandlers();
 exports.onStoreOrderPaidHeld = onStoreOrderPaidHeld;
 
@@ -144,6 +154,7 @@ const NOTIFICATION_TYPES = new Set([
   "smart_match",
   "fund_award",
   "proposal",
+  "new_research_idea",
   "privacy_request",
   "catalog_report",
   "supplier_claim",
