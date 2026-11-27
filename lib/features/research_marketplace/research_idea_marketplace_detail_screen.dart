@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/locale/locale_extensions.dart';
@@ -11,6 +12,7 @@ import '../moderation/delete_content_button.dart';
 import '../research_fund/research_fund_models.dart';
 import '../research_supply_chain/research_supply_chain_screen.dart';
 import '../topic_bank/topic_adoption_screen.dart';
+import 'research_idea_favorites_service.dart';
 import 'research_marketplace_service.dart';
 import 'submit_proposal_screen.dart';
 
@@ -303,12 +305,15 @@ class _ResearchIdeaMarketplaceDetailScreenState
         title: Text(context.t('تفاصيل الفكرة', 'Idea details')),
         backgroundColor: Colors.orange[800],
         foregroundColor: Colors.white,
-        actions: deleteAppBarActions(
-          collection: 'research_ideas',
-          documentId: idea.id,
-          ownerId: idea.publisherId,
-          itemLabel: idea.title,
-        ),
+        actions: [
+          if ((idea.id ?? '').isNotEmpty) _FavoriteIdeaButton(idea: idea),
+          ...deleteAppBarActions(
+            collection: 'research_ideas',
+            documentId: idea.id,
+            ownerId: idea.publisherId,
+            itemLabel: idea.title,
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -540,6 +545,56 @@ class _ResearchIdeaMarketplaceDetailScreenState
                               initialGoal: idea.title,
                             ),
                           ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Card(
+                    child: ListTile(
+                      leading: const CircleAvatar(
+                        backgroundColor: Color(0x3300695C),
+                        foregroundColor: Color(0xFF4DB6AC),
+                        child: Icon(Icons.share_outlined),
+                      ),
+                      title: Text(
+                        context.t('شارك الفكرة', 'Share this idea'),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFFF4F7FB),
+                        ),
+                      ),
+                      subtitle: Text(
+                        context.t(
+                          'العنوان + نقطة انتهاء الدراسة + رابط الورقة',
+                          'Title + where the study ended + paper link',
+                        ),
+                        style: const TextStyle(color: Color(0xFFB7C3D6)),
+                      ),
+                      trailing: const Icon(
+                        Icons.chevron_left,
+                        color: Color(0xFFB7C3D6),
+                      ),
+                      onTap: () {
+                        final link =
+                            (idea.sourcePaper?.bestUrl.isNotEmpty == true)
+                                ? idea.sourcePaper!.bestUrl
+                                : idea.sourceUrl;
+                        final parts = <String>[
+                          context.t(
+                            'فكرة بحثية من أكاديجيت:',
+                            'Research idea from AcadeGate:',
+                          ),
+                          idea.title,
+                          if (idea.titleEn.isNotEmpty &&
+                              idea.titleEn.trim() != idea.title.trim())
+                            idea.titleEn,
+                          if (idea.whereItEndedQuote.isNotEmpty)
+                            '"${idea.whereItEndedQuote}"',
+                          if (link.isNotEmpty) link,
+                        ];
+                        SharePlus.instance.share(
+                          ShareParams(text: parts.join('\n')),
                         );
                       },
                     ),
@@ -1220,9 +1275,96 @@ class _GroundedIdeaSections extends StatelessWidget {
       );
     }
 
+    // 5) أحدث التطورات: أوراق حديثة تستشهد بالورقة المصدر (تتبع أسبوعي).
+    if (idea.latestDevelopments.isNotEmpty) {
+      children.add(const SizedBox(height: 20));
+      children.add(_sectionTitle(
+          context, 'أحدث التطورات على هذا البحث', 'Latest developments'));
+      children.add(
+        Card(
+          child: Column(
+            children: [
+              for (final dev in idea.latestDevelopments)
+                ListTile(
+                  dense: true,
+                  leading: const Icon(
+                    Icons.trending_up,
+                    size: 20,
+                    color: Color(0xFFB7C3D6),
+                  ),
+                  title: Directionality(
+                    textDirection: TextDirection.ltr,
+                    child: Text(
+                      [
+                        dev.title,
+                        if (dev.year != null) '(${dev.year})',
+                      ].join(' '),
+                      style: const TextStyle(fontSize: 13.5),
+                    ),
+                  ),
+                  subtitle: dev.publishedDate.isEmpty
+                      ? null
+                      : Text(
+                          dev.publishedDate,
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                  trailing: dev.bestUrl.isEmpty
+                      ? null
+                      : const Icon(Icons.open_in_new, size: 16),
+                  onTap: dev.bestUrl.isEmpty
+                      ? null
+                      : () => onOpenUrl(dev.bestUrl),
+                ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: children,
+    );
+  }
+}
+
+/// زر حفظ الفكرة في المفضلة (ظاهر للمسجّلين فقط).
+class _FavoriteIdeaButton extends StatelessWidget {
+  final AcademicResearchIdea idea;
+
+  const _FavoriteIdeaButton({required this.idea});
+
+  @override
+  Widget build(BuildContext context) {
+    if (FirebaseAuth.instance.currentUser == null) {
+      return const SizedBox.shrink();
+    }
+    final ideaId = (idea.id ?? '').trim();
+    return StreamBuilder<bool>(
+      stream: ResearchIdeaFavoritesService.instance.watchIsFavorite(ideaId),
+      builder: (context, snap) {
+        final saved = snap.data == true;
+        return IconButton(
+          tooltip: context.t('احفظ الفكرة', 'Save idea'),
+          icon: Icon(saved ? Icons.bookmark : Icons.bookmark_border),
+          onPressed: () async {
+            final nowSaved = await ResearchIdeaFavoritesService.instance
+                .toggle(idea);
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  nowSaved
+                      ? context.t('حُفظت في أفكارك', 'Saved to your ideas')
+                      : context.t('أُزيلت من المحفوظات', 'Removed from saved'),
+                ),
+                behavior: SnackBarBehavior.floating,
+                duration: const Duration(seconds: 1),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

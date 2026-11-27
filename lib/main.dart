@@ -12,6 +12,7 @@ import 'core/theme/acadegate_theme.dart';
 import 'core/video/register_video_player_desktop.dart';
 import 'core/widgets/beta_shell.dart';
 import 'core/notifications/push_notification_bootstrap.dart';
+import 'core/notifications/push_tap_router.dart';
 import 'firebase_options.dart';
 import 'features/bugs/bug_report_service.dart';
 import 'features/auth/auth_web_deep_link.dart';
@@ -46,6 +47,7 @@ void main() async {
     debugPrint('App Check activate failed: $error\n$stack');
   }
   await PushNotificationBootstrap.init();
+  PushTapRouter.init(_navigatorKey);
   await LocaleService.instance.init();
 
   FlutterError.onError = (details) {
@@ -72,6 +74,8 @@ void main() async {
   runApp(const AcadeGateApp());
 }
 
+final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+
 class AcadeGateApp extends StatelessWidget {
   const AcadeGateApp({super.key});
 
@@ -90,6 +94,7 @@ class AcadeGateApp extends StatelessWidget {
 
         return MaterialApp(
           key: ValueKey(appPhase),
+          navigatorKey: _navigatorKey,
           debugShowCheckedModeBanner: false,
           title: 'AcadeGate',
           locale: locale,

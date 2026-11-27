@@ -269,6 +269,37 @@ class IdeaSourcePaper {
   }
 }
 
+/// أحدث تطور: ورقة حديثة تستشهد بالورقة المصدر (تتبع أسبوعي من المزامنة).
+class IdeaDevelopment {
+  final String title;
+  final int? year;
+  final String url;
+  final String doi;
+  final String publishedDate;
+
+  const IdeaDevelopment({
+    this.title = '',
+    this.year,
+    this.url = '',
+    this.doi = '',
+    this.publishedDate = '',
+  });
+
+  String get bestUrl => doi.isNotEmpty ? 'https://doi.org/$doi' : url;
+
+  factory IdeaDevelopment.fromMap(dynamic raw) {
+    if (raw is! Map) return const IdeaDevelopment();
+    final yearRaw = raw['year'];
+    return IdeaDevelopment(
+      title: raw['title']?.toString() ?? '',
+      year: yearRaw is num ? yearRaw.toInt() : int.tryParse('$yearRaw'),
+      url: raw['url']?.toString() ?? '',
+      doi: raw['doi']?.toString() ?? '',
+      publishedDate: raw['publishedDate']?.toString() ?? '',
+    );
+  }
+}
+
 /// مرجع بداية مقترح: الورقة المصدر أو أقرب الأعمال الحديثة (فحص الحداثة).
 class IdeaStarterReference {
   final String title;
@@ -345,6 +376,7 @@ class AcademicResearchIdea {
   final String whereItEndedQuote;
   final String whereItEndedSection;
   final List<IdeaStarterReference> starterReferences;
+  final List<IdeaDevelopment> latestDevelopments;
 
   const AcademicResearchIdea({
     this.id,
@@ -385,6 +417,7 @@ class AcademicResearchIdea {
     this.whereItEndedQuote = '',
     this.whereItEndedSection = '',
     this.starterReferences = const [],
+    this.latestDevelopments = const [],
   });
 
   bool get isOpen => status.toLowerCase() == 'open';
@@ -465,6 +498,12 @@ class AcademicResearchIdea {
           ? (map['starterReferences'] as List)
               .map(IdeaStarterReference.fromMap)
               .where((r) => r.title.isNotEmpty)
+              .toList()
+          : const [],
+      latestDevelopments: map['latestDevelopments'] is List
+          ? (map['latestDevelopments'] as List)
+              .map(IdeaDevelopment.fromMap)
+              .where((d) => d.title.isNotEmpty)
               .toList()
           : const [],
     );

@@ -10,6 +10,8 @@ import '../academic/academic_models.dart';
 import '../academic/faculty_categories.dart';
 import '../home/home_search_utils.dart';
 import '../auth/user_account_service.dart';
+import 'idea_alert_prefs_sheet.dart';
+import 'my_favorite_ideas_screen.dart';
 import 'publish_research_idea_screen.dart';
 import 'research_idea_marketplace_detail_screen.dart';
 import 'research_ideas_sync_service.dart';
@@ -372,6 +374,23 @@ class _ResearchMarketplaceScreenState extends State<ResearchMarketplaceScreen> {
         backgroundColor: Colors.orange[800],
         foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            tooltip: context.t('أفكاري المحفوظة', 'My saved ideas'),
+            icon: const Icon(Icons.bookmark_outline),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const MyFavoriteIdeasScreen(),
+                ),
+              );
+            },
+          ),
+          IconButton(
+            tooltip: context.t('تنبيهات الأفكار الجديدة', 'New idea alerts'),
+            icon: const Icon(Icons.notifications_active_outlined),
+            onPressed: () => IdeaAlertPrefsSheet.show(context),
+          ),
           SectionGuideAppBarButton(
             guideId: SectionGuideCatalog.ideas,
             accent: Colors.orange.shade800,
