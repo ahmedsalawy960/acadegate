@@ -508,7 +508,10 @@ async function verifyDoiCrossref(doi) {
   if (!doi) return null;
   const res = await fetch(
     `https://api.crossref.org/works/${encodeURIComponent(doi)}?mailto=acadegate@acadegate.app`,
-    { headers: { "User-Agent": `AcadeGateResearchIdeasSync ${OPENALEX_MAILTO}` } },
+    {
+      headers: { "User-Agent": `AcadeGateResearchIdeasSync ${OPENALEX_MAILTO}` },
+      signal: AbortSignal.timeout(10000),
+    },
   ).catch(() => null);
   if (!res || !res.ok) return null;
   const msg = (await res.json().catch(() => null))?.message;
@@ -537,6 +540,7 @@ async function frontierCheckS2(title) {
     }).toString();
   const res = await fetch(url, {
     headers: { "User-Agent": `AcadeGateResearchIdeasSync ${OPENALEX_MAILTO}` },
+    signal: AbortSignal.timeout(10000),
   }).catch(() => null);
   if (!res || !res.ok) {
     return { nearestWorks: [], error: `http_${res ? res.status : "fetch_failed"}` };
@@ -675,6 +679,7 @@ async function callGemini(apiKey, prompt, maxOutputTokens = 2048) {
       const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: AbortSignal.timeout(60000),
         body: JSON.stringify({
           contents: [{ role: "user", parts: [{ text: prompt }] }],
           generationConfig: {
@@ -1194,7 +1199,13 @@ async function runGroundedIdeasSync({
     written: 0,
     failed: 0,
     droppedUngroundedQuotes: 0,
+    timedOut: false,
   };
+  const startedAt = Date.now();
+  // Cloud Functions kills the instance at timeoutSeconds (540s) and the caller
+  // then sees an opaque INTERNAL error. Stop starting new papers ~2 minutes
+  // earlier so partial stats are always written and returned normally.
+  const timeBudgetMs = 420000;
   if (!apiKey) {
     throw new Error("gemini_api_key_required");
   }
@@ -1212,6 +1223,10 @@ async function runGroundedIdeasSync({
   const seen = new Set();
   for (const paper of pool) {
     if (stats.written >= maxIdeas) break;
+    if (Date.now() - startedAt > timeBudgetMs) {
+      stats.timedOut = true;
+      break;
+    }
     if (seen.has(paper.externalId)) {
       stats.deduped += 1;
       continue;

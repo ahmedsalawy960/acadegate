@@ -37,7 +37,15 @@ class _HomeForYouStripState extends State<HomeForYouStrip> {
   AcademicLab? _lab;
   ScienceNewsItem? _news;
   bool _loading = true;
-  String _interestHint = '';
+  String _interestFacultyId = '';
+  String _interestSpecialization = '';
+
+  /// يُحسب عند العرض حتى يتبع تبديل اللغة فوراً بدون إعادة تحميل.
+  String get _interestHint => [
+        if (_interestFacultyId.isNotEmpty)
+          facultyTitleForCategory(_interestFacultyId),
+        if (_interestSpecialization.isNotEmpty) _interestSpecialization,
+      ].join(' · ');
 
   @override
   void initState() {
@@ -52,7 +60,8 @@ class _HomeForYouStripState extends State<HomeForYouStrip> {
         if (!mounted) return;
         setState(() {
           _loading = false;
-          _interestHint = '';
+          _interestFacultyId = '';
+          _interestSpecialization = '';
         });
         return;
       }
@@ -143,11 +152,8 @@ class _HomeForYouStripState extends State<HomeForYouStrip> {
         _idea = idea;
         _lab = lab;
         _news = news;
-        _interestHint = [
-          if (facultyId.isNotEmpty) facultyTitleForCategory(facultyId),
-          if (profile.specialization.trim().isNotEmpty)
-            profile.specialization.trim(),
-        ].join(' · ');
+        _interestFacultyId = facultyId;
+        _interestSpecialization = profile.specialization.trim();
         _loading = false;
       });
     } catch (_) {
@@ -346,17 +352,18 @@ class _HomeForYouStripState extends State<HomeForYouStrip> {
               ),
             ),
             const Spacer(),
-            if (_interestHint.isNotEmpty)
-              Flexible(
-                child: Text(
-                  _interestHint,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 11, color: const Color(0xFFB7C3D6)),
-                ),
-              ),
           ],
         ),
+        if (_interestHint.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 2, bottom: 2),
+            child: Text(
+              _interestHint,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 11, color: const Color(0xFFB7C3D6)),
+            ),
+          ),
         const SizedBox(height: 8),
         ArrowOverlayScroller(
           storageId: 'home_for_you',
@@ -369,8 +376,8 @@ class _HomeForYouStripState extends State<HomeForYouStrip> {
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 36),
             itemCount: chips.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 10),
-            itemBuilder: (_, i) => chips[i],
+            separatorBuilder: (context, index) => const SizedBox(width: 10),
+            itemBuilder: (context, i) => chips[i],
           ),
         ),
       ],

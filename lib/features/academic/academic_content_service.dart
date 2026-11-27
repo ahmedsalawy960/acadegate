@@ -17,6 +17,7 @@ class AcademicContentService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   Stream<AcademicContent>? _cachedWatchCore;
   Stream<List<AcademicResearchIdea>>? _ideasBroadcast;
+  List<AcademicResearchIdea>? _lastIdeas;
   List<AcademicLab> _cachedLabs = const [];
   int _readsInFlight = 0;
   final List<Completer<void>> _readWaiters = [];
@@ -347,22 +348,27 @@ class AcademicContentService {
 
     controller = StreamController<List<AcademicResearchIdea>>.broadcast(
       onListen: () {
-        if (sub != null) return;
-
-        // Unblock StreamBuilders immediately (snapshots often hang on web).
-        controller.add(const []);
+        // Broadcast streams do not replay to late subscribers: send the last
+        // known list, then refresh once per subscriber. Without this, a screen
+        // re-opened after a language switch only shows the curated bundle.
+        controller.add(_lastIdeas ?? const []);
 
         // One read first. A live listener on the same collection at the same
         // moment is what makes the Windows client stall.
         () async {
-          final once = await _fetchIdeasOnce();
-          if (controller.isClosed) return;
-          if (once.isNotEmpty) controller.add(once);
+          try {
+            final once = await _fetchIdeasOnce();
+            if (controller.isClosed) return;
+            _lastIdeas = once;
+            if (once.isNotEmpty) controller.add(once);
+          } catch (_) {}
           if (sub != null || controller.isClosed) return;
           sub = _db.collection('research_ideas').limit(200).snapshots().listen(
             (snapshot) {
               if (!controller.isClosed) {
-                controller.add(_parseIdeas(snapshot));
+                final parsed = _parseIdeas(snapshot);
+                _lastIdeas = parsed;
+                controller.add(parsed);
               }
             },
             onError: (Object error) {

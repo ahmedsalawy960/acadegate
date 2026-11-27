@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
@@ -60,15 +62,26 @@ class _TopicAdoptionScreenState extends State<TopicAdoptionScreen> {
       _error = null;
     });
     try {
-      final pack = await TopicAdoptionService.instance.buildPack(
-        title: _title,
-        details: _details,
-        category: _category,
-        idea: widget.idea,
-      );
+      final pack = await TopicAdoptionService.instance
+          .buildPack(
+            title: _title,
+            details: _details,
+            category: _category,
+            idea: widget.idea,
+          )
+          .timeout(const Duration(seconds: 90));
       if (!mounted) return;
       setState(() {
         _pack = pack;
+        _loading = false;
+      });
+    } on TimeoutException {
+      if (!mounted) return;
+      setState(() {
+        _error = context.t(
+          'استغرق الفحص وقتاً أطول من المعتاد — تحقق من الاتصال ثم أعد المحاولة',
+          'The check took longer than usual — check your connection and retry',
+        );
         _loading = false;
       });
     } catch (e) {

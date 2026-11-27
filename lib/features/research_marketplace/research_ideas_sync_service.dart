@@ -15,6 +15,9 @@ class ResearchIdeasSyncResult {
   final int updated;
   final int skipped;
   final bool usedGemini;
+  final int generated;
+  final int failed;
+  final bool timedOut;
 
   const ResearchIdeasSyncResult({
     required this.batchId,
@@ -25,19 +28,27 @@ class ResearchIdeasSyncResult {
     required this.updated,
     required this.skipped,
     required this.usedGemini,
+    this.generated = 0,
+    this.failed = 0,
+    this.timedOut = false,
   });
 
   factory ResearchIdeasSyncResult.fromMap(Map<String, dynamic> map) {
     int n(dynamic v) => v is int ? v : int.tryParse('$v') ?? 0;
+    // المسار المؤصَّل يعيد written/generated/failed/timedOut بدل imported/updated.
+    final grounded = map.containsKey('written') || map.containsKey('generated');
     return ResearchIdeasSyncResult(
       batchId: map['batchId']?.toString() ?? '',
       candidates: n(map['candidates']),
       openalex: n(map['openalex']),
       rss: n(map['rss']),
-      imported: n(map['imported']),
+      imported: grounded ? n(map['written']) : n(map['imported']),
       updated: n(map['updated']),
       skipped: n(map['skipped']),
       usedGemini: map['usedGemini'] == true,
+      generated: n(map['generated']),
+      failed: n(map['failed']),
+      timedOut: map['timedOut'] == true,
     );
   }
 }

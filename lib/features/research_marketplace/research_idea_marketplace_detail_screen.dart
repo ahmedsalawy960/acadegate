@@ -104,8 +104,11 @@ class _ResearchIdeaMarketplaceDetailScreenState
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('$e'.replaceFirst('Exception: ', '')),
-          backgroundColor: Colors.red,
+          content: Text(
+            '$e'.replaceFirst('Exception: ', ''),
+            style: const TextStyle(color: Colors.white),
+          ),
+          backgroundColor: Colors.red.shade700,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -165,8 +168,11 @@ class _ResearchIdeaMarketplaceDetailScreenState
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('$e'.replaceFirst('Exception: ', '')),
-          backgroundColor: Colors.red,
+          content: Text(
+            '$e'.replaceFirst('Exception: ', ''),
+            style: const TextStyle(color: Colors.white),
+          ),
+          backgroundColor: Colors.red.shade700,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -193,8 +199,11 @@ class _ResearchIdeaMarketplaceDetailScreenState
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('$e'.replaceFirst('Exception: ', '')),
-          backgroundColor: Colors.red,
+          content: Text(
+            '$e'.replaceFirst('Exception: ', ''),
+            style: const TextStyle(color: Colors.white),
+          ),
+          backgroundColor: Colors.red.shade700,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -204,6 +213,18 @@ class _ResearchIdeaMarketplaceDetailScreenState
   }
 
   Future<void> _openProposalForm() async {
+    if (FirebaseAuth.instance.currentUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.t(
+            'سجّل الدخول لتقديم مقترح',
+            'Sign in to submit a proposal',
+          )),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
     if (!widget.idea.isFromFirebase) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -256,7 +277,10 @@ class _ResearchIdeaMarketplaceDetailScreenState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('$e', style: const TextStyle(color: Colors.white)),
+            backgroundColor: Colors.red.shade700,
+          ),
         );
       }
     }
@@ -360,7 +384,7 @@ class _ResearchIdeaMarketplaceDetailScreenState
                         label: Text(idea.isClaimed
                             ? context.t('تم اختياره', 'Claimed')
                             : idea.isOpen
-                                ? context.t('مفتوحة للتقديم', 'Open for submission')
+                                ? context.t('متاحة', 'Open')
                                 : context.t('مغلقة', 'Closed')),
                         backgroundColor: idea.isClaimed
                             ? Colors.blue.withValues(alpha: 0.12)
@@ -384,7 +408,9 @@ class _ResearchIdeaMarketplaceDetailScreenState
                       Chip(
                         label: Text(context.t(
                           '${idea.votesCount} تصويت',
-                          '${idea.votesCount} votes',
+                          idea.votesCount == 1
+                              ? '1 vote'
+                              : '${idea.votesCount} votes',
                         )),
                       ),
                       Chip(
@@ -1345,7 +1371,9 @@ class _FavoriteIdeaButton extends StatelessWidget {
       builder: (context, snap) {
         final saved = snap.data == true;
         return IconButton(
-          tooltip: context.t('احفظ الفكرة', 'Save idea'),
+          tooltip: saved
+              ? context.t('محفوظة — اضغط للإزالة', 'Saved — tap to remove')
+              : context.t('احفظ الفكرة', 'Save idea'),
           icon: Icon(saved ? Icons.bookmark : Icons.bookmark_border),
           onPressed: () async {
             final nowSaved = await ResearchIdeaFavoritesService.instance

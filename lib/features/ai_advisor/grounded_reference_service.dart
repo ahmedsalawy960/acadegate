@@ -266,10 +266,12 @@ class GroundedReferenceService {
     // Research datasets (DataCite index + Zenodo repository) join the
     // general topic search; DOI dedup keeps one record per dataset.
     try {
-      final datasets = await DataCiteClient.instance.searchDatasets(
-        topic,
-        limit: 5,
-      );
+      final datasets = await DataCiteClient.instance
+          .searchDatasets(
+            topic,
+            limit: 5,
+          )
+          .timeout(const Duration(seconds: 12));
       for (final ds in datasets) {
         _offer(
           byDoi,
@@ -287,10 +289,12 @@ class GroundedReferenceService {
     } catch (_) {}
 
     try {
-      final zenodo = await ZenodoClient.instance.searchDatasets(
-        topic,
-        limit: 5,
-      );
+      final zenodo = await ZenodoClient.instance
+          .searchDatasets(
+            topic,
+            limit: 5,
+          )
+          .timeout(const Duration(seconds: 12));
       for (final ds in zenodo) {
         _offer(
           byDoi,
@@ -655,7 +659,9 @@ class GroundedReferenceService {
     if (targets.isEmpty) return works;
     final counts = await Future.wait(
       targets.map(
-        (i) => OpenCitationsClient.instance.citationCount(works[i].doi),
+        (i) => OpenCitationsClient.instance
+            .citationCount(works[i].doi)
+            .timeout(const Duration(seconds: 8), onTimeout: () => null),
       ),
     );
     final out = List<GroundedWork>.of(works);

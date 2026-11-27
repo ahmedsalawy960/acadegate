@@ -138,9 +138,22 @@ abstract final class SectionGuideCatalogRest {
             'Votes help the idea reach the research-fund eligibility threshold.',
       ),
       SectionGuideStep(
+        icon: Icons.tune,
+        titleAr: '٥) صفِّ وفرِّز واحفظ وتابِع',
+        titleEn: '5) Filter, sort, save, follow',
+        bodyAr:
+            'أعلى القائمة: بحث، وترشيح بالكلية والدرجة والحالة، وفرز (الأحدث/الأصوات/الجدوى)، وشارة «جديد هذا الأسبوع».\n'
+            'احفظ أي فكرة بأيقونة الحفظ لتجدها في «أفكاري المحفوظة»، وفعّل تنبيهات كليتك من جرس التنبيهات ليصلك الجديد أولاً.\n'
+            'ومن صفحة الفكرة اضغط «فحص التكرار واعتماد النقطة» لجلب دراسات سابقة ومراجع وأسئلة مقترحة قبل اعتماد الموضوع.',
+        bodyEn:
+            'Top of the list: search, filter by faculty/degree/status, sort (newest/votes/feasibility), and a New this week chip.\n'
+            'Save any idea with the bookmark icon to find it under My saved ideas, and enable faculty alerts from the alerts bell to hear about new ones first.\n'
+            'From the idea page tap the duplication check / adopt button to pull prior studies, references, and suggested questions before adopting the topic.',
+      ),
+      SectionGuideStep(
         icon: Icons.add,
-        titleAr: '٥) انشر فكرتك أنت',
-        titleEn: '5) Publish your own idea',
+        titleAr: '٦) انشر فكرتك أنت',
+        titleEn: '6) Publish your own idea',
         bodyAr:
             'الزر العائم «نشر فكرة» يفتح نموذجاً: عنوان، وصف واضح للمشكلة والأهداف، وسوم إن طُلبت.\n'
             'بعد الإرسال غالباً تذهب للمراجعة وتظهر للعامة بعد الموافقة.\n'
@@ -152,8 +165,8 @@ abstract final class SectionGuideCatalogRest {
       ),
       SectionGuideStep(
         icon: Icons.volunteer_activism_outlined,
-        titleAr: '٦) اربط مع صندوق التمويل',
-        titleEn: '6) Link with the research fund',
+        titleAr: '٧) اربط مع صندوق التمويل',
+        titleEn: '7) Link with the research fund',
         bodyAr:
             'بعد جمع تصويتات كافية قد تظهر الفكرة ضمن الأفكار المؤهلة في قسم «صندوق تمويل البحث».\n'
             'راجع ذلك القسم لفهم حد التصويت ومبلغ التمويل وحدود الاستثمار/التحديات الصناعية.',

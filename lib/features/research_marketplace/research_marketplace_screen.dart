@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 
@@ -90,6 +91,9 @@ class _ResearchMarketplaceScreenState extends State<ResearchMarketplaceScreen> {
     return [...public, ...extras];
   }
 
+  Set<String> _availableFaculties(List<AcademicResearchIdea> ideas) =>
+      {for (final i in ideas) if (i.category.trim().isNotEmpty) i.category};
+
   /// بحث + ترشيح + فرز على القائمة المدموجة (مزامنة + الحزمة المحلية).
   List<AcademicResearchIdea> _visibleIdeas(List<AcademicResearchIdea> ideas) {
     var out = ideas;
@@ -98,7 +102,12 @@ class _ResearchMarketplaceScreenState extends State<ResearchMarketplaceScreen> {
       out = out.where((i) => i.category == faculty).toList();
     }
     if (_degreeFilter.isNotEmpty) {
-      out = out.where((i) => i.degreeLevel == _degreeFilter).toList();
+      // 'both' = مناسبة للدرجتين — تطابق أي اختيار درجة.
+      out = out
+          .where(
+            (i) => i.degreeLevel == _degreeFilter || i.degreeLevel == 'both',
+          )
+          .toList();
     }
     if (_statusFilter == 'open') {
       out = out.where((i) => i.isAvailableForClaim).toList();
@@ -152,7 +161,8 @@ class _ResearchMarketplaceScreenState extends State<ResearchMarketplaceScreen> {
     return sorted;
   }
 
-  Widget _buildBrowserControls(BuildContext context, int shown, int total) {
+  Widget _buildBrowserControls(BuildContext context, int shown, int total,
+      Set<String> availableFaculties) {
     final labelStyle = const TextStyle(fontSize: 12.5);
     InputDecoration fieldDecoration(String hint) => InputDecoration(
           hintText: hint,
@@ -216,7 +226,9 @@ class _ResearchMarketplaceScreenState extends State<ResearchMarketplaceScreen> {
                       child: Text(context.t('كل الكليات', 'All faculties')),
                     ),
                     for (final id in facultyCategoryIds())
-                      DropdownMenuItem(
+                      // إخفاء الكليات الفارغة، مع إبقاء المختارة حالياً.
+                      if (availableFaculties.contains(id) || id == _facultyFilter)
+                        DropdownMenuItem(
                         value: id,
                         child: Text(
                           L10nLookup.facultyTitleStatic(id),
@@ -269,7 +281,7 @@ class _ResearchMarketplaceScreenState extends State<ResearchMarketplaceScreen> {
                     ),
                     DropdownMenuItem(
                       value: 'open',
-                      child: Text(context.t('متاحة للحجز', 'Open')),
+                      child: Text(context.t('متاحة', 'Open')),
                     ),
                     DropdownMenuItem(
                       value: 'claimed',
@@ -338,14 +350,26 @@ class _ResearchMarketplaceScreenState extends State<ResearchMarketplaceScreen> {
       );
       await _loadSyncMeta();
       if (!mounted) return;
+      final String syncMsg;
+      if (result.timedOut) {
+        syncMsg = context.t(
+          'مزامنة جزئية (انتهت مهلة التشغيل): +${result.imported} جديدة — المزامنة اليومية تكمل الباقي تلقائياً',
+          'Partial sync (run time limit): +${result.imported} new — the daily sync continues automatically',
+        );
+      } else if (result.updated > 0) {
+        syncMsg = context.t(
+          'تمت المزامنة: +${result.imported} جديدة · ${result.updated} محدّثة',
+          'Synced: +${result.imported} new · ${result.updated} updated',
+        );
+      } else {
+        syncMsg = context.t(
+          'تمت المزامنة: +${result.imported} جديدة',
+          'Synced: +${result.imported} new',
+        );
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            context.t(
-              'تمت المزامنة: +${result.imported} جديدة · ${result.updated} محدّثة',
-              'Synced: +${result.imported} new · ${result.updated} updated',
-            ),
-          ),
+          content: Text(syncMsg),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -399,6 +423,18 @@ class _ResearchMarketplaceScreenState extends State<ResearchMarketplaceScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
+          if (FirebaseAuth.instance.currentUser == null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(context.t(
+                  'سجّل الدخول لنشر فكرة بحثية',
+                  'Sign in to publish a research idea',
+                )),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+            return;
+          }
           final created = await Navigator.push<bool>(
             context,
             MaterialPageRoute(
@@ -455,6 +491,8 @@ class _ResearchMarketplaceScreenState extends State<ResearchMarketplaceScreen> {
               stream: UserAccountService.instance.watchCurrentAccount(),
               builder: (context, snap) {
                 final isAdmin = snap.data?.isAdmin == true;
+                // الإحصاءات وزر المزامنة للمشرفين فقط (ترشيد سطر الحالة).
+                if (!isAdmin) return const SizedBox.shrink();
                 return Row(
                   children: [
                     Expanded(
@@ -519,7 +557,8 @@ class _ResearchMarketplaceScreenState extends State<ResearchMarketplaceScreen> {
                 if (ideas.isEmpty) {
                   return Column(
                     children: [
-                      _buildBrowserControls(context, 0, allIdeas.length),
+                      _buildBrowserControls(
+              context, 0, allIdeas.length, _availableFaculties(allIdeas)),
                       Expanded(
                         child: Center(
                           child: Text(context.t(
@@ -542,11 +581,13 @@ class _ResearchMarketplaceScreenState extends State<ResearchMarketplaceScreen> {
                         context,
                         ideas.length,
                         allIdeas.length,
+                        _availableFaculties(allIdeas),
                       );
                     }
                     final idea = ideas[index - 1];
                     return _MarketIdeaCard(
                       idea: idea,
+                      showFeasibility: _sort == 'feasibility',
                       onTap: () {
                         Navigator.push(
                           context,
@@ -573,10 +614,12 @@ class _ResearchMarketplaceScreenState extends State<ResearchMarketplaceScreen> {
 class _MarketIdeaCard extends StatelessWidget {
   final AcademicResearchIdea idea;
   final VoidCallback onTap;
+  final bool showFeasibility;
 
   const _MarketIdeaCard({
     required this.idea,
     required this.onTap,
+    this.showFeasibility = false,
   });
 
   @override
@@ -638,7 +681,9 @@ class _MarketIdeaCard extends StatelessWidget {
                     icon: Icons.thumb_up_alt_outlined,
                     label: context.t(
                       '${idea.votesCount} تصويت',
-                      '${idea.votesCount} votes',
+                      idea.votesCount == 1
+                          ? '1 vote'
+                          : '${idea.votesCount} votes',
                     ),
                   ),
                   _InfoChip(
@@ -666,6 +711,14 @@ class _MarketIdeaCard extends StatelessWidget {
                           : idea.degreeLevel == 'masters'
                               ? context.t('ماجستير', 'Master\'s')
                               : context.t('ماجستير/دكتوراه', 'MSc/PhD'),
+                    ),
+                  if (showFeasibility && (idea.feasibilityScore ?? 0) > 0)
+                    _InfoChip(
+                      icon: Icons.speed,
+                      label: context.t(
+                        'جدوى ${((idea.feasibilityScore ?? 0) * 100).clamp(0, 100).round()}%',
+                        'Feasibility ${((idea.feasibilityScore ?? 0) * 100).clamp(0, 100).round()}%',
+                      ),
                     ),
                   if (idea.isSyncedImport)
                     _InfoChip(
@@ -711,7 +764,7 @@ class _StatusChip extends StatelessWidget {
     } else if (isOpen) {
       bgColor = Colors.green;
       textColor = Colors.green[800]!;
-      label = context.t('مفتوحة', 'Open');
+      label = context.t('متاحة', 'Open');
     } else {
       bgColor = Colors.grey;
       textColor = const Color(0xFFB7C3D6);
