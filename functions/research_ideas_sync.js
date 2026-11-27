@@ -17,6 +17,32 @@ const MAX_RSS_HUMANITIES = 8;
 const MAX_GEMINI_BATCH = 4;
 const GEMINI_MODELS = ["gemini-3.6-flash", "gemini-3-flash-preview", "gemini-3.1-flash-lite"];
 
+// ─── Grounded frontier pipeline («ابدأ من حيث انتهى البحث») ─────────
+// Every generated idea starts from a real, recent, open-access paper and
+// that paper's OWN limitations / future-work text. No full text, no idea.
+// Cost cap: ideas written per daily run. Override with IDEAS_MAX_PER_RUN.
+const MAX_IDEAS_PER_RUN = Math.max(
+  1,
+  Number(process.env.IDEAS_MAX_PER_RUN || 15) || 15,
+);
+// Papers fetched per run; dedup/extraction failures shrink this to the cap.
+const GROUNDED_CANDIDATE_POOL = 40;
+// Rolling freshness window for source papers, in months.
+const OA_WINDOW_MONTHS = 12;
+const MAX_FULLTEXT_BYTES = 1500000;
+const FULLTEXT_TIMEOUT_MS = 12000;
+const GEMINI_GUIDE_MAX_TOKENS = 6000;
+const NATIONAL_PRIORITIES = [
+  { id: "water", ar: "المياه والموارد المائية", en: "Water resources" },
+  { id: "energy", ar: "الطاقة", en: "Energy" },
+  { id: "agriculture", ar: "الزراعة والأمن الغذائي", en: "Agriculture & food security" },
+  { id: "health", ar: "الصحة", en: "Health" },
+  { id: "industry", ar: "الصناعة والتصنيع المحلي", en: "Industry & local manufacturing" },
+  { id: "digital", ar: "التحول الرقمي", en: "Digital transformation" },
+  { id: "education", ar: "التعليم وبناء الإنسان", en: "Education & human development" },
+];
+const NATIONAL_PRIORITY_IDS = new Set(NATIONAL_PRIORITIES.map((p) => p.id));
+
 const FACULTY_QUERIES = [
   { category: "Engineering", query: "smart grid renewable energy materials engineering" },
   { category: "CS", query: "machine learning natural language processing Arabic" },
@@ -202,6 +228,343 @@ function reconstructAbstract(inverted) {
   return pairs.map((p) => p[1]).join(" ").trim();
 }
 
+// ─── Grounded frontier helpers ────────────────────────────────────────
+
+function rollingFromDate(monthsBack) {
+  const d = new Date();
+  d.setMonth(d.getMonth() - monthsBack);
+  return d.toISOString().slice(0, 10);
+}
+
+async function fetchTextWithTimeout(
+  url,
+  { maxBytes = MAX_FULLTEXT_BYTES, timeoutMs = FULLTEXT_TIMEOUT_MS, binary = false } = {},
+) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      redirect: "follow",
+      headers: { "User-Agent": `AcadeGateResearchIdeasSync ${OPENALEX_MAILTO}` },
+    });
+    if (!res.ok || !res.body) return null;
+    const reader = res.body.getReader();
+    const chunks = [];
+    let total = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(Buffer.from(value));
+      total += value.length;
+      if (total >= maxBytes) {
+        try { await reader.cancel(); } catch (_) {}
+        break;
+      }
+    }
+    const buf = Buffer.concat(chunks);
+    return binary ? buf : buf.toString("utf8");
+  } catch (_) {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function stripMarkupToText(markup) {
+  return String(markup || "")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    // Block-level boundaries become newlines so section headings stay
+    // detectable as standalone lines before whitespace is collapsed.
+    .replace(/<\/(p|div|section|article|li|tr|h[1-6])>/gi, "\n")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&quot;/gi, '"')
+    .replace(/[ \t]+/g, " ")
+    .replace(/ *\n */g, "\n")
+    .replace(/\n{2,}/g, "\n")
+    .trim();
+}
+
+const GAP_SECTION_PATTERNS = [
+  { key: "limitations", re: /\blimitations?\b/i },
+  { key: "future_work", re: /future (work|research|directions?|studies|investigations?)/i },
+  { key: "conclusion", re: /conclusions?\b/i },
+];
+const GAP_SECTION_MAX_CHARS = 1400;
+
+// Plain-text sources (HTML pages, PDF text, ar5iv): prefer heading-like
+// lines (short line containing the gap phrase), then fall back to the first
+// body mention. Imperfect by nature; the generation step is constrained to
+// quote from these windows only, and ungrounded quotes are dropped before
+// anything is written.
+function extractGapSectionsFromText(fullText) {
+  const raw = String(fullText || "");
+  // Bibliography titles often contain "limitations"/"future work", so only
+  // search the body before the references heading. Pages often link
+  // "References" in a nav menu near the top, so take the first standalone
+  // references heading in the latter 70% of the document. When references
+  // were cut and nothing is found, the paper is skipped: a junk bibliography
+  // snippet is worse grounding than none.
+  const refRe = /\n[ \t]*(?:\d+\.?\s+)?(references|bibliography)[ \t]*\n/gi;
+  let refIdx = -1;
+  let rm;
+  while ((rm = refRe.exec(raw)) !== null) {
+    if (rm.index > raw.length * 0.3) refIdx = rm.index;
+  }
+  const text = refIdx >= 0 ? raw.slice(0, refIdx) : raw;
+  const lines = text.split("\n");
+  const found = [];
+  for (const { key, re } of GAP_SECTION_PATTERNS) {
+    let start = -1;
+    let offset = 0;
+    for (const line of lines) {
+      const trimmed = line.trim();
+      // Heading-like: short line with the gap phrase, and not a reference
+      // entry (citation titles often contain the word "limitations").
+      if (
+        trimmed.length > 0 &&
+        trimmed.length < 90 &&
+        re.test(trimmed) &&
+        !/\[\d+\]|\bvol\.|\bpp\.|\bet al\.|\bdoi\b/i.test(trimmed)
+      ) {
+        start = offset + line.length;
+        break;
+      }
+      offset += line.length + 1;
+    }
+    if (start < 0) {
+      const m = re.exec(text);
+      if (m && typeof m.index === "number") start = m.index + m[0].length;
+    }
+    if (start >= 0) found.push({ key, start });
+  }
+
+  found.sort((a, b) => a.start - b.start);
+  const sections = [];
+  for (const f of found) {
+    const snippet = text
+      .slice(f.start, f.start + GAP_SECTION_MAX_CHARS)
+      .replace(/\n+/g, " ")
+      .trim();
+    if (
+      snippet.length >= 120 &&
+      !sections.some((s) => s.text.slice(0, 80) === snippet.slice(0, 80))
+    ) {
+      sections.push({ section: f.key, text: snippet });
+    }
+  }
+  return sections.slice(0, 3);
+}
+
+// Europe PMC fullTextXML: <sec> blocks carry clean <title> headings, so the
+// limitation / future-work / conclusion sections extract by tag.
+function extractGapSectionsFromXml(xml) {
+  const raw = String(xml || "");
+  const out = [];
+  for (const { key, re } of GAP_SECTION_PATTERNS) {
+    const secRe = new RegExp(
+      `<title>[^<]*${re.source}[^<]*<\\/title>([\\s\\S]{120,}?)(?=<title>|<\\/sec>)`,
+      "i",
+    );
+    const m = secRe.exec(raw);
+    if (m) {
+      const snippet = stripMarkupToText(m[1]).slice(0, GAP_SECTION_MAX_CHARS).trim();
+      if (snippet.length >= 120) out.push({ section: key, text: snippet });
+    }
+  }
+  return out.slice(0, 3);
+}
+
+// Resolve the paper's gap sections from the best available full text:
+// Europe PMC XML -> ar5iv HTML -> generic OA HTML -> OA PDF (pdf-parse is
+// already a dependency). Returns null when nothing usable exists; the paper
+// is then skipped (OA-only grounded rule).
+async function resolvePaperSections(work) {
+  const pmcid = String(work.pmcid || "").replace(/^PMC/i, "");
+  if (pmcid) {
+    const xml = await fetchTextWithTimeout(
+      `https://www.ebi.ac.uk/europepmc/webservices/rest/PMC${pmcid}/fullTextXML`,
+    );
+    if (xml) {
+      const sections = extractGapSectionsFromXml(xml);
+      if (sections.length) return { sections, fullTextSource: "europepmc" };
+    }
+  }
+  const arxivMatch =
+    /arxiv\.org\/(?:abs|pdf)\/([0-9.]+)/i.exec(work.oaUrl || "") ||
+    /arxiv\.org\/(?:abs|pdf)\/([0-9.]+)/i.exec(work.url || "");
+  if (arxivMatch) {
+    const html = await fetchTextWithTimeout(
+      `https://ar5iv.labs.arxiv.org/html/${arxivMatch[1]}`,
+    );
+    if (html) {
+      const sections = extractGapSectionsFromText(stripMarkupToText(html));
+      if (sections.length) return { sections, fullTextSource: "ar5iv" };
+    }
+  }
+  if (work.oaUrl && !/\.pdf(\?|$)/i.test(work.oaUrl)) {
+    const html = await fetchTextWithTimeout(work.oaUrl);
+    if (html && !html.startsWith("%PDF")) {
+      const sections = extractGapSectionsFromText(stripMarkupToText(html));
+      if (sections.length) return { sections, fullTextSource: "oa_html" };
+    }
+  }
+  const pdfUrl =
+    work.pdfUrl || (/\.pdf(\?|$)/i.test(work.oaUrl || "") ? work.oaUrl : "");
+  if (pdfUrl) {
+    const buf = await fetchTextWithTimeout(pdfUrl, {
+      binary: true,
+      maxBytes: 6 * 1024 * 1024,
+      timeoutMs: 20000,
+    });
+    if (buf && buf.length > 1000) {
+      try {
+        const pdfParse = require("pdf-parse");
+        const parsed = await pdfParse(buf);
+        const sections = extractGapSectionsFromText(parsed.text || "");
+        if (sections.length) return { sections, fullTextSource: "oa_pdf" };
+      } catch (_) {}
+    }
+  }
+  return null;
+}
+
+async function fetchOpenAlexGrounded(query, perPage = 20) {
+  const url =
+    "https://api.openalex.org/works?" +
+    new URLSearchParams({
+      search: query,
+      filter: `from_publication_date:${rollingFromDate(OA_WINDOW_MONTHS)},type:article|review,is_oa:true`,
+      sort: "publication_date:desc",
+      per_page: String(perPage),
+      mailto: "acadegate@acadegate.app",
+    }).toString();
+  const res = await fetch(url, {
+    headers: {
+      Accept: "application/json",
+      "User-Agent": `AcadeGateResearchIdeasSync ${OPENALEX_MAILTO}`,
+    },
+  });
+  if (!res.ok) return [];
+  const data = await res.json();
+  const results = Array.isArray(data?.results) ? data.results : [];
+  return results
+    .map((work) => {
+      const id = openAlexId(work);
+      const title = String(work?.display_name || "").trim();
+      const abstract = reconstructAbstract(work?.abstract_inverted_index);
+      const best = work?.best_oa_location || work?.primary_location || {};
+      const ids = work?.ids || {};
+      const doi = String(ids.doi || work?.doi || "").replace(
+        /^https?:\/\/doi\.org\//i,
+        "",
+      );
+      return {
+        source: "openalex_grounded",
+        externalId: id
+          ? `openalex:${id}`
+          : `openalex_title:${contentHash(title, abstract).slice(0, 16)}`,
+        title,
+        summary: abstract.slice(0, 900),
+        url:
+          best.landing_page_url ||
+          (doi ? `https://doi.org/${doi}` : id ? `https://openalex.org/${id}` : ""),
+        oaUrl: best.landing_page_url || "",
+        pdfUrl: best.pdf_url || "",
+        doi,
+        pmcid: String(ids.pmcid || "")
+          .replace(/^https?:\/\/www\.ncbi\.nlm\.nih\.gov\/pmc\/articles\//i, "")
+          .replace(/\/$/, ""),
+        venue: String(
+          best?.source?.display_name ||
+            work?.primary_location?.source?.display_name ||
+            "",
+        ),
+        publishedYear: work?.publication_year || null,
+        publishedDate: String(work?.publication_date || ""),
+        citedByCount: Number(work?.cited_by_count || 0),
+        authors: (work?.authorships || [])
+          .slice(0, 6)
+          .map((a) => a?.author?.display_name)
+          .filter(Boolean),
+        tags: (work?.concepts || [])
+          .slice(0, 6)
+          .map((c) => c?.display_name)
+          .filter(Boolean),
+        categoryHint: "",
+      };
+    })
+    .filter((x) => x.title);
+}
+
+async function verifyDoiCrossref(doi) {
+  if (!doi) return null;
+  const res = await fetch(
+    `https://api.crossref.org/works/${encodeURIComponent(doi)}?mailto=acadegate@acadegate.app`,
+    { headers: { "User-Agent": `AcadeGateResearchIdeasSync ${OPENALEX_MAILTO}` } },
+  ).catch(() => null);
+  if (!res || !res.ok) return null;
+  const msg = (await res.json().catch(() => null))?.message;
+  if (!msg) return null;
+  return {
+    title: String((msg.title || [])[0] || ""),
+    authors: (msg.author || [])
+      .slice(0, 6)
+      .map((a) => [a?.given, a?.family].filter(Boolean).join(" "))
+      .filter(Boolean),
+    year: Number(msg?.issued?.["date-parts"]?.[0]?.[0]) || null,
+    venue: String((msg["container-title"] || [])[0] || ""),
+    doi: String(msg.DOI || doi),
+  };
+}
+
+async function frontierCheckS2(title) {
+  const query = String(title || "").split(/\s+/).slice(0, 12).join(" ");
+  if (!query) return { nearestWorks: [] };
+  const url =
+    "https://api.semanticscholar.org/graph/v1/paper/search?" +
+    new URLSearchParams({
+      query,
+      limit: "3",
+      fields: "title,year,url,externalIds",
+    }).toString();
+  const res = await fetch(url, {
+    headers: { "User-Agent": `AcadeGateResearchIdeasSync ${OPENALEX_MAILTO}` },
+  }).catch(() => null);
+  if (!res || !res.ok) {
+    return { nearestWorks: [], error: `http_${res ? res.status : "fetch_failed"}` };
+  }
+  const data = await res.json().catch(() => null);
+  const nearestWorks = (Array.isArray(data?.data) ? data.data : [])
+    .map((p) => ({
+      title: String(p?.title || ""),
+      year: p?.year || null,
+      url: String(p?.url || ""),
+      doi: String(p?.externalIds?.DOI || ""),
+    }))
+    .filter((w) => w.title);
+  return { nearestWorks };
+}
+
+function pickDailyQueries(now = new Date()) {
+  // Rotate the general faculty queries across the week: today's slice only.
+  const day = now.getDay(); // 0=Sun ... 6=Sat
+  const perDay = Math.ceil(FACULTY_QUERIES.length / 7);
+  const start = (day * perDay) % FACULTY_QUERIES.length;
+  const rotated = [
+    ...FACULTY_QUERIES.slice(start),
+    ...FACULTY_QUERIES.slice(0, start),
+  ];
+  return rotated.slice(0, perDay);
+}
+
 async function collectOpenAlexCandidates(scope = "all") {
   const queries =
     scope === "humanities" ? HUMANITIES_FACULTY_QUERIES : FACULTY_QUERIES;
@@ -302,7 +665,7 @@ function extractJsonObject(text) {
   return JSON.parse(body.slice(start, end + 1));
 }
 
-async function callGemini(apiKey, prompt) {
+async function callGemini(apiKey, prompt, maxOutputTokens = 2048) {
   let lastError = "gemini_failed";
   for (const model of GEMINI_MODELS) {
     try {
@@ -316,7 +679,7 @@ async function callGemini(apiKey, prompt) {
           contents: [{ role: "user", parts: [{ text: prompt }] }],
           generationConfig: {
             temperature: 0.4,
-            maxOutputTokens: 2048,
+            maxOutputTokens,
             responseMimeType: "application/json",
           },
         }),
@@ -614,21 +977,317 @@ async function runResearchIdeasSync({
   };
 }
 
+// ─── Grounded generation: ideas that start where the paper ended ─────
+
+function normalizeWhitespace(s) {
+  return String(s || "").toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+// Anti-guesswork guard: the quoted limitation must actually appear in the
+// extracted paper text. If the model paraphrases or invents it, the idea is
+// dropped before anything is written.
+function quoteIsGrounded(quote, sections) {
+  const q = normalizeWhitespace(quote).slice(0, 60);
+  if (q.length < 20) return false;
+  return sections.some((s) => normalizeWhitespace(s.text).includes(q));
+}
+
+async function geminiGenerateGapIdeas(apiKey, { paper, sections, categoryHint }) {
+  const extracts = sections
+    .map((s) => `[${s.section}]\n${s.text}`)
+    .join("\n\n")
+    .slice(0, 4200);
+  const priorityList = NATIONAL_PRIORITIES.map(
+    (p) => `${p.id} (${p.ar} / ${p.en})`,
+  ).join(", ");
+  const prompt = `You generate research ideas for an Egyptian academic platform, in any field.
+Given a recent published paper and VERBATIM extracts from its own Limitations / Future Work / Conclusion sections, propose 1 to 3 NEW research ideas that START WHERE THE PAPER ENDED. Use 1 idea when the gap is narrow, up to 3 only when the paper's stated gaps are broad or clearly distinct.
+Rules:
+- Ground every idea in the provided extracts. whereItEnded must COPY a sentence verbatim from the extracts below (never paraphrase, never invent).
+- Never invent citations or references. The only source is this paper.
+- National priorities: tag an idea ONLY when it directly serves that Egyptian priority, with a one-sentence Arabic justification. When none truly applies, return an empty list. Decorative tagging is forbidden.
+- All guide content must be concrete enough for a graduate researcher to follow.
+Return ONLY JSON with this shape:
+{
+ "ideas": [{
+   "title": "Arabic concise title",
+   "titleEn": "English title",
+   "degreeLevel": "masters|phd|both",
+   "budget": "short Arabic budget note or empty string",
+   "feasibilityScore": 0.0,
+   "whereItEnded": "verbatim English quote copied from the extracts",
+   "whereItEndedSection": "limitations|future_work|conclusion",
+   "proposedNextStepAr": "الخطوة البحثية المقترحة في جملتين",
+   "guideAr": {"problem": "...", "objectives": ["..."], "methodology": ["..."], "milestones": [{"phase": "...", "duration": "..."}], "toolsAndSkills": ["..."], "expectedOutputs": ["..."]},
+   "guideEn": {"problem": "...", "objectives": ["..."], "methodology": ["..."], "milestones": [{"phase": "...", "duration": "..."}], "toolsAndSkills": ["..."], "expectedOutputs": ["..."]},
+   "guideSummaryEn": "3-4 sentence English summary",
+   "nationalPriorities": [{"priority": "water|energy|agriculture|health|industry|digital|education", "justification": "جملة عربية واحدة"}]
+ }]
+}
+National priorities allowed: ${priorityList}
+Paper title: ${paper.title}
+Paper abstract: ${(paper.summary || "").slice(0, 900)}
+Faculty hint: ${categoryHint || ""}
+Verbatim extracts from the paper:
+${extracts}`;
+  const text = await callGemini(apiKey, prompt, GEMINI_GUIDE_MAX_TOKENS);
+  const parsed = extractJsonObject(text);
+  const rawIdeas = Array.isArray(parsed?.ideas) ? parsed.ideas : [];
+  const ideas = [];
+  for (const raw of rawIdeas.slice(0, 3)) {
+    const title = String(raw?.title || "").trim();
+    const quote = String(raw?.whereItEnded || "").trim();
+    if (!title || !quote) continue;
+    if (!quoteIsGrounded(quote, sections)) continue; // ungrounded -> drop
+    const priorities = (Array.isArray(raw?.nationalPriorities) ? raw.nationalPriorities : [])
+      .map((p) => ({
+        priority: String(p?.priority || "").trim(),
+        justification: String(p?.justification || "").trim(),
+      }))
+      .filter((p) => NATIONAL_PRIORITY_IDS.has(p.priority) && p.justification.length >= 12)
+      .slice(0, 3);
+    ideas.push({
+      title: title.slice(0, 180),
+      titleEn: String(raw?.titleEn || "").slice(0, 300),
+      degreeLevel: normalizeDegreeLevel(raw?.degreeLevel),
+      budget: String(raw?.budget || "").slice(0, 120),
+      feasibilityScore: Math.max(0, Math.min(1, Number(raw?.feasibilityScore ?? 0.65) || 0.65)),
+      whereItEnded: quote.slice(0, 600),
+      whereItEndedSection: ["limitations", "future_work", "conclusion"].includes(
+        String(raw?.whereItEndedSection || ""),
+      )
+        ? String(raw.whereItEndedSection)
+        : sections[0]?.section || "limitations",
+      proposedNextStepAr: String(raw?.proposedNextStepAr || "").slice(0, 800),
+      guideAr: raw?.guideAr && typeof raw.guideAr === "object" ? raw.guideAr : {},
+      guideEn: raw?.guideEn && typeof raw.guideEn === "object" ? raw.guideEn : {},
+      guideSummaryEn: String(raw?.guideSummaryEn || "").slice(0, 900),
+      nationalPriorities: priorities,
+    });
+  }
+  return { ideas };
+}
+
+function guideToDetailsText(idea) {
+  const g = idea.guideAr || {};
+  const lines = [];
+  if (g.problem) lines.push(`المشكلة: ${g.problem}`);
+  if (Array.isArray(g.objectives) && g.objectives.length) {
+    lines.push(`الأهداف: ${g.objectives.join(" ؛ ")}`);
+  }
+  if (Array.isArray(g.methodology) && g.methodology.length) {
+    lines.push(`المنهجية المقترحة: ${g.methodology.join(" ؛ ")}`);
+  }
+  if (Array.isArray(g.expectedOutputs) && g.expectedOutputs.length) {
+    lines.push(`المخرجات المتوقعة: ${g.expectedOutputs.join(" ؛ ")}`);
+  }
+  return lines.join("\n").slice(0, 1800);
+}
+
+async function writeGroundedIdea(
+  db,
+  { idea, ideaIndex, paper, sections, crossref, frontier, fullTextSource, adminUid, autoApprove, batchId, stats },
+) {
+  const docId = stableId(`grounded:${paper.externalId}:${ideaIndex}`);
+  const ref = db.collection("research_ideas").doc(docId);
+  const snap = await ref.get();
+  if (snap.exists) {
+    stats.deduped += 1;
+    return false;
+  }
+  const category = normalizeCategory(paper.categoryHint, "Science");
+  const authors = crossref?.authors?.length
+    ? crossref.authors
+    : (paper.authors || []);
+  const sourcePaper = {
+    title: String(crossref?.title || paper.title || "").slice(0, 300),
+    authors: authors.slice(0, 6),
+    year: crossref?.year || paper.publishedYear || null,
+    venue: String(crossref?.venue || paper.venue || "").slice(0, 200),
+    doi: String(crossref?.doi || paper.doi || ""),
+    doiVerified: Boolean(crossref),
+    openAlexId: String(paper.externalId || "").replace(/^openalex:/, ""),
+    url: String(paper.url || ""),
+    publishedDate: String(paper.publishedDate || ""),
+  };
+  const starterReferences = [
+    {
+      title: sourcePaper.title,
+      year: sourcePaper.year,
+      url: sourcePaper.url,
+      doi: sourcePaper.doi,
+      role: "source",
+    },
+    ...(frontier.nearestWorks || []).map((w) => ({ ...w, role: "frontier" })),
+  ].slice(0, 5);
+  const tags = [...(paper.tags || [])].slice(0, 6);
+  if (idea.degreeLevel && !tags.includes(idea.degreeLevel)) {
+    tags.push(idea.degreeLevel === "phd" ? "دكتوراه" : "ماجستير");
+  }
+  await ref.set({
+    // Legacy-compatible fields (UI reads these today).
+    title: idea.title,
+    titleEn: idea.titleEn,
+    summaryEn: String(paper.summary || "").slice(0, 900),
+    provider: "OpenAlex · AcadeGate Sync",
+    details: guideToDetailsText(idea) || String(paper.summary || "").slice(0, 900),
+    tags,
+    budget: idea.budget,
+    category,
+    degreeLevel: idea.degreeLevel,
+    feasibilityScore: idea.feasibilityScore,
+    importSource: "openalex_grounded",
+    externalId: paper.externalId,
+    sourceUrl: paper.url || "",
+    publisherId: adminUid || "system_grounded_ideas_sync",
+    approvalStatus: autoApprove ? "approved" : "pending",
+    status: "open",
+    votesCount: 0,
+    proposalsCount: 0,
+    claimedBy: "",
+    claimedByName: "",
+    funded: false,
+    createdAt: FieldValue.serverTimestamp(),
+    syncedAt: FieldValue.serverTimestamp(),
+    seedSource: "research_ideas_grounded",
+    syncScope: "grounded",
+    ingestBatchId: batchId,
+    contentHash: contentHash(idea.title, idea.whereItEnded),
+    // Citation contract + bilingual guide.
+    generationMode: "oa_fulltext",
+    fullTextSource,
+    sourcePaper,
+    sourceDoi: sourcePaper.doi,
+    whereItEnded: { quote: idea.whereItEnded, section: idea.whereItEndedSection },
+    proposedNextStepAr: idea.proposedNextStepAr,
+    guideAr: idea.guideAr,
+    guideEn: idea.guideEn,
+    guideSummaryEn: idea.guideSummaryEn,
+    nationalPriorities: idea.nationalPriorities,
+    starterReferences,
+    frontierCheck: {
+      nearestWorks: frontier.nearestWorks || [],
+      checkedAt: FieldValue.serverTimestamp(),
+      error: frontier.error || "",
+    },
+    gapSectionsUsed: sections.map((s) => s.section),
+  });
+  return true;
+}
+
+async function runGroundedIdeasSync({
+  adminUid = "system_grounded_ideas_sync",
+  apiKey = "",
+  maxIdeas = MAX_IDEAS_PER_RUN,
+  autoApprove = true,
+} = {}) {
+  const db = getFirestore();
+  const batchId = `batch_grounded_${Date.now()}`;
+  const stats = {
+    fetched: 0,
+    deduped: 0,
+    noFullText: 0,
+    generated: 0,
+    written: 0,
+    failed: 0,
+    droppedUngroundedQuotes: 0,
+  };
+  if (!apiKey) {
+    throw new Error("gemini_api_key_required");
+  }
+  const queries = pickDailyQueries();
+  const pool = [];
+  for (const q of queries) {
+    try {
+      const works = await fetchOpenAlexGrounded(q.query, 20);
+      for (const w of works) pool.push({ ...w, categoryHint: q.category });
+    } catch (_) {}
+    await sleep(250);
+    if (pool.length >= GROUNDED_CANDIDATE_POOL) break;
+  }
+  stats.fetched = pool.length;
+  const seen = new Set();
+  for (const paper of pool) {
+    if (stats.written >= maxIdeas) break;
+    if (seen.has(paper.externalId)) {
+      stats.deduped += 1;
+      continue;
+    }
+    seen.add(paper.externalId);
+    try {
+      if (paper.doi) {
+        const dup = await db
+          .collection("research_ideas")
+          .where("sourceDoi", "==", paper.doi)
+          .limit(1)
+          .get();
+        if (!dup.empty) {
+          stats.deduped += 1;
+          continue;
+        }
+      }
+      const resolved = await resolvePaperSections(paper);
+      if (!resolved) {
+        stats.noFullText += 1;
+        continue;
+      }
+      const crossref = await verifyDoiCrossref(paper.doi);
+      const frontier = await frontierCheckS2(paper.title);
+      const gen = await geminiGenerateGapIdeas(apiKey, {
+        paper,
+        sections: resolved.sections,
+        categoryHint: paper.categoryHint,
+      });
+      stats.generated += gen.ideas.length;
+      for (let i = 0; i < gen.ideas.length; i++) {
+        if (stats.written >= maxIdeas) break;
+        const ok = await writeGroundedIdea(db, {
+          idea: gen.ideas[i],
+          ideaIndex: i,
+          paper,
+          sections: resolved.sections,
+          crossref,
+          frontier,
+          fullTextSource: resolved.fullTextSource,
+          adminUid,
+          autoApprove,
+          batchId,
+          stats,
+        });
+        if (ok) stats.written += 1;
+      }
+      await sleep(500); // Gemini + API politeness
+    } catch (_) {
+      stats.failed += 1;
+    }
+  }
+  await db.doc("app_meta/research_ideas_sync").set(
+    {
+      groundedSyncedAt: FieldValue.serverTimestamp(),
+      groundedBatchId: batchId,
+      groundedStats: stats,
+    },
+    { merge: true },
+  );
+  return { batchId, ...stats };
+}
+
 function createResearchIdeasSyncHandlers(geminiApiKey) {
+  // Daily grounded frontier sync (name kept for deployment compatibility):
+  // recent OA papers -> their own limitations/future work -> new ideas.
   const researchIdeasSyncWeekly = onSchedule(
     {
-      schedule: "every tuesday 04:00",
+      schedule: "every day 04:00",
       timeZone: "Africa/Cairo",
       timeoutSeconds: 540,
       memory: "1GiB",
       secrets: [geminiApiKey],
     },
     async () => {
-      await runResearchIdeasSync({
-        adminUid: "system_weekly_ideas_sync",
+      await runGroundedIdeasSync({
+        adminUid: "system_daily_ideas_sync",
         apiKey: geminiApiKey.value(),
         autoApprove: true,
-        scope: "all",
       });
     },
   );
@@ -671,11 +1330,19 @@ function createResearchIdeasSyncHandlers(geminiApiKey) {
         String(request.data?.scope || "all").toLowerCase() === "humanities"
           ? "humanities"
           : "all";
-      return runResearchIdeasSync({
+      const mode = String(request.data?.mode || "grounded").toLowerCase();
+      if (mode === "legacy") {
+        return runResearchIdeasSync({
+          adminUid: request.auth.uid,
+          apiKey: geminiApiKey.value(),
+          autoApprove,
+          scope,
+        });
+      }
+      return runGroundedIdeasSync({
         adminUid: request.auth.uid,
         apiKey: geminiApiKey.value(),
         autoApprove,
-        scope,
       });
     },
   );
@@ -690,4 +1357,5 @@ function createResearchIdeasSyncHandlers(geminiApiKey) {
 module.exports = {
   createResearchIdeasSyncHandlers,
   runResearchIdeasSync,
+  runGroundedIdeasSync,
 };
