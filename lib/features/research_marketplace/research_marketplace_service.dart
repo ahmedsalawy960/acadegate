@@ -6,6 +6,7 @@ import '../academic/academic_models.dart';
 import '../auth/provider_publish_gate.dart';
 import '../auth/user_account_service.dart';
 import '../moderation/approval_status.dart';
+import '../notifications/notification_service.dart';
 import '../profile/academic_profile_service.dart';
 import '../research_journey/research_journey_service.dart';
 import '../research_journey/research_journey_stage.dart';
@@ -256,17 +257,18 @@ class ResearchMarketplaceService {
 
     final proposerId = proposalSnap.data()?['userId']?.toString() ?? '';
     if (proposerId.isNotEmpty) {
-      await _db.collection('notifications').add({
-        'userId': proposerId,
-        'title': accept
+      // عبر الـ callable — القواعد تمنع الكتابة المباشرة في notifications.
+      await NotificationService.instance.send(
+        userId: proposerId,
+        title: accept
             ? appTr('تم قبول مقترحك', 'Your proposal was accepted')
             : appTr('تم رفض مقترحك', 'Your proposal was rejected'),
-        'body': ideaSnap.data()?['title']?.toString() ??
+        body: ideaSnap.data()?['title']?.toString() ??
             appTr('فكرة بحثية', 'Research idea'),
-        'type': 'proposal',
-        'read': false,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+        type: 'proposal',
+        contextId: ideaId,
+        contextType: 'research_idea',
+      );
     }
   }
 
