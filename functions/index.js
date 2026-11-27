@@ -1046,6 +1046,8 @@ exports.geminiAdvisor = onCall(
           const response = await fetch(url, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
+            // مهله صريحة — اتصال متعطل بلا حد كان يعلّق الاستدعاء حتى قتل الدالة.
+            signal: AbortSignal.timeout(60000),
             body: JSON.stringify({
               contents,
               generationConfig: {
@@ -1127,6 +1129,8 @@ exports.geminiAdvisor = onCall(
         let response = await fetch(url, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          // مهله صريحة — اتصال متعطل بلا حد كان يعلّق الاستدعاء حتى قتل الدالة.
+          signal: AbortSignal.timeout(60000),
           body: JSON.stringify(requestBody),
         });
 
@@ -1137,6 +1141,7 @@ exports.geminiAdvisor = onCall(
             response = await fetch(url, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
+              signal: AbortSignal.timeout(60000),
               body: JSON.stringify(requestBody),
             });
           } else {

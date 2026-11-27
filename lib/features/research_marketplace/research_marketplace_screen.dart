@@ -587,7 +587,6 @@ class _ResearchMarketplaceScreenState extends State<ResearchMarketplaceScreen> {
                     final idea = ideas[index - 1];
                     return _MarketIdeaCard(
                       idea: idea,
-                      showFeasibility: _sort == 'feasibility',
                       onTap: () {
                         Navigator.push(
                           context,
@@ -614,12 +613,10 @@ class _ResearchMarketplaceScreenState extends State<ResearchMarketplaceScreen> {
 class _MarketIdeaCard extends StatelessWidget {
   final AcademicResearchIdea idea;
   final VoidCallback onTap;
-  final bool showFeasibility;
 
   const _MarketIdeaCard({
     required this.idea,
     required this.onTap,
-    this.showFeasibility = false,
   });
 
   @override
@@ -712,7 +709,8 @@ class _MarketIdeaCard extends StatelessWidget {
                               ? context.t('ماجستير', 'Master\'s')
                               : context.t('ماجستير/دكتوراه', 'MSc/PhD'),
                     ),
-                  if (showFeasibility && (idea.feasibilityScore ?? 0) > 0)
+                  // تظهر كلما توفّر التقييم (الأفكار المزامنة تحمله).
+                  if ((idea.feasibilityScore ?? 0) > 0)
                     _InfoChip(
                       icon: Icons.speed,
                       label: context.t(

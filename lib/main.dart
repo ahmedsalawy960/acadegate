@@ -93,7 +93,9 @@ class AcadeGateApp extends StatelessWidget {
             LocaleService.instance.hasChosenLocale ? 'ready' : 'pick-locale';
 
         return MaterialApp(
-          key: ValueKey(appPhase),
+          // إعادة بناء كاملة عند تغيير اللغة: context.t يقرأ LocaleService
+          // قراءة مباشرة بلا اشتراك، فلا تعاد ترجمة الشاشات المفتوحة وإلا.
+          key: ValueKey('$appPhase-${locale.languageCode}'),
           navigatorKey: _navigatorKey,
           debugShowCheckedModeBanner: false,
           title: 'AcadeGate',

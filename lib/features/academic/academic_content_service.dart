@@ -359,15 +359,19 @@ class AcademicContentService {
           try {
             final once = await _fetchIdeasOnce();
             if (controller.isClosed) return;
-            _lastIdeas = once;
-            if (once.isNotEmpty) controller.add(once);
+            // لا نخزّن نتيجة فارغة: فشل عابر (شبكة/صلاحيات) لا يجب أن يمسح
+            // آخر قائمة ناجحة، وإلا تختفي الأفكار الحية حتى نهاية الجلسة.
+            if (once.isNotEmpty) {
+              _lastIdeas = once;
+              controller.add(once);
+            }
           } catch (_) {}
           if (sub != null || controller.isClosed) return;
           sub = _db.collection('research_ideas').limit(200).snapshots().listen(
             (snapshot) {
               if (!controller.isClosed) {
                 final parsed = _parseIdeas(snapshot);
-                _lastIdeas = parsed;
+                if (parsed.isNotEmpty) _lastIdeas = parsed;
                 controller.add(parsed);
               }
             },
