@@ -1278,20 +1278,9 @@ class FacultiesScreen extends StatelessWidget {
             stream: UserAccountService.instance.watchCurrentAccount(),
             builder: (context, accountSnapshot) {
               final isAdmin = accountSnapshot.data?.isAdmin == true;
+              // الاستيراد للمدير فقط — إخفاء الزر لغير المدير بدل صفحة «غير مصرح».
               if (!isAdmin) {
-                return IconButton(
-                  tooltip: L10nLookup.importSupervisors,
-                  icon: const Icon(Icons.cloud_download_outlined),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            const AdminSupervisorImportScreen(),
-                      ),
-                    );
-                  },
-                );
+                return const SizedBox.shrink();
               }
 
               return StreamBuilder<List<PendingItem>>(
