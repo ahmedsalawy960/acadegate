@@ -5,6 +5,7 @@ import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/locale/locale_extensions.dart';
+import '../../core/locale/locale_service.dart';
 import '../academic/academic_models.dart';
 import '../moderation/delete_content_button.dart';
 import '../research_fund/research_fund_models.dart';
@@ -458,6 +459,10 @@ class _ResearchIdeaMarketplaceDetailScreenState
                       ),
                     ),
                   ],
+                  _GroundedIdeaSections(
+                    idea: idea,
+                    onOpenUrl: _openSource,
+                  ),
                   const SizedBox(height: 20),
                   Card(
                     color: const Color(0xFF3A2E14),
@@ -837,6 +842,387 @@ class _FundEligibilityChip extends StatelessWidget {
           backgroundColor: Colors.blueGrey.withValues(alpha: 0.1),
         );
       },
+    );
+  }
+}
+
+/// أقسام الفكرة المؤصلة (Phase 2): بطاقة «من حيث انتهت الدراسة»، وسوم
+/// الأولويات القومية بمبرراتها، الدليل بلغة الواجهة، ومراجع البداية.
+class _GroundedIdeaSections extends StatelessWidget {
+  final AcademicResearchIdea idea;
+  final Future<void> Function(String url) onOpenUrl;
+
+  const _GroundedIdeaSections({
+    required this.idea,
+    required this.onOpenUrl,
+  });
+
+  static const _priorityLabels = <String, List<String>>{
+    'water': ['المياه', 'Water'],
+    'energy': ['الطاقة', 'Energy'],
+    'agriculture': ['الزراعة', 'Agriculture'],
+    'health': ['الصحة', 'Health'],
+    'industry': ['الصناعة', 'Industry'],
+    'digital': ['التحول الرقمي', 'Digital transformation'],
+    'education': ['التعليم', 'Education'],
+  };
+
+  String _priorityLabel(BuildContext context, String id) {
+    final pair = _priorityLabels[id];
+    if (pair == null) return id;
+    return context.t(pair[0], pair[1]);
+  }
+
+  String _sectionLabel(BuildContext context, String section) {
+    switch (section) {
+      case 'limitations':
+        return context.t('قسم القيود', 'Limitations section');
+      case 'future_work':
+        return context.t('قسم العمل المستقبلي', 'Future work section');
+      case 'conclusion':
+        return context.t('قسم الخلاصة', 'Conclusion section');
+      default:
+        return section;
+    }
+  }
+
+  Widget _sectionTitle(BuildContext context, String ar, String en) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(
+        context.t(ar, en),
+        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+      ),
+    );
+  }
+
+  Widget _bulletList(List<String> items, {bool ltr = false}) {
+    final body = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final item in items)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('• '),
+                Expanded(
+                  child: Text(item, style: const TextStyle(height: 1.5)),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+    if (!ltr) return body;
+    return Directionality(textDirection: TextDirection.ltr, child: body);
+  }
+
+  Widget _guideBody(BuildContext context, IdeaGuide guide, {bool ltr = false}) {
+    final isAr = !ltr;
+    String label(String ar, String en) => isAr ? ar : en;
+    final children = <Widget>[];
+    if (guide.problem.trim().isNotEmpty) {
+      children.add(Text(
+        label('المشكلة', 'Problem'),
+        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+      ));
+      children.add(const SizedBox(height: 4));
+      children.add(Text(guide.problem, style: const TextStyle(height: 1.5)));
+      children.add(const SizedBox(height: 12));
+    }
+    void listSection(String title, List<String> items) {
+      if (items.isEmpty) return;
+      children.add(Text(
+        title,
+        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+      ));
+      children.add(const SizedBox(height: 4));
+      children.add(_bulletList(items));
+      children.add(const SizedBox(height: 12));
+    }
+
+    listSection(label('الأهداف', 'Objectives'), guide.objectives);
+    listSection(label('المنهجية المقترحة', 'Proposed methodology'),
+        guide.methodology);
+    if (guide.milestones.isNotEmpty) {
+      children.add(Text(
+        label('المراحل الزمنية', 'Milestones'),
+        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+      ));
+      children.add(const SizedBox(height: 4));
+      children.add(_bulletList([
+        for (final m in guide.milestones)
+          m.duration.isEmpty ? m.phase : '${m.phase} (${m.duration})',
+      ]));
+      children.add(const SizedBox(height: 12));
+    }
+    listSection(
+        label('الأدوات والمهارات', 'Tools and skills'), guide.toolsAndSkills);
+    listSection(label('المخرجات المتوقعة', 'Expected outputs'),
+        guide.expectedOutputs);
+    final column = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: children,
+    );
+    if (!ltr) return column;
+    return Directionality(textDirection: TextDirection.ltr, child: column);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!idea.hasGroundedGuide) return const SizedBox.shrink();
+    final isEnglish = LocaleService.instance.isEnglish;
+    final paper = idea.sourcePaper;
+    final guide = isEnglish ? idea.guideEn : idea.guideAr;
+    final children = <Widget>[const SizedBox(height: 20)];
+
+    // 1) بطاقة «من حيث انتهت الدراسة»: الورقة المصدر + اقتباس حرفي + DOI.
+    if (paper != null && paper.title.isNotEmpty) {
+      children.add(_sectionTitle(
+          context, 'من حيث انتهت الدراسة', 'Where the study ended'));
+      children.add(
+        Card(
+          color: const Color(0xFF14302B),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Directionality(
+                  textDirection: TextDirection.ltr,
+                  child: Text(
+                    paper.title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14.5,
+                      color: Color(0xFFF4F7FB),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Directionality(
+                  textDirection: TextDirection.ltr,
+                  child: Text(
+                    [
+                      if (paper.authors.isNotEmpty)
+                        paper.authors.length > 3
+                            ? '${paper.authors.take(3).join(', ')} et al.'
+                            : paper.authors.join(', '),
+                      if (paper.year != null) '${paper.year}',
+                      if (paper.venue.isNotEmpty) paper.venue,
+                    ].join(' · '),
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      color: Color(0xFFB7C3D6),
+                    ),
+                  ),
+                ),
+                if (idea.whereItEndedQuote.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.25),
+                      borderRadius: BorderRadius.circular(8),
+                      border: const Border(
+                        left: BorderSide(color: Colors.tealAccent, width: 3),
+                      ),
+                    ),
+                    child: Directionality(
+                      textDirection: TextDirection.ltr,
+                      child: Text(
+                        '"${idea.whereItEndedQuote}"',
+                        style: const TextStyle(
+                          fontStyle: FontStyle.italic,
+                          height: 1.5,
+                          color: Color(0xFFF4F7FB),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    context.t(
+                      'اقتباس حرفي من ${_sectionLabel(context, idea.whereItEndedSection)} في الورقة',
+                      'Verbatim quote from the paper\'s ${_sectionLabel(context, idea.whereItEndedSection)}',
+                    ),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFFB7C3D6),
+                    ),
+                  ),
+                ],
+                if (!isEnglish && idea.proposedNextStepAr.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    idea.proposedNextStepAr,
+                    style: const TextStyle(height: 1.5),
+                  ),
+                ],
+                if (paper.bestUrl.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  TextButton.icon(
+                    onPressed: () => onOpenUrl(paper.bestUrl),
+                    icon: Icon(
+                      paper.doiVerified
+                          ? Icons.verified_outlined
+                          : Icons.link,
+                      size: 18,
+                    ),
+                    label: Text(
+                      paper.doiVerified
+                          ? context.t(
+                              'الورقة المصدر (DOI موثّق)',
+                              'Source paper (verified DOI)',
+                            )
+                          : context.t('الورقة المصدر', 'Source paper'),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    // 2) وسوم الأولويات القومية مع مبرر كل وسم من نص الورقة.
+    if (idea.nationalPriorities.isNotEmpty) {
+      children.add(const SizedBox(height: 16));
+      children.add(_sectionTitle(
+          context, 'الأولويات القومية', 'National priorities'));
+      children.add(
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final p in idea.nationalPriorities)
+              Chip(
+                avatar: const Icon(Icons.flag_outlined, size: 16),
+                label: Text(_priorityLabel(context, p.priority)),
+                backgroundColor: Colors.teal.withValues(alpha: 0.15),
+              ),
+          ],
+        ),
+      );
+      for (final p in idea.nationalPriorities) {
+        if (p.justification.isEmpty) continue;
+        children.add(
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Directionality(
+              textDirection: TextDirection.rtl,
+              child: Text(
+                '${_priorityLabel(context, p.priority)}: ${p.justification}',
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  height: 1.5,
+                  color: Color(0xFFB7C3D6),
+                ),
+              ),
+            ),
+          ),
+        );
+      }
+    }
+
+    // 3) الدليل بلغة الواجهة: عربي كامل + ملخص إنجليزي، أو إنجليزي فقط.
+    if (!guide.isEmpty) {
+      children.add(const SizedBox(height: 20));
+      children.add(_sectionTitle(
+          context, 'دليل تنفيذ الفكرة', 'Idea execution guide'));
+      children.add(_guideBody(context, guide, ltr: isEnglish));
+      if (!isEnglish && idea.guideSummaryEn.isNotEmpty) {
+        children.add(
+          Theme(
+            data:
+                Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              title: Text(
+                context.t('ملخص الدليل بالإنجليزية', 'Guide summary in English'),
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              children: [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Directionality(
+                    textDirection: TextDirection.ltr,
+                    child: Text(
+                      idea.guideSummaryEn,
+                      style: const TextStyle(
+                        height: 1.5,
+                        color: Color(0xFFB7C3D6),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+    }
+
+    // 4) مراجع البداية + روابط فحص الحداثة.
+    if (idea.starterReferences.isNotEmpty) {
+      children.add(const SizedBox(height: 20));
+      children.add(_sectionTitle(
+          context, 'مراجع للبدء', 'Starter references'));
+      children.add(
+        Card(
+          child: Column(
+            children: [
+              for (final ref in idea.starterReferences)
+                ListTile(
+                  dense: true,
+                  leading: Icon(
+                    ref.isSource
+                        ? Icons.menu_book_outlined
+                        : Icons.travel_explore_outlined,
+                    size: 20,
+                    color: const Color(0xFFB7C3D6),
+                  ),
+                  title: Directionality(
+                    textDirection: TextDirection.ltr,
+                    child: Text(
+                      [
+                        ref.title,
+                        if (ref.year != null) '(${ref.year})',
+                      ].join(' '),
+                      style: const TextStyle(fontSize: 13.5),
+                    ),
+                  ),
+                  subtitle: Text(
+                    ref.isSource
+                        ? context.t(
+                            'الورقة المصدر', 'Source paper')
+                        : context.t('أقرب عمل حديث (فحص الحداثة)',
+                            'Nearest recent work (frontier check)'),
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  trailing: ref.bestUrl.isEmpty
+                      ? null
+                      : const Icon(Icons.open_in_new, size: 16),
+                  onTap: ref.bestUrl.isEmpty
+                      ? null
+                      : () => onOpenUrl(ref.bestUrl),
+                ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: children,
     );
   }
 }

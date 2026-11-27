@@ -147,6 +147,161 @@ class AcademicSupervisor {
   }
 }
 
+/// مرحلة زمنية داخل دليل الفكرة البحثية.
+class IdeaGuideMilestone {
+  final String phase;
+  final String duration;
+
+  const IdeaGuideMilestone({this.phase = '', this.duration = ''});
+
+  factory IdeaGuideMilestone.fromMap(dynamic raw) {
+    if (raw is! Map) return const IdeaGuideMilestone();
+    return IdeaGuideMilestone(
+      phase: raw['phase']?.toString() ?? '',
+      duration: raw['duration']?.toString() ?? '',
+    );
+  }
+}
+
+/// دليل تنفيذ الفكرة (عربي كامل أو إنجليزي) كما تكتبه المزامنة المؤصلة.
+class IdeaGuide {
+  final String problem;
+  final List<String> objectives;
+  final List<String> methodology;
+  final List<IdeaGuideMilestone> milestones;
+  final List<String> toolsAndSkills;
+  final List<String> expectedOutputs;
+
+  const IdeaGuide({
+    this.problem = '',
+    this.objectives = const [],
+    this.methodology = const [],
+    this.milestones = const [],
+    this.toolsAndSkills = const [],
+    this.expectedOutputs = const [],
+  });
+
+  bool get isEmpty =>
+      problem.trim().isEmpty &&
+      objectives.isEmpty &&
+      methodology.isEmpty &&
+      milestones.isEmpty &&
+      toolsAndSkills.isEmpty &&
+      expectedOutputs.isEmpty;
+
+  factory IdeaGuide.fromMap(dynamic raw) {
+    if (raw is! Map) return const IdeaGuide();
+    return IdeaGuide(
+      problem: raw['problem']?.toString() ?? '',
+      objectives: parseStringList(raw['objectives']),
+      methodology: parseStringList(raw['methodology']),
+      milestones: raw['milestones'] is List
+          ? (raw['milestones'] as List)
+              .map(IdeaGuideMilestone.fromMap)
+              .where((m) => m.phase.isNotEmpty)
+              .toList()
+          : const [],
+      toolsAndSkills: parseStringList(raw['toolsAndSkills']),
+      expectedOutputs: parseStringList(raw['expectedOutputs']),
+    );
+  }
+}
+
+/// أولوية قومية مرتبطة بالفكرة مع مبرر حقيقي من نص الورقة.
+class IdeaPriorityTag {
+  final String priority;
+  final String justification;
+
+  const IdeaPriorityTag({this.priority = '', this.justification = ''});
+
+  factory IdeaPriorityTag.fromMap(dynamic raw) {
+    if (raw is! Map) return const IdeaPriorityTag();
+    return IdeaPriorityTag(
+      priority: raw['priority']?.toString() ?? '',
+      justification: raw['justification']?.toString() ?? '',
+    );
+  }
+}
+
+/// الورقة المصدر التي وُلدت منها الفكرة (عقد الاستشهاد).
+class IdeaSourcePaper {
+  final String title;
+  final List<String> authors;
+  final int? year;
+  final String venue;
+  final String doi;
+  final bool doiVerified;
+  final String openAlexId;
+  final String url;
+  final String publishedDate;
+
+  const IdeaSourcePaper({
+    this.title = '',
+    this.authors = const [],
+    this.year,
+    this.venue = '',
+    this.doi = '',
+    this.doiVerified = false,
+    this.openAlexId = '',
+    this.url = '',
+    this.publishedDate = '',
+  });
+
+  String get doiUrl => doi.isEmpty ? '' : 'https://doi.org/$doi';
+
+  /// رابط يفتح للضيف: DOI الموثّق أولاً ثم رابط الوصول الحر.
+  String get bestUrl => doiUrl.isNotEmpty ? doiUrl : url;
+
+  factory IdeaSourcePaper.fromMap(dynamic raw) {
+    if (raw is! Map) return const IdeaSourcePaper();
+    final yearRaw = raw['year'];
+    return IdeaSourcePaper(
+      title: raw['title']?.toString() ?? '',
+      authors: parseStringList(raw['authors']),
+      year: yearRaw is num ? yearRaw.toInt() : int.tryParse('$yearRaw'),
+      venue: raw['venue']?.toString() ?? '',
+      doi: raw['doi']?.toString() ?? '',
+      doiVerified: raw['doiVerified'] == true,
+      openAlexId: raw['openAlexId']?.toString() ?? '',
+      url: raw['url']?.toString() ?? '',
+      publishedDate: raw['publishedDate']?.toString() ?? '',
+    );
+  }
+}
+
+/// مرجع بداية مقترح: الورقة المصدر أو أقرب الأعمال الحديثة (فحص الحداثة).
+class IdeaStarterReference {
+  final String title;
+  final int? year;
+  final String url;
+  final String doi;
+  final String role;
+
+  const IdeaStarterReference({
+    this.title = '',
+    this.year,
+    this.url = '',
+    this.doi = '',
+    this.role = '',
+  });
+
+  bool get isSource => role == 'source';
+
+  String get bestUrl => doi.isNotEmpty ? 'https://doi.org/$doi' : url;
+
+  factory IdeaStarterReference.fromMap(dynamic raw) {
+    if (raw is! Map) return const IdeaStarterReference();
+    final yearRaw = raw['year'];
+    return IdeaStarterReference(
+      title: raw['title']?.toString() ?? '',
+      year: yearRaw is num ? yearRaw.toInt() : int.tryParse('$yearRaw'),
+      url: raw['url']?.toString() ?? '',
+      doi: raw['doi']?.toString() ?? '',
+      role: raw['role']?.toString() ?? '',
+    );
+  }
+}
+
 class AcademicResearchIdea {
   final String? id;
   final String title;
@@ -179,6 +334,17 @@ class AcademicResearchIdea {
   final double? feasibilityScore;
   /// تاريخ نشر الفكرة (أو آخر مزامنة) — لفرز «الأحدث» في السوق.
   final DateTime? createdAt;
+  /// حقول التأصيل (Phase 1): موجودة فقط على الأفكار المولّدة من نص الورقة.
+  final String generationMode;
+  final String proposedNextStepAr;
+  final IdeaGuide guideAr;
+  final IdeaGuide guideEn;
+  final String guideSummaryEn;
+  final List<IdeaPriorityTag> nationalPriorities;
+  final IdeaSourcePaper? sourcePaper;
+  final String whereItEndedQuote;
+  final String whereItEndedSection;
+  final List<IdeaStarterReference> starterReferences;
 
   const AcademicResearchIdea({
     this.id,
@@ -209,6 +375,16 @@ class AcademicResearchIdea {
     this.seedSource = '',
     this.feasibilityScore,
     this.createdAt,
+    this.generationMode = '',
+    this.proposedNextStepAr = '',
+    this.guideAr = const IdeaGuide(),
+    this.guideEn = const IdeaGuide(),
+    this.guideSummaryEn = '',
+    this.nationalPriorities = const [],
+    this.sourcePaper,
+    this.whereItEndedQuote = '',
+    this.whereItEndedSection = '',
+    this.starterReferences = const [],
   });
 
   bool get isOpen => status.toLowerCase() == 'open';
@@ -221,6 +397,10 @@ class AcademicResearchIdea {
       importSource == 'openalex' ||
       importSource == 'science_rss' ||
       importSource.startsWith('sync_');
+
+  /// فكرة مؤصلة: وُلدت من النص الكامل لورقة حديثة مفتوحة الوصول.
+  bool get hasGroundedGuide =>
+      generationMode == 'oa_fulltext' || sourcePaper != null;
 
   factory AcademicResearchIdea.fromMap(
     Map<String, dynamic> map, {
@@ -261,6 +441,32 @@ class AcademicResearchIdea {
           : double.tryParse(map['feasibilityScore']?.toString() ?? ''),
       createdAt: _parseDateTime(map['createdAt']) ??
           _parseDateTime(map['syncedAt']),
+      generationMode: map['generationMode']?.toString() ?? '',
+      proposedNextStepAr: map['proposedNextStepAr']?.toString() ?? '',
+      guideAr: IdeaGuide.fromMap(map['guideAr']),
+      guideEn: IdeaGuide.fromMap(map['guideEn']),
+      guideSummaryEn: map['guideSummaryEn']?.toString() ?? '',
+      nationalPriorities: map['nationalPriorities'] is List
+          ? (map['nationalPriorities'] as List)
+              .map(IdeaPriorityTag.fromMap)
+              .where((p) => p.priority.isNotEmpty)
+              .toList()
+          : const [],
+      sourcePaper: map['sourcePaper'] is Map
+          ? IdeaSourcePaper.fromMap(map['sourcePaper'])
+          : null,
+      whereItEndedQuote: map['whereItEnded'] is Map
+          ? (map['whereItEnded'] as Map)['quote']?.toString() ?? ''
+          : '',
+      whereItEndedSection: map['whereItEnded'] is Map
+          ? (map['whereItEnded'] as Map)['section']?.toString() ?? ''
+          : '',
+      starterReferences: map['starterReferences'] is List
+          ? (map['starterReferences'] as List)
+              .map(IdeaStarterReference.fromMap)
+              .where((r) => r.title.isNotEmpty)
+              .toList()
+          : const [],
     );
   }
 }
