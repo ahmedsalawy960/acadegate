@@ -284,6 +284,17 @@ service cloud.firestore {
       match /device_trainings/{trainingId} {
         allow read, write: if isOwner(userId);
       }
+
+      // الأفكار المحفوظة (مفضلة الطالب) — لقطة صغيرة للعرض، بدون فهرس collectionGroup.
+      match /favorite_ideas/{ideaId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow create: if isOwner(userId)
+                      && request.resource.data.keys().hasOnly(
+                          ['ideaId', 'title', 'titleEn', 'category', 'savedAt'])
+                      && request.resource.data.ideaId == ideaId;
+        allow update: if false;
+        allow delete: if isOwner(userId);
+      }
     }
 
     // مدفوعات الباقات. الكتابة من Cloud Functions فقط بعد Paymob.
@@ -1331,6 +1342,19 @@ service cloud.firestore {
                     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
       allow delete: if isSignedIn()
                     && resource.data.userId == request.auth.uid;
+    }
+
+    // ─── اشتراكات تنبيهات الأفكار الجديدة لكل كلية ──────
+    // مستند لكل مستخدم باسم uid؛ وظيفة التنبيهات تقرأه عبر Admin SDK.
+    match /idea_alert_subscriptions/{uid} {
+      allow read: if isSignedIn()
+                  && (request.auth.uid == uid || isAdmin());
+      allow create, update: if isSignedIn()
+                  && request.auth.uid == uid
+                  && request.resource.data.keys().hasOnly(['faculties', 'updatedAt'])
+                  && request.resource.data.faculties is list
+                  && request.resource.data.faculties.size() <= 25;
+      allow delete: if isSignedIn() && request.auth.uid == uid;
     }
 
     // ─── طلبات تحليل العينات ─────────────────────────────
