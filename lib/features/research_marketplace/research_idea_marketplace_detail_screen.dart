@@ -330,6 +330,21 @@ class _ResearchIdeaMarketplaceDetailScreenState
                     idea.provider,
                     style: TextStyle(color: const Color(0xFFB7C3D6), fontSize: 15),
                   ),
+                  if (idea.titleEn.isNotEmpty &&
+                      idea.titleEn.trim() != idea.title.trim()) ...[
+                    const SizedBox(height: 6),
+                    Directionality(
+                      textDirection: TextDirection.ltr,
+                      child: Text(
+                        idea.titleEn,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontStyle: FontStyle.italic,
+                          color: Color(0xFFB7C3D6),
+                        ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   Wrap(
                     spacing: 10,
@@ -408,6 +423,41 @@ class _ResearchIdeaMarketplaceDetailScreenState
                   ),
                   const SizedBox(height: 8),
                   Text(idea.details, style: const TextStyle(height: 1.5)),
+                  if (idea.summaryEn.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Theme(
+                      data: Theme.of(context)
+                          .copyWith(dividerColor: Colors.transparent),
+                      child: ExpansionTile(
+                        tilePadding: EdgeInsets.zero,
+                        title: Text(
+                          context.t(
+                            'الملخص الأصلي بلغة المصدر',
+                            'Original source abstract',
+                          ),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        children: [
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Directionality(
+                              textDirection: TextDirection.ltr,
+                              child: Text(
+                                idea.summaryEn,
+                                style: const TextStyle(
+                                  height: 1.5,
+                                  color: Color(0xFFB7C3D6),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 20),
                   Card(
                     color: const Color(0xFF3A2E14),
@@ -443,6 +493,47 @@ class _ResearchIdeaMarketplaceDetailScreenState
                           context,
                           MaterialPageRoute(
                             builder: (_) => TopicAdoptionScreen(idea: idea),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Card(
+                    child: ListTile(
+                      leading: const CircleAvatar(
+                        backgroundColor: Color(0x331A237E),
+                        foregroundColor: Color(0xFF9FA8DA),
+                        child: Icon(Icons.account_tree_outlined),
+                      ),
+                      title: Text(
+                        context.t(
+                          'ابنِ مسار البحث من هذه الفكرة',
+                          'Build the research path from this idea',
+                        ),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFFF4F7FB),
+                        ),
+                      ),
+                      subtitle: Text(
+                        context.t(
+                          'مشرف · مختبر · متجر · كتابة · خطة فصلية — تبدأ من عنوان الفكرة',
+                          'Supervisor · lab · store · writing · semester plan — starting from the idea title',
+                        ),
+                        style: const TextStyle(color: Color(0xFFB7C3D6)),
+                      ),
+                      trailing: const Icon(
+                        Icons.chevron_left,
+                        color: Color(0xFFB7C3D6),
+                      ),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ResearchSupplyChainScreen(
+                              initialGoal: idea.title,
+                            ),
                           ),
                         );
                       },

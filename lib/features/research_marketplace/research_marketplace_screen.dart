@@ -7,6 +7,8 @@ import '../guides/section_guide_catalog.dart';
 import '../guides/section_guide_screen.dart';
 import '../academic/academic_content_service.dart';
 import '../academic/academic_models.dart';
+import '../academic/faculty_categories.dart';
+import '../home/home_search_utils.dart';
 import '../auth/user_account_service.dart';
 import 'publish_research_idea_screen.dart';
 import 'research_idea_marketplace_detail_screen.dart';
@@ -27,10 +29,23 @@ class _ResearchMarketplaceScreenState extends State<ResearchMarketplaceScreen> {
   bool _syncing = false;
   DateTime? _lastSyncAt;
 
+  final TextEditingController _searchController = TextEditingController();
+  String _query = '';
+  String? _facultyFilter;
+  String _degreeFilter = '';
+  String _statusFilter = '';
+  String _sort = 'newest';
+
   @override
   void initState() {
     super.initState();
     _loadSyncMeta();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadSyncMeta() async {
@@ -70,6 +85,229 @@ class _ResearchMarketplaceScreenState extends State<ResearchMarketplaceScreen> {
     }
     // Live/synced first, then curated pack fillers.
     return [...public, ...extras];
+  }
+
+  /// بحث + ترشيح + فرز على القائمة المدموجة (مزامنة + الحزمة المحلية).
+  List<AcademicResearchIdea> _visibleIdeas(List<AcademicResearchIdea> ideas) {
+    var out = ideas;
+    final faculty = _facultyFilter;
+    if (faculty != null && faculty.isNotEmpty) {
+      out = out.where((i) => i.category == faculty).toList();
+    }
+    if (_degreeFilter.isNotEmpty) {
+      out = out.where((i) => i.degreeLevel == _degreeFilter).toList();
+    }
+    if (_statusFilter == 'open') {
+      out = out.where((i) => i.isAvailableForClaim).toList();
+    } else if (_statusFilter == 'claimed') {
+      out = out.where((i) => i.isClaimed).toList();
+    }
+    final q = _query.trim();
+    if (q.length >= 2) {
+      out = out
+          .where(
+            (i) => homeSearchMatches(q, [
+              i.title,
+              i.details,
+              i.provider,
+              ...i.tags,
+            ]),
+          )
+          .toList();
+    }
+    final sorted = [...out];
+    switch (_sort) {
+      case 'votes':
+        sorted.sort((a, b) => b.votesCount.compareTo(a.votesCount));
+        break;
+      case 'feasibility':
+        sorted.sort(
+          (a, b) => (b.feasibilityScore ?? -1).compareTo(
+            a.feasibilityScore ?? -1,
+          ),
+        );
+        break;
+      default: // newest
+        sorted.sort((a, b) {
+          final at = a.createdAt;
+          final bt = b.createdAt;
+          if (at == null && bt == null) {
+            return b.votesCount.compareTo(a.votesCount);
+          }
+          if (at == null) return 1;
+          if (bt == null) return -1;
+          return bt.compareTo(at);
+        });
+    }
+    return sorted;
+  }
+
+  Widget _buildBrowserControls(BuildContext context, int shown, int total) {
+    final labelStyle = const TextStyle(fontSize: 12.5);
+    InputDecoration fieldDecoration(String hint) => InputDecoration(
+          hintText: hint,
+          isDense: true,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+        );
+
+    Widget dropdown<T>({
+      required T value,
+      required List<DropdownMenuItem<T>> items,
+      required void Function(T) onChanged,
+    }) {
+      return DropdownButtonFormField<T>(
+        initialValue: value,
+        items: items,
+        onChanged: (v) {
+          if (v != null) onChanged(v);
+        },
+        decoration: fieldDecoration(''),
+        style: labelStyle.copyWith(color: const Color(0xFFF4F7FB)),
+        dropdownColor: const Color(0xFF1E2430),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: Column(
+        children: [
+          TextField(
+            controller: _searchController,
+            onChanged: (v) => setState(() => _query = v),
+            decoration: fieldDecoration(
+              context.t(
+                'ابحث في العنوان أو الوصف أو الوسوم…',
+                'Search title, details or tags…',
+              ),
+            ).copyWith(
+              prefixIcon: const Icon(Icons.search, size: 20),
+              suffixIcon: _query.isEmpty
+                  ? null
+                  : IconButton(
+                      icon: const Icon(Icons.clear, size: 18),
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() => _query = '');
+                      },
+                    ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: dropdown<String>(
+                  value: _facultyFilter ?? '',
+                  items: [
+                    DropdownMenuItem(
+                      value: '',
+                      child: Text(context.t('كل الكليات', 'All faculties')),
+                    ),
+                    for (final id in facultyCategoryIds())
+                      DropdownMenuItem(
+                        value: id,
+                        child: Text(
+                          L10nLookup.facultyTitleStatic(id),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
+                  onChanged: (v) => setState(
+                    () => _facultyFilter = v.isEmpty ? null : v,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: dropdown<String>(
+                  value: _degreeFilter,
+                  items: [
+                    DropdownMenuItem(
+                      value: '',
+                      child: Text(context.t('كل الدرجات', 'All degrees')),
+                    ),
+                    DropdownMenuItem(
+                      value: 'masters',
+                      child: Text(context.t('ماجستير', "Master's")),
+                    ),
+                    DropdownMenuItem(
+                      value: 'phd',
+                      child: Text(context.t('دكتوراه', 'PhD')),
+                    ),
+                    DropdownMenuItem(
+                      value: 'both',
+                      child: Text(context.t('ماجستير/دكتوراه', 'MSc/PhD')),
+                    ),
+                  ],
+                  onChanged: (v) => setState(() => _degreeFilter = v),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: dropdown<String>(
+                  value: _statusFilter,
+                  items: [
+                    DropdownMenuItem(
+                      value: '',
+                      child: Text(context.t('كل الحالات', 'All statuses')),
+                    ),
+                    DropdownMenuItem(
+                      value: 'open',
+                      child: Text(context.t('متاحة للحجز', 'Open')),
+                    ),
+                    DropdownMenuItem(
+                      value: 'claimed',
+                      child: Text(context.t('محجوزة', 'Claimed')),
+                    ),
+                  ],
+                  onChanged: (v) => setState(() => _statusFilter = v),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: dropdown<String>(
+                  value: _sort,
+                  items: [
+                    DropdownMenuItem(
+                      value: 'newest',
+                      child: Text(context.t('الأحدث', 'Newest')),
+                    ),
+                    DropdownMenuItem(
+                      value: 'votes',
+                      child: Text(context.t('الأكثر تصويتاً', 'Most voted')),
+                    ),
+                    DropdownMenuItem(
+                      value: 'feasibility',
+                      child: Text(
+                        context.t('الأعلى جدوى', 'Most feasible'),
+                      ),
+                    ),
+                  ],
+                  onChanged: (v) => setState(() => _sort = v),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: Text(
+              context.t('يعرض $shown من $total', 'Showing $shown of $total'),
+              style: const TextStyle(
+                fontSize: 12,
+                color: Color(0xFFB7C3D6),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _runAiSync() async {
@@ -229,8 +467,8 @@ class _ResearchMarketplaceScreenState extends State<ResearchMarketplaceScreen> {
                   );
                 }
 
-                final ideas = _mergeIdeas(snapshot.data ?? const []);
-                if (ideas.isEmpty) {
+                final allIdeas = _mergeIdeas(snapshot.data ?? const []);
+                if (allIdeas.isEmpty) {
                   return Center(
                     child: Text(context.t(
                       'لا توجد أفكار في السوق حالياً',
@@ -239,11 +477,37 @@ class _ResearchMarketplaceScreenState extends State<ResearchMarketplaceScreen> {
                   );
                 }
 
+                final ideas = _visibleIdeas(allIdeas);
+
+                if (ideas.isEmpty) {
+                  return Column(
+                    children: [
+                      _buildBrowserControls(context, 0, allIdeas.length),
+                      Expanded(
+                        child: Center(
+                          child: Text(context.t(
+                            'لا نتائج مطابقة — جرّب توسيع البحث أو إلغاء الترشيح',
+                            'No matches — widen the search or clear filters',
+                          )),
+                        ),
+                      ),
+                    ],
+                  );
+                }
+
                 return ListView.builder(
+                  // +1: عنصر أدوات البحث والترشيح في الأعلى.
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 88),
-                  itemCount: ideas.length,
+                  itemCount: ideas.length + 1,
                   itemBuilder: (context, index) {
-                    final idea = ideas[index];
+                    if (index == 0) {
+                      return _buildBrowserControls(
+                        context,
+                        ideas.length,
+                        allIdeas.length,
+                      );
+                    }
+                    final idea = ideas[index - 1];
                     return _MarketIdeaCard(
                       idea: idea,
                       onTap: () {

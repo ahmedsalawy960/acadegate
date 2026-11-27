@@ -467,6 +467,9 @@ async function upsertIdeas(db, { candidates, normalized, adminUid, autoApprove, 
 
     const base = {
       title: idea.title,
+      // العنوان والملخص الأصليان (إنجليزي غالباً) — يعرضهما التطبيق بجانب الصياغة العربية.
+      titleEn: String(raw.title || "").slice(0, 300),
+      summaryEn: String(raw.summary || "").slice(0, 900),
       provider: idea.provider,
       details: idea.details,
       tags: idea.tags,

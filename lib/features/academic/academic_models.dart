@@ -172,8 +172,13 @@ class AcademicResearchIdea {
   final String importSource;
   final String externalId;
   final String sourceUrl;
+  /// العنوان والملخص بلغة المصدر (إنجليزي غالباً) للأفكار المزامنة.
+  final String titleEn;
+  final String summaryEn;
   final String seedSource;
   final double? feasibilityScore;
+  /// تاريخ نشر الفكرة (أو آخر مزامنة) — لفرز «الأحدث» في السوق.
+  final DateTime? createdAt;
 
   const AcademicResearchIdea({
     this.id,
@@ -199,8 +204,11 @@ class AcademicResearchIdea {
     this.importSource = '',
     this.externalId = '',
     this.sourceUrl = '',
+    this.titleEn = '',
+    this.summaryEn = '',
     this.seedSource = '',
     this.feasibilityScore,
+    this.createdAt,
   });
 
   bool get isOpen => status.toLowerCase() == 'open';
@@ -245,10 +253,14 @@ class AcademicResearchIdea {
       importSource: map['importSource']?.toString() ?? '',
       externalId: map['externalId']?.toString() ?? '',
       sourceUrl: map['sourceUrl']?.toString() ?? '',
+      titleEn: map['titleEn']?.toString() ?? '',
+      summaryEn: map['summaryEn']?.toString() ?? '',
       seedSource: map['seedSource']?.toString() ?? '',
       feasibilityScore: map['feasibilityScore'] is num
           ? (map['feasibilityScore'] as num).toDouble()
           : double.tryParse(map['feasibilityScore']?.toString() ?? ''),
+      createdAt: _parseDateTime(map['createdAt']) ??
+          _parseDateTime(map['syncedAt']),
     );
   }
 }
