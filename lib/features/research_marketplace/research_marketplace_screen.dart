@@ -35,6 +35,7 @@ class _ResearchMarketplaceScreenState extends State<ResearchMarketplaceScreen> {
   String _degreeFilter = '';
   String _statusFilter = '';
   String _sort = 'newest';
+  bool _newThisWeek = false;
 
   @override
   void initState() {
@@ -101,6 +102,13 @@ class _ResearchMarketplaceScreenState extends State<ResearchMarketplaceScreen> {
       out = out.where((i) => i.isAvailableForClaim).toList();
     } else if (_statusFilter == 'claimed') {
       out = out.where((i) => i.isClaimed).toList();
+    }
+    if (_newThisWeek) {
+      final cutoff = DateTime.now().subtract(const Duration(days: 7));
+      out = out.where((i) {
+        final c = i.createdAt;
+        return c != null && c.isAfter(cutoff);
+      }).toList();
     }
     final q = _query.trim();
     if (q.length >= 2) {
@@ -293,6 +301,16 @@ class _ResearchMarketplaceScreenState extends State<ResearchMarketplaceScreen> {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: FilterChip(
+              avatar: const Icon(Icons.fiber_new, size: 16),
+              label: Text(context.t('جديد هذا الأسبوع', 'New this week')),
+              selected: _newThisWeek,
+              onSelected: (v) => setState(() => _newThisWeek = v),
+            ),
           ),
           const SizedBox(height: 6),
           Align(
