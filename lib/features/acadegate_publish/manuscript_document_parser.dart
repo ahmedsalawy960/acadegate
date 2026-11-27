@@ -2290,17 +2290,24 @@ class ManuscriptDocumentParser {
   }
 
   static String? _extractTitleFromBlocks(List<ManuscriptBlock> blocks) {
-    for (final block in blocks) {
+    // Front matter only: a title never lives past the first few blocks, and
+    // the loose extraction patterns can match an ordinary mid-body sentence.
+    final window = blocks.take(12);
+    for (final block in window) {
       if (block.type == ManuscriptBlockType.heading) {
         final t = block.text.trim();
         if (DocxScientificExtractor.isPaperTitle(t)) return t;
       }
     }
-    for (final block in blocks) {
+    for (final block in window) {
       final t = block.text.trim();
+      // A block that ends like a sentence is a sentence (abstract line,
+      // body paragraph), never a title.
+      if (t.endsWith('.') || t.endsWith('!') || t.endsWith('?')) continue;
       if (DocxScientificExtractor.isPaperTitle(t)) return t;
       final extracted = DocxScientificExtractor.extractPaperTitle(t);
-      if (extracted != null) return extracted;
+      // Must anchor at the block start; a mid-sentence match is not a title.
+      if (extracted != null && t.startsWith(extracted)) return extracted;
     }
     return null;
   }
@@ -4397,7 +4404,11 @@ class ManuscriptDocumentParser {
       } else if (parsed.bodyText.length > 20) {
         final extracted =
             DocxScientificExtractor.extractPaperTitle(parsed.bodyText);
-        if (extracted != null && extracted.length > 10) {
+        // Same anchoring rule: the body text must START with the candidate,
+        // otherwise the loose pattern matched a mid-body sentence.
+        if (extracted != null &&
+            extracted.length > 10 &&
+            parsed.bodyText.trimLeft().startsWith(extracted)) {
           next = next.copyWith(
             title: AcademicText.stripTrailingAuthorFromTitle(
               AcademicText.sanitize(extracted),
@@ -5547,7 +5558,9 @@ class ManuscriptDocumentParser {
         PublishReference.numberFromImportedLine(storedRaw);
     final parsed = CitationFormatter.parseBibliographicLine(storedRaw);
     if (parsed != null) {
-      return parsed.copyWith(id: id, rawText: storedRaw, importedNumber: n);
+      return _backfillReferenceIdentifiers(
+        parsed.copyWith(id: id, rawText: storedRaw, importedNumber: n),
+      );
     }
 
     final yearMatch = RegExp(r'\b(19|20)\d{2}\b').firstMatch(block);
@@ -5598,20 +5611,81 @@ class ManuscriptDocumentParser {
         ).firstMatch(block)?.group(1)?.replaceAll(' ', '') ??
         '';
 
-    return PublishReference(
-      id: id,
-      type: ReferenceType.journal,
-      authors: authors,
-      title: title.length > 300 ? title.substring(0, 300) : title,
-      year: year,
-      doi: doi,
-      volume: vol,
-      issue: issue,
-      pages: pages,
-      container: _guessContainer(block),
-      importedNumber: n,
-      rawText: storedRaw,
+    return _backfillReferenceIdentifiers(
+      PublishReference(
+        id: id,
+        type: ReferenceType.journal,
+        authors: authors,
+        title: title.length > 300 ? title.substring(0, 300) : title,
+        year: year,
+        doi: doi,
+        volume: vol,
+        issue: issue,
+        pages: pages,
+        container: _guessContainer(block),
+        importedNumber: n,
+        rawText: storedRaw,
+      ),
     );
+  }
+
+  /// Backfills identifiers the style parsers leave out: bare `10.xxxx/...`
+  /// DOIs written without a "doi:" prefix or doi.org URL (common in Nature
+  /// style: "5, 100373; 10.1016/j.apmate.2025.100373.") and non-DOI web URLs
+  /// ("[Online]. Available: https://..."). Also reclassifies online
+  /// resources the style parsers force to [ReferenceType.journal]: a non-DOI
+  /// URL plus an explicit online marker ("[Online]", "Available", Arabic
+  /// "متاح") marks a web resource. Anything carrying journal apparatus
+  /// (volume, pages, or an issue that is not just the year in parentheses)
+  /// stays journal, so IEEE full style ("... vol. 17, no. 3, pp. 608-618.
+  /// [Online]. Available: ...") and APA "Retrieved from" on real articles
+  /// are untouched. Metadata only; the printed raw text is untouched. Runs
+  /// on every parsed reference, so all entry styles benefit from one place.
+  static PublishReference _backfillReferenceIdentifiers(
+    PublishReference ref,
+  ) {
+    var doi = ref.doi.trim();
+    // A DOI always starts 10.<4+ digits>/; anything else a style parser
+    // captured (":", ".org/", list numbers) is garbage and cleared.
+    if (doi.isNotEmpty && !RegExp(r'^10\.\d{4,9}/').hasMatch(doi)) {
+      doi = '';
+    }
+    if (doi.isEmpty) {
+      final m = RegExp(
+        r'(10\.\d{4,9}/[^\s,;)]+)',
+      ).firstMatch(ref.rawText);
+      if (m != null) {
+        final start = m.start;
+        final before = start > 0 ? ref.rawText.substring(start - 1, start) : '';
+        if (!RegExp(r'[0-9.]').hasMatch(before)) {
+          doi = m.group(1)!.replaceAll(RegExp(r'[.)]+$'), '');
+        }
+      }
+    }
+    var url = ref.url.trim();
+    if (url.isEmpty) {
+      final u = RegExp(
+        r'https?://[^\s]+',
+        caseSensitive: false,
+      ).firstMatch(ref.rawText)?.group(0)?.replaceAll(RegExp(r'[.),]+$'), '') ?? '';
+      if (u.isNotEmpty && !u.contains('doi.org')) url = u;
+    }
+    var type = ref.type;
+    if (type == ReferenceType.journal && url.isNotEmpty) {
+      final issue = ref.issue.trim();
+      final hasJournalApparatus = ref.volume.trim().isNotEmpty ||
+          ref.pages.trim().isNotEmpty ||
+          (issue.isNotEmpty && issue != ref.year.trim());
+      if (!hasJournalApparatus &&
+          RegExp(r'\[(?:O|o)nline\]|[Aa]vailable|متاح')
+              .hasMatch(ref.rawText)) {
+        type = ReferenceType.web;
+      }
+    }
+    if (doi == ref.doi.trim() && url == ref.url.trim() && type == ref.type) {
+      return ref;
+    }
+    return ref.copyWith(doi: doi, url: url, type: type);
   }
 
   static List<String> _parseAuthorList(String authorsPart) {
