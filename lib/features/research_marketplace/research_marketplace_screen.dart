@@ -587,6 +587,7 @@ class _ResearchMarketplaceScreenState extends State<ResearchMarketplaceScreen> {
                     final idea = ideas[index - 1];
                     return _MarketIdeaCard(
                       idea: idea,
+                      sortByFeasibility: _sort == 'feasibility',
                       onTap: () {
                         Navigator.push(
                           context,
@@ -613,10 +614,12 @@ class _ResearchMarketplaceScreenState extends State<ResearchMarketplaceScreen> {
 class _MarketIdeaCard extends StatelessWidget {
   final AcademicResearchIdea idea;
   final VoidCallback onTap;
+  final bool sortByFeasibility;
 
   const _MarketIdeaCard({
     required this.idea,
     required this.onTap,
+    this.sortByFeasibility = false,
   });
 
   @override
@@ -709,7 +712,8 @@ class _MarketIdeaCard extends StatelessWidget {
                               ? context.t('ماجستير', 'Master\'s')
                               : context.t('ماجستير/دكتوراه', 'MSc/PhD'),
                     ),
-                  // تظهر كلما توفّر التقييم (الأفكار المزامنة تحمله).
+                  // النسبة تظهر كلما توفّرت (المزامنة تكتبها)، وعند الفرز
+                  // بالجدوى نوضح «بدون تقييم» للأفكار بلا درجة بدل الاختفاء.
                   if ((idea.feasibilityScore ?? 0) > 0)
                     _InfoChip(
                       icon: Icons.speed,
@@ -717,6 +721,11 @@ class _MarketIdeaCard extends StatelessWidget {
                         'جدوى ${((idea.feasibilityScore ?? 0) * 100).clamp(0, 100).round()}%',
                         'Feasibility ${((idea.feasibilityScore ?? 0) * 100).clamp(0, 100).round()}%',
                       ),
+                    )
+                  else if (sortByFeasibility)
+                    _InfoChip(
+                      icon: Icons.speed,
+                      label: context.t('بدون تقييم', 'Not scored'),
                     ),
                   if (idea.isSyncedImport)
                     _InfoChip(

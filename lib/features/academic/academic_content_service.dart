@@ -338,8 +338,13 @@ class AcademicContentService {
     return _ideasOnceInFlight!;
   }
 
-  Stream<List<AcademicResearchIdea>> researchIdeasStream() {
-    return _ideasBroadcast ??= _createIdeasBroadcast();
+  Stream<List<AcademicResearchIdea>> researchIdeasStream() async* {
+    // كل مشترك جديد يحصل على آخر قائمة معروفة فوراً ثم التحديثات الحية.
+    // onListen للبث يُستدعى للمشترك الأول فقط؛ بعد إعادة بناء الواجهة عند
+    // تبديل اللغة يشترك الجديد قبل إلغاء القديم، فلا يصله شيء بدون هذا.
+    final cached = _lastIdeas;
+    if (cached != null && cached.isNotEmpty) yield cached;
+    yield* (_ideasBroadcast ??= _createIdeasBroadcast());
   }
 
   Stream<List<AcademicResearchIdea>> _createIdeasBroadcast() {

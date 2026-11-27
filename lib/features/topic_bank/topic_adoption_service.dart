@@ -141,26 +141,46 @@ class TopicAdoptionService {
     AcademicResearchIdea? idea,
   }) async {
     final tags = idea?.tags ?? const <String>[];
-    final enPlan = await TopicEnglishSearch.instance.build(
-      title: title,
-      details: details,
-      category: category,
-      tags: tags,
-    );
+    // موازنة زمنية لكل مرحلة مع بديل محلي: مساعد الكتابة قد يبطئ،
+    // والشاشة تنتظر 90 ثانية كحد أقصى للحزمة كاملة.
+    TopicEnglishSearchPlan enPlan;
+    try {
+      enPlan = await TopicEnglishSearch.instance
+          .build(
+            title: title,
+            details: details,
+            category: category,
+            tags: tags,
+          )
+          .timeout(const Duration(seconds: 15));
+    } catch (_) {
+      enPlan = TopicEnglishSearchPlan(
+        queries: [title.trim()],
+        englishTopic: title.trim(),
+      );
+    }
 
-    final duplication = await TopicDuplicationService.instance.check(
-      title: title,
-      details: details,
-      excludeIdea: idea,
-      englishSearch: enPlan,
-    );
+    TopicDuplicationReport duplication;
+    try {
+      duplication = await TopicDuplicationService.instance
+          .check(
+            title: title,
+            details: details,
+            excludeIdea: idea,
+            englishSearch: enPlan,
+          )
+          .timeout(const Duration(seconds: 25));
+    } catch (_) {
+      duplication = TopicDuplicationReport(queryTitle: title.trim());
+    }
 
     GroundedReferenceBundle refs = const GroundedReferenceBundle(topic: '');
     try {
       final scoreAgainst = enPlan.englishTopic.isNotEmpty
           ? enPlan.englishTopic
           : title;
-      refs = await GroundedReferenceService.instance.searchScientific(
+      refs = await GroundedReferenceService.instance
+          .searchScientific(
         queries: enPlan.queries,
         limit: 12,
         preferEnglish: true,
@@ -172,16 +192,19 @@ class TopicAdoptionService {
         corePhrases: TopicSimilarity.tokens(scoreAgainst).take(8),
         strongTokens:
             TopicSimilarity.tokens('$scoreAgainst $details').take(12),
-      );
+          )
+          .timeout(const Duration(seconds: 25));
     } catch (_) {
       try {
-        refs = await GroundedReferenceService.instance.searchTopic(
-          enPlan.englishTopic.isNotEmpty
-              ? enPlan.englishTopic
-              : '$title\n$details'.trim(),
-          limit: 12,
-          byRelevance: true,
-        );
+        refs = await GroundedReferenceService.instance
+            .searchTopic(
+              enPlan.englishTopic.isNotEmpty
+                  ? enPlan.englishTopic
+                  : '$title\n$details'.trim(),
+              limit: 12,
+              byRelevance: true,
+            )
+            .timeout(const Duration(seconds: 12));
       } catch (_) {}
     }
 
@@ -199,7 +222,7 @@ class TopicAdoptionService {
           title: title,
           details: details,
           category: category,
-        );
+        ).timeout(const Duration(seconds: 10));
         if (ai.$1.isNotEmpty) {
           questionsAr = ai.$1;
           questionsEn = ai.$2.isNotEmpty ? ai.$2 : questionsEn;
