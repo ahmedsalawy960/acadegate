@@ -1182,6 +1182,8 @@ class _HubProductCard extends StatelessWidget {
                   children: [
                     image.isNotEmpty
                         ? Image.network(
+                          // Web: render via <img> so suppliers without CORS headers still show.
+                          webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
                             image,
                             fit: BoxFit.cover,
                             errorBuilder: (_, _, _) => _placeholder(category),
@@ -1612,6 +1614,8 @@ class _HitTile extends StatelessWidget {
             ? ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: Image.network(
+                  // Web: render via <img> so suppliers without CORS headers still show.
+                  webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
                   hit.imageUrl!,
                   width: 48,
                   height: 48,

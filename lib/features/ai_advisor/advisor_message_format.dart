@@ -42,8 +42,12 @@ String formatAdvisorMessageContent(String content) {
     // Heading hashes at line start.
     processed = processed.replaceFirst(RegExp(r'^\s{0,3}#{1,6}\s+'), '');
 
-    // "* " bullet at line start becomes a real bullet.
-    processed = processed.replaceFirst(RegExp(r'^(\s*)\*\s+'), '\$1• ');
+    // "* " bullet at line start becomes a real bullet. Group references
+    // need replaceFirstMapped: replaceFirst would insert a literal "$1".
+    processed = processed.replaceFirstMapped(
+      RegExp(r'^(\s*)\*\s+'),
+      (m) => '${m[1]}• ',
+    );
 
     // Inline paired markers: **bold**, *italic*, `code`; then drop any
     // leftover lone backticks (backtick has no plain-text prose use).

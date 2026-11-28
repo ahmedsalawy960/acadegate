@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
+import 'package:acadegate/core/widgets/directional_icons.dart';
 
 import '../../core/locale/locale_extensions.dart';
 import '../../core/theme/acadegate_theme.dart';
@@ -139,7 +140,7 @@ class _ChoiceCard extends StatelessWidget {
                   ],
                 ),
               ),
-              Icon(Icons.chevron_left, color: color),
+              Icon(context.forwardChevron, color: color),
             ],
           ),
         ),

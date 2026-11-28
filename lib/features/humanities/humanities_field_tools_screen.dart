@@ -43,12 +43,12 @@ class HumanitiesFieldToolsScreen extends StatelessWidget {
               padding: const EdgeInsets.all(14),
               child: Text(
                 context.t(
-                  'هنا قائمة التحقق للميدان وأرشيف/كتب فقط.\n'
-                  'بناء الاستبانة/المقابلة من مرحلة «استوديو الأدوات»، '
-                  'والترميز بعد الجمع من مرحلة «التحليل النوعي» — من البوابة مباشرة.',
-                  'Checklist and archive/books only.\n'
-                  'Build survey/interview from the Research Tools stage, '
-                  'and code after collection from Qualitative Analysis — via the portal.',
+                  'قائمة تحقق للعمل الميداني، وأقسام المتجر المفيدة للأرشيف والكتب.\n'
+                  'لبناء الاستبانة أو المقابلة استخدم مرحلة «استوديو الأدوات»، '
+                  'وللترميز بعد الجمع استخدم مرحلة «التحليل النوعي» من البوابة.',
+                  'A fieldwork checklist, plus store sections for archives and books.\n'
+                  'To build a survey or interview, use the Research Tools stage. '
+                  'To code your data after collection, use Qualitative Analysis from the portal.',
                 ),
                 style: const TextStyle(height: 1.5),
               ),
@@ -81,7 +81,7 @@ class HumanitiesFieldToolsScreen extends StatelessWidget {
           _CheckLine(
             text: context.t(
               'طبّق على عينة استطلاعية صغيرة ثم راجع الصياغة',
-              'Pilot a small pilot sample, then revise wording',
+              'Run a small pilot first, then revise the wording',
             ),
           ),
           _CheckLine(
@@ -101,8 +101,8 @@ class HumanitiesFieldToolsScreen extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             context.t(
-              'أقسام المتجر الخاصة بالبحث الإنساني — وليس المتجر كاملاً',
-              'Humanities-relevant store sections — not the full marketplace',
+              'أقسام المتجر المفيدة للبحث الإنساني',
+              'Store sections useful for humanities research',
             ),
             style: TextStyle(color: const Color(0xFFB7C3D6), height: 1.35),
           ),
@@ -137,20 +137,6 @@ class HumanitiesFieldToolsScreen extends StatelessWidget {
                   onTap: () =>
                       StoreNavigator.openStoreCategory(context, cat.title),
                 ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Card(
-            color: const Color(0xFF3A2E14),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Text(
-                context.t(
-                  'لا تكرار هنا: أدوات البناء والتحليل تُفتح من مراحل البوابة فقط.',
-                  'No duplication here: build and analysis tools open only from portal stages.',
-                ),
-                style: const TextStyle(height: 1.45, color: Color(0xFFF4F7FB)),
               ),
             ),
           ),

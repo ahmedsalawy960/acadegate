@@ -67,12 +67,8 @@ class ThesisStudioDocxExport {
 
     final xml = StringBuffer();
     void title(String text, {int size = 32}) {
-      xml.write(
-        '<w:p><w:pPr><w:jc w:val="${arabic ? 'right' : 'both'}"/>'
-        '${arabic ? '<w:bidi/>' : ''}'
-        '<w:rPr><w:b/><w:sz w:val="$size"/><w:szCs w:val="$size"/></w:rPr>'
-        '</w:pPr>${_run(text, bold: true, arabic: arabic)}</w:p>',
-      );
+      xml.write(_headingXml(text, size >= 36 ? 'Title' : 'Heading1',
+          arabic: arabic));
     }
 
     void para(String text) {
@@ -131,11 +127,8 @@ class ThesisStudioDocxExport {
     final arabic = draft.arabic;
     final xml = StringBuffer();
     void title(String text, {int size = 32}) {
-      xml.write(
-        '<w:p><w:pPr><w:jc w:val="${arabic ? 'right' : 'left'}"/>'
-        '<w:rPr><w:b/><w:sz w:val="$size"/><w:szCs w:val="$size"/></w:rPr>'
-        '</w:pPr>${_run(text, bold: true, arabic: arabic)}</w:p>',
-      );
+      xml.write(_headingXml(text, size >= 36 ? 'Title' : 'Heading1',
+          arabic: arabic));
     }
 
     void para(String text) {
@@ -171,12 +164,8 @@ class ThesisStudioDocxExport {
   Uint8List build(ThesisDraft draft, {AcademicProfile? profile}) {
     final arabic = draft.arabic;
     final body = StringBuffer();
-    void heading(String text, {int size = 32}) {
-      body.write(
-        '<w:p><w:pPr><w:jc w:val="${arabic ? 'right' : 'left'}"/>'
-        '<w:rPr><w:b/><w:sz w:val="$size"/><w:szCs w:val="$size"/></w:rPr>'
-        '</w:pPr>${_run(text, bold: true, arabic: arabic)}</w:p>',
-      );
+    void heading(String text, {String style = 'Heading1'}) {
+      body.write(_headingXml(text, style, arabic: arabic));
     }
 
     void para(String text) {
@@ -193,7 +182,7 @@ class ThesisStudioDocxExport {
       ThesisStudioProse.normalizeTitle(
         draft.proposedTitle.isNotEmpty ? draft.proposedTitle : draft.goal.raw,
       ),
-      size: 40,
+      style: 'Title',
     );
     if (profile?.fullName.trim().isNotEmpty == true) {
       para(profile!.fullName.trim());
@@ -201,7 +190,7 @@ class ThesisStudioDocxExport {
     para(
       '${draft.goal.degreeLabel} · ${draft.plan.kindLabel} · ${draft.plan.shapeLabel}',
     );
-    heading(arabic ? 'الملخص' : 'Abstract', size: 28);
+    heading(arabic ? 'الملخص' : 'Abstract');
     para(
       ThesisStudioCitations.styledProse(
         draft.abstractText,
@@ -210,13 +199,14 @@ class ThesisStudioDocxExport {
       ),
     );
     if (draft.researchQuestions.isNotEmpty) {
-      heading(arabic ? 'أسئلة البحث' : 'Research questions', size: 28);
+      heading(arabic ? 'أسئلة البحث' : 'Research questions');
       for (final q in draft.researchQuestions) {
         para('• $q');
       }
     }
-    for (final ch in draft.chapters) {
-      heading(ThesisStudioProse.normalizeTitle(ch.title(arabic)), size: 32);
+    for (var ci = 0; ci < draft.chapters.length; ci++) {
+      final ch = draft.chapters[ci];
+      heading(numberedChapterTitle(ch.title(arabic), ci + 1, arabic: arabic));
       if (ch.paragraphs.isEmpty) {
         para(ThesisStudioCitations.styledProse(ch.body, draft));
       } else {
@@ -225,9 +215,11 @@ class ThesisStudioDocxExport {
         // work the paragraph actually cited.
         for (final p in ch.paragraphs) {
           if (p.body.trim().isEmpty) continue;
+          final ph = ThesisStudioProse.normalizeTitle(p.heading(arabic));
+          if (ph.trim().isNotEmpty) heading(ph, style: 'Heading2');
           para(
             ThesisStudioCitations.styledProse(
-              '${p.heading(arabic)}\n${p.body.trim()}',
+              p.body.trim(),
               draft,
               works: ThesisStudioCitations.citationListFor(
                 draft,
@@ -239,7 +231,7 @@ class ThesisStudioDocxExport {
       }
     }
     if (draft.literature.works.isNotEmpty) {
-      heading(arabic ? 'المراجع' : 'References', size: 28);
+      heading(arabic ? 'المراجع' : 'References');
       para(
         ThesisStudioCitations.bibliography(
           draft.literature.works,
@@ -249,6 +241,38 @@ class ThesisStudioDocxExport {
     }
 
     return _pack(body.toString());
+  }
+
+  static const _arabicOrdinals = [
+    'الأول', 'الثاني', 'الثالث', 'الرابع', 'الخامس',
+    'السادس', 'السابع', 'الثامن', 'التاسع', 'العاشر',
+  ];
+
+  /// One consistent "Chapter N: title" label by position, whatever numbering
+  /// style the stored title already carries (digits, words, or none).
+  static String numberedChapterTitle(String raw, int n,
+      {required bool arabic}) {
+    var t = ThesisStudioProse.normalizeTitle(raw).trim();
+    t = t.replaceFirst(
+      RegExp(r'^(?:Chapter|الفصل)\s+(?:[0-9\u0660-\u0669]+|[A-Za-z]+|[\u0600-\u06FF]+)\s*[:：.\-–—]\s*',
+          caseSensitive: false),
+      '',
+    );
+    if (t.isEmpty) return arabic ? 'الفصل ${_ordinalAr(n)}' : 'Chapter $n';
+    return arabic ? 'الفصل ${_ordinalAr(n)}: $t' : 'Chapter $n: $t';
+  }
+
+  static String _ordinalAr(int n) =>
+      n >= 1 && n <= _arabicOrdinals.length ? _arabicOrdinals[n - 1] : '$n';
+
+  /// Heading paragraph tied to a real Word style so Word builds its
+  /// navigation pane and table of contents from it.
+  static String _headingXml(String text, String style,
+      {required bool arabic}) {
+    return '<w:p><w:pPr><w:pStyle w:val="$style"/>'
+        '${arabic ? '<w:bidi/>' : ''}'
+        '<w:jc w:val="${arabic ? 'right' : 'left'}"/></w:pPr>'
+        '${_run(text, bold: true, arabic: arabic)}</w:p>';
   }
 
   static Uint8List _pack(String bodyXml) {
@@ -286,6 +310,30 @@ class ThesisStudioDocxExport {
   <w:style w:type="paragraph" w:default="1" w:styleId="Normal">
     <w:name w:val="Normal"/>
     <w:rPr><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr>
+  </w:style>
+  <w:style w:type="paragraph" w:styleId="Title">
+    <w:name w:val="Title"/>
+    <w:basedOn w:val="Normal"/>
+    <w:next w:val="Normal"/>
+    <w:qFormat/>
+    <w:pPr><w:keepNext/><w:spacing w:before="0" w:after="240"/></w:pPr>
+    <w:rPr><w:b/><w:bCs/><w:sz w:val="40"/><w:szCs w:val="40"/></w:rPr>
+  </w:style>
+  <w:style w:type="paragraph" w:styleId="Heading1">
+    <w:name w:val="heading 1"/>
+    <w:basedOn w:val="Normal"/>
+    <w:next w:val="Normal"/>
+    <w:qFormat/>
+    <w:pPr><w:keepNext/><w:spacing w:before="360" w:after="160"/><w:outlineLvl w:val="0"/></w:pPr>
+    <w:rPr><w:b/><w:bCs/><w:sz w:val="32"/><w:szCs w:val="32"/></w:rPr>
+  </w:style>
+  <w:style w:type="paragraph" w:styleId="Heading2">
+    <w:name w:val="heading 2"/>
+    <w:basedOn w:val="Normal"/>
+    <w:next w:val="Normal"/>
+    <w:qFormat/>
+    <w:pPr><w:keepNext/><w:spacing w:before="240" w:after="120"/><w:outlineLvl w:val="1"/></w:pPr>
+    <w:rPr><w:b/><w:bCs/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr>
   </w:style>
 </w:styles>''';
 

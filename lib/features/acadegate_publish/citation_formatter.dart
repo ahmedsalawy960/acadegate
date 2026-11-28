@@ -590,7 +590,34 @@ class CitationFormatter {
         BibliographySpan('${_listPrefix(index, plainNumberList)}$bodyOnly'),
       ]);
     }
-    return BibliographyEntry([BibliographySpan(body)]);
+    return BibliographyEntry([BibliographySpan(_authorDateRawPunctuation(body, style))]);
+  }
+
+  static final RegExp _rawParenYearShape = RegExp(
+    r'^([^()]{3,240}?[.)])\s*\(((?:19|20)\d{2}[a-z]?)\)\.\s+(\S.*)$',
+    dotAll: true,
+  );
+
+  /// Raw (unparsed) author-date entries are printed as the source wrote them,
+  /// which made Harvard and Chicago identical to APA. For the one shape that
+  /// can be read safely, "Authors. (Year). Rest", apply the style's own year
+  /// punctuation. Anything else is returned unchanged.
+  static String _authorDateRawPunctuation(
+    String body,
+    PublishCitationStyle style,
+  ) {
+    if (style != PublishCitationStyle.harvard &&
+        style != PublishCitationStyle.chicago) {
+      return body;
+    }
+    final m = _rawParenYearShape.firstMatch(body);
+    if (m == null) return body;
+    final lead = m.group(1)!;
+    final year = m.group(2)!;
+    final rest = m.group(3)!;
+    return style == PublishCitationStyle.chicago
+        ? '${_endWithPeriod(lead)} $year. $rest'
+        : '$lead ($year) $rest';
   }
 
   /// A DOI is printed once, in bare form, and only when it is one.
@@ -766,10 +793,15 @@ class CitationFormatter {
       PublishCitationStyle.chicago => _joinAuthorsChicago(authors),
       _ => _joinAuthorsApa(authors),
     };
-    final yearBit =
-        style == PublishCitationStyle.chicago ? '$year. ' : '($year). ';
+    final yearBit = switch (style) {
+      PublishCitationStyle.chicago => '$year. ',
+      PublishCitationStyle.harvard => '($year) ',
+      _ => '($year). ',
+    };
+    final joinedLead =
+        style == PublishCitationStyle.chicago ? _endWithPeriod(joined) : joined;
     return BibliographyEntry([
-      BibliographySpan('$joined $yearBit'),
+      BibliographySpan('$joinedLead $yearBit'),
       BibliographySpan(rest),
     ]);
   }
@@ -1551,7 +1583,12 @@ class CitationFormatter {
 
     return switch (ref.type) {
       ReferenceType.journal => () {
-          spans.add(BibliographySpan("'$title', "));
+          // The comma only belongs there when a journal tail follows it.
+          final hasTail = ref.container.isNotEmpty ||
+              ref.volume.isNotEmpty ||
+              ref.issue.isNotEmpty ||
+              ref.pages.isNotEmpty;
+          spans.add(BibliographySpan("'$title'${hasTail ? ', ' : '.'}"));
           if (ref.container.isNotEmpty) {
             spans.add(BibliographySpan(ref.container.trim(), italic: true));
           }
@@ -1564,7 +1601,7 @@ class CitationFormatter {
           if (ref.pages.isNotEmpty) {
             spans.add(BibliographySpan(', pp. ${ref.pages.trim()}'));
           }
-          spans.add(BibliographySpan('.'));
+          if (hasTail) spans.add(BibliographySpan('.'));
           return BibliographyEntry(spans);
         }(),
       ReferenceType.book => () {
@@ -1602,11 +1639,17 @@ class CitationFormatter {
     final authors = _joinAuthorsChicago(ref.authors);
     final title = ref.title.trim();
     final year = ref.year.trim().isNotEmpty ? ref.year.trim() : 'n.d.';
-    final spans = <BibliographySpan>[BibliographySpan('$authors. $year. ')];
+    final spans = <BibliographySpan>[
+      BibliographySpan('${_endWithPeriod(authors)} $year. '),
+    ];
 
     return switch (ref.type) {
       ReferenceType.journal => () {
-          spans.add(BibliographySpan('"$title." '));
+          final hasTail = ref.container.isNotEmpty ||
+              ref.volume.isNotEmpty ||
+              ref.issue.isNotEmpty ||
+              ref.pages.isNotEmpty;
+          spans.add(BibliographySpan(hasTail ? '"$title." ' : '"$title."'));
           if (ref.container.isNotEmpty) {
             spans.add(BibliographySpan(ref.container.trim(), italic: true));
           }
@@ -1619,7 +1662,7 @@ class CitationFormatter {
           if (ref.pages.isNotEmpty) {
             spans.add(BibliographySpan(': ${ref.pages.trim()}'));
           }
-          spans.add(BibliographySpan('.'));
+          if (hasTail) spans.add(BibliographySpan('.'));
           return BibliographyEntry(spans);
         }(),
       ReferenceType.book => () {
@@ -1680,6 +1723,12 @@ class CitationFormatter {
     if (formatted.length == 1) return formatted.first;
     if (formatted.length == 2) return '${formatted[0]} and ${formatted[1]}';
     return '${formatted.first} et al.';
+  }
+
+  /// Closes an author list with exactly one period.
+  static String _endWithPeriod(String text) {
+    final t = text.trimRight();
+    return t.endsWith('.') ? t : '$t.';
   }
 
   static String _joinAuthorsChicago(List<String> authors) {

@@ -25,6 +25,13 @@ class HumanitiesPublishStorage {
     );
   }
 
+  /// Removes the saved draft (author name, affiliation, abstract, notes).
+  /// Called on sign-out so the next person on the same device starts clean.
+  Future<void> clear() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_kDraft);
+  }
+
   Future<void> save(HumanitiesPublishDraft draft) async {
     draft.updatedAt = DateTime.now();
     final prefs = await SharedPreferences.getInstance();

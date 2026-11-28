@@ -79,11 +79,16 @@ class GroundedWork {
   String get apaLine {
     final who = authors.trim().isEmpty ? title : authors;
     final yearBit = year == null ? 'n.d.' : '$year';
+    String endStop(String t) {
+      final v = t.trim();
+      return RegExp(r'[.?!]$').hasMatch(v) ? v : '$v.';
+    }
+
     final journalBit =
-        journal == null || journal!.trim().isEmpty ? '' : ' $journal.';
+        journal == null || journal!.trim().isEmpty ? '' : ' ${endStop(journal!)}';
     final link = primaryUrl;
     final linkBit = link.isEmpty ? '' : ' $link';
-    return '$who ($yearBit). $title.$journalBit$linkBit';
+    return '$who ($yearBit). ${endStop(title)}$journalBit$linkBit';
   }
 }
 

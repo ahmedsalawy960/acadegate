@@ -541,6 +541,78 @@ exports.sendAppNotification = onCall(
 });
 
 /**
+ * Ops-alert types a signed-in user may broadcast to every admin account.
+ * ADMIN_FANOUT_TYPES plus the two types current clients already emit.
+ */
+const ADMIN_BROADCAST_TYPES = new Set([
+  ...ADMIN_FANOUT_TYPES,
+  "bug_report",
+  "supervisor_claim",
+]);
+
+/**
+ * Fan out an ops notification to every admin account. The users read rule is
+ * owner/admin only, so clients cannot list admins; the lookup happens here
+ * with the Admin SDK.
+ */
+exports.notifyAdmins = onCall(
+  {
+    cors: true,
+    serviceAccount: "acadegate-new@appspot.gserviceaccount.com",
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Sign in required");
+    }
+
+    const data = request.data || {};
+    const title = String(data.title || "").trim();
+    const body = String(data.body || "").trim();
+    const type = String(data.type || "general").trim();
+    const contextId = String(data.contextId || "").trim();
+    const contextType = String(data.contextType || "").trim();
+
+    if (title.length < 1 || body.length < 1) {
+      throw new HttpsError("invalid-argument", "title and body required");
+    }
+    if (title.length > 200 || body.length > 500) {
+      throw new HttpsError("invalid-argument", "title/body too long");
+    }
+    if (!ADMIN_BROADCAST_TYPES.has(type)) {
+      throw new HttpsError("invalid-argument", "Invalid notification type");
+    }
+
+    const db = getFirestore();
+    const admins = await db
+      .collection("users")
+      .where("role", "==", "admin")
+      .get();
+    if (admins.empty) {
+      return { ok: true, notified: 0 };
+    }
+
+    const batch = db.batch();
+    for (const adminDoc of admins.docs) {
+      const ref = db.collection("notifications").doc();
+      batch.set(ref, {
+        userId: adminDoc.id,
+        title,
+        body,
+        type,
+        senderId: request.auth.uid,
+        read: false,
+        ...(contextId ? { contextId } : {}),
+        ...(contextType ? { contextType } : {}),
+        createdAt: FieldValue.serverTimestamp(),
+      });
+    }
+    await batch.commit();
+
+    return { ok: true, notified: admins.size };
+  },
+);
+
+/**
  * When an admin deletes a provider, release directory ownership so the same
  * email can re-register and submit/claim again for review.
  */

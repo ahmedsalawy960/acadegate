@@ -4,6 +4,8 @@ import '../../core/locale/app_translate.dart';
 import '../messaging/chat_media.dart';
 import '../moderation/approval_status.dart';
 import 'community_data.dart';
+import 'starter_text.dart';
+import '../../core/locale/locale_service.dart';
 
 class CommunityPost {
   final String? id;
@@ -101,16 +103,26 @@ class CommunityPost {
         ? rawScope
         : PostAudienceScope.faculty;
 
+    final isStarter = map['isStarterContent'] == true;
+    final english = LocaleService.instance.isEnglish;
+    String starter(String text, String separator) => isStarter
+        ? pickStarterLanguage(text, separator: separator, english: english)
+        : text;
+
     return CommunityPost(
       id: id,
       roomId: map['roomId']?.toString() ?? 'general',
       type: map['type']?.toString() ?? CommunityPostType.discussion,
-      title: map['title']?.toString() ??
-          appTr('بدون عنوان', 'Untitled'),
-      body: map['body']?.toString() ?? '',
+      title: starter(
+        map['title']?.toString() ?? appTr('بدون عنوان', 'Untitled'),
+        kStarterTitleSeparator,
+      ),
+      body: starter(map['body']?.toString() ?? '', kStarterBodySeparator),
       authorId: map['authorId']?.toString() ?? '',
-      authorName: map['authorName']?.toString() ??
-          appTr('طالب', 'Student'),
+      authorName: starter(
+        map['authorName']?.toString() ?? appTr('طالب', 'Student'),
+        kStarterTitleSeparator,
+      ),
       authorBadge: map['authorBadge']?.toString() ?? '',
       bestReplyId: map['bestReplyId']?.toString() ?? '',
       paperKey: map['paperKey']?.toString() ?? '',

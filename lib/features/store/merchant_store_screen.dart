@@ -698,6 +698,8 @@ class _MyProductsTabState extends State<_MyProductsTab> {
                     height: 52,
                     child: imageUrl != null && imageUrl.isNotEmpty
                         ? Image.network(
+                          // Web: render via <img> so suppliers without CORS headers still show.
+                          webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
                             imageUrl,
                             fit: BoxFit.cover,
                             errorBuilder: (_, _, _) => const ColoredBox(

@@ -41,16 +41,16 @@ class UsageQuotaBanner extends StatelessWidget {
             if (showGemini) {
               parts.add(
                 context.t(
-                  'الكتابة ${usage.geminiRemaining}/${usage.geminiLimit}',
-                  'Writing ${usage.geminiRemaining}/${usage.geminiLimit}',
+                  'الكتابة: متبقٍ ${usage.geminiRemaining} من ${usage.geminiLimit}',
+                  'Writing: ${usage.geminiRemaining} of ${usage.geminiLimit} left',
                 ),
               );
             }
             if (showScholar) {
               parts.add(
                 context.t(
-                  'جلب المراجع ${usage.scholarRemaining}/${usage.scholarLimit}',
-                  'References ${usage.scholarRemaining}/${usage.scholarLimit}',
+                  'جلب المراجع: متبقٍ ${usage.scholarRemaining} من ${usage.scholarLimit}',
+                  'References: ${usage.scholarRemaining} of ${usage.scholarLimit} left',
                 ),
               );
             }

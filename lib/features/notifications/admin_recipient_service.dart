@@ -1,23 +1,21 @@
-import '../auth/user_account.dart';
-import '../auth/user_account_service.dart';
-import '../auth/user_role.dart';
-import 'notification_service.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:flutter/foundation.dart';
+
+import '../../core/firebase/callable_http_client.dart';
 
 /// Fan-out in-app notifications to every admin account.
+///
+/// Admins are resolved server-side by the notifyAdmins callable. Clients no
+/// longer query users by role: the users read rule is owner/admin only.
 class AdminRecipientService {
   AdminRecipientService._();
 
   static final AdminRecipientService instance = AdminRecipientService._();
 
-  Future<List<UserAccount>> loadAdmins() async {
-    final snapshot = await UserAccountService.instance.usersCollection
-        .where('role', isEqualTo: UserRole.admin)
-        .get();
-    return snapshot.docs
-        .map((doc) => UserAccount.fromMap(doc.data(), uid: doc.id))
-        .toList();
-  }
+  static bool get _preferHttpCallable =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
 
+  /// Best-effort: a notification failure never blocks the caller's flow.
   Future<void> notifyAllAdmins({
     required String title,
     required String body,
@@ -25,19 +23,48 @@ class AdminRecipientService {
     String contextId = '',
     String contextType = '',
   }) async {
-    final admins = await loadAdmins();
-    for (final admin in admins) {
-      try {
-        await NotificationService.instance.send(
-          userId: admin.uid,
-          title: title,
-          body: body,
-          type: type,
-          contextId: contextId,
-          contextType: contextType,
+    final payload = <String, dynamic>{
+      'title': title,
+      'body': body,
+      'type': type,
+      if (contextId.isNotEmpty) 'contextId': contextId,
+      if (contextType.isNotEmpty) 'contextType': contextType,
+    };
+    try {
+      if (_preferHttpCallable) {
+        await CallableHttpClient.call(
+          name: 'notifyAdmins',
+          data: payload,
+          timeout: const Duration(seconds: 30),
+          callableProtocol: true,
         );
-      } catch (_) {
-        // Continue notifying remaining admins.
+        return;
+      }
+
+      final callable = FirebaseFunctions.instance.httpsCallable(
+        'notifyAdmins',
+        options: HttpsCallableOptions(timeout: const Duration(seconds: 30)),
+      );
+      await callable.call(payload);
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('notifyAdmins failed: $e');
+      }
+      // Fallback for channel errors on desktop.
+      if (!_preferHttpCallable &&
+          e.toString().toLowerCase().contains('channel')) {
+        try {
+          await CallableHttpClient.call(
+            name: 'notifyAdmins',
+            data: payload,
+            timeout: const Duration(seconds: 30),
+            callableProtocol: true,
+          );
+        } catch (fallbackError) {
+          if (kDebugMode) {
+            debugPrint('notifyAdmins fallback failed: $fallbackError');
+          }
+        }
       }
     }
   }

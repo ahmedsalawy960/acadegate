@@ -1040,6 +1040,8 @@ class _ProductGalleryState extends State<_ProductGallery> {
                       itemCount: widget.urls.length,
                       onPageChanged: (i) => setState(() => _index = i),
                       itemBuilder: (_, i) => Image.network(
+                        // Web: render via <img> so suppliers without CORS headers still show.
+                        webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
                         widget.urls[i],
                         fit: BoxFit.contain,
                         alignment: Alignment.center,

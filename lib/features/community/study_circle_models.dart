@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../core/locale/app_translate.dart';
+import '../../core/locale/locale_service.dart';
+import 'starter_text.dart';
 
 class StudyCircle {
   final String id;
@@ -34,17 +36,30 @@ class StudyCircle {
     final raw = map['createdAt'];
     if (raw is Timestamp) created = raw.toDate();
 
+    final isStarter = map['isStarterContent'] == true;
+    final english = LocaleService.instance.isEnglish;
+    String starter(String text, String separator) => isStarter
+        ? pickStarterLanguage(text, separator: separator, english: english)
+        : text;
+
     return StudyCircle(
       id: id,
-      title: map['title']?.toString() ??
-          appTr('دائرة دراسة', 'Study circle'),
-      description: map['description']?.toString() ?? '',
+      title: starter(
+        map['title']?.toString() ?? appTr('دائرة دراسة', 'Study circle'),
+        kStarterTitleSeparator,
+      ),
+      description: starter(
+        map['description']?.toString() ?? '',
+        kStarterDescriptionSeparator,
+      ),
       facultyCategory: map['facultyCategory']?.toString() ?? '',
       specialization: map['specialization']?.toString() ?? '',
       researchInterest: map['researchInterest']?.toString() ?? '',
       creatorId: map['creatorId']?.toString() ?? '',
-      creatorName: map['creatorName']?.toString() ??
-          appTr('باحث', 'Researcher'),
+      creatorName: starter(
+        map['creatorName']?.toString() ?? appTr('باحث', 'Researcher'),
+        kStarterTitleSeparator,
+      ),
       researchRoomId: map['researchRoomId']?.toString(),
       membersCount: map['membersCount'] is int
           ? map['membersCount'] as int

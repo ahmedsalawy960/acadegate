@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 
 import '../admin/admin_activity_service.dart';
 import '../analytics/kpi_analytics_service.dart';
+import '../humanities/humanities_prefs.dart';
+import '../humanities_publish/humanities_publish_storage.dart';
 import '../profile/academic_profile_service.dart';
 import 'portal_service.dart';
 
@@ -44,6 +46,12 @@ class AuthNavigation {
 
     AcademicProfileService.instance.clearCache();
     PortalService.clearGuestPortal();
+    try {
+      await HumanitiesPublishStorage.instance.clear();
+      await HumanitiesPrefs.clear();
+    } catch (_) {
+      // Clearing local drafts must never block signing out.
+    }
     await FirebaseAuth.instance.signOut();
     if (!context.mounted) return;
 

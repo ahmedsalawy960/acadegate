@@ -1047,7 +1047,14 @@ class SmartLabCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    // Announced as a button so assistive tech and keyboard users can open
+    // the lab; a bare Card+InkWell is only a semantics group on web.
+    return Semantics(
+      container: true,
+      button: true,
+      label: lab.name,
+      hint: context.t('اضغط لعرض تفاصيل المعمل', 'Tap to view lab details'),
+      child: Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: InkWell(
         onTap: onTap,
@@ -1155,6 +1162,7 @@ class SmartLabCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
       ),
     );
   }

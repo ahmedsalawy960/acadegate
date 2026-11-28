@@ -53,6 +53,10 @@ void main() {
       final out = formatAdvisorMessageContent('* أولاً\n* ثانياً');
       expect(out, contains('• أولاً'));
       expect(out, contains('• ثانياً'));
+      // Regression: a literal "\$1" leaked when this used replaceFirst with
+      // a group reference; substring checks above still passed then.
+      expect(out, isNot(contains(r'\$1')));
+      expect(out.split('\n'), ['• أولاً', '• ثانياً']);
     });
 
     test('still strips headings, bold, fences and the plan marker', () {

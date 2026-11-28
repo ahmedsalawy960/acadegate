@@ -296,7 +296,53 @@ class ManuscriptDocumentParser {
     ];
   }
 
+  static const int _maxDocxBytes = 32 * 1024 * 1024;
+  static const int _maxDocxEntries = 5000;
+  static const int _maxDocxUncompressed = 200 * 1024 * 1024;
+
+  /// Refuses a hostile zip before anything is inflated: reads only the central
+  /// directory sizes, never the entry data.
+  @visibleForTesting
+  static void checkDocxZipBounds(Uint8List bytes) {
+    if (bytes.length > _maxDocxBytes) {
+      throw const FormatException('DOCX file is too large.');
+    }
+    var eocd = -1;
+    final lowest = bytes.length > 22 + 65535 ? bytes.length - 22 - 65535 : 0;
+    for (var i = bytes.length - 22; i >= lowest; i--) {
+      if (bytes[i] == 0x50 &&
+          bytes[i + 1] == 0x4b &&
+          bytes[i + 2] == 0x05 &&
+          bytes[i + 3] == 0x06) {
+        eocd = i;
+        break;
+      }
+    }
+    if (eocd < 0) return; // Not a readable zip; the decoder reports it.
+    final data = ByteData.sublistView(bytes);
+    final count = data.getUint16(eocd + 10, Endian.little);
+    var pos = data.getUint32(eocd + 16, Endian.little);
+    if (count > _maxDocxEntries) {
+      throw const FormatException('DOCX has too many entries.');
+    }
+    var total = 0;
+    for (var i = 0; i < count; i++) {
+      if (pos + 46 > bytes.length || data.getUint32(pos, Endian.little) != 0x02014b50) {
+        return;
+      }
+      total += data.getUint32(pos + 24, Endian.little);
+      if (total > _maxDocxUncompressed) {
+        throw const FormatException('DOCX expands to too much data.');
+      }
+      pos += 46 +
+          data.getUint16(pos + 28, Endian.little) +
+          data.getUint16(pos + 30, Endian.little) +
+          data.getUint16(pos + 32, Endian.little);
+    }
+  }
+
   static String _extractDocxText(Uint8List bytes) {
+    checkDocxZipBounds(bytes);
     final archive = ZipDecoder().decodeBytes(bytes);
     final numbering = DocxListNumbering.fromArchive(archive);
     final buffer = StringBuffer();
@@ -2732,6 +2778,7 @@ class ManuscriptDocumentParser {
   }
 
   static List<ManuscriptBlock> _extractDocxBlocks(Uint8List bytes) {
+    checkDocxZipBounds(bytes);
     final archive = ZipDecoder().decodeBytes(bytes);
     final entry = archive.findFile('word/document.xml');
     if (entry == null) return const [];

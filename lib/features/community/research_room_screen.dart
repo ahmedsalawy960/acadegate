@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
+import 'package:acadegate/core/widgets/directional_icons.dart';
 
 import '../../core/locale/locale_extensions.dart';
 import 'community_data.dart';
@@ -435,7 +436,7 @@ class _ResearchRoomScreenState extends State<ResearchRoomScreen> {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      trailing: const Icon(Icons.chevron_left),
+                      trailing: Icon(context.forwardChevron),
                       onTap: () {
                         Navigator.push(
                           context,

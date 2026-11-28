@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
+import 'package:acadegate/core/widgets/directional_icons.dart';
 
 import '../../core/locale/l10n_lookup.dart';
 import '../../core/locale/locale_extensions.dart';
@@ -326,7 +327,7 @@ class _HumanitiesTopicsScreenState extends State<HumanitiesTopicsScreen> {
                             ],
                           ),
                         ),
-                        trailing: const Icon(Icons.chevron_left),
+                        trailing: Icon(context.forwardChevron),
                         onTap: () {
                           Navigator.push(
                             context,

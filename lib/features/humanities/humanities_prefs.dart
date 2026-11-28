@@ -13,6 +13,11 @@ class HumanitiesPrefs {
     return HumanitiesTrackX.fromId(prefs.getString(_keyTrack));
   }
 
+  static Future<void> clear() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_keyTrack);
+  }
+
   static Future<void> saveTrack(HumanitiesTrack track) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyTrack, track.id);

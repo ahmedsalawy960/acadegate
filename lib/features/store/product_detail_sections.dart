@@ -106,6 +106,8 @@ class ProductSimilarSection extends StatelessWidget {
                                 ),
                                 child: (p.imageUrl ?? '').isNotEmpty
                                     ? Image.network(
+                                      // Web: render via <img> so suppliers without CORS headers still show.
+                                      webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
                                         p.imageUrl!,
                                         fit: BoxFit.cover,
                                         errorBuilder: (_, _, _) => const Icon(

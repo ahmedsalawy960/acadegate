@@ -1,6 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../core/locale/app_translate.dart';
+import '../../core/locale/locale_service.dart';
+import 'community_starter_content.dart' show kStarterAuthorName;
+import 'starter_text.dart';
 import '../messaging/chat_media.dart';
 
 class ResearchRoom {
@@ -44,14 +47,28 @@ class ResearchRoom {
     final lastRaw = map['lastActivityAt'];
     if (lastRaw is Timestamp) lastActivity = lastRaw.toDate();
 
+    // Starter rooms are the ones created by the official team account.
+    final isStarter = map['creatorName']?.toString() == kStarterAuthorName;
+    final english = LocaleService.instance.isEnglish;
+    String starter(String text, String separator) => isStarter
+        ? pickStarterLanguage(text, separator: separator, english: english)
+        : text;
+
     return ResearchRoom(
       id: id,
-      title: map['title']?.toString() ??
-          appTr('غرفة بحثية', 'Research room'),
-      description: map['description']?.toString() ?? '',
+      title: starter(
+        map['title']?.toString() ?? appTr('غرفة بحثية', 'Research room'),
+        kStarterTitleSeparator,
+      ),
+      description: starter(
+        map['description']?.toString() ?? '',
+        kStarterDescriptionSeparator,
+      ),
       creatorId: map['creatorId']?.toString() ?? '',
-      creatorName: map['creatorName']?.toString() ??
-          appTr('باحث', 'Researcher'),
+      creatorName: starter(
+        map['creatorName']?.toString() ?? appTr('باحث', 'Researcher'),
+        kStarterTitleSeparator,
+      ),
       categoryId: map['categoryId']?.toString(),
       isPasswordProtected: map['isPasswordProtected'] == true,
       passwordHash: map['passwordHash']?.toString(),

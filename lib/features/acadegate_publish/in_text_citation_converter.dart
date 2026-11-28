@@ -387,7 +387,16 @@ class InTextCitationConverter {
     return source.replaceAllMapped(
       RegExp(r'\[(\d{1,3}(?:\s*[,;]\s*\d{1,3})*)\]'),
       (m) {
-        if (_keepBracketAsWritten(source, m.start, m.end)) {
+        final bracketNums = [
+          for (final p in m.group(1)!.split(RegExp(r'\s*[,;]\s*')))
+            int.tryParse(p.trim()),
+        ].whereType<int>().where((n) => n > 0).toList();
+        // A glued bracket ("features[50]and") is normal after PDF conversion.
+        // It stays put only when some number in it names no reference, so
+        // identifiers and stray brackets are kept while real citations convert.
+        final allResolve = bracketNums.isNotEmpty &&
+            bracketNums.every((n) => match.byNumber(n) != null);
+        if (!allResolve && _keepBracketAsWritten(source, m.start, m.end)) {
           return m.group(0)!;
         }
         final before = source.substring(0, m.start);

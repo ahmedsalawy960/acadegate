@@ -1079,6 +1079,8 @@ class _ProductCard extends StatelessWidget {
                     color: Colors.white,
                     child: hasImage
                         ? Image.network(
+                          // Web: render via <img> so suppliers without CORS headers still show.
+                          webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
                             imageUrl!.trim(),
                             fit: BoxFit.contain,
                             errorBuilder: (_, _, _) => _iconBox(),

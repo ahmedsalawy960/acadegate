@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
+import 'package:acadegate/core/widgets/directional_icons.dart';
 
 import '../../core/locale/l10n_lookup.dart';
 import '../../core/locale/locale_extensions.dart';
@@ -640,7 +641,8 @@ class _RoomCard extends StatelessWidget {
                   ],
                 ),
               ),
-              trailing ?? const Icon(Icons.chevron_left, color: Color(0xFF44403C)),
+              trailing ??
+                  Icon(context.forwardChevron, color: const Color(0xFF44403C)),
             ],
           ),
         ),
