@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -621,25 +622,48 @@ class _ResearchIdeaMarketplaceDetailScreenState
                           if (link.isNotEmpty) link,
                         ];
                         final text = parts.join('\n');
+
+                        Future<bool> copyToClipboard() async {
+                          try {
+                            await Clipboard.setData(ClipboardData(text: text));
+                            return true;
+                          } catch (_) {
+                            return false;
+                          }
+                        }
+
+                        void showResult(bool copied) {
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                copied
+                                    ? context.t(
+                                        'نُسخ نص الفكرة - الصقه أين تريد',
+                                        'Idea text copied - paste it anywhere',
+                                      )
+                                    : context.t(
+                                        'تعذرت المشاركة الآن - حاول مرة أخرى',
+                                        'Sharing is unavailable right now - please try again',
+                                      ),
+                              ),
+                            ),
+                          );
+                        }
+
+                        if (kIsWeb) {
+                          // Web Share support is inconsistent, and awaiting its
+                          // failure burns the click gesture the clipboard API
+                          // needs. On the web, copy first inside the gesture.
+                          showResult(await copyToClipboard());
+                          return;
+                        }
                         try {
                           await SharePlus.instance.share(
                             ShareParams(text: text),
                           );
                         } catch (_) {
-                          // Web share can be unavailable; fall back to copy.
-                          await Clipboard.setData(ClipboardData(text: text));
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  context.t(
-                                    'نُسخ نص الفكرة - الصقه أين تريد',
-                                    'Idea text copied - paste it anywhere',
-                                  ),
-                                ),
-                              ),
-                            );
-                          }
+                          showResult(await copyToClipboard());
                         }
                       },
                     ),
@@ -663,8 +687,8 @@ class _ResearchIdeaMarketplaceDetailScreenState
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(context.t(
-                        'هذه فكرة تجريبية. للتصويت والتقديم، أضف أفكاراً في Firebase أو انشر فكرة جديدة.',
-                        'This is a demo idea. To vote and submit, add ideas in Firebase or publish a new one.',
+                        'هذه فكرة استرشادية للعرض فقط. للتصويت أو التقديم، تصفح الأفكار المنشورة.',
+                        'This is a sample idea for browsing only. To vote or submit, open the published ideas.',
                       )),
                     ),
                   ],

@@ -39,9 +39,12 @@ class _TopicAdoptionScreenState extends State<TopicAdoptionScreen> {
   static const _brand = Color(0xFFEF6C00);
 
   TopicAdoptionPack? _pack;
-  bool _loading = true;
+  bool _loading = false;
   String? _error;
   bool _claiming = false;
+  // The check fires the AI assistant (signed-in users) and costs daily quota,
+  // so it never starts on screen open — only on an explicit tap.
+  bool _started = false;
 
   String get _title =>
       (widget.idea?.title ?? widget.initialTitle ?? '').trim();
@@ -53,6 +56,11 @@ class _TopicAdoptionScreenState extends State<TopicAdoptionScreen> {
   @override
   void initState() {
     super.initState();
+  }
+
+  void _start() {
+    if (_loading) return;
+    setState(() => _started = true);
     _run();
   }
 
@@ -185,12 +193,14 @@ class _TopicAdoptionScreenState extends State<TopicAdoptionScreen> {
             ),
           IconButton(
             tooltip: context.t('إعادة', 'Refresh'),
-            onPressed: _loading ? null : _run,
+            onPressed: _loading ? null : _start,
             icon: const Icon(Icons.refresh),
           ),
         ],
       ),
-      body: _loading
+      body: !_started
+          ? _buildStartPanel(context)
+          : _loading
           ? Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -233,6 +243,46 @@ class _TopicAdoptionScreenState extends State<TopicAdoptionScreen> {
                   ),
                 )
               : _buildBody(context, _pack!),
+    );
+  }
+
+  Widget _buildStartPanel(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.fact_check_outlined,
+                size: 56, color: const Color(0xFFB7C3D6)),
+            const SizedBox(height: 14),
+            Text(
+              context.t(
+                'يفحص هذا التحليل تشابه الفكرة مع الأفكار والدراسات المنشورة، ويجمع مراجع وأسئلة مقترحة.',
+                'This check compares the idea against published ideas and studies, and gathers references and suggested questions.',
+              ),
+              textAlign: TextAlign.center,
+            ),
+            if (GeminiAdvisorClient.isAvailable) ...[
+              const SizedBox(height: 8),
+              Text(
+                context.t(
+                  'يستهلك الفحص جزءاً من حصتك اليومية للتحليل الذكي.',
+                  'The check uses part of your daily smart-analysis quota.',
+                ),
+                textAlign: TextAlign.center,
+                style: TextStyle(color: const Color(0xFFB7C3D6), fontSize: 12.5),
+              ),
+            ],
+            const SizedBox(height: 18),
+            FilledButton.icon(
+              onPressed: _start,
+              icon: const Icon(Icons.play_arrow),
+              label: Text(context.t('ابدأ الفحص', 'Start the check')),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

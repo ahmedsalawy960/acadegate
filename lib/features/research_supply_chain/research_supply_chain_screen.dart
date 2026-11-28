@@ -85,9 +85,9 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
         _topicController.text = profile.researchInterest;
       }
     });
-    if ((widget.initialGoal?.trim().isNotEmpty ?? false) && _bundle == null) {
-      await _buildChain();
-    }
+    // No auto-build here: _buildChain runs the local matcher and then the AI
+    // analysis, and every run costs daily smart-analysis quota. The topic is
+    // prefilled above; the build starts only on an explicit tap.
   }
 
   Future<void> _buildChain() async {

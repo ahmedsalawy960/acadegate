@@ -124,6 +124,7 @@ class _PublishResearchIdeaScreenState extends State<PublishResearchIdeaScreen> {
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 initialValue: _categoryId,
+                menuMaxHeight: 400,
                 decoration: InputDecoration(
                   labelText: context.t('الكلية / التخصص', 'Faculty / field'),
                   border: const OutlineInputBorder(),

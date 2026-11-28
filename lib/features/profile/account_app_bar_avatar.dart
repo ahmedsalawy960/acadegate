@@ -43,8 +43,11 @@ class AccountAppBarAvatar extends StatelessWidget {
                   ),
                 );
               },
-              child: SafeNetworkAvatar(
-                imageUrl: photoUrl,
+              child: ExcludeSemantics(
+                // The Tooltip above already labels this button; without this
+                // the initial letter joins the label ("حسابي ح").
+                child: SafeNetworkAvatar(
+                  imageUrl: photoUrl,
                 radius: 16,
                 fallback: Text(
                   initial.toUpperCase(),
@@ -52,6 +55,7 @@ class AccountAppBarAvatar extends StatelessWidget {
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
+                  ),
                   ),
                 ),
               ),

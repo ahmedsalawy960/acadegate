@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
 import 'academic_models.dart';
@@ -344,6 +345,14 @@ class AcademicContentService {
     // تبديل اللغة يشترك الجديد قبل إلغاء القديم، فلا يصله شيء بدون هذا.
     final cached = _lastIdeas;
     if (cached != null && cached.isNotEmpty) yield cached;
+    // Guests: the rules deny listing research_ideas before sign-in, so a
+    // guest query always fails with permission-denied console noise. Skip
+    // Firestore entirely; screens merge in the curated bundle, and a fresh
+    // subscription after sign-in gets live data.
+    if (FirebaseAuth.instance.currentUser == null) {
+      yield const <AcademicResearchIdea>[];
+      return;
+    }
     yield* (_ideasBroadcast ??= _createIdeasBroadcast());
   }
 
