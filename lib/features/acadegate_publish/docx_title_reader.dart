@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:math' as math;
-import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
+import 'package:flutter/foundation.dart';
 import 'package:xml/xml.dart';
 
 /// Source-order evidence for a title, before paragraph merging loses its role.
@@ -125,6 +125,8 @@ class DocxTitleReader {
             }
           }
         }
+        text = collapseTitleEcho(text);
+        if (hasDanglingEtAl(text)) continue;
         final words = text.split(RegExp(r'\s+')).length;
         var score =
             math.min(line.size, 60).toDouble() + math.min(words, 14) - i * .65;
@@ -147,6 +149,35 @@ class DocxTitleReader {
       return null;
     }
   }
+
+  /// Converted documents sometimes print the title twice in one run
+  /// ("Title:Title: rest", "Needs assessment of theNeeds assessment of the").
+  /// A leading phrase of at least 8 characters that is immediately repeated is
+  /// collapsed to one copy. Nothing else is rewritten.
+  @visibleForTesting
+  static String collapseTitleEcho(String t) {
+    final text = t.trim();
+    final max = text.length ~/ 2;
+    for (var n = 8; n <= max; n++) {
+      final head = text.substring(0, n);
+      if (!text.startsWith(head, n)) continue;
+      // Take the longest repeated head so a long echo is removed whole.
+      var best = n;
+      for (var m = n + 1; m <= max; m++) {
+        if (text.startsWith(text.substring(0, m), m)) best = m;
+      }
+      final rest = text.substring(best);
+      final out = rest.trim();
+      final cleaned = out.replaceFirst(RegExp(r'[:\s]+$'), '');
+      return cleaned.length >= 8 ? cleaned : text;
+    }
+    return text;
+  }
+
+  /// A title that ends in "et al." is a cut-off author line, not a title.
+  @visibleForTesting
+  static bool hasDanglingEtAl(String t) =>
+      RegExp(r'\bet\s+al\.?\s*$', caseSensitive: false).hasMatch(t.trim());
 
   static bool _bodyBoundary(String t) =>
       RegExp(r'^(?:[:.\s]*)(?:ملخص|الملخص|مستخلص|المستخلص)(?:$|[\s:])').hasMatch(_plainArabic(t)) ||

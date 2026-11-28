@@ -1066,6 +1066,7 @@ class ManuscriptDocxExportService {
         span.text,
         rules: rules,
         italic: span.italic,
+        bold: span.bold,
         fontHalfPoints: rules.effectiveReferenceFontHalfPoints,
       ));
     }

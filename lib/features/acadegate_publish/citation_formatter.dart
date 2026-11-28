@@ -8,8 +8,9 @@ import 'publish_models.dart';
 class BibliographySpan {
   final String text;
   final bool italic;
+  final bool bold;
 
-  const BibliographySpan(this.text, {this.italic = false});
+  const BibliographySpan(this.text, {this.italic = false, this.bold = false});
 }
 
 class BibliographyEntry {
@@ -39,10 +40,7 @@ class CitationFormatter {
     if (isNumberedStyle(style)) {
       spans.add(
         BibliographySpan(
-          _listPrefix(
-            index,
-            plainNumberList || style == PublishCitationStyle.acs,
-          ),
+          _stylePrefix(style, index, plainNumberList),
         ),
       );
     }
@@ -51,7 +49,7 @@ class CitationFormatter {
       final text = span.text.substring(count);
       remove -= count;
       if (text.isNotEmpty) {
-        spans.add(BibliographySpan(text, italic: span.italic));
+        spans.add(BibliographySpan(text, italic: span.italic, bold: span.bold));
       }
     }
     return BibliographyEntry(spans);
@@ -234,7 +232,27 @@ class CitationFormatter {
   }
 
   /// Parse an imported IEEE / Vancouver / APA / ACS line into structured fields.
-  static PublishReference? parseBibliographicLine(String raw) {
+  static PublishReference? parseBibliographicLine(String raw) =>
+      _splitContainerLocator(_parseBibliographicLineCore(raw));
+
+  /// "Journal 31: 174-177" left whole in the container prints the pages twice
+  /// in every style. Move the volume/issue/pages out when those fields are
+  /// still empty.
+  static PublishReference? _splitContainerLocator(PublishReference? ref) {
+    if (ref == null || ref.container.isEmpty) return ref;
+    final m = RegExp(
+      r'^(.{3,}?)\s+(\d{1,4})(?:\s*\(([^)]{1,10})\))?\s*:\s*([A-Za-z]?\d+(?:\s*[-–]\s*[A-Za-z]?\d+)?)\.?$',
+    ).firstMatch(ref.container.trim());
+    if (m == null) return ref;
+    return ref.copyWith(
+      container: m.group(1)!.trim(),
+      volume: ref.volume.isEmpty ? m.group(2)! : ref.volume,
+      issue: ref.issue.isEmpty ? (m.group(3) ?? '') : ref.issue,
+      pages: ref.pages.isEmpty ? m.group(4)!.replaceAll(RegExp(r'\s+'), '') : ref.pages,
+    );
+  }
+
+  static PublishReference? _parseBibliographicLineCore(String raw) {
     var s = AcademicText.sanitize(raw).trim();
     if (s.length < 20) return null;
     s = _cleanRawCitation(s);
@@ -273,14 +291,13 @@ class CitationFormatter {
     required bool plainNumberList,
   }) {
     return switch (style) {
-      PublishCitationStyle.ieee ||
-      PublishCitationStyle.vancouver =>
+      PublishCitationStyle.ieee =>
         _buildIeeeEntry(reference, index, plainNumberList: plainNumberList),
+      PublishCitationStyle.vancouver => _buildVancouverEntry(reference, index),
       PublishCitationStyle.apa => _buildApaEntry(reference),
       PublishCitationStyle.harvard => _buildHarvardEntry(reference),
       PublishCitationStyle.chicago => _buildChicagoEntry(reference),
-      PublishCitationStyle.acs =>
-        _buildIeeeEntry(reference, index, plainNumberList: plainNumberList),
+      PublishCitationStyle.acs => _buildAcsEntry(reference, index),
     };
   }
 
@@ -579,7 +596,7 @@ class CitationFormatter {
   }) {
     final body = _cleanRawCitation(AcademicText.sanitize(raw));
     if (body.isEmpty) {
-      return BibliographyEntry([BibliographySpan(_listPrefix(index, plainNumberList).trim())]);
+      return BibliographyEntry([BibliographySpan(_stylePrefix(style, index, plainNumberList).trim())]);
     }
     if (isNumberedStyle(style)) {
       final bodyOnly = body.replaceFirst(
@@ -587,7 +604,7 @@ class CitationFormatter {
         '',
       );
       return BibliographyEntry([
-        BibliographySpan('${_listPrefix(index, plainNumberList)}$bodyOnly'),
+        BibliographySpan('${_stylePrefix(style, index, plainNumberList)}$bodyOnly'),
       ]);
     }
     return BibliographyEntry([BibliographySpan(_authorDateRawPunctuation(body, style))]);
@@ -907,12 +924,28 @@ class CitationFormatter {
     if (words.length < 2) return null;
     final vancouver = _vancouverCompact(words);
     if (vancouver != null) return vancouver;
+    final particle = _particleCompact(words);
+    if (particle != null) return particle;
     final surname = words.last;
     if (_looksLikeInitialsNotSurname(surname)) return null;
     return (
       surname: surname,
       initialTokens: words.sublist(0, words.length - 1),
     );
+  }
+
+  /// `de Cock M` / `van de Bor M` — a surname with lowercase particles followed
+  /// by compact initials. Every word before the initials must be a name word.
+  static ({String surname, List<String> initialTokens})? _particleCompact(
+    List<String> words,
+  ) {
+    if (words.length < 3 || !_isInitialsToken(words.last)) return null;
+    final lead = words.sublist(0, words.length - 1);
+    if (lead.any((w) => w.contains('.') || !RegExp(r"^[\p{L}'\-]+$", unicode: true).hasMatch(w))) {
+      return null;
+    }
+    if (!RegExp(r'^[a-z]').hasMatch(lead.first)) return null;
+    return (surname: lead.join(' '), initialTokens: [words.last]);
   }
 
   /// `Jia L` / `Dotto GL` / `Shah MUH` — surname first, compact initials after.
@@ -1014,7 +1047,7 @@ class CitationFormatter {
     if (authors.isEmpty) return null;
     final rest = s.substring(authorEnd + 2).trim();
     final publication = RegExp(
-      r'\b((?:19|20)\d{2})\s*;\s*(\d*)(?:\(([^)]+)\))?\s*:\s*([A-Za-z]?\d+(?:[-–][A-Za-z]?\d+)?)',
+      r'\b((?:19|20)\d{2})(?:\s+(?:[A-Z][a-z]{2,8}(?:\s*[-–/]\s*[A-Z][a-z]{2,8})?)(?:\s+\d{1,2})?)?\s*;\s*(\d*)(?:\(([^)]+)\))?\s*:\s*([A-Za-z]?\d+(?:[-–][A-Za-z]?\d+)?)',
     ).firstMatch(rest);
     if (publication == null) return null;
     final before = rest.substring(0, publication.start).trim();
@@ -1063,6 +1096,33 @@ class CitationFormatter {
   }
 
   /// ACS / many chemistry journals: Last, F.; Last, F. Title. J. Name Year, vol, pages.
+  /// Splits "Title. J. Abbrev. Name" at the first ". " whose remainder starts
+  /// with a period-terminated journal word. Returns (title, container).
+  static (String, String)? _acsAbbrevSplit(String beforeYear) {
+    for (final m in RegExp(r'\.\s+').allMatches(beforeYear)) {
+      final head = beforeYear.substring(0, m.start).trim();
+      final tail = beforeYear.substring(m.end).trim();
+      if (head.length < 8 || tail.length < 3 || tail.length > 60) continue;
+      if (RegExp(r'^[A-Z][A-Za-z]{0,9}\.(?:\s|$)').hasMatch(tail) ||
+          RegExp(r'^[A-Z][A-Za-z]{0,9}\.?\s+[A-Z][A-Za-z]{0,9}\.(?:\s|$)')
+              .hasMatch('$tail ')) {
+        return (head, tail);
+      }
+    }
+    // No abbreviated word: a short capitalized tail after the last break is a
+    // single-name journal ("ACS Nano", "Macromolecules").
+    final last = beforeYear.lastIndexOf(RegExp(r'\.\s+'));
+    if (last > 8) {
+      final head = beforeYear.substring(0, last).trim();
+      final tail = beforeYear.substring(last + 1).trim();
+      if (RegExp(r'^[A-Z][A-Za-z&]*(?:\s+[A-Z&][A-Za-z&]*){0,3}$').hasMatch(tail) &&
+          tail.length <= 40) {
+        return (head, tail);
+      }
+    }
+    return null;
+  }
+
   static PublishReference? _parseAcsLikeLine(String s) {
     // ACS authors are semicolon-separated. APA lines must not go through here
     // or remaining authors are misread as the title.
@@ -1090,11 +1150,20 @@ class CitationFormatter {
 
     String title = beforeYear;
     String container = '';
-    final journal = RegExp(
-      r'((?:[A-Z][a-z]{0,10}\.\s*){1,8}[A-Za-z. ]{2,50}|'
-      r'[A-Z][^.]{3,80}(?:Journal|Letters|Review|Science|Chemistry|Chem\.))$',
-    ).firstMatch(beforeYear);
-    if (journal != null) {
+    // The title ends at the first sentence break whose remainder starts with an
+    // abbreviated journal word ("J. ...", "Acc. Chem. ..."). A title word
+    // before that break must never be read as part of the journal name.
+    final abbrevSplit = _acsAbbrevSplit(beforeYear);
+    final journal = abbrevSplit != null
+        ? null
+        : RegExp(
+            r'((?:[A-Z][a-z]{0,10}\.\s*){1,8}[A-Za-z. ]{2,50}|'
+            r'[A-Z][^.]{3,80}(?:Journal|Letters|Review|Science|Chemistry|Chem\.))$',
+          ).firstMatch(beforeYear);
+    if (abbrevSplit != null) {
+      title = abbrevSplit.$1;
+      container = abbrevSplit.$2;
+    } else if (journal != null) {
       container = journal.group(1)!.trim();
       title = beforeYear.substring(0, journal.start).trim().replaceAll(
             RegExp(r'[.]+$'),
@@ -1422,6 +1491,141 @@ class CitationFormatter {
   static String _listPrefix(int index, bool plainNumberList) =>
       plainNumberList ? '$index. ' : '[$index] ';
 
+  /// ACS lists use "(1) ", Vancouver always uses plain "1. ", IEEE keeps its
+  /// bracket/plain choice.
+  static String _stylePrefix(
+    PublishCitationStyle style,
+    int index,
+    bool plainNumberList,
+  ) => switch (style) {
+    PublishCitationStyle.acs => '($index) ',
+    PublishCitationStyle.vancouver => '$index. ',
+    _ => _listPrefix(index, plainNumberList),
+  };
+
+  static String _vancouverAuthor(String author) {
+    final split = _splitAuthorName(author);
+    if (split == null) return author.trim();
+    final initials =
+        _initialsFromTokens(split.initialTokens).replaceAll(RegExp(r'[.\s]'), '');
+    return initials.isEmpty ? split.surname : '${split.surname} $initials';
+  }
+
+  static String _acsAuthor(String author) {
+    final split = _splitAuthorName(author);
+    if (split == null) return author.trim();
+    final initials = _initialsFromTokens(split.initialTokens);
+    return initials.isEmpty ? split.surname : '${split.surname}, $initials';
+  }
+
+  static String _stripEndDot(String t) => t.trim().replaceFirst(RegExp(r'[.\s]+$'), '');
+
+  /// Vancouver: "1. Smith AB, Jones CD. Title. Journal. 2020;12(3):45-50."
+  static BibliographyEntry _buildVancouverEntry(PublishReference ref, int index) {
+    final names = ref.authors.where((a) => a.trim().isNotEmpty).map(_vancouverAuthor).toList();
+    final authors = names.length > 6
+        ? '${names.take(6).join(', ')}, et al'
+        : names.join(', ');
+    final title = _stripEndDot(ref.title);
+    final spans = <BibliographySpan>[
+      BibliographySpan('$index. ${authors.isEmpty ? '' : '$authors. '}'),
+    ];
+    final year = ref.year.trim();
+    switch (ref.type) {
+      case ReferenceType.journal:
+        if (title.isNotEmpty) spans.add(BibliographySpan('$title. '));
+        if (ref.container.isNotEmpty) {
+          spans.add(BibliographySpan('${_stripEndDot(ref.container)}. '));
+        }
+        final tail = StringBuffer(year);
+        if (ref.volume.isNotEmpty) tail.write(';${ref.volume.trim()}');
+        if (ref.issue.isNotEmpty) tail.write('(${ref.issue.trim()})');
+        if (ref.pages.isNotEmpty) tail.write(':${ref.pages.trim()}');
+        spans.add(BibliographySpan('${tail.toString()}.'));
+      case ReferenceType.book:
+        spans.add(BibliographySpan('$title. '));
+        if (ref.publisher.isNotEmpty) {
+          spans.add(BibliographySpan('${_stripEndDot(ref.publisher)}; '));
+        }
+        spans.add(BibliographySpan('$year.'));
+      case ReferenceType.web:
+        spans.add(BibliographySpan('$title [Internet]. '));
+        if (year.isNotEmpty) spans.add(BibliographySpan('$year. '));
+        if (ref.url.isNotEmpty) {
+          spans.add(BibliographySpan('Available from: ${ref.url.trim()}'));
+        }
+      case ReferenceType.conference:
+        spans.add(BibliographySpan('$title. '));
+        if (ref.conference.isNotEmpty) {
+          spans.add(BibliographySpan('${_stripEndDot(ref.conference)}. '));
+        }
+        spans.add(BibliographySpan('$year.'));
+    }
+    if (ref.doi.isNotEmpty && _doiDisplayValue(ref.doi).isNotEmpty) {
+      spans.add(BibliographySpan(' doi:${_doiDisplayValue(ref.doi)}'));
+    }
+    return BibliographyEntry(spans);
+  }
+
+  /// ACS: "(1) Smith, A. B.; Jones, C. D. Title. Abbrev. 2024, 15, 120-128. DOI."
+  /// Journal names are printed as given, never guessed into abbreviations.
+  static BibliographyEntry _buildAcsEntry(PublishReference ref, int index) {
+    final authors = ref.authors
+        .where((a) => a.trim().isNotEmpty)
+        .map(_acsAuthor)
+        .join('; ');
+    final title = _stripEndDot(ref.title);
+    final year = ref.year.trim();
+    final spans = <BibliographySpan>[
+      BibliographySpan('($index) ${authors.isEmpty ? '' : '$authors '}'),
+    ];
+    switch (ref.type) {
+      case ReferenceType.journal:
+        if (title.isNotEmpty) spans.add(BibliographySpan('$title. '));
+        if (ref.container.isNotEmpty) {
+          final cont = ref.container.trim();
+          // An abbreviated name ("Acc. Chem. Res") keeps its closing period.
+          spans.add(BibliographySpan(
+            cont.contains('. ') && !cont.endsWith('.') ? '$cont.' : cont,
+            italic: true,
+          ));
+          spans.add(const BibliographySpan(' '));
+        }
+        if (year.isNotEmpty) spans.add(BibliographySpan(year, bold: true));
+        if (ref.volume.isNotEmpty) {
+          spans.add(const BibliographySpan(', '));
+          spans.add(BibliographySpan(ref.volume.trim(), italic: true));
+        }
+        if (ref.issue.isNotEmpty) {
+          spans.add(BibliographySpan(' (${ref.issue.trim()})'));
+        }
+        if (ref.pages.isNotEmpty) {
+          spans.add(BibliographySpan(', ${ref.pages.trim()}'));
+        }
+        spans.add(const BibliographySpan('.'));
+      case ReferenceType.book:
+        spans.add(BibliographySpan(title, italic: true));
+        spans.add(const BibliographySpan('; '));
+        if (ref.publisher.isNotEmpty) {
+          spans.add(BibliographySpan('${_stripEndDot(ref.publisher)}, '));
+        }
+        spans.add(BibliographySpan('$year.'));
+      case ReferenceType.web:
+        spans.add(BibliographySpan('$title. '));
+        if (ref.url.isNotEmpty) spans.add(BibliographySpan('${ref.url.trim()} '));
+        if (year.isNotEmpty) spans.add(BibliographySpan('($year).'));
+      case ReferenceType.conference:
+        spans.add(BibliographySpan('$title. '));
+        if (ref.conference.isNotEmpty) {
+          spans.add(BibliographySpan('${_stripEndDot(ref.conference)}, '));
+        }
+        spans.add(BibliographySpan('$year.'));
+    }
+    final doi = _doiDisplayValue(ref.doi);
+    if (doi.isNotEmpty) spans.add(BibliographySpan(' https://doi.org/$doi'));
+    return BibliographyEntry(spans);
+  }
+
   static String _toSuperscriptDigits(int n) {
     const map = {
       '0': '⁰',
@@ -1635,6 +1839,11 @@ class CitationFormatter {
     };
   }
 
+  /// Chicago closes a quoted title with a period unless it already ends in
+  /// terminal punctuation (a question or exclamation mark).
+  static String _chicagoTitle(String t) =>
+      RegExp(r'[.?!]$').hasMatch(t) ? t : '$t.';
+
   static BibliographyEntry _buildChicagoEntry(PublishReference ref) {
     final authors = _joinAuthorsChicago(ref.authors);
     final title = ref.title.trim();
@@ -1649,7 +1858,7 @@ class CitationFormatter {
               ref.volume.isNotEmpty ||
               ref.issue.isNotEmpty ||
               ref.pages.isNotEmpty;
-          spans.add(BibliographySpan(hasTail ? '"$title." ' : '"$title."'));
+          spans.add(BibliographySpan(hasTail ? '"${_chicagoTitle(title)}" ' : '"${_chicagoTitle(title)}"'));
           if (ref.container.isNotEmpty) {
             spans.add(BibliographySpan(ref.container.trim(), italic: true));
           }
@@ -1674,7 +1883,7 @@ class CitationFormatter {
           return BibliographyEntry(spans);
         }(),
       ReferenceType.web => () {
-          spans.add(BibliographySpan('"$title." '));
+          spans.add(BibliographySpan('"${_chicagoTitle(title)}" '));
           if (ref.url.isNotEmpty) {
             spans.add(BibliographySpan(ref.url.trim()));
           }
@@ -1682,7 +1891,7 @@ class CitationFormatter {
           return BibliographyEntry(spans);
         }(),
       ReferenceType.conference => () {
-          spans.add(BibliographySpan('"$title." '));
+          spans.add(BibliographySpan('"${_chicagoTitle(title)}" '));
           if (ref.conference.isNotEmpty) {
             spans.add(BibliographySpan('In ${ref.conference.trim()}'));
           }
@@ -1775,6 +1984,13 @@ class CitationFormatter {
     if (trimmed.isEmpty) return '';
     if (trimmed.contains(',')) return trimmed;
     final words = trimmed.split(RegExp(r'\s+'));
+    // Compact "Surname AB" (Vancouver/PLOS lists) must not be flipped as if
+    // the initials were a given name and the last word a surname.
+    final compact = words.length >= 2 ? (_vancouverCompact(words) ?? _particleCompact(words)) : null;
+    if (compact != null) {
+      final initials = _initialsFromTokens(compact.initialTokens);
+      return initials.isEmpty ? compact.surname : '${compact.surname}, $initials';
+    }
     if (words.length >= 2) {
       return '${words.last}, ${words.sublist(0, words.length - 1).join(' ')}';
     }

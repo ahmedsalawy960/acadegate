@@ -43,6 +43,11 @@ void main() {
               plainNumbers: plain,
               referenceExample: sample,
             );
+            if (style == PublishCitationStyle.acs) {
+              // ACS is built at construction; the text restyle path is skipped.
+              expect(lines, isNull);
+              return;
+            }
             expect(lines, isNotNull);
             final numbered = [
               PublishCitationStyle.ieee,
@@ -50,7 +55,7 @@ void main() {
               PublishCitationStyle.acs,
             ].contains(style);
             final prefix = numbered
-                ? (plain || style == PublishCitationStyle.acs ? '1. ' : '[1] ')
+                ? (plain || style == PublishCitationStyle.vancouver ? '1. ' : '[1] ')
                 : '';
             expect(lines!.single, '$prefix${refs.single.rawText}');
           },

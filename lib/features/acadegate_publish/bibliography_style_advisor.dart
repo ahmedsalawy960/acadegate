@@ -26,6 +26,9 @@ class BibliographyStyleAdvisor {
     bool plainNumbers = false,
   }) async {
     if (references.isEmpty) return const [];
+    // ACS punctuation and bold/italic runs are built at construction; the
+    // text restyle path would flatten them.
+    if (style == PublishCitationStyle.acs) return null;
     if (requestLinesForTesting == null && !_modelAvailable) return null;
     final local = [
       for (var i = 0; i < references.length; i++)

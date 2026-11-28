@@ -227,7 +227,7 @@ class BibliographyCiteAligner {
       if (recovered != null) refs.add(_fromLine(recovered));
     }
     for (final n in citeKeys.numbers) {
-      if (BibliographyMatch(refs).byNumber(n) != null) continue;
+      if (_matchFor(refs).byNumber(n) != null) continue;
       final recovered = _findNumberedLine(bibliographyText, n);
       if (recovered != null) refs.add(_fromLine(recovered, importedNumber: n));
     }
@@ -237,6 +237,7 @@ class BibliographyCiteAligner {
 
   static int coverage(List<PublishReference> refs, InTextCiteKeys keys) {
     if (refs.isEmpty || keys.isEmpty) return 0;
+    // Caller-owned list: never cached, it may be edited in place.
     final match = BibliographyMatch(refs);
     var hits = 0;
     for (final n in keys.numbers) {
@@ -357,7 +358,7 @@ class BibliographyCiteAligner {
   static bool _haveWork(List<PublishReference> refs, String piece) {
     final n = PublishReference.numberFromImportedLine(piece);
     if (n != null) {
-      final existing = BibliographyMatch(refs).byNumber(n);
+      final existing = _matchFor(refs).byNumber(n);
       if (existing != null && _rawOverlap(existing.rawText, piece)) {
         return true;
       }
@@ -372,14 +373,14 @@ class BibliographyCiteAligner {
     );
     final names = BibliographyMatch.lastNamesFromRaw(piece);
     if (year.length == 4 && names.isNotEmpty) {
-      final hit = BibliographyMatch(refs).byLastNames(names, year: year);
+      final hit = _matchFor(refs).byLastNames(names, year: year);
       if (hit != null) return true;
     }
     return refs.any((r) => _rawOverlap(r.rawText, piece));
   }
 
   static bool _haveCite(List<PublishReference> refs, AuthorYearCite cite) {
-    return BibliographyMatch(refs).byLastNames(
+    return _matchFor(refs).byLastNames(
           cite.lastNames.toList(),
           year: cite.year,
         ) !=
@@ -396,11 +397,38 @@ class BibliographyCiteAligner {
     return result;
   }
 
+  // BibliographyMatch indexes every row on construction. Rebuilding it per
+  // line and per citation made alignment quadratic. Reference lists here only
+  // grow by appending, so one match per (list, length) is exact.
+  static List<PublishReference>? _matchRefs;
+  static int _matchLen = -1;
+  static BibliographyMatch? _matchCached;
+
+  static BibliographyMatch _matchFor(List<PublishReference> refs) {
+    final cached = _matchCached;
+    if (cached != null && identical(_matchRefs, refs) && _matchLen == refs.length) {
+      return cached;
+    }
+    final built = BibliographyMatch(refs);
+    _matchRefs = refs;
+    _matchLen = refs.length;
+    _matchCached = built;
+    return built;
+  }
+
+  static final Map<String, String> _compactMemo = {};
+
+  static String _compactKey(String s) {
+    final hit = _compactMemo[s];
+    if (hit != null) return hit;
+    if (_compactMemo.length > 20000) _compactMemo.clear();
+    return _compactMemo[s] = AcademicText.foldLatin(_identityDigits(s))
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '');
+  }
+
   static bool _rawOverlap(String a, String b) {
-    String compact(String s) =>
-        AcademicText.foldLatin(_identityDigits(s)).replaceAll(RegExp(r'[^a-z0-9]+'), '');
-    final ka = compact(a);
-    final kb = compact(b);
+    final ka = _compactKey(a);
+    final kb = _compactKey(b);
     if (ka.length < 24 || kb.length < 24) return ka == kb && ka.isNotEmpty;
     final n = ka.length < kb.length ? ka.length : kb.length;
     final take = n > 64 ? 64 : n;
