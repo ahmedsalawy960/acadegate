@@ -301,7 +301,36 @@ class NotificationsScreen extends StatelessWidget {
             ],
           ),
           body: !hasItems
-              ? Center(child: Text(L10nLookup.noNotifications))
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.notifications_none,
+                          size: 64, color: Colors.grey[400]),
+                      const SizedBox(height: 12),
+                      Text(
+                        L10nLookup.noNotifications,
+                        style: const TextStyle(color: Color(0xFFB7C3D6)),
+                      ),
+                      const SizedBox(height: 8),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 32),
+                        child: Text(
+                          context.t(
+                            'ستظهر هنا تنبيهات الردود والطلبات والتحديثات.',
+                            'Replies, requests and updates will show up here.',
+                          ),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFFB7C3D6),
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
               : ListView.builder(
                   itemCount: items.length,
                   itemBuilder: (context, index) {

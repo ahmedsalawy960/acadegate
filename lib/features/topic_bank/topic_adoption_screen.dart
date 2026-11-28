@@ -109,6 +109,12 @@ class _TopicAdoptionScreenState extends State<TopicAdoptionScreen> {
     );
   }
 
+  String _referencesQuery(TopicAdoptionPack pack) {
+    return pack.englishSearchTopic.trim().isNotEmpty
+        ? pack.englishSearchTopic.trim()
+        : pack.title.trim();
+  }
+
   Future<void> _openUrl(String url) async {
     final uri = Uri.tryParse(url);
     if (uri == null) return;
@@ -391,14 +397,37 @@ class _TopicAdoptionScreenState extends State<TopicAdoptionScreen> {
           style: TextStyle(color: const Color(0xFFB7C3D6), height: 1.35, fontSize: 12.5),
         ),
         const SizedBox(height: 8),
-        if (pack.starterReferences.isEmpty)
+        if (pack.starterReferences.isEmpty) ...[
           Text(
             context.t(
-              'لم تُجلب مراجع الآن — أعد المحاولة أو افتح روابط المراجع المتاحة.',
-              'No references fetched now — retry or open the available reference links.',
+              'لم تُجلب مراجع الآن — أعد المحاولة أو ابحث مباشرة في الفهارس.',
+              'No references fetched now — retry or search the indexes directly.',
             ),
-          )
-        else
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton.icon(
+                onPressed: () => _openUrl(
+                  'https://scholar.google.com/scholar?q=${Uri.encodeComponent(_referencesQuery(pack))}',
+                ),
+                icon: const Icon(Icons.school_outlined, size: 18),
+                label: Text(
+                  context.t('بحث Google Scholar', 'Search Google Scholar'),
+                ),
+              ),
+              OutlinedButton.icon(
+                onPressed: () => _openUrl(
+                  'https://openalex.org/works?search=${Uri.encodeComponent(_referencesQuery(pack))}',
+                ),
+                icon: const Icon(Icons.travel_explore, size: 18),
+                label: Text(context.t('بحث OpenAlex', 'Search OpenAlex')),
+              ),
+            ],
+          ),
+        ] else
           for (final w in pack.starterReferences.take(10))
             Card(
               margin: const EdgeInsets.only(bottom: 6),

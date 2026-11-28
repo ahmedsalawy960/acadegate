@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 import 'package:share_plus/share_plus.dart';
@@ -601,7 +602,7 @@ class _ResearchIdeaMarketplaceDetailScreenState
                         Icons.chevron_left,
                         color: Color(0xFFB7C3D6),
                       ),
-                      onTap: () {
+                      onTap: () async {
                         final link =
                             (idea.sourcePaper?.bestUrl.isNotEmpty == true)
                                 ? idea.sourcePaper!.bestUrl
@@ -619,9 +620,27 @@ class _ResearchIdeaMarketplaceDetailScreenState
                             '"${idea.whereItEndedQuote}"',
                           if (link.isNotEmpty) link,
                         ];
-                        SharePlus.instance.share(
-                          ShareParams(text: parts.join('\n')),
-                        );
+                        final text = parts.join('\n');
+                        try {
+                          await SharePlus.instance.share(
+                            ShareParams(text: text),
+                          );
+                        } catch (_) {
+                          // Web share can be unavailable; fall back to copy.
+                          await Clipboard.setData(ClipboardData(text: text));
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  context.t(
+                                    'نُسخ نص الفكرة - الصقه أين تريد',
+                                    'Idea text copied - paste it anywhere',
+                                  ),
+                                ),
+                              ),
+                            );
+                          }
+                        }
                       },
                     ),
                   ),

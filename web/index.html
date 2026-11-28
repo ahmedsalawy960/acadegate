@@ -50,9 +50,44 @@
 
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <title>AcadeGate</title>
+  <style>
+    #ag-loader {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      background: #0b1437;
+      color: #f4f7fb;
+      font-family: Arial, sans-serif;
+      font-size: 15px;
+      letter-spacing: 0.4px;
+      z-index: 9999;
+    }
+    #ag-loader .spin {
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      border: 4px solid rgba(244, 247, 251, 0.18);
+      border-top-color: #26c6da;
+      animation: agspin 0.9s linear infinite;
+    }
+    @keyframes agspin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+  </style>
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
+  <div id="ag-loader">
+    <img src="icons/Icon-192.png" width="72" height="72" alt="AcadeGate">
+    <div class="spin"></div>
+    <div>AcadeGate | أكاديجيت</div>
+  </div>
   <script>
     (async function () {
       try {
@@ -65,6 +100,10 @@
           await Promise.all(keys.map(function (k) { return caches.delete(k); }));
         }
       } catch (e) {}
+      window.addEventListener('flutter-first-frame', function () {
+        var el = document.getElementById('ag-loader');
+        if (el) el.remove();
+      });
       var s = document.createElement('script');
       s.src = 'flutter_bootstrap.js?v=20261101';
       s.async = true;

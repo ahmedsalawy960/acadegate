@@ -19,6 +19,7 @@ import '../profile/academic_profile.dart';
 import '../profile/academic_profile_service.dart';
 import '../thesis_studio/thesis_studio_screen.dart';
 import '../viva_simulator/viva_screen.dart';
+import '../auth/user_account_service.dart';
 import 'humanities_faculties.dart';
 import '../law_lab/law_lab_screen.dart';
 import '../qualitative_analysis/qualitative_studio_screen.dart';
@@ -43,6 +44,7 @@ class _HumanitiesHubScreenState extends State<HumanitiesHubScreen> {
   HumanitiesTrack _track = HumanitiesTrack.education;
   AcademicProfile? _profile;
   bool _loading = true;
+  bool _isAdmin = false;
 
   @override
   void initState() {
@@ -53,6 +55,7 @@ class _HumanitiesHubScreenState extends State<HumanitiesHubScreen> {
   Future<void> _bootstrap() async {
     final saved = await HumanitiesPrefs.loadTrack();
     final profile = await AcademicProfileService.instance.loadProfile();
+    final account = await UserAccountService.instance.loadCurrentAccount();
     final fromFaculty = profile?.resolvedFacultyCategory;
     final track = saved ??
         (fromFaculty != null && HumanitiesFaculties.isHumanities(fromFaculty)
@@ -62,6 +65,7 @@ class _HumanitiesHubScreenState extends State<HumanitiesHubScreen> {
     setState(() {
       _track = track;
       _profile = profile;
+      _isAdmin = account?.isAdmin == true;
       _loading = false;
     });
   }
@@ -121,7 +125,7 @@ class _HumanitiesHubScreenState extends State<HumanitiesHubScreen> {
             accent: _brand,
           ),
           const SizedBox(height: 12),
-          if (_profileLooksStem) _testerBanner(context),
+          if (_isAdmin && _profileLooksStem) _testerBanner(context),
           _heroCard(context),
           const SizedBox(height: 16),
           Text(

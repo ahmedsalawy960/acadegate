@@ -3,7 +3,7 @@ class AppContactInfo {
   AppContactInfo._();
 
   static const String brandName = 'AcadeGate';
-  static const String supportEmail = 'acadegate@gmail.com';
+  static const String supportEmail = 'acadegate@acadegate.app';
   static const String copyrightYear = '2026';
   static const String privacyUrl = 'https://acadegate-new.web.app/privacy';
   static const String termsUrl = 'https://acadegate-new.web.app/terms';

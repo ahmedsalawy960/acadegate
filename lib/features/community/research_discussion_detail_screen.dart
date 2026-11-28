@@ -9,6 +9,7 @@ import '../messaging/chat_screen.dart';
 import '../messaging/chat_widgets.dart';
 import '../messaging/messaging_service.dart';
 import 'community_data.dart';
+import 'community_service.dart' show isSafeCommunityLink;
 import 'research_room_models.dart';
 import 'research_room_service.dart';
 
@@ -64,6 +65,7 @@ class _ResearchDiscussionDetailScreenState
   }
 
   Future<void> _openLink(String url) async {
+    if (!isSafeCommunityLink(url)) return;
     final uri = Uri.tryParse(url.trim());
     if (uri == null) return;
     await launchUrl(uri, mode: LaunchMode.externalApplication);

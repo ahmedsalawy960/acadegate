@@ -360,6 +360,20 @@ Rules: do not invent a paper, DOI, supervisor, lab, or company. field_en must be
     return buffer.toString();
   }
 
+  static final RegExp _mdBold = RegExp(r'\*\*([^*]+)\*\*');
+  static final RegExp _mdItalic = RegExp(r'\*([^*\n]+)\*');
+  static final RegExp _mdHeading =
+      RegExp(r'^[ \t]{0,3}#{1,4}[ \t]+', multiLine: true);
+
+  /// AI replies sometimes carry Markdown markers; the UI renders plain text.
+  static String stripMarkdown(String input) {
+    return input
+        .replaceAll(_mdBold, r'$1')
+        .replaceAll(_mdItalic, r'$1')
+        .replaceAll(_mdHeading, '')
+        .trim();
+  }
+
   ({String analysis, String plan, String? nextStep, List<DegreePlanStage> stages})
       _parseSections(String text) {
     final headers = _sectionHeaders;
@@ -398,13 +412,24 @@ Rules: do not invent a paper, DOI, supervisor, lab, or company. field_en must be
       nextStep = extractBetween(alt.next, null);
     }
 
-    final stages = ResearchGoalParser.stagesFromAiText(
-      stagesText.isNotEmpty ? stagesText : text,
-    );
+    final stages =
+        ResearchGoalParser.stagesFromAiText(
+          stagesText.isNotEmpty ? stagesText : text,
+        )
+            .map(
+              (stage) => DegreePlanStage(
+                period: stripMarkdown(stage.period),
+                title: stripMarkdown(stage.title),
+                outcomes: stage.outcomes.map(stripMarkdown).toList(),
+                platformActions:
+                    stage.platformActions.map(stripMarkdown).toList(),
+              ),
+            )
+            .toList();
 
     if (analysis.isEmpty && plan.isEmpty) {
       return (
-        analysis: text.trim(),
+        analysis: stripMarkdown(text),
         plan: '',
         nextStep: null,
         stages: stages,
@@ -412,9 +437,9 @@ Rules: do not invent a paper, DOI, supervisor, lab, or company. field_en must be
     }
 
     return (
-      analysis: analysis.isEmpty ? text.trim() : analysis,
-      plan: plan,
-      nextStep: nextStep.isEmpty ? null : nextStep,
+      analysis: stripMarkdown(analysis.isEmpty ? text : analysis),
+      plan: stripMarkdown(plan),
+      nextStep: nextStep.isEmpty ? null : stripMarkdown(nextStep),
       stages: stages,
     );
   }

@@ -6,6 +6,7 @@ import 'package:acadegate/core/widgets/acadegate_app_bar.dart';
 import '../../core/locale/l10n_lookup.dart';
 import '../../core/theme/acadegate_theme.dart';
 import '../../core/locale/locale_extensions.dart';
+import '../../core/locale/locale_service.dart';
 import '../academic_writing/writing_categories.dart';
 import '../academic_writing/writing_expert_detail_screen.dart';
 import '../academic/academic_models.dart';
@@ -663,7 +664,10 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
       runSpacing: 8,
       children: [
         Chip(label: Text(goal.degreeLabel)),
-        if (goal.field.isNotEmpty) Chip(label: Text(goal.field)),
+        if (goal.field.isNotEmpty &&
+            !(LocaleService.instance.isEnglish &&
+                goal.fieldEn.trim().isNotEmpty))
+          Chip(label: Text(goal.field)),
         if (goal.fieldEn.isNotEmpty) Chip(label: Text(goal.fieldEn)),
         Chip(label: Text('${goal.years} ${context.t('سنوات', 'years')}')),
         Chip(label: Text(goal.institutionLabel)),
@@ -689,7 +693,7 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
                     ? 'خطة على نقطة: ${bundle.goal!.field} (${bundle.goal!.fieldEn})'
                     : 'مراحل مرتبطة بنقطة بحثك — إن كانت عامة أعد التشغيل بعد تسجيل الدخول.',
                 bundle.goal?.fieldEn.isNotEmpty == true
-                    ? 'Plan on: ${bundle.goal!.field} (${bundle.goal!.fieldEn})'
+                    ? 'Plan on: ${bundle.goal!.fieldEn}'
                     : 'Stages tied to your topic — if they look generic, sign in and rebuild.',
               ),
               style: TextStyle(fontSize: 12, color: const Color(0xFFB7C3D6), height: 1.4),
@@ -909,6 +913,17 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
     );
   }
 
+  /// Topic title shown in the UI: English field on English UI when available.
+  String _displayTopic(ResearchSupplyBundle bundle) {
+    final goal = bundle.goal;
+    if (LocaleService.instance.isEnglish &&
+        goal != null &&
+        goal.fieldEn.trim().isNotEmpty) {
+      return goal.fieldEn.trim();
+    }
+    return bundle.topic;
+  }
+
   Widget _bundleOverview(ResearchSupplyBundle bundle) {
     return Card(
       child: Padding(
@@ -918,8 +933,8 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
           children: [
             Text(
               context.t(
-                'حزمة: ${bundle.topic}',
-                'Bundle: ${bundle.topic}',
+                'حزمة: ${_displayTopic(bundle)}',
+                'Bundle: ${_displayTopic(bundle)}',
               ),
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
@@ -1149,6 +1164,16 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
   }
 
   Widget _chainTimeline(ResearchSupplyBundle bundle) {
+    // Sequential numbering across only the sections that are visible.
+    var stepCounter = 0;
+    String nextStep() => '${++stepCounter}';
+    final ideasStep = nextStep();
+    final supervisorsStep =
+        bundle.supervisors.isNotEmpty ? nextStep() : ideasStep;
+    final labsStep = nextStep();
+    final storeStep = nextStep();
+    final writingStep =
+        bundle.writingExperts.isNotEmpty ? nextStep() : storeStep;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1169,7 +1194,7 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
           _chainStep(
             icon: Icons.lightbulb,
             color: Colors.orange,
-            title: context.t('1. أفكار بحثية (0)', '1. Research ideas (0)'),
+            title: context.t('$ideasStep. أفكار بحثية (0)', '$ideasStep. Research ideas (0)'),
             subtitle: context.t(
               'لا فكرة في الكتالوج تشارك عنوانها كلمات موضوعك',
               'No catalog idea title shares your topic words',
@@ -1187,8 +1212,8 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
             icon: Icons.lightbulb,
             color: Colors.orange,
             title: context.t(
-              '1. أفكار بحثية (${bundle.ideas.length})',
-              '1. Research ideas (${bundle.ideas.length})',
+              '$ideasStep. أفكار بحثية (${bundle.ideas.length})',
+              '$ideasStep. Research ideas (${bundle.ideas.length})',
             ),
             subtitle: bundle.ideas.first.item.title,
             score: bundle.ideas.first.score,
@@ -1237,8 +1262,8 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
             icon: Icons.person,
             color: Colors.blue,
             title: context.t(
-              '2. مشرفون أكاديميون (${bundle.supervisors.length})',
-              '2. Academic supervisors (${bundle.supervisors.length})',
+              '$supervisorsStep. مشرفون أكاديميون (${bundle.supervisors.length})',
+              '$supervisorsStep. Academic supervisors (${bundle.supervisors.length})',
             ),
             subtitle: bundle.supervisors.first.item.name,
             score: bundle.supervisors.first.score,
@@ -1289,8 +1314,8 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
             icon: Icons.menu_book,
             color: const Color(0xFF8D6E63),
             title: context.t(
-              '3. مكتبات وكتب للنقطة البحثية',
-              '3. Libraries & books for your topic',
+              '$labsStep. مكتبات وكتب للنقطة البحثية',
+              '$labsStep. Libraries & books for your topic',
             ),
             subtitle: context.t(
               bundle.literature.isNotEmpty
@@ -1392,7 +1417,7 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
           _chainStep(
             icon: Icons.science,
             color: Colors.purple,
-            title: context.t('3. مختبرات ذكية (0)', '3. Smart labs (0)'),
+            title: context.t('$labsStep. مختبرات ذكية (0)', '$labsStep. Smart labs (0)'),
             subtitle: context.t(
               'لا مختبر يشارك اسمه أو أجهزته كلمات موضوعك',
               'No lab name or equipment shares your topic words',
@@ -1410,8 +1435,8 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
             icon: Icons.science,
             color: Colors.purple,
             title: context.t(
-              '3. مختبرات ذكية — مدينتك أولاً (${bundle.labs.length})',
-              '3. Smart labs — your city first (${bundle.labs.length})',
+              '$labsStep. مختبرات ذكية — مدينتك أولاً (${bundle.labs.length})',
+              '$labsStep. Smart labs — your city first (${bundle.labs.length})',
             ),
             subtitle: bundle.labs.first.item.name,
             score: bundle.labs.first.score,
@@ -1431,8 +1456,8 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
           icon: Icons.storefront,
           color: Colors.green,
             title: context.t(
-            '4. متجر — مدينتك أولاً ثم باقي المدن (${bundle.products.length})',
-            '4. Store — your city first, then others (${bundle.products.length})',
+            '$storeStep. متجر — مدينتك أولاً ثم باقي المدن (${bundle.products.length})',
+            '$storeStep. Store — your city first, then others (${bundle.products.length})',
           ),
           subtitle: bundle.storeCategories.isNotEmpty
               ? bundle.storeCategories
@@ -1467,8 +1492,8 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
             icon: Icons.edit_note,
             color: const Color(0xFF5D4037),
             title: context.t(
-              '5. كتابة / إحصاء (${bundle.writingExperts.length})',
-              '5. Writing / statistics (${bundle.writingExperts.length})',
+              '$writingStep. كتابة / إحصاء (${bundle.writingExperts.length})',
+              '$writingStep. Writing / statistics (${bundle.writingExperts.length})',
             ),
             subtitle: bundle.writingExperts.first.item.name,
             score: bundle.writingExperts.first.score,
@@ -1611,7 +1636,7 @@ class _ResearchSupplyChainScreenState extends State<ResearchSupplyChainScreen> {
                         Align(
                           alignment: Alignment.centerLeft,
                           child: Text(
-                            context.t('اضغط للتفاصيل ←', 'Tap for details ←'),
+                            context.t('اضغط للتفاصيل', 'Tap for details'),
                             style: TextStyle(
                               fontSize: 12,
                               color: acadegateInk(color),

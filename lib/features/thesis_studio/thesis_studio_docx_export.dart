@@ -8,6 +8,7 @@ import '../acadegate_publish/docx_share.dart';
 import '../profile/academic_profile.dart';
 import 'thesis_studio_citations.dart';
 import 'thesis_studio_models.dart';
+import 'thesis_studio_prose.dart';
 
 class ThesisStudioDocxExport {
   ThesisStudioDocxExport._();
@@ -189,7 +190,9 @@ class ThesisStudioDocxExport {
     }
 
     heading(
-      draft.proposedTitle.isNotEmpty ? draft.proposedTitle : draft.goal.raw,
+      ThesisStudioProse.normalizeTitle(
+        draft.proposedTitle.isNotEmpty ? draft.proposedTitle : draft.goal.raw,
+      ),
       size: 40,
     );
     if (profile?.fullName.trim().isNotEmpty == true) {
@@ -213,7 +216,7 @@ class ThesisStudioDocxExport {
       }
     }
     for (final ch in draft.chapters) {
-      heading(ch.title(arabic), size: 32);
+      heading(ThesisStudioProse.normalizeTitle(ch.title(arabic)), size: 32);
       if (ch.paragraphs.isEmpty) {
         para(ThesisStudioCitations.styledProse(ch.body, draft));
       } else {
@@ -301,7 +304,8 @@ class ThesisStudioDocxExport {
   }
 
   static String _run(String text, {required bool arabic, bool bold = false}) {
-    final t = _xmlEscape(text.replaceAll('\r\n', '\n'));
+    final t = _xmlEscape(
+        ThesisStudioProse.decodeEntities(text.replaceAll('\r\n', '\n')));
     return '<w:r><w:rPr>${bold ? '<w:b/>' : ''}'
         '${arabic ? '<w:rtl/>' : ''}</w:rPr>'
         '<w:t xml:space="preserve">$t</w:t></w:r>';

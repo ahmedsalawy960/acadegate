@@ -15,8 +15,44 @@ class ThesisStudioProse {
     '9': '⁹',
   };
 
+  /// Decodes HTML/XML entities (`&amp;`, `&#8211;`) that index records or
+  /// model output may carry, so exports never show `&amp;` to the reader.
+  static String decodeEntities(String raw) {
+    if (!raw.contains('&')) return raw;
+    var t = raw
+        .replaceAll('&nbsp;', ' ')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&quot;', '"')
+        .replaceAll('&apos;', "'")
+        .replaceAll('&#39;', "'");
+    t = t.replaceAllMapped(RegExp(r'&#x([0-9a-fA-F]{2,6});'), (m) {
+      final code = int.tryParse(m.group(1) ?? '', radix: 16);
+      if (code == null || code < 32 || code > 0x10FFFF) return m.group(0)!;
+      return String.fromCharCode(code);
+    });
+    t = t.replaceAllMapped(RegExp(r'&#(\d{2,7});'), (m) {
+      final code = int.tryParse(m.group(1) ?? '');
+      if (code == null || code < 32 || code > 0x10FFFF) return m.group(0)!;
+      return String.fromCharCode(code);
+    });
+    return t.replaceAll('&amp;', '&');
+  }
+
+  /// Visible title/heading text: no `.:` or `..` collisions from joining a
+  /// topic that ends in a period with a template colon, no trailing period.
+  static String normalizeTitle(String raw) {
+    var t = decodeEntities(raw).replaceAll(RegExp(r'\s+'), ' ').trim();
+    t = t.replaceAll(RegExp(r'\s*\.\s*:\s*'), ': ');
+    t = t.replaceAll(RegExp(r'\s*:\s*\.\s*'), ': ');
+    t = t.replaceAll(RegExp(r'\.{2,}'), '.');
+    t = t.replaceAll(RegExp(r'[\s\.،,؛;:·]+$'), '');
+    return t.trim();
+  }
+
   static String sanitize(String raw) {
     var t = raw.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+    t = decodeEntities(t);
     t = _stripLatex(t);
     t = t.replaceAll(RegExp(r'```[\s\S]*?```'), '\n');
     t = t.replaceAllMapped(RegExp(r'`([^`]+)`'), (m) => m.group(1) ?? '');

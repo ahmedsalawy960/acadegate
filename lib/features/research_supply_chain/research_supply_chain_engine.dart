@@ -43,7 +43,10 @@ class ResearchSupplyChainEngine {
       trimmed,
       profileDegree: profile?.degree,
     );
-    goal = await ResearchPathAiService.instance.briefGoal(goal);
+    goal = await ResearchPathAiService.instance.briefGoal(goal).timeout(
+      const Duration(seconds: 45),
+      onTimeout: () => goal,
+    );
     final effectiveProfile = _effectiveProfile(profile, trimmed, goal);
     final keywords = _richKeywords(
       effectiveProfile,
@@ -59,9 +62,14 @@ class ResearchSupplyChainEngine {
     final facultyId = effectiveProfile.resolvedFacultyCategory;
     final prefersLibraries = _prefersLibrariesOverLabs(effectiveProfile, goal);
 
-    final content = await AcademicContentService.instance.fetchAll(
-      includeLabs: !prefersLibraries,
-    );
+    final content = await AcademicContentService.instance
+        .fetchAll(
+          includeLabs: !prefersLibraries,
+        )
+        .timeout(
+          const Duration(seconds: 20),
+          onTimeout: () => AcademicContent.empty,
+        );
 
     final researcherCity = effectiveProfile.city.trim();
     final topicQuery = goal.fieldEn.isNotEmpty
@@ -76,17 +84,27 @@ class ResearchSupplyChainEngine {
       // Prefer faculty-scoped labs (larger pool) then merge with cached browse.
       final cityLabsFuture = researcherCity.isEmpty
           ? Future.value(const <AcademicLab>[])
-          : AcademicContentService.instance.searchLabs(
-              city: researcherCity,
-              facultyId: facultyId,
-              query: topicQuery,
-              limit: 250,
-            );
-      final nationLabsFuture = AcademicContentService.instance.searchLabs(
-        facultyId: facultyId,
-        query: topicQuery,
-        limit: 250,
-      );
+          : AcademicContentService.instance
+              .searchLabs(
+                city: researcherCity,
+                facultyId: facultyId,
+                query: topicQuery,
+                limit: 250,
+              )
+              .timeout(
+                const Duration(seconds: 15),
+                onTimeout: () => const <AcademicLab>[],
+              );
+      final nationLabsFuture = AcademicContentService.instance
+          .searchLabs(
+            facultyId: facultyId,
+            query: topicQuery,
+            limit: 250,
+          )
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => const <AcademicLab>[],
+          );
 
       final cityLabs = await cityLabsFuture;
       final nationLabs = await nationLabsFuture;
@@ -106,11 +124,23 @@ class ResearchSupplyChainEngine {
     final productsFuture = _fetchProducts(
       preferredCategories,
       researcherCity: researcherCity,
+    ).timeout(
+      const Duration(seconds: 15),
+      onTimeout: () => <Map<String, dynamic>>[],
     );
-    final expertsFuture = _fetchWritingExperts();
-    final literatureFuture = _loadLiterature(goal);
+    final expertsFuture = _fetchWritingExperts().timeout(
+      const Duration(seconds: 15),
+      onTimeout: () => const <WritingExpert>[],
+    );
+    final literatureFuture = _loadLiterature(goal).timeout(
+      const Duration(seconds: 60),
+      onTimeout: () => const <GroundedWork>[],
+    );
     final challengesFuture =
-        IndustryChallengeService.instance.getRecentChallenges();
+        IndustryChallengeService.instance.getRecentChallenges().timeout(
+      const Duration(seconds: 15),
+      onTimeout: () => const <IndustryChallenge>[],
+    );
 
     final products = await productsFuture;
     final experts = await expertsFuture;

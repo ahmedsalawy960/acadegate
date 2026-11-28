@@ -80,8 +80,8 @@ abstract final class SectionGuideCatalogRest {
       SectionGuideNote(
         titleAr: 'الدعم',
         titleEn: 'Support',
-        bodyAr: 'acadegate@gmail.com إن فشل التحميل أو بقي الملف «غير مكتمل» رغم التعبئة.',
-        bodyEn: 'acadegate@gmail.com if loading fails or the profile stays incomplete after filling fields.',
+        bodyAr: 'acadegate@acadegate.app إن فشل التحميل أو بقي الملف «غير مكتمل» رغم التعبئة.',
+        bodyEn: 'acadegate@acadegate.app if loading fails or the profile stays incomplete after filling fields.',
       ),
     ],
   );
@@ -179,8 +179,8 @@ abstract final class SectionGuideCatalogRest {
       SectionGuideNote(
         titleAr: 'الدعم',
         titleEn: 'Support',
-        bodyAr: 'acadegate@gmail.com إن لم تظهر فكرتك بعد أيام من الإرسال.',
-        bodyEn: 'acadegate@gmail.com if your idea does not appear days after submission.',
+        bodyAr: 'acadegate@acadegate.app إن لم تظهر فكرتك بعد أيام من الإرسال.',
+        bodyEn: 'acadegate@acadegate.app if your idea does not appear days after submission.',
       ),
     ],
   );
@@ -259,8 +259,8 @@ abstract final class SectionGuideCatalogRest {
       SectionGuideNote(
         titleAr: 'الدعم',
         titleEn: 'Support',
-        bodyAr: 'acadegate@gmail.com عند فشل التوليد أو التصدير.',
-        bodyEn: 'acadegate@gmail.com if generate or export fails.',
+        bodyAr: 'acadegate@acadegate.app عند فشل التوليد أو التصدير.',
+        bodyEn: 'acadegate@acadegate.app if generate or export fails.',
       ),
     ],
   );
@@ -330,8 +330,8 @@ abstract final class SectionGuideCatalogRest {
       SectionGuideNote(
         titleAr: 'السلوك',
         titleEn: 'Conduct',
-        bodyAr: 'النقاش الأكاديمي محترم. التبليغ عن الإساءة عبر الدعم: acadegate@gmail.com',
-        bodyEn: 'Keep discussion respectful. Report abuse via acadegate@gmail.com',
+        bodyAr: 'النقاش الأكاديمي محترم. التبليغ عن الإساءة عبر الدعم: acadegate@acadegate.app',
+        bodyEn: 'Keep discussion respectful. Report abuse via acadegate@acadegate.app',
       ),
     ],
   );
@@ -406,8 +406,8 @@ abstract final class SectionGuideCatalogRest {
       SectionGuideNote(
         titleAr: 'الدعم',
         titleEn: 'Support',
-        bodyAr: 'acadegate@gmail.com عند تعطل المحادثة أو الصوت.',
-        bodyEn: 'acadegate@gmail.com if chat or voice fails.',
+        bodyAr: 'acadegate@acadegate.app عند تعطل المحادثة أو الصوت.',
+        bodyEn: 'acadegate@acadegate.app if chat or voice fails.',
       ),
     ],
   );
@@ -480,8 +480,8 @@ abstract final class SectionGuideCatalogRest {
       SectionGuideNote(
         titleAr: 'الدعم',
         titleEn: 'Support',
-        bodyAr: 'acadegate@gmail.com عند فشل التصدير أو فقدان المسودة.',
-        bodyEn: 'acadegate@gmail.com if export fails or a draft seems lost.',
+        bodyAr: 'acadegate@acadegate.app عند فشل التصدير أو فقدان المسودة.',
+        bodyEn: 'acadegate@acadegate.app if export fails or a draft seems lost.',
       ),
     ],
   );
@@ -545,8 +545,8 @@ abstract final class SectionGuideCatalogRest {
       SectionGuideNote(
         titleAr: 'الدعم',
         titleEn: 'Support',
-        bodyAr: 'acadegate@gmail.com عند فشل الرفع أو الفحص.',
-        bodyEn: 'acadegate@gmail.com if upload or scanning fails.',
+        bodyAr: 'acadegate@acadegate.app عند فشل الرفع أو الفحص.',
+        bodyEn: 'acadegate@acadegate.app if upload or scanning fails.',
       ),
     ],
   );
@@ -632,11 +632,11 @@ abstract final class SectionGuideCatalogRest {
         titleEn: '7) For investors & partners',
         bodyAr:
             '• تعرّف على التحديات بعربون كآلية ثقة.\n'
-            '• تواصل عبر acadegate@gmail.com لشراكة تمويل جامعي أو رعاية تحديات.\n'
+            '• تواصل عبر acadegate@acadegate.app لشراكة تمويل جامعي أو رعاية تحديات.\n'
             '• لا ترسل أموالاً خارج القنوات الرسمية داخل التطبيق/العربون المعروض.',
         bodyEn:
             '• Learn escrow challenges as a trust mechanism.\n'
-            '• Email acadegate@gmail.com for university fund partnership or challenge sponsorship.\n'
+            '• Email acadegate@acadegate.app for university fund partnership or challenge sponsorship.\n'
             '• Do not send money outside official in-app/escrow channels.',
       ),
     ],
@@ -652,8 +652,8 @@ abstract final class SectionGuideCatalogRest {
       SectionGuideNote(
         titleAr: 'التواصل',
         titleEn: 'Contact',
-        bodyAr: 'شراكات واستثمار: acadegate@gmail.com',
-        bodyEn: 'Partnerships & investment: acadegate@gmail.com',
+        bodyAr: 'شراكات واستثمار: acadegate@acadegate.app',
+        bodyEn: 'Partnerships & investment: acadegate@acadegate.app',
       ),
     ],
   );
@@ -763,8 +763,8 @@ abstract final class SectionGuideCatalogRest {
       SectionGuideNote(
         titleAr: 'الدعم',
         titleEn: 'Support',
-        bodyAr: 'acadegate@gmail.com',
-        bodyEn: 'acadegate@gmail.com',
+        bodyAr: 'acadegate@acadegate.app',
+        bodyEn: 'acadegate@acadegate.app',
       ),
     ],
   );
@@ -824,8 +824,8 @@ abstract final class SectionGuideCatalogRest {
       SectionGuideNote(
         titleAr: 'الدعم',
         titleEn: 'Support',
-        bodyAr: 'acadegate@gmail.com إن بقيت القائمة فارغة بعد التحديث.',
-        bodyEn: 'acadegate@gmail.com if the list stays empty after refresh.',
+        bodyAr: 'acadegate@acadegate.app إن بقيت القائمة فارغة بعد التحديث.',
+        bodyEn: 'acadegate@acadegate.app if the list stays empty after refresh.',
       ),
     ],
   );

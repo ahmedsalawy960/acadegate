@@ -447,6 +447,12 @@ class ResearchRoomService {
     if (trimmed.isEmpty && link.isEmpty && !attachment.hasMedia) {
       return appTr('اكتب رسالة أولاً', 'Write a message first');
     }
+    if (link.isNotEmpty && !isSafeCommunityLink(link)) {
+      return appTr(
+        'الرابط يجب أن يبدأ بـ http أو https',
+        'The link must start with http or https',
+      );
+    }
 
     await ensureDefaultChannels(roomId);
     final authorName = await CommunityService.instance.resolveAuthorName();
@@ -599,6 +605,12 @@ class ResearchRoomService {
     final authorName = await CommunityService.instance.resolveAuthorName();
     final link = academicLink?.trim() ?? '';
     final linkTitle = academicTitle?.trim() ?? '';
+    if (link.isNotEmpty && !isSafeCommunityLink(link)) {
+      return appTr(
+        'الرابط يجب أن يبدأ بـ http أو https',
+        'The link must start with http or https',
+      );
+    }
     final searchText = buildSearchText(
       title: trimmedTitle,
       body: trimmedBody,

@@ -87,8 +87,29 @@ class _PublishResearchIdeaScreenState extends State<PublishResearchIdeaScreen> {
           key: _formKey,
           child: Column(
             children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  context.t(
+                    'يراجع مشرف المنصة فكرتك قبل نشرها. اكتب مشكلة بحثية حقيقية ومحددة: الفجوة العلمية، ولمن تهم، وما المتوقع من الباحث.',
+                    'A platform admin reviews your idea before publishing. Describe a real, specific research problem: the scientific gap, who it matters to, and what you expect from the researcher.',
+                  ),
+                  style: TextStyle(
+                    color: const Color(0xFFB7C3D6),
+                    fontSize: 12.5,
+                    height: 1.4,
+                  ),
+                ),
+              ),
               TextFormField(
                 controller: _titleController,
+                maxLength: 140,
                 validator: (v) => (v == null || v.trim().isEmpty)
                     ? context.t('مطلوب', 'Required')
                     : null,
@@ -166,6 +187,7 @@ class _PublishResearchIdeaScreenState extends State<PublishResearchIdeaScreen> {
               TextFormField(
                 controller: _detailsController,
                 maxLines: 5,
+                maxLength: 2000,
                 validator: (v) => (v == null || v.trim().isEmpty)
                     ? context.t('مطلوب', 'Required')
                     : null,

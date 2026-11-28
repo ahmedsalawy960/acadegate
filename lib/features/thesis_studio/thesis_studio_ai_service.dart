@@ -776,7 +776,8 @@ Stay strictly inside the thesis goal; the abstract command is only a lens on tha
     required ThesisPlan plan,
   }) {
     final outline = ThesisStudioOutline.forPlan(plan);
-    final field = _fieldLabel(plan.goal, arabic: plan.arabic);
+    final field = ThesisStudioProse.normalizeTitle(
+        _fieldLabel(plan.goal, arabic: plan.arabic));
     final degree = plan.goal.degreeLabelFor(plan.arabic);
     final title = plan.arabic
         ? (plan.kind == ThesisKind.literary
@@ -789,7 +790,7 @@ Stay strictly inside the thesis goal; the abstract command is only a lens on tha
       goal: plan.goal,
       plan: plan,
       literature: GroundedReferenceBundle(topic: field),
-      proposedTitle: title,
+      proposedTitle: ThesisStudioProse.normalizeTitle(title),
       abstractText: '',
       researchQuestions: const [],
       chapters: [

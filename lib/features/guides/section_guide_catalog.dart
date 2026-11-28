@@ -197,9 +197,9 @@ class SectionGuideCatalog {
         titleAr: 'الدعم الفني',
         titleEn: 'Support',
         bodyAr:
-            'إن واجهت مشكلة تقنية راسل acadegate@gmail.com من بريدك مع وصف المشكلة ولقطة شاشة إن أمكن.',
+            'إن واجهت مشكلة تقنية راسل acadegate@acadegate.app من بريدك مع وصف المشكلة ولقطة شاشة إن أمكن.',
         bodyEn:
-            'For technical issues email acadegate@gmail.com with a short description and a screenshot if possible.',
+            'For technical issues email acadegate@acadegate.app with a short description and a screenshot if possible.',
       ),
       SectionGuideNote(
         titleAr: 'البيانات ليست ضمان قبول',
@@ -340,8 +340,8 @@ class SectionGuideCatalog {
       SectionGuideNote(
         titleAr: 'الدعم',
         titleEn: 'Support',
-        bodyAr: 'للمشاكل: acadegate@gmail.com مع رقم الطلب إن وُجد.',
-        bodyEn: 'Issues: acadegate@gmail.com with your order reference if you have one.',
+        bodyAr: 'للمشاكل: acadegate@acadegate.app مع رقم الطلب إن وُجد.',
+        bodyEn: 'Issues: acadegate@acadegate.app with your order reference if you have one.',
       ),
     ],
   );
@@ -456,8 +456,8 @@ class SectionGuideCatalog {
       SectionGuideNote(
         titleAr: 'الدعم',
         titleEn: 'Support',
-        bodyAr: 'acadegate@gmail.com عند فشل الحجز أو عدم ظهور المعمل المتوقع.',
-        bodyEn: 'acadegate@gmail.com if booking fails or an expected lab is missing.',
+        bodyAr: 'acadegate@acadegate.app عند فشل الحجز أو عدم ظهور المعمل المتوقع.',
+        bodyEn: 'acadegate@acadegate.app if booking fails or an expected lab is missing.',
       ),
     ],
   );
@@ -579,8 +579,8 @@ class SectionGuideCatalog {
       SectionGuideNote(
         titleAr: 'الدعم',
         titleEn: 'Support',
-        bodyAr: 'acadegate@gmail.com لمشاكل الدفع أو عدم ظهور الطلب.',
-        bodyEn: 'acadegate@gmail.com for payment issues or missing orders.',
+        bodyAr: 'acadegate@acadegate.app لمشاكل الدفع أو عدم ظهور الطلب.',
+        bodyEn: 'acadegate@acadegate.app for payment issues or missing orders.',
       ),
     ],
   );
@@ -707,9 +707,9 @@ class SectionGuideCatalog {
       SectionGuideNote(
         titleAr: 'الدعم',
         titleEn: 'Support',
-        bodyAr: 'فشل الرفع أو الاستخراج؟ راسل acadegate@gmail.com مع نوع الملف وحجم تقريبي.',
+        bodyAr: 'فشل الرفع أو الاستخراج؟ راسل acadegate@acadegate.app مع نوع الملف وحجم تقريبي.',
         bodyEn:
-            'Upload/extract failure? Email acadegate@gmail.com with file type and approximate size.',
+            'Upload/extract failure? Email acadegate@acadegate.app with file type and approximate size.',
       ),
     ],
   );
